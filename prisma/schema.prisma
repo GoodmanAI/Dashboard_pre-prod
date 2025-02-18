@@ -1,0 +1,121 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  CLIENT
+}
+
+enum TicketStatus {
+  PENDING
+  IN_PROGRESS
+  CLOSED
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  name          String?
+  email         String         @unique
+  password      String
+  role          Role           @default(CLIENT)
+  userProducts  UserProduct[]
+  tickets       Ticket[]
+  notifications Notification[]
+  FileSubmission FileSubmission[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Product {
+  id           Int            @id @default(autoincrement())
+  name         String
+  description  String?
+  userProducts UserProduct[]
+  FileSubmission FileSubmission[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model UserProduct {
+  id                Int       @id @default(autoincrement())
+  userId            Int
+  productId         Int
+  assignedAt        DateTime  @default(now())
+  removedAt         DateTime?
+
+  // Pour LyraeExplain (produit id=1)
+  explainDetails LyraeExplainDetails?
+  // Pour LyraeTalk (produit id=2)
+  talkDetails    LyraeTalkDetails?
+
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product           Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+model LyraeExplainDetails {
+  id             Int      @id @default(autoincrement())
+  userProductId  Int      @unique
+  rdv            Int?     // Prise de RDV (0-100)
+  borne          Int?     // Borne d'accueil (0-100)
+  examen         Int?     // Prise en charge examen (0-100)
+  secretaire     Int?     // Prise en charge secrétaire (0-100)
+  attente        Int?     // Attente (0-100)
+  metricsUpdatedAt DateTime?
+
+  userProduct    UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
+}
+
+model LyraeTalkDetails {
+  id             Int      @id @default(autoincrement())
+  userProductId  Int      @unique
+  talkInfoValidated Boolean? @default(false)
+  talkLibelesValidated      Boolean? @default(false)
+
+  userProduct    UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
+}
+
+model FileSubmission {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  productId    Int
+  fileName     String
+  fileUrl      String    
+  createdAt    DateTime  @default(now())
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product      Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+
+model Ticket {
+  id          Int          @id @default(autoincrement())
+  userId      Int
+  subject     String
+  message     String
+  status      TicketStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notifications Notification[]
+}
+
+model Notification {
+  id         Int      @id @default(autoincrement())
+  ticketId   Int?
+  userId     Int
+  message    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  ticket     Ticket?   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
