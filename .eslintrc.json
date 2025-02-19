@@ -1,13 +1,3 @@
 {
-  "root": true,
-  "extends": [
-    "next/core-web-vitals",
-    "plugin:@typescript-eslint/recommended"
-  ],
-  "parser": "@typescript-eslint/parser",
-  "plugins": ["@typescript-eslint"],
-  "rules": {
-    "react/no-unescaped-entities": "warn",
-    "@typescript-eslint/explicit-module-boundary-types": "off"
-  }
+  "extends": "next/core-web-vitals"
 }
