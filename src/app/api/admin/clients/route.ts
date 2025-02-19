@@ -5,6 +5,21 @@ import prisma from "@/utils/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 
+interface RawClient {
+  id: number;
+  name: string | null;
+  email: string;
+  createdAt: Date;
+  updatedAt: Date;
+  userProducts: {
+    product: {
+      id: number;
+      name: string;
+    };
+    assignedAt: Date;
+  }[];
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -39,21 +54,8 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    type FormattedClient = {
-      id: number;
-      name: string | null;
-      email: string;
-      createdAt: Date;
-      updatedAt: Date;
-      products: {
-        id: number;
-        name: string;
-        assignedAt: Date;
-      }[];
-    };
-
     // Transformer les données pour un format plus lisible
-    const formattedClients: FormattedClient[] = clients.map(client => ({
+    const formattedClients = clients.map((client: RawClient) => ({
       id: client.id,
       name: client.name,
       email: client.email,
