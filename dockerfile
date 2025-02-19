@@ -8,6 +8,9 @@ COPY package*.json ./
 # Installer toutes les dépendances
 RUN npm install
 
+# Copier le dossier prisma pour que le schéma soit disponible
+COPY prisma ./prisma
+
 # Générer le client Prisma
 RUN npx prisma generate
 
