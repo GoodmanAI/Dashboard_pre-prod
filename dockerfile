@@ -1,5 +1,5 @@
 # Étape 1 : Construction
-FROM node:16-alpine AS builder
+FROM node:18-alpine AS builder
 WORKDIR /app
 
 # Copier les fichiers de dépendances
@@ -13,7 +13,7 @@ COPY . .
 RUN npm run build
 
 # Étape 2 : Image finale
-FROM node:16-alpine
+FROM node:18-alpine
 WORKDIR /app
 
 # Installer uniquement les dépendances en production
