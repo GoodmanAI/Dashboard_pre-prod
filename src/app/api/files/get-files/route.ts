@@ -4,6 +4,15 @@ import prisma from "@/utils/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 
+interface FileSubmission {
+  id: number;
+  userId: number;
+  productId: number;
+  fileName: string;
+  fileUrl: string;
+  createdAt: Date;
+}
+
 export async function GET(request: NextRequest) {
   // Récupérer la session de l'utilisateur
   const session = await getServerSession({ req: request, ...authOptions });
@@ -30,10 +39,10 @@ export async function GET(request: NextRequest) {
   });
 
   // Séparer les fichiers en fonction du préfixe dans leur nom
-  const talkInfoFile = files.find((file) =>
+  const talkInfoFile = files.find((file: FileSubmission) =>
     file.fileName.startsWith("talkInfo-")
   );
-  const talkLibelesFile = files.find((file) =>
+  const talkLibelesFile = files.find((file: FileSubmission) =>
     file.fileName.startsWith("talkLibeles-")
   );
 
