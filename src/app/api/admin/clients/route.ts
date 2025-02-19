@@ -39,8 +39,21 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    type FormattedClient = {
+      id: number;
+      name: string | null;
+      email: string;
+      createdAt: Date;
+      updatedAt: Date;
+      products: {
+        id: number;
+        name: string;
+        assignedAt: Date;
+      }[];
+    };
+
     // Transformer les données pour un format plus lisible
-    const formattedClients = clients.map(client => ({
+    const formattedClients: FormattedClient[] = clients.map(client => ({
       id: client.id,
       name: client.name,
       email: client.email,
@@ -49,7 +62,7 @@ export async function GET(request: NextRequest) {
       products: client.userProducts.map(up => ({
         id: up.product.id,
         name: up.product.name,
-        assignedAt: up.assignedAt, // Date d'affiliation du produit
+        assignedAt: up.assignedAt,
       })),
     }));
 
