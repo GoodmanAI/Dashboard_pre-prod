@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 
+interface ProductStat {
+  id: number;
+  name: string;
+  userProducts: { assignedAt: Date }[];
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Récupérer la liste des produits et leurs clients affiliés
-    const productStats = await prisma.product.findMany({
+    const productStats: ProductStat[] = await prisma.product.findMany({
       select: {
         id: true,
         name: true,
