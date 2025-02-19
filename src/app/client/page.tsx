@@ -105,7 +105,7 @@ const ClientHomePage = () => {
         </List>
       ) : (
         <Typography variant="body1">
-          Vous n'êtes actuellement affilié à aucun produit.
+          Vous n&apos;êtes actuellement affilié à aucun produit.
         </Typography>
       )}
     </Box>

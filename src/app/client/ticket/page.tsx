@@ -246,11 +246,11 @@ const TicketsPage = () => {
       {tab === 0 && <TicketForm onSuccess={() => setTab(1)} />}
       {tab === 1 && <TicketsList />}
       <Box sx={{ mt: 4, textAlign: "center" }}>
-        <Typography variant="body2" color="text.secondary">
-          Pour toute demande de changement d'informations de compte (nom, email, mot de passe),
-          veuillez contacter notre service client à l'adresse&nbsp;
-          <strong>support@neuracorp.ai</strong>.
-        </Typography>
+      <Typography variant="body2" color="text.secondary">
+        Pour toute demande de changement d&apos;informations de compte (nom, email, mot de passe),
+        veuillez contacter notre service client à l&apos;adresse&nbsp;
+        <strong>support@neuracorp.ai</strong>.
+      </Typography>
       </Box>
     </Box>
   );

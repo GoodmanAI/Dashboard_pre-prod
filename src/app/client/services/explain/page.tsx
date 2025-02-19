@@ -86,7 +86,7 @@ const ExplainPage = () => {
   if (!explainProduct) {
     return (
       <Typography variant="h6" sx={{ mt: 4, textAlign: "center" }}>
-        Vous n'êtes pas affilié au service LyraeExplain.
+        Vous n&apos;êtes pas affilié au service LyraeExplain.
       </Typography>
     );
   }
