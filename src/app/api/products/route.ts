@@ -5,6 +5,21 @@ import prisma from "@/utils/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 
+// Définition de l'interface correspondant aux produits et leurs relations
+interface ProductWithClients {
+  id: number;
+  name: string;
+  description: string | null;
+  userProducts: {
+    assignedAt: Date;
+    user: {
+      id: number;
+      name: string | null;
+      email: string;
+    };
+  }[];
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Vérifier la session utilisateur
@@ -18,42 +33,41 @@ export async function GET(request: NextRequest) {
     }
 
     // Récupérer tous les produits avec leurs clients affiliés
-    const products = await prisma.product.findMany({
+    const products: ProductWithClients[] = await prisma.product.findMany({
       select: {
         id: true,
         name: true,
         description: true,
         userProducts: {
           select: {
+            assignedAt: true,
             user: {
               select: {
                 id: true,
-                name: true,
+                name: true, // Prisma peut retourner null ici
                 email: true,
               },
             },
-            assignedAt: true, // Date d'affiliation du produit au client
           },
         },
       },
     });
 
     // Transformer les données pour un format plus simple
-    const formattedProducts = products.map(product => ({
+    const formattedProducts = products.map((product: ProductWithClients) => ({
       id: product.id,
       name: product.name,
       description: product.description,
-      clients: product.userProducts.map(up => ({
+      clients: product.userProducts.map((up) => ({
         id: up.user.id,
-        name: up.user.name,
+        name: up.user.name, // peut être string ou null
         email: up.user.email,
-        assignedAt: up.assignedAt, // Date d'affiliation du produit au client
+        assignedAt: up.assignedAt,
       })),
     }));
 
     return NextResponse.json(formattedProducts, { status: 200 });
   } catch (error) {
-    // Gérer les erreurs inconnues
     const err = error as Error;
     console.error(err.message);
     return NextResponse.json(
