@@ -8,6 +8,9 @@ COPY package*.json ./
 # Installer toutes les dépendances
 RUN npm install
 
+# Générer le client Prisma
+RUN npx prisma generate
+
 # Copier le reste du code et construire l’application Next.js
 COPY . .
 RUN npm run build
