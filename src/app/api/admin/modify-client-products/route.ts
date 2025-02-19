@@ -67,7 +67,12 @@ export async function POST(request: NextRequest) {
         },
         select: { productId: true },
       });
-      const existingProductIds = new Set(existingUserProducts.map((p) => p.productId));
+
+      type ExistingUserProduct = { productId: number };
+
+      const existingProductIds = new Set<number>(
+        existingUserProducts.map((p: ExistingUserProduct) => p.productId)
+      );
 
       // Filtrer les produits non déjà associés
       const newProductLinks = products.filter((p) => !existingProductIds.has(p.productId));
