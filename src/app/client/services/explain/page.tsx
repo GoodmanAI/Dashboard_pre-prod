@@ -128,7 +128,7 @@ const ExplainPage = () => {
 
   return (
     <Box sx={{ p: 4 }}>
-      <Typography variant="h4" align="center" overflowY: "auto", gutterBottom>
+      <Typography variant="h4" align="center" overflowY: "auto" gutterBottom>
         Feedback du service LyraeExplain
       </Typography>
       <Typography variant="subtitle1" align="center" gutterBottom>
