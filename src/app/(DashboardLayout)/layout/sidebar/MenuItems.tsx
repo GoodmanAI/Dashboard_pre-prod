@@ -34,9 +34,15 @@ const Menuitems = [
   },
   {
     id: uniqueId(),
-    title: "LYRAE © Talk",
+    title: "LYRAE © Talk (Radiologie)",
     icon: IconPhone,
     href: "/client/services/talk",
+  },
+  {
+    id: uniqueId(),
+    title: "LYRAE © Talk (Dentisterie)",
+    icon: IconPhone,
+    href: "/client/services/talk-dentist",
   },
   {
     navlabel: true,
