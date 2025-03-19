@@ -26,7 +26,7 @@ const Menuitems = [
   },
   {
     id: uniqueId(),
-    title: "Lyrae Explain",
+    title: "Lyrae Explain + Satisfy",
     icon: IconFilePencil,
     href: "/client/services/explain",
   },
