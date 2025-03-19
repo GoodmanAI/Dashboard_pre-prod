@@ -86,7 +86,7 @@ const ExplainPage = () => {
   if (!explainProduct) {
     return (
       <Typography variant="h6" sx={{ mt: 4, textAlign: "center" }}>
-        Vous n&apos;êtes pas affilié au service LyraeExplain.
+        Vous n&apos;êtes pas affilié au service Lyrae Explain.
       </Typography>
     );
   }
@@ -129,7 +129,7 @@ const ExplainPage = () => {
   return (
     <Box sx={{ p: 4 }}>
       <Typography variant="h4" align="center" overflowY: "auto" gutterBottom>
-        Feedback du service LyraeExplain
+        Feedback du service Lyrae Explain + Satisfy
       </Typography>
       <Typography variant="subtitle1" align="center" gutterBottom>
         Vos indicateurs de satisfaction
