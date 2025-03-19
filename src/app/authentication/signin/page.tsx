@@ -10,7 +10,7 @@ import {
   FormControlLabel,
   Checkbox,
 } from "@mui/material";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elements/CustomTextField";
 
@@ -33,19 +33,23 @@ const SignIn = () => {
     setLoading(false); // Désactiver le chargement
 
     if (result?.ok) {
-      // Vérifier le rôle et rediriger
-      const response = await fetch("/api/auth/session");
-      const { user } = await response.json();
+      const session = await getSession();
 
-      if (user.role === "ADMIN") {
-        router.push("/admin"); // Rediriger vers la page admin
-      } else if (user.role === "CLIENT") {
-        router.push("/client"); // Rediriger vers la page client
+      if (!session?.user) {
+      alert("Authentication failed");
+      return;
       }
+      if (session.user.role === "ADMIN") {
+      router.push("/admin"); // Rediriger vers la page admin
+    } else if (session.user.role === "CLIENT") {
+      router.push("/client"); // Rediriger vers la page client
     } else {
-      alert("Invalid email or password");
+      router.push("/authentication/signin"); // Fallback
     }
-  };
+  } else {
+    alert("Invalid email or password");
+  }
+};
 
   return (
     <Box
