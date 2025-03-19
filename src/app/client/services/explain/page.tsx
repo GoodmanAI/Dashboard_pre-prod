@@ -129,7 +129,7 @@ const ExplainPage = () => {
   return (
     <Box sx={{ p: 4 }}>
       <Typography variant="h4" align="center" sx={{ overflowY: "auto" }} gutterBottom>
-        Feedback du service Lyrae Explain + Satisfy
+        Avis du service Lyrae Explain + Satisfy
       </Typography>
       <Typography variant="subtitle1" align="center" gutterBottom>
         Vos indicateurs de satisfaction
