@@ -119,9 +119,16 @@ const ExplainPage = () => {
 
   const metricsUpdatedAt = explainProduct.metricsUpdatedAt;
 
+  const comments = [
+    "Lieu propre. Parkings spacieux. Radiologue aimable. Mais ne vous attendez pas à être accueilli chaleureusement. \nDès votre arrivée vous vous enregistrez sur une borne et comme un automate vous suivez les tracés au sol et les consignes. \nPas de rencontre avec le médecin pour l'analyse du scanner ou autre. C'est devant votre écran chez vous à l'aide de codes que vous découvrez l'analyse du médecin inconnu. \nBref pas trop d'humanité dans ce lieu (d'où une étoile en moins).",
+    "Médecins empathiques et secrétaires au top. Je suis venue il y a un an en urgence, les secrétaires ont su me guider vers le bon examen et se sont occupées de ma fille pendant mon scanner. \nMerci !",
+    "J'ai été pris avec de l avance. Secrétaire aimable et compréhensive. \nTres satisfait de mon examen",
+    "Les secrétaires sont juste au top que ce soit côté IRM ou côté scanner ! Côté examen, on sent que c'est un peu la chaîne, mais c'est aussi ce qui fait qu'on est pris à l'heure. \nLes professionnels sont souriants et agréables, et certains font preuve d'empathie. Merci à vous.",
+  ];
+
   return (
     <Box sx={{ p: 4 }}>
-      <Typography variant="h4" align="center" gutterBottom>
+      <Typography variant="h4" align="center" overflowY: "auto", gutterBottom>
         Feedback du service LyraeExplain
       </Typography>
       <Typography variant="subtitle1" align="center" gutterBottom>
@@ -156,6 +163,31 @@ const ExplainPage = () => {
           </Grid>
         ))}
       </Grid>
+
+      <Box sx={{ mt: 6 }}>
+        <Typography variant="h5" align="center" gutterBottom>
+          Avis des utilisateurs
+        </Typography>
+        <Grid container spacing={2} justifyContent="center">
+          {comments.map((comment, index) => (
+            <Grid item xs={12} sm={6} md={4} key={index}>
+              <Paper
+                sx={{
+                  p: 2,
+                  textAlign: "center",
+                  backgroundColor: "white",
+                  boxShadow: 3,
+                  borderRadius: "8px",
+                }}
+              >
+                <Typography variant="body1" color="text.secondary">
+                  {comment}
+                </Typography>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
     </Box>
   );
 };
