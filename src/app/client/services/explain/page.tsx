@@ -164,13 +164,13 @@ const ExplainPage = () => {
         ))}
       </Grid>
 
-      <Box sx={{ mt: 6 }}>
+      <Box sx={{ mt: 12 }}>
         <Typography variant="h5" align="center" gutterBottom>
           Avis des utilisateurs
         </Typography>
-        <Grid container spacing={2} justifyContent="center">
+        <Grid container spacing={6} justifyContent="center">
           {comments.map((comment, index) => (
-            <Grid item xs={12} sm={6} md={4} key={index}>
+            <Grid item xs={14} sm={8} md={6} key={index}>
               <Paper
                 sx={{
                   p: 2,
