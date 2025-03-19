@@ -1,6 +1,6 @@
 import { useMediaQuery, Box, Drawer } from "@mui/material";
 import SidebarItems from "./SidebarItems";
-import { Upgrade } from "./Updrade";
+// import { Upgrade } from "./Updrade";
 import { Sidebar, Logo } from 'react-mui-sidebar';
 
 interface ItemType {
@@ -78,7 +78,7 @@ const MSidebar = ({
                 {/* Sidebar Items */}
                 {/* ------------------------------------------- */}
                 <SidebarItems />
-                <Upgrade />
+{/*                 <Upgrade /> */}
               </Box>
             </Sidebar >
           </Box>
@@ -122,7 +122,7 @@ const MSidebar = ({
           {/* Sidebar Items */}
           {/* ------------------------------------------- */}
           <SidebarItems />
-          <Upgrade />
+{/*           <Upgrade /> */}
         </Sidebar>
       </Box>
       {/* ------------------------------------------- */}
