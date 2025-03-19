@@ -78,7 +78,7 @@ const ExplainPage = () => {
     );
   }
 
-  // Vérifier si le client est abonné au service LyraeExplain
+  // Vérifier si le client est abonné au service Lyrae Explain + Satisfy
   const explainProduct = clientData.userProducts.find(
     (up) => up.product.name === "LyraeExplain"
   );
@@ -128,7 +128,7 @@ const ExplainPage = () => {
 
   return (
     <Box sx={{ p: 4 }}>
-      <Typography variant="h4" align="center" overflowY: "auto" gutterBottom>
+      <Typography variant="h4" align="center" sx={{ overflowY: "auto" }} gutterBottom>
         Feedback du service Lyrae Explain + Satisfy
       </Typography>
       <Typography variant="subtitle1" align="center" gutterBottom>
