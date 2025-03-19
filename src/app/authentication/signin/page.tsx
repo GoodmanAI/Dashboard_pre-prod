@@ -24,31 +24,23 @@ const SignIn = () => {
     e.preventDefault();
     setLoading(true); // Activer le chargement
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false, // Désactiver la redirection automatique
-    });
+    const session = await getSession();
+    let redirectUrl = "/authentication/signin";
 
-    setLoading(false); // Désactiver le chargement
-
-    if (result?.ok) {
-      const session = await getSession();
-
-      if (!session?.user) {
-      alert("Authentication failed");
-      return;
-      }
-      if (session.user.role === "ADMIN") {
-      router.push("/admin"); // Rediriger vers la page admin
-    } else if (session.user.role === "CLIENT") {
-      router.push("/client"); // Rediriger vers la page client
-    } else {
-      router.push("/authentication/signin"); // Fallback
+    if (session?.user?.role === "ADMIN") {
+    redirectUrl = "/admin";
+    } else if (session?.user?.role === "CLIENT") {
+    redirectUrl = "/client";
     }
-  } else {
-    alert("Invalid email or password");
-  }
+
+    await signIn("credentials", {
+    email,
+    password,
+    redirect: true,
+    callbackUrl: redirectUrl, // Redirection dynamique selon le rôle
+  });
+
+  setLoading(false);
 };
 
   return (
