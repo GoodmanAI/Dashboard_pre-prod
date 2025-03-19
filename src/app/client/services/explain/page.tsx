@@ -92,12 +92,20 @@ const ExplainPage = () => {
   }
 
   // Préparer les métriques (elles peuvent être nulles)
+  // const metrics: { [key: string]: number | null } = {
+  //   "Prise de RDV": explainProduct.rdv ?? null,
+  //   "Borne d'accueil": explainProduct.borne ?? null,
+  //   "Prise en charge examen": explainProduct.examen ?? null,
+  //   "Prise en charge secrétaire": explainProduct.secretaire ?? null,
+  //   "Attente": explainProduct.attente ?? null,
+  // };
+
   const metrics: { [key: string]: number | null } = {
-    "Prise de RDV": explainProduct.rdv ?? null,
-    "Borne d'accueil": explainProduct.borne ?? null,
-    "Prise en charge examen": explainProduct.examen ?? null,
-    "Prise en charge secrétaire": explainProduct.secretaire ?? null,
-    "Attente": explainProduct.attente ?? null,
+    "Prise de RDV": 87,
+    "Borne d'accueil": 34,
+    "Prise en charge examen": 67,
+    "Prise en charge secrétaire": 97,
+    "Attente": 52,
   };
 
   // Calculer la moyenne en n'incluant que les valeurs non nulles (seulement si au moins 2 valeurs sont disponibles)
