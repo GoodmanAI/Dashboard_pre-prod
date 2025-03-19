@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Box, Typography, CircularProgress, Grid } from "@mui/material";
+import { Box, Typography, CircularProgress, Grid, Paper } from "@mui/material";
 import MetricDonut from "@/components/MetricDonut";
 
 interface UserProduct {
@@ -180,7 +180,7 @@ const ExplainPage = () => {
                   borderRadius: "8px",
                 }}
               >
-                <Typography variant="body1" color="text.secondary">
+                <Typography variant="body1" color="text.secondary" sx={{ whiteSpace: "pre-line" }}>
                   {comment}
                 </Typography>
               </Paper>
