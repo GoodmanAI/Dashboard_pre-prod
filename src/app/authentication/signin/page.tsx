@@ -34,17 +34,17 @@ export default function SignIn() {
       return;
     }
 
-    const session = await getSession();
-    let redirectUrl = "/authentication/signin";
-
-    if (session?.user?.role === "ADMIN") {
-      redirectUrl = "/admin";
-    } else if (session?.user?.role === "CLIENT") {
-      redirectUrl = "/client";
-    }
-
-    router.push(redirectUrl);
-    setLoading(false);
+    setTimeout(async () => {
+      const session = await getSession();
+      let redirectUrl = "/authentication/signin";
+      if (session?.user?.role === "ADMIN") {
+        redirectUrl = "/admin";
+      } else if (session?.user?.role === "CLIENT") {
+        redirectUrl = "/client";
+      }
+      router.push(redirectUrl);
+      setLoading(false);
+    }, 1000);
   };
 
   return (
