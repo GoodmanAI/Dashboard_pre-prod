@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -9,7 +9,7 @@ import {
   Link,
   TextField
 } from "@mui/material";
-import { signIn, getSession } from "next-auth/react";
+import { signIn, getSession, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 export default function SignIn() {
@@ -17,6 +17,17 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { data: session, status } = useSession();
+
+  useEffect(() => {
+    if (session?.user?.role) {
+      if (session.user.role === "ADMIN") {
+        router.push("/admin");
+      } else if (session.user.role === "CLIENT") {
+        router.push("/client");
+      }
+    }
+  }, [session, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +56,10 @@ export default function SignIn() {
       router.push(redirectUrl);
       setLoading(false);
     }, 1000);
+
+    setTimeout(() => {
+      router.refresh();
+    }, 3000);
   };
 
   return (
