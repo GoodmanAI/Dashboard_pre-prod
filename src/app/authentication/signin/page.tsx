@@ -61,10 +61,9 @@ export default function SignIn() {
         fontFamily: "Lato, sans-serif",
       }}
     >
-      {/* Exemple : Logo ou icône positionnée en absolu (optionnel) */}
       <Box
         component="img"
-        src="/images/logos/neuracorp_logo.png"
+        src="/images/logos/neuracorp-ai-icon_fond.png"
         alt="Neuracorp AI Icon"
         sx={{
           position: "absolute",
@@ -72,6 +71,19 @@ export default function SignIn() {
           height: 100,
           left: "calc(50% - 50px)",
           top: 100,
+        }}
+      />
+      <Box
+        component="img"
+        src="/images/logos/neuracorp_sans_logo.png"
+        alt="Horizontal Logo"
+        sx={{
+          position: "absolute",
+          width: 150,
+          height: "auto",
+          left: "calc(50% - 75px)",
+          top: 210,
+          objectFit: "contain",
         }}
       />
 
