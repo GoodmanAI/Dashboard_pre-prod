@@ -7,6 +7,7 @@ import Header from "@/app/(DashboardLayout)/layout/header/Header";
 import Sidebar from "@/app/(DashboardLayout)/layout/sidebar/Sidebar";
 import { SessionProvider } from "next-auth/react";
 import { baselightTheme } from "@/utils/theme/DefaultColors";
+import { usePathname } from "next/navigation";
 
 const MainWrapper = styled("div")(() => ({
   display: "flex",
@@ -31,10 +32,15 @@ export default function RootLayout({
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
+  const pathname = usePathname();
+  const isAuthPage = pathname.startsWith("/authentication");
+
   return (
-    <html lang="en">
-      <body>
+    <html lang="fr">
+      <body style={{ margin: 0, padding: 0, overflowX: "hidden", overflowY: "hidden" }}>
         <SessionProvider>
+        {!isAuthPage && (
+          <>
           <ThemeProvider theme={baselightTheme}>
             <CssBaseline />
             <MainWrapper className="mainwrapper">
@@ -57,23 +63,25 @@ export default function RootLayout({
                 {/* ------------------------------------------- */}
                 {/* PageContent */}
                 {/* ------------------------------------------- */}
-                <Container
-                  sx={{
-                    paddingTop: "20px",
-                    maxWidth: "1200px",
-                  }}
-                >
                   {/* ------------------------------------------- */}
                   {/* Page Route */}
                   {/* ------------------------------------------- */}
-                  <Box sx={{ minHeight: "calc(100vh - 170px)" }}>{children}</Box>
+                  <Box sx={{
+                      width: "100%",
+                      minHeight: "calc(100vh - 170px)",
+                    }}
+                  >
+                    {children}
+                    </Box>
                   {/* ------------------------------------------- */}
                   {/* End Page */}
                   {/* ------------------------------------------- */}
-                </Container>
               </PageWrapper>
             </MainWrapper>
           </ThemeProvider>
+          </>
+          )}
+          {isAuthPage && children}
         </SessionProvider>
       </body>
   </html>

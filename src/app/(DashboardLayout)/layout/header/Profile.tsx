@@ -61,7 +61,7 @@ const Profile = () => {
         }}
       >
         <Avatar
-          src="/images/profile/user-1.jpg"
+          src="/images/logos/neuracorp-ai-icon_fond.png"
           alt="User Avatar"
           sx={{ width: 35, height: 35 }}
         />

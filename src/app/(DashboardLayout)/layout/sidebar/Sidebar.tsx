@@ -66,13 +66,30 @@ const MSidebar = ({
               collapsewidth="80px"
               open={isSidebarOpen}
               themeColor="#5d87ff"
-              themeSecondaryColor="#49beff"
+              themeSecondaryColor="#48C8AF"
               showProfile={false}
             >
               {/* ------------------------------------------- */}
               {/* Logo */}
               {/* ------------------------------------------- */}
-              <Logo img="/images/logos/logo_neuracorp.svg" />
+              <Box
+                sx={{
+                  p: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Box
+                  component="img"
+                  src="/images/logos/neuracorp_logo.png"
+                  alt="Logo"
+                  sx={{
+                    width: "210px",
+                    height: "auto",
+                  }}
+                />
+              </Box>
               <Box>
                 {/* ------------------------------------------- */}
                 {/* Sidebar Items */}
@@ -111,13 +128,30 @@ const MSidebar = ({
           mode="light"
           direction="ltr"
           themeColor="#5d87ff"
-          themeSecondaryColor="#49beff"
+          themeSecondaryColor="#48C8AF"
           showProfile={false}
         >
           {/* ------------------------------------------- */}
           {/* Logo */}
           {/* ------------------------------------------- */}
-          <Logo img="/images/logos/logo_neuracorp.svg" />
+          <Box
+              sx={{
+                p: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Box
+                component="img"
+                src="/images/logos/neuracorp_logo.png"
+                alt="Logo"
+                sx={{
+                  width: "210px",
+                  height: "auto",
+                }}
+              />
+            </Box>
           {/* ------------------------------------------- */}
           {/* Sidebar Items */}
           {/* ------------------------------------------- */}

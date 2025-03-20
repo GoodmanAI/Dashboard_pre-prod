@@ -185,11 +185,30 @@ const TalkPage = () => {
         <Typography variant="h6" gutterBottom>
           Document Informations
         </Typography>
-        <Button variant="outlined" onClick={() => handleViewFile("talkInfo", talkInfo.fileUrl)} sx={{ mr: 2, mt: 1 }}>
+        <Button
+          variant="outlined"
+          onClick={() => handleViewFile("talkInfo", talkInfo.fileUrl)}
+          sx={{
+            mr: 2,
+            mt: 1,
+            borderColor: "#48C8AF",
+            color: "#48C8AF",
+            "&:hover": {
+              borderColor: "#48C8AF",
+              backgroundColor: "rgba(72,200,175,0.08)",
+              color: "#48C8AF"
+            }
+          }}>
           Voir
         </Button>
         {!talkInfo.validated && (
-          <Button variant="contained" color="primary" onClick={() => setOpenValidationModal(true)} sx={{ mt: 1 }}>
+          <Button 
+            variant="contained" 
+            sx={{
+              mt: 1,
+              backgroundColor: "#48C8AF",
+              "&:hover": { backgroundColor: "#3AB19B" }
+            }} onClick={() => setOpenValidationModal(true)}>
             Valider mon document informationnel
           </Button>
         )}
@@ -200,11 +219,31 @@ const TalkPage = () => {
         <Typography variant="h6" gutterBottom>
           Document Libellés
         </Typography>
-        <Button variant="outlined" onClick={() => handleViewFile("talkLibeles", talkLibeles.fileUrl)} sx={{ mr: 2, mt: 1 }}>
+        <Button
+          variant="outlined"
+          onClick={() => handleViewFile("talkLibeles", talkLibeles.fileUrl)}
+          sx={{
+            mr: 2,
+            mt: 1,
+            borderColor: "#48C8AF",
+            color: "#48C8AF",
+            "&:hover": {
+              borderColor: "#48C8AF",
+              backgroundColor: "rgba(72,200,175,0.08)",
+              color: "#48C8AF"
+            }
+          }}>
           Voir
         </Button>
         {!talkLibeles.validated && (
-          <Button variant="contained" color="primary" onClick={() => setOpenValidationModal(true)} sx={{ mt: 1 }}>
+          <Button
+            variant="contained"
+            sx={{
+              mt: 1,
+              backgroundColor: "#48C8AF",
+              "&:hover": { backgroundColor: "#3AB19B" }
+            }}
+            onClick={() => setOpenValidationModal(true)}>
             Valider mon document des Libellés
           </Button>
         )}

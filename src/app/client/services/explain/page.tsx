@@ -3,8 +3,15 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Box, Typography, CircularProgress, Grid, Paper } from "@mui/material";
+import {
+  Box,
+  Typography,
+  CircularProgress,
+  Grid,
+  Paper
+} from "@mui/material";
 import MetricDonut from "@/components/MetricDonut";
+// import MetricsPanel from "@/components/MetricsPanel";
 
 interface UserProduct {
   product: {
@@ -33,14 +40,14 @@ const ExplainPage = () => {
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [loadingData, setLoadingData] = useState(true);
 
-  // Rediriger si l'utilisateur n'est pas authentifié
+  // Redirection si non authentifié
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/authentication/signin");
     }
   }, [status, router]);
 
-  // Récupérer les données du client
+  // Récupération des données client
   useEffect(() => {
     async function fetchClientData() {
       try {
@@ -78,7 +85,7 @@ const ExplainPage = () => {
     );
   }
 
-  // Vérifier si le client est abonné au service Lyrae Explain + Satisfy
+  // Vérification d'abonnement au service
   const explainProduct = clientData.userProducts.find(
     (up) => up.product.name === "LyraeExplain"
   );
@@ -91,15 +98,7 @@ const ExplainPage = () => {
     );
   }
 
-  // Préparer les métriques (elles peuvent être nulles)
-  // const metrics: { [key: string]: number | null } = {
-  //   "Prise de RDV": explainProduct.rdv ?? null,
-  //   "Borne d'accueil": explainProduct.borne ?? null,
-  //   "Prise en charge examen": explainProduct.examen ?? null,
-  //   "Prise en charge secrétaire": explainProduct.secretaire ?? null,
-  //   "Attente": explainProduct.attente ?? null,
-  // };
-
+  // Pour l'exemple, on utilise des valeurs statiques pour les métriques
   const metrics: { [key: string]: number | null } = {
     "Prise de RDV": 87,
     "Borne d'accueil": 34,
@@ -108,7 +107,7 @@ const ExplainPage = () => {
     "Attente": 52,
   };
 
-  // Calculer la moyenne en n'incluant que les valeurs non nulles (seulement si au moins 2 valeurs sont disponibles)
+  // Calcul de la moyenne (si au moins 2 valeurs non nulles)
   const validValues = Object.values(metrics).filter(
     (v) => v !== null && v !== undefined
   ) as number[];
@@ -119,75 +118,163 @@ const ExplainPage = () => {
 
   const metricsUpdatedAt = explainProduct.metricsUpdatedAt;
 
-  const comments = [
-    "Lieu propre. Parkings spacieux. Radiologue aimable. Mais ne vous attendez pas à être accueilli chaleureusement. \nDès votre arrivée vous vous enregistrez sur une borne et comme un automate vous suivez les tracés au sol et les consignes. \nPas de rencontre avec le médecin pour l'analyse du scanner ou autre. C'est devant votre écran chez vous à l'aide de codes que vous découvrez l'analyse du médecin inconnu. \nBref pas trop d'humanité dans ce lieu (d'où une étoile en moins).",
-    "Médecins empathiques et secrétaires au top. Je suis venue il y a un an en urgence, les secrétaires ont su me guider vers le bon examen et se sont occupées de ma fille pendant mon scanner. \nMerci !",
-    "J'ai été pris avec de l avance. Secrétaire aimable et compréhensive. \nTres satisfait de mon examen",
-    "Les secrétaires sont juste au top que ce soit côté IRM ou côté scanner ! Côté examen, on sent que c'est un peu la chaîne, mais c'est aussi ce qui fait qu'on est pris à l'heure. \nLes professionnels sont souriants et agréables, et certains font preuve d'empathie. Merci à vous.",
+  const commentsData = [
+    {
+      comment:
+        "Médecins empathiques et secrétaires au top. Je suis venue il y a un an en urgence, les secrétaires ont su me guider vers le bon examen et se sont occupées de ma fille pendant mon scanner. Merci !",
+      date: "01/03/2025",
+    },
+    {
+      comment:
+        "J'ai été pris avec de l'avance. Secrétaire aimable et compréhensive. Très satisfait de mon examen",
+      date: "05/03/2025",
+    },
+    {
+      comment:
+        "Lieu propre. Parkings spacieux. Radiologue aimable. Mais ne vous attendez pas à être accueilli chaleureusement. Dès votre arrivée vous vous enregistrez sur une borne et comme un automate vous suivez les tracés au sol et les consignes. Pas de rencontre avec le médecin pour l'analyse du scanner ou autre. C'est devant votre écran chez vous à l'aide de codes que vous découvrez l'analyse du médecin inconnu. Bref pas trop d'humanité dans ce lieu (d'où une étoile en moins).",
+      date: "10/03/2025",
+    },
+    {
+      comment:
+        "Les secrétaires sont juste au top que ce soit côté IRM ou côté scanner ! Côté examen, on sent que c'est un peu la chaîne, mais c'est aussi ce qui fait qu'on est pris à l'heure. Les professionnels sont souriants et agréables, et certains font preuve d'empathie. Merci à vous.",
+      date: "15/03/2025",
+    },
   ];
 
   return (
-    <Box sx={{ p: 4 }}>
-      <Typography variant="h4" align="center" sx={{ overflowY: "auto" }} gutterBottom>
-        Avis du service Lyrae Explain + Satisfy
-      </Typography>
-      <Typography variant="subtitle1" align="center" gutterBottom>
-        Vos indicateurs de satisfaction
-      </Typography>
-      {metricsUpdatedAt && (
-        <Typography
-          variant="caption"
-          align="center"
-          display="block"
-          sx={{ mb: 4, color: "text.secondary" }}
-        >
-          Data mise à jour le {new Date(metricsUpdatedAt).toLocaleDateString()}
+    <Box
+      sx={{
+        backgroundColor: "#F8F8F8",
+        minHeight: "100vh",
+        p: 4,
+        overflow: "hidden"
+      }}
+    >
+      {/* Titre et sous-titre alignés à gauche */}
+      <Box sx={{ textAlign: "left", mb: 4 }}>
+      <Typography variant="h1">
+        <Box component="span" sx={{ fontWeight: 900 }}>
+          LYRAE©
+        </Box>{" "}
+        Explain + Satisfy
         </Typography>
-      )}
-      <Grid container spacing={4} rowSpacing={12} justifyContent="center">
-        {/* Ligne 1 : Moyenne au centre */}
-        <Grid item xs={12} sx={{ display: "flex", justifyContent: "center" }}>
-          <MetricDonut value={average} label="Moyenne" />
-        </Grid>
-        {/* Ligne 2 et 3 : 5 métriques individuelles */}
-        {Object.entries(metrics).map(([metricName, value]) => (
-          <Grid
-            item
-            xs={12}
-            sm={6}
-            md={4}
-            key={metricName}
-            sx={{ display: "flex", justifyContent: "center" }}
+        <Typography variant="subtitle1">
+          Vos indicateurs et retours d&apos;expérience en un coup d&apos;œil.
+        </Typography>
+      </Box>
+
+      <Grid container spacing={2} sx={{ mb: 4 }}>
+        {/* Placeholder composant gauche */}
+        <Grid item xs={12} md={7}>
+          <Paper
+            sx={{
+              p: 1,
+              height: "350px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
-            <MetricDonut value={value} label={metricName} />
-          </Grid>
-        ))}
+            <Box
+              component="img"
+              src="/images/graph/explain.png"
+              alt="Placeholder"
+              sx={{ maxWidth: "105%", maxHeight: "105%" }}
+            />
+          </Paper>
+        </Grid>
+
+        {/* Composant droite : Donuts */}
+        <Grid item xs={12} md={5}>
+          <Paper
+            sx={{
+              p: 2,
+              height: "350px",
+            }}
+          >
+            {/* Titre et sous-titre dans la partie supérieure gauche */}
+            <Box sx={{ textAlign: "left", mb: 2 }}>
+              <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
+                Indicateurs de satisfaction
+              </Typography>
+              <Typography variant="subtitle2" color="text.secondary">
+                Sur le mois de <strong>Mars</strong>
+              </Typography>
+            </Box>
+            <Grid container spacing={1}>
+              {average !== null && (
+                <Grid item xs={4}>
+                  <Box>
+                    <MetricDonut value={average} label="Moyenne" customSize={135} />
+                  </Box>
+                </Grid>
+              )}
+              {Object.entries(metrics).map(([metricName, value]) => (
+                <Grid item xs={4} key={metricName}>
+                  <Box>
+                    <MetricDonut value={value ?? 0} label={metricName} />
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+          </Paper>
+        </Grid>
       </Grid>
 
-      <Box sx={{ mt: 12 }}>
-        <Typography variant="h5" align="center" gutterBottom>
-          Avis des utilisateurs
+      {/* Section Commentaires */}
+      <Paper sx={{ p: 3, mb: 4, backgroundColor: "#FFFFFF" }}>
+        <Typography variant="h5">
+          Les commentaires de votre service
         </Typography>
-        <Grid container spacing={6} justifyContent="center">
-          {comments.map((comment, index) => (
-            <Grid item xs={14} sm={8} md={6} key={index}>
+        <Typography variant="subtitle1" sx={{ mb: 3 }}>
+          Sur le mois de <strong>Mars</strong>
+        </Typography>
+        <Grid container spacing={2}>
+          {commentsData.map((item, index) => (
+            <Grid item xs={12} sm={6} md={3} key={index}>
               <Paper
                 sx={{
                   p: 2,
                   textAlign: "center",
-                  backgroundColor: "white",
-                  boxShadow: 3,
-                  borderRadius: "8px",
+                  height: "200px",
+                  position: "relative"
                 }}
               >
-                <Typography variant="body1" color="text.secondary" sx={{ whiteSpace: "pre-line" }}>
-                  {comment}
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontSize: "0.75rem",
+                    mb: 1,
+                    fontWeight: 500,
+                    lineHeight: 1.4,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 6,
+                    WebkitBoxOrient: "vertical"
+                  }}
+                >
+                  {item.comment}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    position: "absolute",
+                    bottom: 8,
+                    left: 0,
+                    right: 0,
+                    textAlign: "center",
+                    fontWeight: 500,
+                    color: '#9f9f9f'
+                  }}
+                >
+                  {item.date}
                 </Typography>
               </Paper>
             </Grid>
           ))}
         </Grid>
-      </Box>
+      </Paper>
     </Box>
   );
 };

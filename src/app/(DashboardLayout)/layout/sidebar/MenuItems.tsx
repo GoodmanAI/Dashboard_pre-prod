@@ -26,13 +26,13 @@ const Menuitems = [
   },
   {
     id: uniqueId(),
-    title: "Lyrae Explain + Satisfy",
+    title: "LYRAE © Explain + Satisfy",
     icon: IconFilePencil,
     href: "/client/services/explain",
   },
   {
     id: uniqueId(),
-    title: "Lyrae Talk",
+    title: "LYRAE © Talk",
     icon: IconPhone,
     href: "/client/services/talk",
   },
