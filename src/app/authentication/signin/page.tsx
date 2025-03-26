@@ -59,7 +59,7 @@ export default function SignIn() {
 
     setTimeout(() => {
       router.refresh();
-    }, 3000);
+    }, 1500);
   };
 
   return (
@@ -72,7 +72,6 @@ export default function SignIn() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        position: "relative",
         fontFamily: "Lato, sans-serif",
       }}
     >
@@ -81,11 +80,10 @@ export default function SignIn() {
         src="/images/logos/neuracorp-ai-icon_fond.png"
         alt="Neuracorp AI Icon"
         sx={{
-          position: "absolute",
-          width: 100,
-          height: 100,
+          width: 80,
+          height: 80,
           left: "calc(50% - 50px)",
-          top: 100,
+          top: 50,
         }}
       />
       <Box
@@ -93,26 +91,26 @@ export default function SignIn() {
         src="/images/logos/neuracorp_sans_logo.png"
         alt="Horizontal Logo"
         sx={{
-          position: "absolute",
-          width: 150,
+          width: 180,
           height: "auto",
           left: "calc(50% - 75px)",
-          top: 210,
+          top: 100,
           objectFit: "contain",
         }}
       />
 
       {/* Titre principal */}
       <Typography
-        variant="h3"
+        variant="h4"
         sx={{
-          fontWeight: 700,
+          fontWeight: 600,
           color: "#34495E",
           textAlign: "center",
-          mb: 5,
+          mt: 4,
+          mb: 2,
         }}
       >
-        Login
+        Connexion
       </Typography>
 
       {/* Paragraphe de sous-titre / description */}
@@ -123,7 +121,7 @@ export default function SignIn() {
           lineHeight: "24px",
           textAlign: "center",
           color: "#91A3B7",
-          mb: 5,
+          mb: 2,
         }}
       >
         Entrez vos identifiants pour accéder à votre tableau de bord.
@@ -206,7 +204,7 @@ export default function SignIn() {
               {loading ? "Signing In..." : "Login"}
             </Button>
 
-            {/* Lien Forgot password, centré et en dessous */}
+            {/* Lien Forgot password*/}
             <Box sx={{ textAlign: "center" }}>
               <Link
                 href="#"
