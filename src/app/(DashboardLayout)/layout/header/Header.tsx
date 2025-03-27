@@ -170,6 +170,15 @@ const Header = ({ toggleMobileSidebar }: ItemType) => {
   return (
     <AppBarStyled position="sticky" color="default">
       <ToolbarStyled>
+      <IconButton
+          color="inherit"
+          aria-label="menu"
+          onClick={toggleMobileSidebar}
+          sx={{ display: { lg: "none", xs: "inline" } }}
+        >
+          <IconMenu width="20" height="20" />
+        </IconButton>
+        
         {/* Partie gauche : Breadcrumb dynamique */}
         <Box sx={{ flexGrow: 1 }}>
           <Typography variant="body1" sx={{ fontWeight: 500 }}>

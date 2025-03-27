@@ -4,7 +4,8 @@ import {
   IconLayoutDashboard,
   IconLogin,
   IconPhone,
-  IconAdjustmentsAlt
+  IconAdjustmentsAlt,
+  IconLifebuoy
 } from "@tabler/icons-react";
 
 import { uniqueId } from "lodash";
@@ -44,7 +45,7 @@ const Menuitems = [
   {
     id: uniqueId(),
     title: "Support",
-    icon: IconTicket,
+    icon: IconLifebuoy,
     href: "/client/ticket",
   },
   {

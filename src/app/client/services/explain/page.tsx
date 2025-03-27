@@ -40,7 +40,6 @@ const ExplainPage = () => {
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [loadingData, setLoadingData] = useState(true);
 
-  // Redirection si non authentifié
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/authentication/signin");
@@ -85,9 +84,8 @@ const ExplainPage = () => {
     );
   }
 
-  // Vérification d'abonnement au service
   const explainProduct = clientData.userProducts.find(
-    (up) => up.product.name === "LyraeExplain"
+    (up) => up.product.name === "LYRAE © Explain"
   );
 
   if (!explainProduct) {
