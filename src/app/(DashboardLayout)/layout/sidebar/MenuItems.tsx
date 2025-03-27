@@ -3,7 +3,8 @@ import {
   IconFilePencil,
   IconLayoutDashboard,
   IconLogin,
-  IconPhone
+  IconPhone,
+  IconAdjustmentsAlt
 } from "@tabler/icons-react";
 
 import { uniqueId } from "lodash";
@@ -38,13 +39,19 @@ const Menuitems = [
   },
   {
     navlabel: true,
-    subheader: "Support",
+    subheader: "Assistance",
   },
   {
     id: uniqueId(),
-    title: "Ticket",
+    title: "Support",
     icon: IconTicket,
     href: "/client/ticket",
+  },
+  {
+    id: uniqueId(),
+    title: "Paramètres",
+    icon: IconAdjustmentsAlt,
+    href: "/client/settings",
   },
 ];
 
