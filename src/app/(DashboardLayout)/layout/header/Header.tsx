@@ -18,6 +18,8 @@ import {
 import PropTypes from "prop-types";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
+import { useRouter, usePathname } from "next/navigation";
+import Menuitems from "../sidebar/MenuItems";
 import { IconBellRinging, IconMenu, IconX } from "@tabler/icons-react";
 import Profile from "./Profile";
 
@@ -33,8 +35,11 @@ interface Notification {
 
 const Header = ({ toggleMobileSidebar }: ItemType) => {
   const { data: session, status } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
   const [anchorNotif, setAnchorNotif] = useState<null | HTMLElement>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [clientName, setClientName] = useState<string>("");
 
   useEffect(() => {
     async function fetchNotifications() {
@@ -50,6 +55,25 @@ const Header = ({ toggleMobileSidebar }: ItemType) => {
     }
     if (status === "authenticated") {
       fetchNotifications();
+    }
+  }, [status]);
+
+  useEffect(() => {
+    async function fetchClientData() {
+      try {
+        const res = await fetch("/api/client");
+        if (res.ok) {
+          const data = await res.json();
+          setClientName(data.name);
+        } else {
+          console.error("Erreur lors de la récupération du client");
+        }
+      } catch (error) {
+        console.error("Erreur lors de la récupération du client:", error);
+      }
+    }
+    if (status === "authenticated") {
+      fetchClientData();
     }
   }, [status]);
 
@@ -78,6 +102,56 @@ const Header = ({ toggleMobileSidebar }: ItemType) => {
     }
   };
 
+  const generateBreadcrumb = (): React.ReactNode => {
+    const segments: string[] = pathname.split("/").filter(Boolean);
+
+    if (segments[0] === "client") {
+      segments[0] = "Home";
+    }
+
+    const getCurrentMenuItemTitle = (path: string): string => {
+      let matchedTitle = "";
+      let maxLength = 0;
+      Menuitems.forEach((item) => {
+        if (item.href && path.startsWith(item.href) && item.href.length > maxLength) {
+          matchedTitle = item.title;
+          maxLength = item.href.length;
+        }
+      });
+      return matchedTitle;
+    };
+
+    const breadcrumbElements: React.ReactNode[] = [];
+    if (segments.length > 1) {
+      segments.slice(0, segments.length - 1).forEach((segment: string, index: number) => {
+        breadcrumbElements.push(
+          <span key={index} style={{ fontWeight: 400, color: "#A0AEC0" }}>
+            {segment.charAt(0).toUpperCase() + segment.slice(1)}{" / "}
+          </span>
+        );
+      });
+    } else if (segments.length === 1) {
+      breadcrumbElements.push(
+        <span key={0} style={{ fontWeight: 400, color: "#A0AEC0" }}>
+          {segments[0].charAt(0).toUpperCase() + segments[0].slice(1)}{" / "}
+        </span>
+      );
+    }
+
+    const lastSegmentTitle = getCurrentMenuItemTitle(pathname) || 
+      (segments[segments.length - 1]
+        ? segments[segments.length - 1].charAt(0).toUpperCase() + segments[segments.length - 1].slice(1)
+        : "");
+
+    breadcrumbElements.push(
+      <span key="last" style={{ fontWeight: 700, color: "#000000" }}>
+        {lastSegmentTitle}
+      </span>
+    );
+
+    return breadcrumbElements;
+  };
+
   const AppBarStyled = styled(AppBar)(({ theme }) => ({
     boxShadow: "none",
     background: theme.palette.background.paper,
@@ -96,7 +170,7 @@ const Header = ({ toggleMobileSidebar }: ItemType) => {
   return (
     <AppBarStyled position="sticky" color="default">
       <ToolbarStyled>
-        <IconButton
+      <IconButton
           color="inherit"
           aria-label="menu"
           onClick={toggleMobileSidebar}
@@ -104,33 +178,34 @@ const Header = ({ toggleMobileSidebar }: ItemType) => {
         >
           <IconMenu width="20" height="20" />
         </IconButton>
+        
+        {/* Partie gauche : Breadcrumb dynamique */}
+        <Box sx={{ flexGrow: 1 }}>
+          <Typography variant="body1" sx={{ fontWeight: 500 }}>
+            {generateBreadcrumb()}
+          </Typography>
+        </Box>
 
-        <IconButton
-          size="large"
-          aria-label="show notifications"
-          color="inherit"
-          onClick={handleNotifClick}
-        >
-          <Badge variant={notifications.length > 0 ? "dot" : undefined} color="primary">
-            <IconBellRinging size="21" stroke="1.5" />
-          </Badge>
-        </IconButton>
-
-        <Box flexGrow={1} />
-        <Stack spacing={1} direction="row" alignItems="center">
-          {status === "unauthenticated" && (
-            <Button
-              variant="contained"
-              component={Link}
-              href="/authentication/signin"
-              disableElevation
+        {/* Partie droite : Bloc contenant icône notification, nom du service, icône profile */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <IconButton
+            size="large"
+            aria-label="show notifications"
+            color="inherit"
+            onClick={handleNotifClick}
+          >
+            <Badge
+              variant={notifications.length > 0 ? "dot" : undefined}
               color="primary"
             >
-              Login
-            </Button>
-          )}
-          {status === "authenticated" && <Profile />}
-        </Stack>
+              <IconBellRinging size="21" stroke="1.5" />
+            </Badge>
+          </IconButton>
+          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+            {clientName}
+          </Typography>
+          <Profile />
+        </Box>
       </ToolbarStyled>
 
       {/* Menu popup pour les notifications */}
@@ -163,7 +238,11 @@ const Header = ({ toggleMobileSidebar }: ItemType) => {
                 secondary={new Date(notif.createdAt).toLocaleString()}
                 sx={{ pr: 2 }}
               />
-              <IconButton onClick={() => markAsRead(notif.id)} size="small" sx={{ p: 0 }}>
+              <IconButton
+                onClick={() => markAsRead(notif.id)}
+                size="small"
+                sx={{ p: 0 }}
+              >
                 <IconX size="16" />
               </IconButton>
             </MenuItem>
