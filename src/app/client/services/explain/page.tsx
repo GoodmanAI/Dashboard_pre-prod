@@ -145,7 +145,7 @@ const ExplainPage = () => {
         backgroundColor: "#F8F8F8",
         minHeight: "100vh",
         p: 4,
-        overflow: "hidden"
+        overflow: "auto"
       }}
     >
       {/* Titre et sous-titre alignés à gauche */}
@@ -177,7 +177,12 @@ const ExplainPage = () => {
               component="img"
               src="/images/graph/explain.png"
               alt="Placeholder"
-              sx={{ maxWidth: "105%", maxHeight: "105%" }}
+              sx={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                objectPosition: "center",
+              }}
             />
           </Paper>
         </Grid>
