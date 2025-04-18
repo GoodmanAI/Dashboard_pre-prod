@@ -18,7 +18,7 @@ const MainWrapper = styled("div")(() => ({
 const PageWrapper = styled("div")(() => ({
   display: "flex",
   flexGrow: 1,
-  paddingBottom: "60px",
+  paddingBottom: 0,
   flexDirection: "column",
   zIndex: 1,
   backgroundColor: "transparent",
@@ -37,7 +37,7 @@ export default function RootLayout({
 
   return (
     <html lang="fr">
-      <body style={{ margin: 0, padding: 0, overflowX: "hidden", overflowY: "hidden" }}>
+      <body style={{ margin: 0, padding: 0, overflowX: "hidden", overflowY: "auto" }}>
         <SessionProvider>
         {!isAuthPage && (
           <>
