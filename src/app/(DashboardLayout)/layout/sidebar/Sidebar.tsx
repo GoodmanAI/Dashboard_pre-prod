@@ -1,6 +1,5 @@
 import { useMediaQuery, Box, Drawer } from "@mui/material";
 import SidebarItems from "./SidebarItems";
-// import { Upgrade } from "./Updrade";
 import { Sidebar, Logo } from 'react-mui-sidebar';
 
 interface ItemType {
