@@ -75,7 +75,13 @@ const ClientHomePage = () => {
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-        <CircularProgress />
+        <CircularProgress
+          sx={{
+            '& .MuiCircularProgress-svg': {
+              color: '#48C8AF',
+            },
+          }}
+        />
       </Box>
     );
   }

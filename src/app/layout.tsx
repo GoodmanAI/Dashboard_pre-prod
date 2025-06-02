@@ -9,6 +9,7 @@ import { SessionProvider } from "next-auth/react";
 import { baselightTheme } from "@/utils/theme/DefaultColors";
 import { usePathname } from "next/navigation";
 import localFont from 'next/font/local'
+import { SiteProvider } from "./context/SiteContext";
 
 const MainWrapper = styled("div")(() => ({
   display: "flex",
@@ -54,41 +55,43 @@ export default function RootLayout({
           <>
           <ThemeProvider theme={baselightTheme}>
             <CssBaseline />
-            <MainWrapper className="mainwrapper">
-              {/* ------------------------------------------- */}
-              {/* Sidebar */}
-              {/* ------------------------------------------- */}
-              <Sidebar
-                isSidebarOpen={isSidebarOpen}
-                isMobileSidebarOpen={isMobileSidebarOpen}
-                onSidebarClose={() => setMobileSidebarOpen(false)}
-              />
-              {/* ------------------------------------------- */}
-              {/* Main Wrapper */}
-              {/* ------------------------------------------- */}
-              <PageWrapper className="page-wrapper">
+            <SiteProvider>
+              <MainWrapper className="mainwrapper">
                 {/* ------------------------------------------- */}
-                {/* Header */}
+                {/* Sidebar */}
                 {/* ------------------------------------------- */}
-                <Header toggleMobileSidebar={() => setMobileSidebarOpen(true)} />
+                <Sidebar
+                  isSidebarOpen={isSidebarOpen}
+                  isMobileSidebarOpen={isMobileSidebarOpen}
+                  onSidebarClose={() => setMobileSidebarOpen(false)}
+                />
                 {/* ------------------------------------------- */}
-                {/* PageContent */}
+                {/* Main Wrapper */}
                 {/* ------------------------------------------- */}
+                <PageWrapper className="page-wrapper">
                   {/* ------------------------------------------- */}
-                  {/* Page Route */}
+                  {/* Header */}
                   {/* ------------------------------------------- */}
-                  <Box sx={{
-                      width: "100%",
-                      minHeight: "calc(100vh - 170px)",
-                    }}
-                  >
-                    {children}
-                    </Box>
+                  <Header toggleMobileSidebar={() => setMobileSidebarOpen(true)} />
                   {/* ------------------------------------------- */}
-                  {/* End Page */}
+                  {/* PageContent */}
                   {/* ------------------------------------------- */}
-              </PageWrapper>
-            </MainWrapper>
+                    {/* ------------------------------------------- */}
+                    {/* Page Route */}
+                    {/* ------------------------------------------- */}
+                    <Box sx={{
+                        width: "100%",
+                        minHeight: "calc(100vh - 170px)",
+                      }}
+                    >
+                      {children}
+                      </Box>
+                    {/* ------------------------------------------- */}
+                    {/* End Page */}
+                    {/* ------------------------------------------- */}
+                </PageWrapper>
+              </MainWrapper>
+            </SiteProvider>
           </ThemeProvider>
           </>
           )}

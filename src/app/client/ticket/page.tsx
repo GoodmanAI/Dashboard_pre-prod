@@ -150,7 +150,13 @@ const TicketsList = () => {
     fetchTickets();
   }, []);
 
-  if (loading) return <CircularProgress />;
+  if (loading) return <CircularProgress
+  sx={{
+    '& .MuiCircularProgress-svg': {
+      color: '#48C8AF',
+    },
+  }}
+/>;
   if (error) return <Alert severity="error">{error}</Alert>;
   if (tickets.length === 0)
     return <Typography>Aucun ticket trouvé.</Typography>;
