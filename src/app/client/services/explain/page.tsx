@@ -8,10 +8,12 @@ import {
   Typography,
   CircularProgress,
   Grid,
-  Paper
+  Paper,
+  Select,
+  MenuItem
 } from "@mui/material";
 import MetricDonut from "@/components/MetricDonut";
-// import MetricsPanel from "@/components/MetricsPanel";
+import MultiCurveChart from "@/components/MultiCurveChart";
 
 interface UserProduct {
   product: {
@@ -20,7 +22,7 @@ interface UserProduct {
   };
   assignedAt: string;
   rdv?: number | null;
-  borne?: number | null;
+  accueil?: number | null;
   examen?: number | null;
   secretaire?: number | null;
   attente?: number | null;
@@ -34,11 +36,14 @@ interface ClientData {
   userProducts: UserProduct[];
 }
 
+type MetricKey = "moyenne" | "rdv" | "accueil" | "examen" | "secretaire" | "attente";
+
 const ExplainPage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [loadingData, setLoadingData] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState<string>('Mar');
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -99,7 +104,7 @@ const ExplainPage = () => {
   // Pour l'exemple, on utilise des valeurs statiques pour les métriques
   const metrics: { [key: string]: number | null } = {
     "Prise de RDV": 87,
-    "Borne d'accueil": 34,
+    "accueil d'accueil": 34,
     "Prise en charge examen": 67,
     "Prise en charge secrétaire": 97,
     "Attente": 52,
@@ -129,7 +134,7 @@ const ExplainPage = () => {
     },
     {
       comment:
-        "Lieu propre. Parkings spacieux. Radiologue aimable. Mais ne vous attendez pas à être accueilli chaleureusement. Dès votre arrivée vous vous enregistrez sur une borne et comme un automate vous suivez les tracés au sol et les consignes. Pas de rencontre avec le médecin pour l'analyse du scanner ou autre. C'est devant votre écran chez vous à l'aide de codes que vous découvrez l'analyse du médecin inconnu. Bref pas trop d'humanité dans ce lieu (d'où une étoile en moins).",
+        "Lieu propre. Parkings spacieux. Radiologue aimable. Mais ne vous attendez pas à être accueilli chaleureusement. Dès votre arrivée vous vous enregistrez sur une accueil et comme un automate vous suivez les tracés au sol et les consignes. Pas de rencontre avec le médecin pour l'analyse du scanner ou autre. C'est devant votre écran chez vous à l'aide de codes que vous découvrez l'analyse du médecin inconnu. Bref pas trop d'humanité dans ce lieu (d'où une étoile en moins).",
       date: "10/03/2025",
     },
     {
@@ -138,6 +143,53 @@ const ExplainPage = () => {
       date: "15/03/2025",
     },
   ];
+
+  const multiCurveData = [
+    { month: "Jan", fullMonth: "Janvier", rdv: 30, accueil: 40, examen: 65, secretaire: 75, attente: 80, moyenne: 58 },
+    { month: "Fév", fullMonth: "Février", rdv: 25, accueil: 50, examen: 55, secretaire: 72, attente: 78, moyenne: 56 },
+    { month: "Mar", fullMonth: "Mars", rdv: 20, accueil: 45, examen: 60, secretaire: 85, attente: 90, moyenne: 60 },
+    { month: "Avr", fullMonth: "Avril", rdv: 34, accueil: 38, examen: 69, secretaire: 77, attente: 88, moyenne: 61 },
+    { month: "Mai", fullMonth: "Mai", rdv: 28, accueil: 42, examen: 50, secretaire: 80, attente: 76, moyenne: 55 },
+    { month: "Juin", fullMonth: "Juin", rdv: 33, accueil: 65, examen: 36, secretaire: 79, attente: 85, moyenne: 60 },
+    { month: "Juil", fullMonth: "Juillet", rdv: 22, accueil: 55, examen: 67, secretaire: 72, attente: 89, moyenne: 61 },
+    { month: "Aoû", fullMonth: "Août", rdv: 31, accueil: 40, examen: 62, secretaire: 74, attente: 90, moyenne: 59 },
+    { month: "Sep", fullMonth: "Septembre", rdv: 29, accueil: 45, examen: 68, secretaire: 75, attente: 80, moyenne: 59 },
+    { month: "Oct", fullMonth: "Octobre", rdv: 26, accueil: 43, examen: 69, secretaire: 70, attente: 85, moyenne: 58 },
+    { month: "Nov", fullMonth: "Novembre", rdv: 30, accueil: 50, examen: 36, secretaire: 78, attente: 88, moyenne: 56 },
+    { month: "Déc", fullMonth: "Décembre", rdv: 34, accueil: 38, examen: 67, secretaire: 73, attente: 81, moyenne: 59 },
+  ];
+
+  const selectedMonthData = multiCurveData.find((item) => item.month === selectedMonth);
+
+  const curves = [
+    { key: "moyenne", label: "Moyenne", color: "#838383", comment: "Note moyenne globale du mois sélectionné." },
+    { key: "rdv", label: "RDV", color: "#1976d2", comment: "Satisfaction liée à la prise de rendez-vous." },
+    { key: "accueil", label: "Accueil", color: "#37D253", comment: "Satisfaction lors de l'accueil à l'entrée par les bornes mises en place notamment." },
+    { key: "examen", label: "Examen", color: "#6237D2", comment: "Satisfaction pendant l'examen médical." },
+    { key: "secretaire", label: "Secrétaire", color: "#D237C2", comment: "Qualité de l’accueil par le secrétariat." },
+    { key: "attente", label: "Attente", color: "#37D2D2", comment: "Temps d’attente ressenti par les patients." },
+  ];
+
+  const monthsFullNameMap: Record<string, string> = {
+    Jan: "Janvier",
+    Fev: "Février",
+    Mar: "Mars",
+    Avr: "Avril",
+    Mai: "Mai",
+    Juin: "Juin",
+    Juil: "Juillet",
+    Aoû: "Août",
+    Sep: "Septembre",
+    Oct: "Octobre",
+    Nov: "Novembre",
+    Dec: "Décembre",
+  };
+
+  const fullMonthName = monthsFullNameMap[selectedMonth] || selectedMonth;
+
+  const handleMonthChange = (event: any) => {
+    setSelectedMonth(event.target.value);
+  };
 
   return (
     <Box
@@ -148,13 +200,13 @@ const ExplainPage = () => {
         overflow: "auto"
       }}
     >
-      {/* Titre et sous-titre alignés à gauche */}
+      {/* Titre et sous-titre */}
       <Box sx={{ textAlign: "left", mb: 4 }}>
-      <Typography variant="h1">
-        <Box component="span" sx={{ fontWeight: 900 }}>
-          LYRAE©
-        </Box>{" "}
-        Explain + Satisfy
+        <Typography variant="h1">
+          <Box component="span" sx={{ fontWeight: 900 }}>
+            LYRAE©
+          </Box>{" "}
+          Explain + Satisfy
         </Typography>
         <Typography variant="subtitle1">
           Vos indicateurs et retours d&apos;expérience en un coup d&apos;œil.
@@ -162,63 +214,89 @@ const ExplainPage = () => {
       </Box>
 
       <Grid container spacing={2} sx={{ mb: 4 }}>
-        {/* Placeholder composant gauche */}
         <Grid item xs={12} md={7}>
-          <Paper
-            sx={{
-              p: 1,
-              height: "350px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Box
-              component="img"
-              src="/images/graph/explain.png"
-              alt="Placeholder"
-              sx={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-                objectPosition: "center",
-              }}
-            />
-          </Paper>
+          <MultiCurveChart data={multiCurveData} curves={curves} />
         </Grid>
 
-        {/* Composant droite : Donuts */}
         <Grid item xs={12} md={5}>
           <Paper
             sx={{
               p: 2,
-              height: "350px",
+              height: 400,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "flex-start",
+              gap: 2,
             }}
           >
-            {/* Titre et sous-titre dans la partie supérieure gauche */}
-            <Box sx={{ textAlign: "left", mb: 2 }}>
-              <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
+            <Box sx={{ display: "flex", flexDirection: "column" }}>
+              <Typography variant="h4" sx={{ fontWeight: 600 }}>
                 Indicateurs de satisfaction
               </Typography>
-              <Typography variant="subtitle2" color="text.secondary">
-                Sur le mois de <strong>Mars</strong>
+              <Typography variant="subtitle2" sx={{ color: "text.secondary" }}>
+                Sur le mois de <strong>{fullMonthName}</strong>
               </Typography>
             </Box>
-            <Grid container spacing={1}>
-              {average !== null && (
-                <Grid item xs={4}>
-                  <Box>
-                    <MetricDonut value={average} label="Moyenne" customSize={135} />
-                  </Box>
-                </Grid>
-              )}
-              {Object.entries(metrics).map(([metricName, value]) => (
-                <Grid item xs={4} key={metricName}>
-                  <Box>
-                    <MetricDonut value={value ?? 0} label={metricName} />
-                  </Box>
-                </Grid>
-              ))}
+              <Select
+                size="small"
+                value={selectedMonth}
+                onChange={handleMonthChange}
+                MenuProps={{
+                  PaperProps: {
+                    sx: {
+                      maxHeight: 48 * 4.5,
+                      overflowY: "auto",
+                    },
+                  },
+                }}
+              >
+                {multiCurveData.map((item) => (
+                  <MenuItem key={item.month} value={item.month}>
+                    {item.month}
+                  </MenuItem>
+                ))}
+              </Select>
+            </Box>
+
+            <Grid container spacing={1} sx={{ height: '100%' }}>
+              <Grid item xs={5} sx={{ height: '100%' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: '100%',
+                }}
+              >
+                <MetricDonut
+                  value={selectedMonthData?.moyenne ?? null}
+                  label={curves.find((c) => c.key === "moyenne")?.label || "moyenne"}
+                  tooltip={curves.find((c) => c.key === "moyenne")?.comment || ""}
+                  type="full"
+                  customSize={150}
+                  valueFontSize={28}
+                />
+              </Box>
+
+              </Grid>
+              <Grid item xs={7}>
+                <Paper sx={{ backgroundColor: '#F8F8F8', p: 1, height: '100%' }}>
+                  <Grid container spacing={1}>
+                    {(["rdv", "accueil", "examen", "secretaire", "attente"] as MetricKey[]).map((key) => (
+                      <Grid item xs={6} key={key}>
+                        <MetricDonut
+                          value={selectedMonthData?.[key] ?? null}
+                          label={key.charAt(0).toUpperCase() + key.slice(1)}
+                          tooltip={curves.find((c) => c.key === key)?.comment || ""}
+                          type="half"
+                          customSize={90}
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Paper>
+              </Grid>
             </Grid>
           </Paper>
         </Grid>

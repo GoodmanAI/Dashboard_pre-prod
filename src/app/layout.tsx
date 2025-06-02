@@ -8,6 +8,7 @@ import Sidebar from "@/app/(DashboardLayout)/layout/sidebar/Sidebar";
 import { SessionProvider } from "next-auth/react";
 import { baselightTheme } from "@/utils/theme/DefaultColors";
 import { usePathname } from "next/navigation";
+import localFont from 'next/font/local'
 
 const MainWrapper = styled("div")(() => ({
   display: "flex",
@@ -24,6 +25,16 @@ const PageWrapper = styled("div")(() => ({
   backgroundColor: "transparent",
 }));
 
+const myFont = localFont({
+  src: [
+    { path: '../../public/fonts/Inter_18pt-Thin.ttf', weight: '100', style: 'normal' },
+    { path: '../../public/fonts/Inter_18pt-Light.ttf', weight: '300', style: 'normal' },
+    { path: '../../public/fonts/Inter_18pt-SemiBold.ttf', weight: '600', style: 'normal' },
+    { path: '../../public/fonts/Inter_18pt-Bold.ttf', weight: '700', style: 'normal' },
+  ],
+  variable: '--font-myfont'
+})
+
 export default function RootLayout({
   children,
 }: {
@@ -36,7 +47,7 @@ export default function RootLayout({
   const isAuthPage = pathname.startsWith("/authentication");
 
   return (
-    <html lang="fr">
+    <html lang="fr" className={myFont.variable}>
       <body style={{ margin: 0, padding: 0, overflowX: "hidden", overflowY: "auto" }}>
         <SessionProvider>
         {!isAuthPage && (
