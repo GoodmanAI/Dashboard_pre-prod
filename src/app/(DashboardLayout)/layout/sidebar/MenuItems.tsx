@@ -54,12 +54,12 @@ const Menuitems = [
     icon: IconLifebuoy,
     href: "/client/ticket",
   },
-  {
-    id: uniqueId(),
-    title: "Paramètres",
-    icon: IconAdjustmentsAlt,
-    href: "/client/settings",
-  },
+  // {
+  //   id: uniqueId(),
+  //   title: "Paramètres",
+  //   icon: IconAdjustmentsAlt,
+  //   href: "/client/settings",
+  // },
 ];
 
 export default Menuitems;

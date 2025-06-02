@@ -14,6 +14,7 @@ import {
   MenuItem,
   ListItemText,
   Typography,
+  Select
 } from "@mui/material";
 import PropTypes from "prop-types";
 import Link from "next/link";
@@ -22,6 +23,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Menuitems from "../sidebar/MenuItems";
 import { IconBellRinging, IconMenu, IconX } from "@tabler/icons-react";
 import Profile from "./Profile";
+import { useSite } from "@/app/context/SiteContext";
 
 interface ItemType {
   toggleMobileSidebar: (event: React.MouseEvent<HTMLElement>) => void;
@@ -33,6 +35,8 @@ interface Notification {
   createdAt: string;
 }
 
+type CHUName = "CHU Nantes" | "CHU Rennes" | "CHU Vannes";
+
 const Header = ({ toggleMobileSidebar }: ItemType) => {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -40,6 +44,7 @@ const Header = ({ toggleMobileSidebar }: ItemType) => {
   const [anchorNotif, setAnchorNotif] = useState<null | HTMLElement>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [clientName, setClientName] = useState<string>("");
+  const { selectedSite, setSelectedSite } = useSite();
 
   useEffect(() => {
     async function fetchNotifications() {
@@ -201,9 +206,52 @@ const Header = ({ toggleMobileSidebar }: ItemType) => {
               <IconBellRinging size="21" stroke="1.5" />
             </Badge>
           </IconButton>
-          <Typography variant="body1" sx={{ fontWeight: 600 }}>
-            {clientName}
-          </Typography>
+          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              {clientName}
+            </Typography>
+            <Select
+              value={selectedSite}
+              onChange={(e) => setSelectedSite(e.target.value as CHUName)}
+              variant="standard"
+              disableUnderline
+              sx={{
+                fontWeight: 600,
+                fontSize: "0.8rem",
+                color: "#48C8AF",
+                lineHeight: 1.6,
+                mt: -0.3,
+                "& .MuiSelect-icon": {
+                  color: "#48C8AF",
+                  fontSize: 18,
+                  ml: 0.5,
+                },
+                "& .MuiSelect-select": {
+                  paddingLeft: 0,
+                  paddingRight: "20px",
+                  paddingTop: 0,
+                  paddingBottom: 0,
+                },
+              }}
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    borderRadius: 2,
+                    boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.1)",
+                    mt: 1,
+                    px: 1,
+                    py: 0.5,
+                  },
+                },
+              }}
+            >
+              {["CHU Nantes", "CHU Rennes", "CHU Vannes"].map((site) => (
+                <MenuItem key={site} value={site} sx={{ fontWeight: 500, fontSize: "0.85rem" }}>
+                  {site}
+                </MenuItem>
+              ))}
+            </Select>
+          </Box>
           <Profile />
         </Box>
       </ToolbarStyled>

@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import MetricDonut from "@/components/MetricDonut";
 import MultiCurveChart from "@/components/MultiCurveChart";
+import { useSite } from "@/app/context/SiteContext";
 
 interface UserProduct {
   product: {
@@ -38,12 +39,71 @@ interface ClientData {
 
 type MetricKey = "moyenne" | "rdv" | "accueil" | "examen" | "secretaire" | "attente";
 
+type CHUName = "CHU Nantes" | "CHU Rennes" | "CHU Vannes";
+
+type CHUData = {
+  month: string;
+  fullMonth: string;
+  rdv: number;
+  accueil: number;
+  examen: number;
+  secretaire: number;
+  attente: number;
+  moyenne: number;
+};
+
+const dataForSites: Record<CHUName, CHUData[]> = {
+  "CHU Nantes": [
+    { month: "Jan", fullMonth: "Janvier", rdv: 30, accueil: 40, examen: 65, secretaire: 75, attente: 80, moyenne: 58 },
+    { month: "Fév", fullMonth: "Février", rdv: 25, accueil: 50, examen: 55, secretaire: 72, attente: 78, moyenne: 56 },
+    { month: "Mar", fullMonth: "Mars", rdv: 20, accueil: 45, examen: 60, secretaire: 85, attente: 90, moyenne: 60 },
+    { month: "Avr", fullMonth: "Avril", rdv: 34, accueil: 38, examen: 69, secretaire: 77, attente: 88, moyenne: 61 },
+    { month: "Mai", fullMonth: "Mai", rdv: 28, accueil: 42, examen: 50, secretaire: 80, attente: 76, moyenne: 55 },
+    { month: "Juin", fullMonth: "Juin", rdv: 33, accueil: 65, examen: 36, secretaire: 79, attente: 85, moyenne: 60 },
+    { month: "Juil", fullMonth: "Juillet", rdv: 22, accueil: 55, examen: 67, secretaire: 72, attente: 89, moyenne: 61 },
+    { month: "Aoû", fullMonth: "Août", rdv: 31, accueil: 40, examen: 62, secretaire: 74, attente: 90, moyenne: 59 },
+    { month: "Sep", fullMonth: "Septembre", rdv: 29, accueil: 45, examen: 68, secretaire: 75, attente: 80, moyenne: 59 },
+    { month: "Oct", fullMonth: "Octobre", rdv: 26, accueil: 43, examen: 69, secretaire: 70, attente: 85, moyenne: 58 },
+    { month: "Nov", fullMonth: "Novembre", rdv: 30, accueil: 50, examen: 36, secretaire: 78, attente: 88, moyenne: 56 },
+    { month: "Déc", fullMonth: "Décembre", rdv: 34, accueil: 38, examen: 67, secretaire: 73, attente: 81, moyenne: 59 },
+  ],
+  "CHU Rennes": [
+    { month: "Jan", fullMonth: "Janvier", rdv: 30, accueil: 60, examen: 75, secretaire: 72, attente: 40, moyenne: 55 },
+    { month: "Fév", fullMonth: "Février", rdv: 22, accueil: 65, examen: 70, secretaire: 74, attente: 39, moyenne: 54 },
+    { month: "Mar", fullMonth: "Mars", rdv: 28, accueil: 52, examen: 78, secretaire: 73, attente: 41, moyenne: 54 },
+    { month: "Avr", fullMonth: "Avril", rdv: 33, accueil: 68, examen: 72, secretaire: 75, attente: 30, moyenne: 56 },
+    { month: "Mai", fullMonth: "Mai", rdv: 31, accueil: 58, examen: 74, secretaire: 71, attente: 36, moyenne: 54 },
+    { month: "Juin", fullMonth: "Juin", rdv: 24, accueil: 50, examen: 76, secretaire: 70, attente: 42, moyenne: 52 },
+    { month: "Juil", fullMonth: "Juillet", rdv: 27, accueil: 60, examen: 71, secretaire: 73, attente: 33, moyenne: 53 },
+    { month: "Aoû", fullMonth: "Août", rdv: 29, accueil: 55, examen: 79, secretaire: 70, attente: 34, moyenne: 53 },
+    { month: "Sep", fullMonth: "Septembre", rdv: 30, accueil: 62, examen: 75, secretaire: 74, attente: 28, moyenne: 54 },
+    { month: "Oct", fullMonth: "Octobre", rdv: 32, accueil: 66, examen: 70, secretaire: 72, attente: 34, moyenne: 55 },
+    { month: "Nov", fullMonth: "Novembre", rdv: 26, accueil: 48, examen: 77, secretaire: 76, attente: 31, moyenne: 52 },
+    { month: "Déc", fullMonth: "Décembre", rdv: 25, accueil: 59, examen: 73, secretaire: 75, attente: 32, moyenne: 53 },
+  ],
+  "CHU Vannes": [
+    { month: "Jan", fullMonth: "Janvier", rdv: 33, accueil: 62, examen: 74, secretaire: 71, attente: 30, moyenne: 54 },
+    { month: "Fév", fullMonth: "Février", rdv: 29, accueil: 58, examen: 76, secretaire: 70, attente: 31, moyenne: 53 },
+    { month: "Mar", fullMonth: "Mars", rdv: 26, accueil: 60, examen: 72, secretaire: 73, attente: 32, moyenne: 53 },
+    { month: "Avr", fullMonth: "Avril", rdv: 28, accueil: 55, examen: 75, secretaire: 70, attente: 30, moyenne: 52 },
+    { month: "Mai", fullMonth: "Mai", rdv: 24, accueil: 57, examen: 74, secretaire: 72, attente: 33, moyenne: 52 },
+    { month: "Juin", fullMonth: "Juin", rdv: 31, accueil: 50, examen: 78, secretaire: 71, attente: 30, moyenne: 52 },
+    { month: "Juil", fullMonth: "Juillet", rdv: 27, accueil: 61, examen: 70, secretaire: 74, attente: 32, moyenne: 53 },
+    { month: "Aoû", fullMonth: "Août", rdv: 25, accueil: 53, examen: 76, secretaire: 75, attente: 34, moyenne: 53 },
+    { month: "Sep", fullMonth: "Septembre", rdv: 30, accueil: 59, examen: 73, secretaire: 70, attente: 28, moyenne: 52 },
+    { month: "Oct", fullMonth: "Octobre", rdv: 22, accueil: 56, examen: 75, secretaire: 72, attente: 31, moyenne: 51 },
+    { month: "Nov", fullMonth: "Novembre", rdv: 29, accueil: 60, examen: 70, secretaire: 73, attente: 26, moyenne: 52 },
+    { month: "Déc", fullMonth: "Décembre", rdv: 30, accueil: 52, examen: 77, secretaire: 71, attente: 28, moyenne: 52 },
+  ],
+};
+
 const ExplainPage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string>('Mar');
+  const { selectedSite } = useSite();
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -73,10 +133,23 @@ const ExplainPage = () => {
     }
   }, [session]);
 
+  useEffect(() => {
+    const months = dataForSites[selectedSite].map((d) => d.month);
+    if (!months.includes(selectedMonth)) {
+      setSelectedMonth(months[0]);
+    }
+  }, [selectedSite]);
+
   if (loadingData) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-        <CircularProgress />
+        <CircularProgress
+          sx={{
+            '& .MuiCircularProgress-svg': {
+              color: '#48C8AF',
+            },
+          }}
+        />
       </Box>
     );
   }
@@ -101,26 +174,6 @@ const ExplainPage = () => {
     );
   }
 
-  // Pour l'exemple, on utilise des valeurs statiques pour les métriques
-  const metrics: { [key: string]: number | null } = {
-    "Prise de RDV": 87,
-    "accueil d'accueil": 34,
-    "Prise en charge examen": 67,
-    "Prise en charge secrétaire": 97,
-    "Attente": 52,
-  };
-
-  // Calcul de la moyenne (si au moins 2 valeurs non nulles)
-  const validValues = Object.values(metrics).filter(
-    (v) => v !== null && v !== undefined
-  ) as number[];
-  const average =
-    validValues.length >= 2
-      ? validValues.reduce((sum, v) => sum + v, 0) / validValues.length
-      : null;
-
-  const metricsUpdatedAt = explainProduct.metricsUpdatedAt;
-
   const commentsData = [
     {
       comment:
@@ -144,22 +197,11 @@ const ExplainPage = () => {
     },
   ];
 
-  const multiCurveData = [
-    { month: "Jan", fullMonth: "Janvier", rdv: 30, accueil: 40, examen: 65, secretaire: 75, attente: 80, moyenne: 58 },
-    { month: "Fév", fullMonth: "Février", rdv: 25, accueil: 50, examen: 55, secretaire: 72, attente: 78, moyenne: 56 },
-    { month: "Mar", fullMonth: "Mars", rdv: 20, accueil: 45, examen: 60, secretaire: 85, attente: 90, moyenne: 60 },
-    { month: "Avr", fullMonth: "Avril", rdv: 34, accueil: 38, examen: 69, secretaire: 77, attente: 88, moyenne: 61 },
-    { month: "Mai", fullMonth: "Mai", rdv: 28, accueil: 42, examen: 50, secretaire: 80, attente: 76, moyenne: 55 },
-    { month: "Juin", fullMonth: "Juin", rdv: 33, accueil: 65, examen: 36, secretaire: 79, attente: 85, moyenne: 60 },
-    { month: "Juil", fullMonth: "Juillet", rdv: 22, accueil: 55, examen: 67, secretaire: 72, attente: 89, moyenne: 61 },
-    { month: "Aoû", fullMonth: "Août", rdv: 31, accueil: 40, examen: 62, secretaire: 74, attente: 90, moyenne: 59 },
-    { month: "Sep", fullMonth: "Septembre", rdv: 29, accueil: 45, examen: 68, secretaire: 75, attente: 80, moyenne: 59 },
-    { month: "Oct", fullMonth: "Octobre", rdv: 26, accueil: 43, examen: 69, secretaire: 70, attente: 85, moyenne: 58 },
-    { month: "Nov", fullMonth: "Novembre", rdv: 30, accueil: 50, examen: 36, secretaire: 78, attente: 88, moyenne: 56 },
-    { month: "Déc", fullMonth: "Décembre", rdv: 34, accueil: 38, examen: 67, secretaire: 73, attente: 81, moyenne: 59 },
-  ];
+  const data = dataForSites[selectedSite];
 
-  const selectedMonthData = multiCurveData.find((item) => item.month === selectedMonth);
+  const multiCurveData = data || [];
+
+  const selectedMonthData = multiCurveData.find((item: any) => item.month === selectedMonth);
 
   const curves = [
     { key: "moyenne", label: "Moyenne", color: "#838383", comment: "Note moyenne globale du mois sélectionné." },
@@ -172,7 +214,7 @@ const ExplainPage = () => {
 
   const monthsFullNameMap: Record<string, string> = {
     Jan: "Janvier",
-    Fev: "Février",
+    Fév: "Février",
     Mar: "Mars",
     Avr: "Avril",
     Mai: "Mai",
@@ -182,7 +224,7 @@ const ExplainPage = () => {
     Sep: "Septembre",
     Oct: "Octobre",
     Nov: "Novembre",
-    Dec: "Décembre",
+    Déc: "Décembre",
   };
 
   const fullMonthName = monthsFullNameMap[selectedMonth] || selectedMonth;
@@ -281,7 +323,7 @@ const ExplainPage = () => {
 
               </Grid>
               <Grid item xs={7}>
-                <Paper sx={{ backgroundColor: '#F8F8F8', p: 1, height: '100%' }}>
+                <Paper sx={{ backgroundColor: '#F8F8F8', p: 1, height: '100%' }} elevation={0}>
                   <Grid container spacing={1}>
                     {(["rdv", "accueil", "examen", "secretaire", "attente"] as MetricKey[]).map((key) => (
                       <Grid item xs={6} key={key}>

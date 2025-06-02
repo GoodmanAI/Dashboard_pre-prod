@@ -44,9 +44,9 @@ const MetricDonut: React.FC<MetricDonutProps> = ({
         justifyContent: type === 'half' ? 'flex-end' : 'center',
         paddingTop: type === 'half' ? '0' : '10px',
         paddingBottom: '14px',
-        cursor: tooltip ? 'help' : 'default', // met le curseur sur tout le bloc
+        cursor: tooltip ? 'help' : 'default',
       }}
-      tabIndex={tooltip ? 0 : -1} // rendre focusable tout le bloc
+      tabIndex={tooltip ? 0 : -1}
     >
       {/* le reste du contenu */}
       <div
