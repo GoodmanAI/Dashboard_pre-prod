@@ -83,7 +83,7 @@ const TicketForm = ({ onSuccess }: { onSuccess: () => void }) => {
         setSuccessMessage(data.message || "Ticket créé avec succès.");
         setSubject("");
         setMessage("");
-        onSuccess(); // Pour rafraîchir la liste
+        onSuccess();
       } else {
         setErrorMessage(data.error || "Erreur lors de la création du ticket.");
       }
@@ -105,6 +105,16 @@ const TicketForm = ({ onSuccess }: { onSuccess: () => void }) => {
         value={subject}
         onChange={(e) => setSubject(e.target.value)}
         required
+        sx={{
+          "& label.Mui-focused": {
+            color: "#48C8AF",
+          },
+          "& .MuiOutlinedInput-root": {
+            "&.Mui-focused fieldset": {
+              borderColor: "#48C8AF",
+            },
+          },
+        }}
       />
       <TextField
         label="Message"
@@ -115,8 +125,18 @@ const TicketForm = ({ onSuccess }: { onSuccess: () => void }) => {
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         required
+        sx={{
+          "& label.Mui-focused": {
+            color: "#48C8AF",
+          },
+          "& .MuiOutlinedInput-root": {
+            "&.Mui-focused fieldset": {
+              borderColor: "#48C8AF",
+            },
+          },
+        }}
       />
-      <Button type="submit" variant="contained" color="primary" disabled={loading}>
+      <Button type="submit" variant="contained" color="primary" disabled={loading} sx={{ backgroundColor: "#48C8AF", "&:hover": { backgroundColor: "#3bb39d" }, textTransform: "none",}}>
         {loading ? "Envoi en cours…" : "Envoyer"}
       </Button>
     </Box>
@@ -215,7 +235,17 @@ const TicketsList = () => {
               </Typography>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => setSelectedTicket(null)}>Fermer</Button>
+            <Button
+              onClick={() => setSelectedTicket(null)}
+              sx={{
+                backgroundColor: "#48C8AF",
+                color: "white",
+                "&:hover": { backgroundColor: "#3bb39d" },
+                textTransform: "none",
+              }}
+            >
+              Fermer
+            </Button>
             </DialogActions>
           </>
         )}
@@ -236,27 +266,47 @@ const TicketsPage = () => {
   }, [status, router]);
 
   return (
-    <Box sx={{ maxWidth: 800, mx: "auto", p: 4 }}>
-      <Typography variant="h4" gutterBottom align="center">
-        Tickets
-      </Typography>
-      <Tabs
-        value={tab}
-        onChange={(e, newVal) => setTab(newVal)}
-        centered
-        sx={{ mb: 4 }}
+    <Box sx={{ px: 4, py: 3, bgcolor: "#f5f5f5", minHeight: "100vh" }}>
+      {/* Bandeau d'en-tête gris */}
+      <Box sx={{ backgroundColor: "#f5f5f5", py: 3, px: 2, mb: 4 }}>
+        <Typography variant="h2" fontWeight="bold" sx={{ mb: 1 }}>
+          Support
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Pour toute demande de changement d&apos;informations de compte (nom, email, mot de passe),
+          veuillez contacter<br /> notre service client à l&apos;adresse&nbsp;
+          <strong>support@neuracorp.ai</strong>.
+        </Typography>
+      </Box>
+
+      {/* Contenu principal dans une box blanche */}
+      <Box
+        sx={{
+          backgroundColor: "#fff",
+          borderRadius: 2,
+          boxShadow: 1,
+          p: 3,
+        }}
       >
-        <Tab label="Créer un ticket" />
-        <Tab label="Mes tickets" />
-      </Tabs>
-      {tab === 0 && <TicketForm onSuccess={() => setTab(1)} />}
-      {tab === 1 && <TicketsList />}
-      <Box sx={{ mt: 4, textAlign: "center" }}>
-      <Typography variant="body2" color="text.secondary">
-        Pour toute demande de changement d&apos;informations de compte (nom, email, mot de passe),
-        veuillez contacter notre service client à l&apos;adresse&nbsp;
-        <strong>support@neuracorp.ai</strong>.
-      </Typography>
+        <Typography variant="h5" fontWeight="bold" gutterBottom>
+          Tickets
+        </Typography>
+
+        <Tabs
+          value={tab}
+          onChange={(e, newVal) => setTab(newVal)}
+          sx={{
+            mb: 3,
+            "& .MuiTab-root.Mui-selected": { color: "#48C8AF" },
+            "& .MuiTabs-indicator": { backgroundColor: "#48C8AF" },
+          }}
+        >
+          <Tab label="Créer un ticket" />
+          <Tab label="Mes tickets" />
+        </Tabs>
+
+        {tab === 0 && <TicketForm onSuccess={() => setTab(1)} />}
+        {tab === 1 && <TicketsList />}
       </Box>
     </Box>
   );
