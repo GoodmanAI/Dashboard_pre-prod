@@ -25,6 +25,7 @@ model User {
   password      String
   role          Role           @default(CLIENT)
   userProducts  UserProduct[]
+  userNumbers   UserNumber[]
   tickets       Ticket[]
   notifications Notification[]
   FileSubmission FileSubmission[]
@@ -58,6 +59,16 @@ model UserProduct {
   product           Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId])
+}
+
+model UserNumber {
+  id                Int       @id @default(autoincrement())
+  userId            Int
+  number            String
+  assignedAt        DateTime  @default(now())
+  removedAt         DateTime?
+
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model LyraeExplainDetails {
@@ -118,4 +129,16 @@ model Notification {
 
   ticket     Ticket?   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Call {
+  id         Int      @id @default(autoincrement())
+  caller     String
+  called     String
+  intent     String?
+  firstname  String?
+  lastname   String?
+  birthdate  DateTime?
+  createdAt  DateTime @default(now())
+  steps      String[]
 }
