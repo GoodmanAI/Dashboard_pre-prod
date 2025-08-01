@@ -57,9 +57,7 @@ const ClientHomePage = () => {
           console.error("Erreur lors de la récupération des produits.");
           return;
         }
-        const productsData = await resProducts.json();
-        console.log("productsData : ", productsData);
-        
+        const productsData = await resProducts.json();        
         const productsArray = productsData.products || [];
         setAllProducts(productsArray);
       } catch (error) {
@@ -84,6 +82,11 @@ const ClientHomePage = () => {
         />
       </Box>
     );
+  }
+
+  if (!allProducts.length && clientData?.userProducts?.length) {
+    const subs = clientData.userProducts.map((up) => up.product)
+    setAllProducts(subs)
   }
 
   if (!allProducts.length) {

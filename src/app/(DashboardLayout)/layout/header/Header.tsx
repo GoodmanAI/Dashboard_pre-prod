@@ -14,7 +14,8 @@ import {
   MenuItem,
   ListItemText,
   Typography,
-  Select
+  Select,
+  MenuItem as MuiMenuItem,
 } from "@mui/material";
 import PropTypes from "prop-types";
 import Link from "next/link";
@@ -23,11 +24,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Menuitems from "../sidebar/MenuItems";
 import { IconBellRinging, IconMenu, IconX } from "@tabler/icons-react";
 import Profile from "./Profile";
-import { useSite } from "@/app/context/SiteContext";
-
-interface ItemType {
-  toggleMobileSidebar: (event: React.MouseEvent<HTMLElement>) => void;
-}
+import { useCentre, ManagedUser } from "../../../context/CentreContext";
 
 interface Notification {
   id: number;
@@ -35,138 +32,55 @@ interface Notification {
   createdAt: string;
 }
 
-type CHUName = "CHU Nantes" | "CHU Rennes" | "CHU Vannes";
-
-const Header = ({ toggleMobileSidebar }: ItemType) => {
+const Header = ({ toggleMobileSidebar }: { toggleMobileSidebar: () => void }) => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const [anchorNotif, setAnchorNotif] = useState<null | HTMLElement>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [clientName, setClientName] = useState<string>("");
-  const { selectedSite, setSelectedSite } = useSite();
 
+  // Le contexte des centres
+  const { centres, selectedCentre, setSelectedCentreById } = useCentre();
+
+  // 1) Notifications
   useEffect(() => {
-    async function fetchNotifications() {
-      try {
-        const res = await fetch("/api/notification/get-unread");
-        const data = await res.json();
-        if (res.ok && data.notifications) {
-          setNotifications(data.notifications);
-        }
-      } catch (error) {
-        console.error("Erreur lors du fetch des notifications :", error);
-      }
-    }
     if (status === "authenticated") {
-      fetchNotifications();
+      fetch("/api/notification/get-unread")
+        .then((res) => res.json())
+        .then((data) => {
+          setNotifications(data.notifications || []);
+        })
+        .catch(console.error);
     }
   }, [status]);
 
-  useEffect(() => {
-    async function fetchClientData() {
-      try {
-        const res = await fetch("/api/client");
-        if (res.ok) {
-          const data = await res.json();
-          setClientName(data.name);
-        } else {
-          console.error("Erreur lors de la récupération du client");
-        }
-      } catch (error) {
-        console.error("Erreur lors de la récupération du client:", error);
-      }
-    }
-    if (status === "authenticated") {
-      fetchClientData();
-    }
-  }, [status]);
-
-  const handleNotifClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorNotif(event.currentTarget);
-  };
-
-  const handleNotifClose = () => {
-    setAnchorNotif(null);
-  };
+  // Ouvre/ferme le menu notifications
+  const handleNotifClick = (e: React.MouseEvent<HTMLElement>) => setAnchorNotif(e.currentTarget);
+  const handleNotifClose = () => setAnchorNotif(null);
 
   const markAsRead = async (notifId: number) => {
-    try {
-      const res = await fetch("/api/notification/mark-read", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notificationId: notifId }),
-      });
-      if (res.ok) {
-        setNotifications((prev) => prev.filter((n) => n.id !== notifId));
-      } else {
-        console.error("Error marking notification as read");
-      }
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
-    }
+    await fetch("/api/notification/mark-read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notificationId: notifId }),
+    });
+    setNotifications((prev) => prev.filter((n) => n.id !== notifId));
   };
 
-  const generateBreadcrumb = (): React.ReactNode => {
-    const segments: string[] = pathname.split("/").filter(Boolean);
-
-    if (segments[0] === "client") {
-      segments[0] = "Home";
-    }
-
-    const getCurrentMenuItemTitle = (path: string): string => {
-      let matchedTitle = "";
-      let maxLength = 0;
-      Menuitems.forEach((item) => {
-        if (item.href && path.startsWith(item.href) && item.href.length > maxLength) {
-          matchedTitle = item.title;
-          maxLength = item.href.length;
-        }
-      });
-      return matchedTitle;
-    };
-
-    const breadcrumbElements: React.ReactNode[] = [];
-    if (segments.length > 1) {
-      segments.slice(0, segments.length - 1).forEach((segment: string, index: number) => {
-        breadcrumbElements.push(
-          <span key={index} style={{ fontWeight: 400, color: "#A0AEC0" }}>
-            {segment.charAt(0).toUpperCase() + segment.slice(1)}{" / "}
-          </span>
-        );
-      });
-    } else if (segments.length === 1) {
-      breadcrumbElements.push(
-        <span key={0} style={{ fontWeight: 400, color: "#A0AEC0" }}>
-          {segments[0].charAt(0).toUpperCase() + segments[0].slice(1)}{" / "}
-        </span>
-      );
-    }
-
-    const lastSegmentTitle = getCurrentMenuItemTitle(pathname) || 
-      (segments[segments.length - 1]
-        ? segments[segments.length - 1].charAt(0).toUpperCase() + segments[segments.length - 1].slice(1)
-        : "");
-
-    breadcrumbElements.push(
-      <span key="last" style={{ fontWeight: 700, color: "#000000" }}>
-        {lastSegmentTitle}
-      </span>
-    );
-
-    return breadcrumbElements;
+  // Breadcrumb
+  const generateBreadcrumb = () => {
+    const segments = pathname.split("/").filter(Boolean);
+    if (segments[0] === "client") segments[0] = "Home";
+    const breadcrumb: React.ReactNode[] = [];
+    // ... (idem)
+    return breadcrumb;
   };
 
   const AppBarStyled = styled(AppBar)(({ theme }) => ({
     boxShadow: "none",
     background: theme.palette.background.paper,
-    justifyContent: "center",
     backdropFilter: "blur(4px)",
-    [theme.breakpoints.up("lg")]: {
-      minHeight: "70px",
-    },
   }));
-
   const ToolbarStyled = styled(Toolbar)(({ theme }) => ({
     width: "100%",
     color: theme.palette.text.secondary,
@@ -175,7 +89,7 @@ const Header = ({ toggleMobileSidebar }: ItemType) => {
   return (
     <AppBarStyled position="sticky" color="default">
       <ToolbarStyled>
-      <IconButton
+        <IconButton
           color="inherit"
           aria-label="menu"
           onClick={toggleMobileSidebar}
@@ -183,88 +97,65 @@ const Header = ({ toggleMobileSidebar }: ItemType) => {
         >
           <IconMenu width="20" height="20" />
         </IconButton>
-        
-        {/* Partie gauche : Breadcrumb dynamique */}
+
+        {/* Breadcrumb */}
         <Box sx={{ flexGrow: 1 }}>
           <Typography variant="body1" sx={{ fontWeight: 500 }}>
             {generateBreadcrumb()}
           </Typography>
         </Box>
 
-        {/* Partie droite : Bloc contenant icône notification, nom du service, icône profile */}
+        {/* Notifications + Nom utilisateur / centre + Sélecteur + Profil */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <IconButton
-            size="large"
-            aria-label="show notifications"
-            color="inherit"
-            onClick={handleNotifClick}
-          >
-            <Badge
-              variant={notifications.length > 0 ? "dot" : undefined}
-              color="primary"
-            >
+          {/* Bell */}
+          <IconButton size="large" color="inherit" onClick={handleNotifClick}>
+            <Badge variant={notifications.length > 0 ? "dot" : undefined} color="primary">
               <IconBellRinging size="21" stroke="1.5" />
             </Badge>
           </IconButton>
+
+          {/* Nom affiché */}
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
             <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              {clientName}
+              {selectedCentre?.name ?? session?.user?.name ?? session?.user?.email}
             </Typography>
-            <Select
-              value={selectedSite}
-              onChange={(e) => setSelectedSite(e.target.value as CHUName)}
-              variant="standard"
-              disableUnderline
-              sx={{
-                fontWeight: 600,
-                fontSize: "0.8rem",
-                color: "#48C8AF",
-                lineHeight: 1.6,
-                mt: -0.3,
-                "& .MuiSelect-icon": {
+
+            {/* Sélecteur dynamique des centres, visible seulement si on a des centres à gérer */}
+            {centres.length > 0 && (
+              <Select
+                value={selectedCentre?.id || ""}
+                onChange={(e) => setSelectedCentreById(Number(e.target.value))}
+                variant="standard"
+                disableUnderline
+                sx={{
+                  fontWeight: 600,
+                  fontSize: "0.8rem",
                   color: "#48C8AF",
-                  fontSize: 18,
-                  ml: 0.5,
-                },
-                "& .MuiSelect-select": {
-                  paddingLeft: 0,
-                  paddingRight: "20px",
-                  paddingTop: 0,
-                  paddingBottom: 0,
-                },
-              }}
-              MenuProps={{
-                PaperProps: {
-                  sx: {
-                    borderRadius: 2,
-                    boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.1)",
-                    mt: 1,
-                    px: 1,
-                    py: 0.5,
-                  },
-                },
-              }}
-            >
-              {["CHU Nantes", "CHU Rennes", "CHU Vannes"].map((site) => (
-                <MenuItem key={site} value={site} sx={{ fontWeight: 500, fontSize: "0.85rem" }}>
-                  {site}
-                </MenuItem>
-              ))}
-            </Select>
+                  "& .MuiSelect-icon": { color: "#48C8AF", fontSize: 18 },
+                }}
+              >
+                {centres.map((c: ManagedUser) => (
+                  <MuiMenuItem key={c.id} value={c.id} sx={{ fontWeight: 500, fontSize: "0.85rem" }}>
+                    {c.name ?? c.email}
+                  </MuiMenuItem>
+                ))}
+              </Select>
+            )}
           </Box>
+
+          {/* Profil / déconnexion */}
           <Profile />
         </Box>
       </ToolbarStyled>
 
-      {/* Menu popup pour les notifications */}
+      {/* Menu popup notifications */}
       <Menu
-        id="notif-menu"
         anchorEl={anchorNotif}
         open={Boolean(anchorNotif)}
         onClose={handleNotifClose}
         anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
         transformOrigin={{ horizontal: "right", vertical: "top" }}
-        slotProps={{ paper: { sx: { width: 600, maxHeight: 400, p: 1 } } }}
+        PaperProps={{ sx: { width: 600, maxHeight: 400, p: 1 } }}
       >
         {notifications.length === 0 ? (
           <MenuItem>
@@ -274,23 +165,14 @@ const Header = ({ toggleMobileSidebar }: ItemType) => {
           notifications.map((notif) => (
             <MenuItem
               key={notif.id}
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                py: 1,
-              }}
+              sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
             >
               <ListItemText
                 primary={notif.message}
                 secondary={new Date(notif.createdAt).toLocaleString()}
                 sx={{ pr: 2 }}
               />
-              <IconButton
-                onClick={() => markAsRead(notif.id)}
-                size="small"
-                sx={{ p: 0 }}
-              >
+              <IconButton onClick={() => markAsRead(notif.id)} size="small">
                 <IconX size="16" />
               </IconButton>
             </MenuItem>

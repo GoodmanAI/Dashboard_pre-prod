@@ -84,14 +84,8 @@ const Profile = () => {
           </ListItemIcon>
           <ListItemText primary="My Profile" />
         </MenuItem>
-        <MenuItem>
-          <ListItemIcon>
-            <IconListCheck width={20} />
-          </ListItemIcon>
-          <ListItemText primary="My Tasks" />
-        </MenuItem>
         <Box mt={1} py={1} px={2}>
-          <Button variant="outlined" color="primary" onClick={handleLogout} fullWidth>
+          <Button variant="outlined" sx={{color: '#48C8AF',borderColor: '#48C8AF','&:hover': {backgroundColor: 'rgba(72,200,175,0.04)', borderColor: '#48C8AF'}}} onClick={handleLogout} fullWidth>
             Logout
           </Button>
         </Box>

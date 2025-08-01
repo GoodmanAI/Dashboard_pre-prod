@@ -9,7 +9,7 @@ import { SessionProvider } from "next-auth/react";
 import { baselightTheme } from "@/utils/theme/DefaultColors";
 import { usePathname } from "next/navigation";
 import localFont from 'next/font/local'
-import { SiteProvider } from "./context/SiteContext";
+import { CentreProvider } from "./context/CentreContext";
 
 const MainWrapper = styled("div")(() => ({
   display: "flex",
@@ -55,7 +55,7 @@ export default function RootLayout({
           <>
           <ThemeProvider theme={baselightTheme}>
             <CssBaseline />
-            <SiteProvider>
+            <CentreProvider>
               <MainWrapper className="mainwrapper">
                 {/* ------------------------------------------- */}
                 {/* Sidebar */}
@@ -91,7 +91,7 @@ export default function RootLayout({
                     {/* ------------------------------------------- */}
                 </PageWrapper>
               </MainWrapper>
-            </SiteProvider>
+            </CentreProvider>
           </ThemeProvider>
           </>
           )}
