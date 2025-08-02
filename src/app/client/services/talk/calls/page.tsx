@@ -1,19 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Box,
   Typography,
   Button,
-  TextField,
-  Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
   Card,
   CardContent,
   CircularProgress,
+  Grid,
+  Alert
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -24,63 +24,57 @@ interface Call {
   caller: string;
   called: string;
   intent: string;
-  firstname: string;
-  lastname: string;
-  birthdate: Date;
-  createdAt: Date;
+  firstname: string | null;
+  lastname: string | null;
+  birthdate: string | null;
+  createdAt: string;
   steps: string[];
 }
 
 interface IntentConfig {
   value: string;
-  sing_label: string;
   label: string;
 }
 
-const TalkPage = () => {
+export default function TalkPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
   const intents: IntentConfig[] = [
-    {
-      value: "all",
-      sing_label: "Appel reçu",
-      label: "Appels reçus",
-    },
-    {
-      value: "prise de rdv",
-      sing_label: "Rendez-vous",
-      label: "Rendez-vous",
-    },
-    {
-      value: "urgence",
-      sing_label: "Urgence",
-      label: "Urgences",
-    },
+    { value: "all", label: "Tous" },
+    { value: "prise de rdv", label: "Rendez-vous" },
+    { value: "urgence", label: "Urgences" },
   ];
-  const [calls, setCalls] = useState<number[]>([]);
-  const [loadingCalls, setLoadingCalls] = useState<boolean>(true);
+
+  const [selectedIntent, setSelectedIntent] = useState("all");
+  const [calls, setCalls] = useState<Call[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCalls = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("daysAgo", "1");
+      if (selectedIntent !== "all") {
+        params.set("intent", selectedIntent);
+      }
+      const res = await fetch(`/api/calls?${params.toString()}`);
+      if (!res.ok) throw new Error("Erreur lors du fetch des appels");
+      const data: Call[] = await res.json();
+      setCalls(data);
+    } catch (err) {
+      console.error(err);
+      setCalls([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedIntent]);
 
   useEffect(() => {
-    async function fetchCalls() {
-      try {
-        const response = await fetch("/api/calls?daysAgo=1");
-        if (!response.ok) {
-          console.error("Erreur lors de la récupération des données client.");
-          return;
-        }
-        const data = await response.json();
-        setCalls(data);
-      } catch (error) {
-        console.error("Error fetching calls:", error);
-      } finally {
-        setLoadingCalls(false);
-      }
-    }
-    if (session) {
+    if (status === "authenticated") {
       fetchCalls();
     }
-  }, [session]);
+  }, [status, fetchCalls]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -93,88 +87,91 @@ const TalkPage = () => {
       <Typography variant="h4" gutterBottom>
         LYRAE © Talk
       </Typography>
+
       <Box sx={{ p: 3, mt: 2, bgcolor: "#fff", borderRadius: 2 }}>
         <Typography variant="h5" gutterBottom>
-          Appels Reçus
+          Appels Reçus (24 h)
         </Typography>
-        <Typography variant="subtitle1" gutterBottom>
-          Visualisez et consultez les appels pris en charge par LyraeTalk.
-        </Typography>
-        <Box sx={{ display: "flex", gap: 10, flexWrap: "wrap", mt: 2 }}>
-          <Card
+        <Box sx={{ mb: 2, maxWidth: 240 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel id="intent-label">Filtrer par intent</InputLabel>
+            <Select
+              labelId="intent-label"
+              value={selectedIntent}
+              label="Filtrer par intent"
+              onChange={(e) => setSelectedIntent(e.target.value)}
+            >
+              {intents.map((it) => (
+                <MenuItem key={it.value} value={it.value}>
+                  {it.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
+        {loading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+            <CircularProgress sx={{ color: "#48C8AF" }} />
+          </Box>
+        ) : calls.length === 0 ? (
+          <Alert severity="info">Aucun appel trouvé.</Alert>
+        ) : (
+          <Grid container spacing={2}>
+            {calls.map((call) => (
+              <Grid item xs={12} sm={6} md={4} key={call.id}>
+                <Card variant="outlined">
+                  <CardContent sx={{ p: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      <strong>Intent :</strong> {call.intent}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>De :</strong> {call.caller}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>À :</strong> {call.called}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Nom :</strong> {call.firstname ?? "--"} {call.lastname ?? ""}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Date de naissance :</strong>{" "}
+                      {call.birthdate ? new Date(call.birthdate).toLocaleDateString() : "--"}
+                    </Typography>
+                    <Typography variant="caption" display="block" sx={{ mt: 1, color: "text.secondary" }}>
+                      {new Date(call.createdAt).toLocaleString()}
+                    </Typography>
+                    <Box sx={{ textAlign: "right", mt: 1 }}>
+                      <Button
+                        size="small"
+                        startIcon={<IconEye size={16} />}
+                        onClick={() => router.push(`/client/services/talk/calls/${call.id}`)}
+                      >
+                        Détails
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        )}
+
+        <Box sx={{ mt: 3, textAlign: "right" }}>
+          <Button
+            variant="outlined"
+            startIcon={<IconEye size={18} />}
+            onClick={() => router.push("/client/services/talk/calls")}
             sx={{
-              flex: "1 1 250px",
-              minHeight: "300px",
-              borderRadius: 2,
-              border: "1px solid #e0e0e0",
-              p: 2,
+              borderColor: "#48C8AF",
+              color: "#48C8AF",
+              "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
             }}
           >
-            <CardContent
-              sx={{ display: "flex", flexDirection: "column", height: "100%" }}
-            >
-              <Typography variant="h4">Appels</Typography>
-              <Typography variant="subtitle1" gutterBottom>
-                sur les dernières 24h
-              </Typography>
-              <Box
-                sx={{
-                  mt: "auto",
-                  pt: 2,
-                  display: "flex",
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                }}
-              >
-                {loadingCalls ? (
-                  <CircularProgress />
-                ) : (
-                  calls.map((call, index) => (
-                    <Box
-                      key={index}
-                      sx={{
-                        pt: 2,
-                        m: 1,
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        flexDirection: "column",
-                        flexWrap: "wrap",
-                        width: "150px",
-                      }}
-                    >
-                      <Typography variant="h5" sx={{ mb: 0 }}></Typography>
-                      <Typography
-                        variant="subtitle1"
-                        sx={{ mb: 4 }}
-                      ></Typography>
-                    </Box>
-                  ))
-                )}
-              </Box>
-              <Box sx={{ mt: "auto", pt: 2 }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<IconEye size={18} />}
-                  onClick={() => router.push("/client/services/talk/calls")}
-                  sx={{
-                    borderColor: "#48C8AF",
-                    color: "#48C8AF",
-                    "&:hover": {
-                      borderColor: "#48C8AF",
-                      backgroundColor: "rgba(72,200,175,0.08)",
-                    },
-                  }}
-                >
-                  Voir
-                </Button>
-              </Box>
-            </CardContent>
-          </Card>
+            Voir tous
+          </Button>
         </Box>
       </Box>
     </Box>
   );
-};
-
-export default TalkPage;
+}

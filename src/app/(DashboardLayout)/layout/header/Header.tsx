@@ -117,7 +117,7 @@ const Header = ({ toggleMobileSidebar }: { toggleMobileSidebar: () => void }) =>
           {/* Nom affiché */}
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
             <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              {selectedCentre?.name ?? session?.user?.name ?? session?.user?.email}
+              {session?.user?.name ?? session?.user?.email}
             </Typography>
 
             {/* Sélecteur dynamique des centres, visible seulement si on a des centres à gérer */}
