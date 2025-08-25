@@ -1,4 +1,6 @@
 // src/app/api/admin/create-client/route.ts
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import bcrypt from "bcryptjs";
@@ -8,7 +10,6 @@ import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
 
-// Schéma de validation mis à jour pour inclure "assignedAt"
 const CreateUserSchema = z.object({
   email: z.string().email("Invalid email format"),
   password: z
@@ -56,16 +57,17 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, password, name, products } = parseResult.data;
+    const normalizedEmail = email.toLowerCase();
 
     // Vérifier si un utilisateur avec cet email ou nom existe déjà
     const existingUser = await prisma.user.findFirst({
       where: {
-        OR: [{ email: email.toLowerCase() }, { name }],
+        OR: [{ email: normalizedEmail }, { name }],
       },
     });
     if (existingUser) {
       const duplicateField =
-        existingUser.email === email.toLowerCase() ? "email" : "name";
+        existingUser.email === normalizedEmail ? "email" : "name";
       return NextResponse.json(
         {
           error: `A user with this ${duplicateField} already exists.`,
@@ -86,7 +88,7 @@ export async function POST(request: NextRequest) {
     // Création du client
     const newUser = await prisma.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         password: hashedPassword,
         name,
         role: "CLIENT",
@@ -94,9 +96,11 @@ export async function POST(request: NextRequest) {
     });
 
     // Associer les produits si fournis
+    let selectedProductIds: number[] = [];
     if (products && products.length > 0) {
+      selectedProductIds = products.map((p) => p.productId);
       const existingProducts = await prisma.product.findMany({
-        where: { id: { in: products.map((p) => p.productId) } },
+        where: { id: { in: selectedProductIds } },
       });
       if (existingProducts.length !== products.length) {
         return NextResponse.json(
@@ -113,98 +117,94 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Pour le produit LyraeExplain (id = 1)
-    const hasExplainProduct = products?.some((p) => p.productId === 1);
-    if (hasExplainProduct) {
+    // Récupérer les IDs des produits Explain/Talk (évite les magic numbers 1/2)
+    const coreProducts = await prisma.product.findMany({
+      where: {
+        name: { in: ["LyraeExplain", "LyraeTalk"] },
+      },
+      select: { id: true, name: true },
+    });
+    const explainProduct = coreProducts.find(
+      (p) => p.name.toLowerCase() === "lyraeexplain".toLowerCase()
+    );
+    const talkProduct = coreProducts.find(
+      (p) => p.name.toLowerCase() === "LyraeTalk".toLowerCase()
+    );
+
+    // === LyraeExplain ===
+    if (explainProduct && selectedProductIds.includes(explainProduct.id)) {
       const userProductExplain = await prisma.userProduct.findFirst({
-        where: { userId: newUser.id, productId: 1 },
+        where: { userId: newUser.id, productId: explainProduct.id },
       });
       if (userProductExplain) {
-        // Créer l'enregistrement dans LyraeExplainDetails avec des valeurs par défaut (null)
-        await prisma.lyraeExplainDetails.create({
-          data: {
-            userProductId: userProductExplain.id,
-            rdv: null,
-            borne: null,
-            examen: null,
-            secretaire: null,
-            attente: null,
-            metricsUpdatedAt: null,
-          },
+        // IMPORTANT : avec le nouveau schéma, on NE crée pas rdv/borne/etc.
+        // On crée un enregistrement vide (JSON par défaut "[]")
+        await prisma.lyraeExplainDetails.upsert({
+          where: { userProductId: userProductExplain.id },
+          update: {},
+          create: { userProductId: userProductExplain.id },
         });
       }
     }
 
-    // Pour le produit LyraeTalk (id = 2)
-    const hasTalkProduct = products?.some((p) => p.productId === 2);
-    if (hasTalkProduct) {
-      // On vérifie que le produit existe
-      const talkProduct = await prisma.product.findUnique({ where: { id: 2 } });
-      if (talkProduct) {
-        const uploadsDir = path.join(process.cwd(), "public", "upload");
-        await fs.mkdir(uploadsDir, { recursive: true });
+    // === LyraeTalk ===
+    if (talkProduct && selectedProductIds.includes(talkProduct.id)) {
+      const uploadsDir = path.join(process.cwd(), "public", "upload");
+      await fs.mkdir(uploadsDir, { recursive: true });
 
-        // Définir les noms des fichiers à créer
-        const talkInfoFileName = `talkInfo-${newUser.name}.csv`;
-        const talkLibelesFileName = `talkLibeles-${newUser.name}.csv`;
-        const talkInfoFilePath = path.join(uploadsDir, talkInfoFileName);
-        const talkLibelesFilePath = path.join(uploadsDir, talkLibelesFileName);
+      const talkInfoFileName = `talkInfo-${newUser.name}.csv`;
+      const talkLibelesFileName = `talkLibeles-${newUser.name}.csv`;
+      const talkInfoFilePath = path.join(uploadsDir, talkInfoFileName);
+      const talkLibelesFilePath = path.join(uploadsDir, talkLibelesFileName);
 
-        // Chemin des templates (à placer dans public/upload/template)
-        const templateDir = path.join(process.cwd(), "public", "upload", "template");
-        const talkInfoTemplatePath = path.join(templateDir, "talkInfo-template.csv");
-        const talkLibelesTemplatePath = path.join(templateDir, "talkLibeles-template.csv");
+      const templateDir = path.join(process.cwd(), "public", "upload", "template");
+      const talkInfoTemplatePath = path.join(templateDir, "talkInfo-template.csv");
+      const talkLibelesTemplatePath = path.join(templateDir, "talkLibeles-template.csv");
 
-        // Copier les templates vers les nouveaux fichiers
-        await fs.copyFile(talkInfoTemplatePath, talkInfoFilePath);
-        await fs.copyFile(talkLibelesTemplatePath, talkLibelesFilePath);
+      // Copie les templates si présents (sinon lève une erreur)
+      await fs.copyFile(talkInfoTemplatePath, talkInfoFilePath);
+      await fs.copyFile(talkLibelesTemplatePath, talkLibelesFilePath);
 
-        // Vérifier si une entrée UserProduct pour le produit LyraeTalk existe déjà
-        let userProductTalk = await prisma.userProduct.findFirst({
-          where: { userId: newUser.id, productId: 2 },
-        });
-        if (!userProductTalk) {
-          userProductTalk = await prisma.userProduct.create({
-            data: {
-              userId: newUser.id,
-              productId: 2,
-              assignedAt: new Date(),
-            },
-          });
-        }
+      // Ensure UserProduct Talk
+      const userProductTalk = await prisma.userProduct.upsert({
+        where: { userId_productId: { userId: newUser.id, productId: talkProduct.id } },
+        update: {},
+        create: { userId: newUser.id, productId: talkProduct.id, assignedAt: new Date() },
+      });
 
-        // Créer l'enregistrement dans LyraeTalkDetails avec des valeurs par défaut
-        await prisma.lyraeTalkDetails.create({
-          data: {
-            userProductId: userProductTalk.id,
-            talkInfoValidated: false,
-            talkLibelesValidated: false,
+      // Talk details par défaut
+      await prisma.lyraeTalkDetails.upsert({
+        where: { userProductId: userProductTalk.id },
+        update: {},
+        create: {
+          userProductId: userProductTalk.id,
+          talkInfoValidated: false,
+          talkLibelesValidated: false,
+        },
+      });
+
+      // Historique des fichiers liés
+      await prisma.fileSubmission.createMany({
+        data: [
+          {
+            userId: newUser.id,
+            productId: talkProduct.id,
+            fileName: talkInfoFileName,
+            fileUrl: `/upload/${talkInfoFileName}`,
           },
-        });
-
-        // Créer les enregistrements FileSubmission pour associer les fichiers à l'utilisateur et au produit
-        await prisma.fileSubmission.createMany({
-          data: [
-            {
-              userId: newUser.id,
-              productId: 2,
-              fileName: talkInfoFileName,
-              fileUrl: `/upload/${talkInfoFileName}`,
-            },
-            {
-              userId: newUser.id,
-              productId: 2,
-              fileName: talkLibelesFileName,
-              fileUrl: `/upload/${talkLibelesFileName}`,
-            },
-          ],
-        });
-      }
+          {
+            userId: newUser.id,
+            productId: talkProduct.id,
+            fileName: talkLibelesFileName,
+            fileUrl: `/upload/${talkLibelesFileName}`,
+          },
+        ],
+      });
     }
 
     return NextResponse.json(
       { message: "Client created successfully", user: newUser },
-      { status: 200 }
+      { status: 201 }
     );
   } catch (error) {
     console.error("Error creating client:", error);

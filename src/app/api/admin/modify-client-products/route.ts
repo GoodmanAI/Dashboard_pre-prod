@@ -1,3 +1,6 @@
+// src/app/api/admin/modify-client-products/route.ts
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { getServerSession } from "next-auth";
@@ -10,7 +13,7 @@ const ModifyClientProductsSchema = z.object({
   products: z.array(
     z.object({
       productId: z.number().int().positive("Product ID must be a positive number"),
-      assignedAt: z.string().datetime(), // Validation de la date
+      assignedAt: z.string().datetime(), // ISO datetime
     })
   ),
   action: z.enum(["add", "remove"]),
@@ -18,7 +21,7 @@ const ModifyClientProductsSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Vérifier la session de l'utilisateur
+    // 1) Auth admin
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "ADMIN") {
       return NextResponse.json(
@@ -27,29 +30,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 2) Validation payload
     const body = await request.json();
-    const parseResult = ModifyClientProductsSchema.safeParse(body);
-    if (!parseResult.success) {
+    const parsed = ModifyClientProductsSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Validation failed", details: parseResult.error.errors },
+        { error: "Validation failed", details: parsed.error.errors },
         { status: 400 }
       );
     }
+    const { clientId, products, action } = parsed.data;
 
-    const { clientId, products, action } = parseResult.data;
-
-    // Vérifier si le client existe
-    const client = await prisma.user.findUnique({
-      where: { id: clientId },
-    });
+    // 3) Client existe ?
+    const client = await prisma.user.findUnique({ where: { id: clientId } });
     if (!client) {
       return NextResponse.json({ error: "Client not found." }, { status: 404 });
     }
 
-    // Vérifier si les produits existent
+    // 4) Produits existent ?
     const productIds = products.map((p) => p.productId);
     const existingProducts = await prisma.product.findMany({
       where: { id: { in: productIds } },
+      select: { id: true, name: true },
     });
     if (existingProducts.length !== productIds.length) {
       return NextResponse.json(
@@ -58,27 +60,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Mappe les types de produits (évite les IDs magiques 1/2)
+    const explainIds = new Set(
+      existingProducts
+        .filter((p) => p.name.toLowerCase().includes("explain"))
+        .map((p) => p.id)
+    );
+    const talkIds = new Set(
+      existingProducts
+        .filter((p) => p.name.toLowerCase().includes("talk"))
+        .map((p) => p.id)
+    );
+
     if (action === "add") {
-      // Récupérer les produits déjà associés
+      // 5) Évite de recréer ce qui existe déjà
       const existingUserProducts = await prisma.userProduct.findMany({
-        where: {
-          userId: clientId,
-          productId: { in: productIds },
-        },
+        where: { userId: clientId, productId: { in: productIds } },
         select: { productId: true },
       });
+      const existingSet = new Set(existingUserProducts.map((p) => p.productId));
 
-      type ExistingUserProduct = { productId: number };
+      const toCreate = products.filter((p) => !existingSet.has(p.productId));
 
-      const existingProductIds = new Set<number>(
-        existingUserProducts.map((p: ExistingUserProduct) => p.productId)
-      );
-
-      // Filtrer les produits non déjà associés
-      const newProductLinks = products.filter((p) => !existingProductIds.has(p.productId));
-
-      // Pour chaque produit à ajouter, créer l'enregistrement et les détails associés si nécessaire
-      for (const p of newProductLinks) {
+      for (const p of toCreate) {
         const createdUserProduct = await prisma.userProduct.create({
           data: {
             userId: clientId,
@@ -86,24 +90,22 @@ export async function POST(request: NextRequest) {
             assignedAt: new Date(p.assignedAt),
           },
         });
-        // Si c'est le produit LyraeExplain (id = 1), créer les détails avec valeurs par défaut
-        if (p.productId === 1) {
-          await prisma.lyraeExplainDetails.create({
-            data: {
-              userProductId: createdUserProduct.id,
-              rdv: null,
-              borne: null,
-              examen: null,
-              secretaire: null,
-              attente: null,
-              metricsUpdatedAt: null,
-            },
+
+        // LyraeExplain → créer un enregistrement vide (JSON par défaut "[]")
+        if (explainIds.has(p.productId)) {
+          await prisma.lyraeExplainDetails.upsert({
+            where: { userProductId: createdUserProduct.id },
+            update: {},
+            create: { userProductId: createdUserProduct.id },
           });
         }
-        // Si c'est le produit LyraeTalk (id = 2), créer les détails par défaut
-        else if (p.productId === 2) {
-          await prisma.lyraeTalkDetails.create({
-            data: {
+
+        // LyraeTalk → détails par défaut
+        if (talkIds.has(p.productId)) {
+          await prisma.lyraeTalkDetails.upsert({
+            where: { userProductId: createdUserProduct.id },
+            update: {},
+            create: {
               userProductId: createdUserProduct.id,
               talkInfoValidated: false,
               talkLibelesValidated: false,
@@ -116,13 +118,12 @@ export async function POST(request: NextRequest) {
         { message: "Products added successfully to the client." },
         { status: 200 }
       );
-    } else if (action === "remove") {
-      // Suppression des associations
+    }
+
+    if (action === "remove") {
+      // 6) Suppression des associations (les détails sont en CASCADE selon ton schéma)
       await prisma.userProduct.deleteMany({
-        where: {
-          userId: clientId,
-          productId: { in: productIds },
-        },
+        where: { userId: clientId, productId: { in: productIds } },
       });
       return NextResponse.json(
         { message: "Products removed successfully from the client." },
