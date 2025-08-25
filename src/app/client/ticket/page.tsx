@@ -22,8 +22,9 @@ import {
   DialogActions,
 } from "@mui/material";
 import { orange, green, red } from "@mui/material/colors";
+import { useCentre } from "@/app/context/CentreContext";
 
-// Définition de l'interface d'un ticket
+// ---- Types ----
 interface Ticket {
   id: number;
   subject: string;
@@ -33,14 +34,11 @@ interface Ticket {
   updatedAt: string;
 }
 
-// Composant pour le point de statut coloré
+// ---- UI helpers ----
 const StatusDot = ({ status }: { status: Ticket["status"] }) => {
   let color: string = orange[500];
-  if (status === "IN_PROGRESS") {
-    color = green[500];
-  } else if (status === "CLOSED") {
-    color = red[500];
-  }
+  if (status === "IN_PROGRESS") color = green[500];
+  else if (status === "CLOSED") color = red[500];
   return (
     <Box
       sx={{
@@ -55,12 +53,12 @@ const StatusDot = ({ status }: { status: Ticket["status"] }) => {
   );
 };
 
-// Fonction pour tronquer un texte trop long
 const truncate = (text: string, length: number) =>
   text.length > length ? text.slice(0, length) + "..." : text;
 
-// Composant pour créer un ticket
+// ---- Création ticket (centre-aware) ----
 const TicketForm = ({ onSuccess }: { onSuccess: () => void }) => {
+  const { selectedUserId } = useCentre(); // ← centre-aware
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -73,17 +71,22 @@ const TicketForm = ({ onSuccess }: { onSuccess: () => void }) => {
     setErrorMessage(null);
     setSuccessMessage(null);
     try {
-      const res = await fetch("/api/ticket/create-ticket", {
+      const url = selectedUserId
+        ? `/api/tickets?asUserId=${selectedUserId}`
+        : `/api/tickets`;
+
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ subject, message }),
       });
+
       const data = await res.json();
       if (res.ok) {
         setSuccessMessage(data.message || "Ticket créé avec succès.");
         setSubject("");
         setMessage("");
-        onSuccess();
+        onSuccess(); // bascule sur l’onglet “Mes tickets”
       } else {
         setErrorMessage(data.error || "Erreur lors de la création du ticket.");
       }
@@ -98,6 +101,7 @@ const TicketForm = ({ onSuccess }: { onSuccess: () => void }) => {
     <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
       {errorMessage && <Alert severity="error" sx={{ mb: 2 }}>{errorMessage}</Alert>}
       {successMessage && <Alert severity="success" sx={{ mb: 2 }}>{successMessage}</Alert>}
+
       <TextField
         label="Sujet"
         fullWidth
@@ -106,13 +110,9 @@ const TicketForm = ({ onSuccess }: { onSuccess: () => void }) => {
         onChange={(e) => setSubject(e.target.value)}
         required
         sx={{
-          "& label.Mui-focused": {
-            color: "#48C8AF",
-          },
+          "& label.Mui-focused": { color: "#48C8AF" },
           "& .MuiOutlinedInput-root": {
-            "&.Mui-focused fieldset": {
-              borderColor: "#48C8AF",
-            },
+            "&.Mui-focused fieldset": { borderColor: "#48C8AF" },
           },
         }}
       />
@@ -126,25 +126,27 @@ const TicketForm = ({ onSuccess }: { onSuccess: () => void }) => {
         onChange={(e) => setMessage(e.target.value)}
         required
         sx={{
-          "& label.Mui-focused": {
-            color: "#48C8AF",
-          },
+          "& label.Mui-focused": { color: "#48C8AF" },
           "& .MuiOutlinedInput-root": {
-            "&.Mui-focused fieldset": {
-              borderColor: "#48C8AF",
-            },
+            "&.Mui-focused fieldset": { borderColor: "#48C8AF" },
           },
         }}
       />
-      <Button type="submit" variant="contained" color="primary" disabled={loading} sx={{ backgroundColor: "#48C8AF", "&:hover": { backgroundColor: "#3bb39d" }, textTransform: "none",}}>
+      <Button
+        type="submit"
+        variant="contained"
+        disabled={loading}
+        sx={{ backgroundColor: "#48C8AF", "&:hover": { backgroundColor: "#3bb39d" }, textTransform: "none" }}
+      >
         {loading ? "Envoi en cours…" : "Envoyer"}
       </Button>
     </Box>
   );
 };
 
-// Composant pour afficher la liste des tickets dans une vue en cartes
+// ---- Liste des tickets (centre-aware) ----
 const TicketsList = () => {
+  const { selectedUserId, selectedCentre } = useCentre(); // ← centre-aware
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -153,8 +155,12 @@ const TicketsList = () => {
   useEffect(() => {
     async function fetchTickets() {
       setLoading(true);
+      setError(null);
       try {
-        const res = await fetch("/api/ticket/show-ticket");
+        const url = selectedUserId
+          ? `/api/tickets?asUserId=${selectedUserId}`
+          : `/api/tickets`;
+        const res = await fetch(url);
         const data = await res.json();
         if (res.ok) {
           setTickets(data.tickets || []);
@@ -168,18 +174,21 @@ const TicketsList = () => {
       }
     }
     fetchTickets();
-  }, []);
+  }, [selectedUserId]); // ← refetch si changement de centre
 
-  if (loading) return <CircularProgress
-  sx={{
-    '& .MuiCircularProgress-svg': {
-      color: '#48C8AF',
-    },
-  }}
-/>;
+  if (loading)
+    return (
+      <CircularProgress
+        sx={{ "& .MuiCircularProgress-svg": { color: "#48C8AF" } }}
+      />
+    );
   if (error) return <Alert severity="error">{error}</Alert>;
   if (tickets.length === 0)
-    return <Typography>Aucun ticket trouvé.</Typography>;
+    return (
+      <Typography>
+        {selectedCentre ? "Aucun ticket pour ce centre." : "Aucun ticket trouvé."}
+      </Typography>
+    );
 
   return (
     <Box>
@@ -215,9 +224,7 @@ const TicketsList = () => {
       >
         {selectedTicket && (
           <>
-            <DialogTitle>
-              {selectedTicket.subject}
-            </DialogTitle>
+            <DialogTitle>{selectedTicket.subject}</DialogTitle>
             <DialogContent dividers>
               <Typography variant="body1" gutterBottom>
                 {selectedTicket.message}
@@ -229,23 +236,23 @@ const TicketsList = () => {
               <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
                 Créé le:{" "}
                 <span>
-                  {new Date(selectedTicket.createdAt).toLocaleDateString()}{" "}
-                  à {new Date(selectedTicket.createdAt).toLocaleTimeString()}
+                  {new Date(selectedTicket.createdAt).toLocaleDateString()} à{" "}
+                  {new Date(selectedTicket.createdAt).toLocaleTimeString()}
                 </span>
               </Typography>
             </DialogContent>
             <DialogActions>
-            <Button
-              onClick={() => setSelectedTicket(null)}
-              sx={{
-                backgroundColor: "#48C8AF",
-                color: "white",
-                "&:hover": { backgroundColor: "#3bb39d" },
-                textTransform: "none",
-              }}
-            >
-              Fermer
-            </Button>
+              <Button
+                onClick={() => setSelectedTicket(null)}
+                sx={{
+                  backgroundColor: "#48C8AF",
+                  color: "white",
+                  "&:hover": { backgroundColor: "#3bb39d" },
+                  textTransform: "none",
+                }}
+              >
+                Fermer
+              </Button>
             </DialogActions>
           </>
         )}
@@ -254,6 +261,7 @@ const TicketsList = () => {
   );
 };
 
+// ---- Page ----
 const TicketsPage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -267,7 +275,7 @@ const TicketsPage = () => {
 
   return (
     <Box sx={{ px: 4, py: 3, bgcolor: "#f5f5f5", minHeight: "100vh" }}>
-      {/* Bandeau d'en-tête gris */}
+      {/* Bandeau d'en-tête */}
       <Box sx={{ backgroundColor: "#f5f5f5", py: 3, px: 2, mb: 4 }}>
         <Typography variant="h2" fontWeight="bold" sx={{ mb: 1 }}>
           Support
@@ -279,15 +287,8 @@ const TicketsPage = () => {
         </Typography>
       </Box>
 
-      {/* Contenu principal dans une box blanche */}
-      <Box
-        sx={{
-          backgroundColor: "#fff",
-          borderRadius: 2,
-          boxShadow: 1,
-          p: 3,
-        }}
-      >
+      {/* Contenu */}
+      <Box sx={{ backgroundColor: "#fff", borderRadius: 2, boxShadow: 1, p: 3 }}>
         <Typography variant="h5" fontWeight="bold" gutterBottom>
           Tickets
         </Typography>

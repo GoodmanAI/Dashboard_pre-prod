@@ -12,20 +12,17 @@ const MarkReadSchema = z.object({
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
-  // 1. Récupérer et valider la session
   const session = await getServerSession(authOptions)
-  if (!session) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // 2. Caster l'ID en nombre pour Prisma
-  const userId = Number(session.user.id)
-  if (Number.isNaN(userId)) {
+  const sessionUserId = Number(session.user.id)
+  if (!Number.isFinite(sessionUserId)) {
     return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 })
   }
 
   try {
-    // 3. Valider le body avec Zod
     const body = await request.json()
     const parsed = MarkReadSchema.safeParse(body)
     if (!parsed.success) {
@@ -36,32 +33,63 @@ export async function POST(request: NextRequest) {
     }
     const { notificationId } = parsed.data
 
-    // 4. Récupérer la notification et vérifier l'appartenance
+    // Récupère la notif + les éventuels propriétaires (user direct / via ticket)
     const notification = await prisma.notification.findUnique({
       where: { id: notificationId },
       select: {
-        id:      true,
-        userId:  true,
-        ticket:  { select: { userId: true } }, // pour s'assurer que tu ne marques que tes propres tickets
+        id: true,
+        isRead: true,
+        userId: true, // notif adressée directement
+        ticket: { select: { userId: true } }, // notif liée à un ticket
       },
     })
     if (!notification) {
       return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
     }
 
-    // 5. Vérifier que la notification appartient bien à l'utilisateur
-    //    soit qu'il en soit le destinataire, soit que ce soit son ticket
-    if (notification.userId !== userId && notification.ticket?.userId !== userId) {
+    const ownerIds = [
+      notification.userId ?? undefined,
+      notification.ticket?.userId ?? undefined,
+    ].filter((x): x is number => Number.isFinite(x as number))
+
+    if (ownerIds.length === 0) {
+      // Cas improbable, on refuse par sécurité
+      return NextResponse.json({ error: 'Unowned notification' }, { status: 403 })
+    }
+
+    // 1) Appartient directement à l’utilisateur connecté ?
+    const isOwner = ownerIds.includes(sessionUserId)
+
+    // 2) Sinon, est-ce un ADMIN_USER qui manage au moins un des owners ?
+    let isAdminManagingOwner = false
+    if (!isOwner) {
+      const current = await prisma.user.findUnique({
+        where: { id: sessionUserId },
+        select: { centreRole: true },
+      })
+
+      if (current?.centreRole === 'ADMIN_USER') {
+        const countManaged = await prisma.user.count({
+          where: {
+            id: { in: ownerIds },
+            managerId: sessionUserId,
+          },
+        })
+        isAdminManagingOwner = countManaged > 0
+      }
+    }
+
+    if (!isOwner && !isAdminManagingOwner) {
       return NextResponse.json(
         { error: 'This notification does not belong to you' },
         { status: 403 }
       )
     }
 
-    // 6. Marquer comme lue
+    // Marque comme lue (idempotent: si déjà lue, on renvoie la notif telle quelle)
     const updated = await prisma.notification.update({
       where: { id: notificationId },
-      data:  { isRead: true },
+      data: { isRead: true },
     })
 
     return NextResponse.json(
@@ -70,9 +98,6 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     console.error('Error marking notification as read:', error)
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }

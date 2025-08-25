@@ -7,43 +7,77 @@ import { authOptions } from '@/lib/authOptions'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  // 1. Récupération de la session
   const session = await getServerSession(authOptions)
-  if (!session) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // 2. Cast de l'ID en nombre pour Prisma
-  const userId = Number(session.user.id)
-  if (Number.isNaN(userId)) {
+  const sessionUserId = Number(session.user.id)
+  if (!Number.isFinite(sessionUserId)) {
     return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 })
   }
 
   try {
-    // 3. Requête : notifications non lues dont le ticket appartient à l'utilisateur
+    const { searchParams } = request.nextUrl
+    const asUserIdParam = searchParams.get('asUserId')
+
+    // Par défaut: soi-même
+    let effectiveUserId = sessionUserId
+
+    if (asUserIdParam) {
+      const asUserId = Number(asUserIdParam)
+      if (!Number.isFinite(asUserId)) {
+        return NextResponse.json({ error: 'Invalid asUserId' }, { status: 400 })
+      }
+
+      if (asUserId !== sessionUserId) {
+        // Doit être ADMIN_USER
+        const current = await prisma.user.findUnique({
+          where: { id: sessionUserId },
+          select: { centreRole: true },
+        })
+        if (current?.centreRole !== 'ADMIN_USER') {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
+        // Et manager du compte ciblé
+        const managed = await prisma.user.findFirst({
+          where: { id: asUserId, managerId: sessionUserId },
+          select: { id: true },
+        })
+        if (!managed) {
+          return NextResponse.json({ error: 'Not managed by this admin' }, { status: 403 })
+        }
+
+        effectiveUserId = asUserId
+      }
+    }
+
+    // Notifications non lues:
+    //  - liées à un ticket de l'utilisateur ciblé
+    //  - OU adressées directement à l'utilisateur ciblé (notification.userId)
     const notifications = await prisma.notification.findMany({
       where: {
         isRead: false,
-        ticket: {
-          userId: userId
-        }
+        OR: [
+          { userId: effectiveUserId },
+          { ticket: { userId: effectiveUserId } },
+        ],
       },
       select: {
-        id:        true,
-        message:   true,
-        isRead:    true,
+        id: true,
+        message: true,
+        isRead: true,
         createdAt: true,
         ticket: {
           select: {
-            id:        true,
-            subject:   true,
-            createdAt: true
-          }
-        }
+            id: true,
+            subject: true,
+            createdAt: true,
+          },
+        },
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: { createdAt: 'desc' },
     })
 
     return NextResponse.json({ notifications }, { status: 200 })

@@ -1,4 +1,3 @@
-// context/CentreContext.tsx
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
@@ -17,13 +16,15 @@ export interface ManagedUser {
 interface CentreContextType {
   centres: ManagedUser[];
   selectedCentre: ManagedUser | null;
+  selectedUserId: number | null;
   setSelectedCentreById: (id: number) => void;
 }
 
+const STORAGE_KEY = "lyrae_selected_centre_id";
 const CentreContext = createContext<CentreContextType | undefined>(undefined);
 
 export const CentreProvider = ({ children }: { children: ReactNode }) => {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const [centres, setCentres] = useState<ManagedUser[]>([]);
   const [selectedCentre, setSelectedCentre] = useState<ManagedUser | null>(null);
 
@@ -32,15 +33,20 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
       fetch("/api/client")
         .then((res) => res.json())
         .then((data) => {
-          // Seuls les admin_user chargent des centres
           if (data.centreRole === "ADMIN_USER" && Array.isArray(data.managedUsers)) {
             setCentres(data.managedUsers);
-            if (data.managedUsers.length > 0) {
-              setSelectedCentre(data.managedUsers[0]);
-            }
+
+            // Récupérer éventuelle sélection précédente
+            const storedId = Number(localStorage.getItem(STORAGE_KEY) || "");
+            const fallback = data.managedUsers[0] ?? null;
+            const initial =
+              data.managedUsers.find((u: ManagedUser) => u.id === storedId) || fallback;
+
+            setSelectedCentre(initial);
           } else {
             setCentres([]);
             setSelectedCentre(null);
+            localStorage.removeItem(STORAGE_KEY);
           }
         })
         .catch((err) => console.error("Failed to load centres:", err));
@@ -50,10 +56,18 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
   const setSelectedCentreById = (id: number) => {
     const centre = centres.find((c) => c.id === id) || null;
     setSelectedCentre(centre);
+    if (centre) localStorage.setItem(STORAGE_KEY, String(centre.id));
   };
 
   return (
-    <CentreContext.Provider value={{ centres, selectedCentre, setSelectedCentreById }}>
+    <CentreContext.Provider
+      value={{
+        centres,
+        selectedCentre,
+        selectedUserId: selectedCentre?.id ?? null,
+        setSelectedCentreById,
+      }}
+    >
       {children}
     </CentreContext.Provider>
   );
@@ -61,8 +75,6 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
 
 export const useCentre = (): CentreContextType => {
   const context = useContext(CentreContext);
-  if (!context) {
-    throw new Error("useCentre must be used within a CentreProvider");
-  }
+  if (!context) throw new Error("useCentre must be used within a CentreProvider");
   return context;
 };

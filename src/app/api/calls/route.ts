@@ -17,26 +17,65 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = request.nextUrl;
-    const intent   = searchParams.get("intent") ?? undefined;
-    const daysAgo  = Number(searchParams.get("daysAgo")) || 7;
+    const intent = searchParams.get("intent") ?? undefined;
+
+    // --- Date filter: "all" => pas de filtre
+    const daysAgoParam = searchParams.get("daysAgo");
+    const parsed = daysAgoParam && daysAgoParam !== "all" ? Number(daysAgoParam) : undefined;
+    const daysAgo = Number.isFinite(parsed as number) ? (parsed as number) : undefined;
+
+    // --- Acting as (admin_user -> managed user)
+    const asUserIdParam = searchParams.get("asUserId");
+    let effectiveUserId = session.user.id;
+
+    if (asUserIdParam) {
+      const asUserId = Number(asUserIdParam);
+      if (!Number.isFinite(asUserId)) {
+        return NextResponse.json({ error: "Paramètre asUserId invalide." }, { status: 400 });
+      }
+
+      // Si on agit pour un autre user que soi-même, il faut être ADMIN_USER et manager du compte ciblé.
+      if (asUserId !== session.user.id) {
+        const current = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { centreRole: true },
+        });
+
+        if (current?.centreRole !== "ADMIN_USER") {
+          return NextResponse.json({ error: "Action non autorisée." }, { status: 403 });
+        }
+
+        const managed = await prisma.user.findFirst({
+          where: { id: asUserId, managerId: session.user.id },
+          select: { id: true },
+        });
+
+        if (!managed) {
+          return NextResponse.json({ error: "Centre non géré par cet administrateur." }, { status: 403 });
+        }
+
+        effectiveUserId = asUserId;
+      }
+    }
+
+    // --- Construction du filtre
+    const where: any = {
+      userId: effectiveUserId,
+      ...(intent && { intent: { equals: intent, mode: "insensitive" } }), // insensible à la casse
+    };
+
+    if (daysAgo !== undefined) {
+      where.createdAt = { gte: subDays(new Date(), daysAgo) };
+    }
 
     const calls = await prisma.call.findMany({
-      where: {
-        userId: session.user.id,
-        intent,
-        createdAt: {
-          gte: subDays(new Date(), daysAgo),
-        },
-      },
+      where,
       orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json(calls, { status: 200 });
   } catch (error) {
     console.error("Error fetching calls:", error);
-    return NextResponse.json(
-      { error: "Une erreur est survenue." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Une erreur est survenue." }, { status: 500 });
   }
 }

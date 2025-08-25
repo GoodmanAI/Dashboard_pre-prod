@@ -14,12 +14,12 @@ import {
 } from "@mui/material";
 import MetricDonut from "@/components/MetricDonut";
 import MultiCurveChart from "@/components/MultiCurveChart";
+import { useCentre } from "@/app/context/CentreContext";
 
 interface CommentItem {
   date: string;
   comment: string;
 }
-
 export interface CHUData {
   month: string;
   fullMonth: string;
@@ -31,31 +31,18 @@ export interface CHUData {
   moyenne: number;
   [key: string]: string | number;
 }
-
 interface ExplainDetails {
   metricsByMonth: CHUData[];
   commentsByMonth: Record<string, CommentItem[]>[];
 }
-
 interface UserProduct {
-  product: {
-    id: number;
-    name: string;
-  };
+  product: { id: number; name: string };
   explainDetails: ExplainDetails | null;
 }
-
 interface ClientData {
   userProducts: UserProduct[];
 }
-
-type MetricKey =
-  | "moyenne"
-  | "rdv"
-  | "accueil"
-  | "examen"
-  | "secretaire"
-  | "attente";
+type MetricKey = "moyenne" | "rdv" | "accueil" | "examen" | "secretaire" | "attente";
 
 const curves = [
   { key: "moyenne", label: "Moyenne", color: "#838383", comment: "Note moyenne globale du mois sélectionné." },
@@ -69,6 +56,7 @@ const curves = [
 export default function ExplainPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { selectedUserId, selectedCentre } = useCentre(); // 👈
 
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<CHUData[]>([]);
@@ -84,9 +72,20 @@ export default function ExplainPage() {
   useEffect(() => {
     if (status !== "authenticated") return;
 
+    let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/client");
+        setLoading(true);
+        setMetrics([]);
+        setCommentsMap({});
+        setSelectedMonth("");
+
+        // 👇 construit l’URL selon le centre sélectionné
+        const url = selectedUserId
+          ? `/api/client?asUserId=${selectedUserId}`
+          : `/api/client`;
+
+        const res = await fetch(url);
         if (!res.ok) throw new Error("Échec de récupération du client");
         const data: ClientData = await res.json();
 
@@ -95,35 +94,44 @@ export default function ExplainPage() {
         );
 
         if (!explainUP || !explainUP.explainDetails) {
-          setMetrics([]);
-          setCommentsMap({});
+          if (!cancelled) {
+            setMetrics([]);
+            setCommentsMap({});
+            setSelectedMonth("");
+          }
           return;
         }
 
-        const m = explainUP.explainDetails.metricsByMonth;
+        const m = explainUP.explainDetails.metricsByMonth || [];
+        if (cancelled) return;
+
         setMetrics(m);
 
-        const mergedComments: Record<string, CommentItem[]> = {};
-        explainUP.explainDetails.commentsByMonth.forEach((obj) => {
+        // Fusionne les commentaires par mois
+        const merged: Record<string, CommentItem[]> = {};
+        (explainUP.explainDetails.commentsByMonth || []).forEach((obj) => {
           Object.entries(obj).forEach(([mois, commentaires]) => {
-            mergedComments[mois] = commentaires;
+            merged[mois] = commentaires;
           });
         });
 
         const cMap: Record<string, CommentItem[]> = {};
-        m.forEach(({ month }) => {
-          cMap[month] = mergedComments[month] || [];
-        });
+        m.forEach(({ month }) => { cMap[month] = merged[month] || []; });
         setCommentsMap(cMap);
 
         setSelectedMonth(m[0]?.month ?? "");
       } catch (e) {
         console.error(e);
+        setMetrics([]);
+        setCommentsMap({});
+        setSelectedMonth("");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [status]);
+
+    return () => { cancelled = true; };
+  }, [status, selectedUserId]); // 👈 refetch quand on change de centre
 
   if (loading) {
     return (
@@ -136,7 +144,9 @@ export default function ExplainPage() {
   if (metrics.length === 0) {
     return (
       <Typography variant="h6" sx={{ mt: 4, textAlign: "center" }}>
-        Vous n&apos;êtes pas affilié au service Lyrae Explain.
+        {selectedCentre
+          ? "Ce centre n'est pas affilié au service Lyrae Explain."
+          : "Vous n'êtes pas affilié au service Lyrae Explain."}
       </Typography>
     );
   }
@@ -152,7 +162,11 @@ export default function ExplainPage() {
         <Typography variant="h1">
           <Box component="span" sx={{ fontWeight: 900 }}>LYRAE©</Box> Explain + Satisfy
         </Typography>
-        <Typography variant="subtitle1">Vos indicateurs et retours d&apos;expérience en un coup d&apos;œil.</Typography>
+        <Typography variant="subtitle1">
+          {selectedCentre
+            ? `Indicateurs et retours du centre sélectionné.`
+            : `Vos indicateurs et retours d'expérience en un coup d'œil.`}
+        </Typography>
       </Box>
 
       {/* Chart + Donuts */}

@@ -42,7 +42,6 @@ const Header = ({ toggleMobileSidebar }: { toggleMobileSidebar: () => void }) =>
   // Le contexte des centres
   const { centres, selectedCentre, setSelectedCentreById } = useCentre();
 
-  // 1) Notifications
   useEffect(() => {
     if (status === "authenticated") {
       fetch("/api/notification/get-unread")
@@ -54,7 +53,6 @@ const Header = ({ toggleMobileSidebar }: { toggleMobileSidebar: () => void }) =>
     }
   }, [status]);
 
-  // Ouvre/ferme le menu notifications
   const handleNotifClick = (e: React.MouseEvent<HTMLElement>) => setAnchorNotif(e.currentTarget);
   const handleNotifClose = () => setAnchorNotif(null);
 
@@ -67,7 +65,6 @@ const Header = ({ toggleMobileSidebar }: { toggleMobileSidebar: () => void }) =>
     setNotifications((prev) => prev.filter((n) => n.id !== notifId));
   };
 
-  // Breadcrumb
   const generateBreadcrumb = () => {
     const segments = pathname.split("/").filter(Boolean);
     if (segments[0] === "client") segments[0] = "Home";
@@ -105,7 +102,6 @@ const Header = ({ toggleMobileSidebar }: { toggleMobileSidebar: () => void }) =>
           </Typography>
         </Box>
 
-        {/* Notifications + Nom utilisateur / centre + Sélecteur + Profil */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           {/* Bell */}
           <IconButton size="large" color="inherit" onClick={handleNotifClick}>
@@ -114,7 +110,6 @@ const Header = ({ toggleMobileSidebar }: { toggleMobileSidebar: () => void }) =>
             </Badge>
           </IconButton>
 
-          {/* Nom affiché */}
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
             <Typography variant="body1" sx={{ fontWeight: 600 }}>
               {session?.user?.name ?? session?.user?.email}

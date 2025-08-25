@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/utils/prisma'
 
-export const dynamic = 'force-static'  // on peut mettre en cache les produits
+export const dynamic = 'force-static'
 
 export async function GET(request: NextRequest) {
   try {
