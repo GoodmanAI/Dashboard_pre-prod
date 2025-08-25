@@ -95,29 +95,17 @@ async function main(): Promise<void> {
 
   // 5. Assignation des deux produits & détails pour LyraeExplain
   for (const centre of centreUsers) {
-    const upExplain = await prisma.userProduct.upsert({
-      where: { userId_productId: { userId: centre.id, productId: lyraeExplain.id } },
-      update: {},
-      create: { userId: centre.id, productId: lyraeExplain.id }
-    })
-    const upTalk = await prisma.userProduct.upsert({
-      where: { userId_productId: { userId: centre.id, productId: lyraeTalk.id } },
-      update: {},
-      create: { userId: centre.id, productId: lyraeTalk.id }
-    })
-    await prisma.lyraeExplainDetails.upsert({
-      where: { userProductId: upExplain.id },
-      update: {},
-      create: {
-        userProductId: upExplain.id,
-        rdv:         Math.floor(Math.random() * 101),
-        borne:       Math.floor(Math.random() * 101),
-        examen:      Math.floor(Math.random() * 101),
-        secretaire:  Math.floor(Math.random() * 101),
-        attente:     Math.floor(Math.random() * 101)
-      }
-    })
-  }
+  await prisma.userProduct.upsert({
+    where: { userId_productId: { userId: centre.id, productId: lyraeExplain.id } },
+    update: {},
+    create: { userId: centre.id, productId: lyraeExplain.id },
+  })
+  await prisma.userProduct.upsert({
+    where: { userId_productId: { userId: centre.id, productId: lyraeTalk.id } },
+    update: {},
+    create: { userId: centre.id, productId: lyraeTalk.id },
+  })
+}
 
   // 6. Tickets aléatoires (2-3 par centre)
   for (const centre of centreUsers) {
