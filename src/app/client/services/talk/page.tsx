@@ -13,10 +13,12 @@ import {
   DialogActions,
   Card,
   CardContent,
+  CircularProgress,
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { IconEye } from "@tabler/icons-react";
+import { useCentre } from "@/app/context/CentreContext"; // 👈
 
 const LOCAL_STORAGE_KEY_INFO = "lyrae_talk_info_fields";
 const LOCAL_STORAGE_KEY_LIBELES = "lyrae_talk_libeles_fields";
@@ -42,14 +44,77 @@ const hardcodedLibelesRows = [
   ["NC010", "Radiographie Bras", "RX02"],
 ];
 
+interface Call {
+  id: number;
+  caller: string;
+  called: string;
+  intent: string;
+  firstname: string;
+  lastname: string;
+  birthdate: Date;
+  createdAt: Date;
+  steps: string[];
+}
+
+interface IntentConfig {
+  value: string;
+  sing_label: string;
+  label: string;
+}
+
 const TalkPage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { selectedUserId, selectedCentre } = useCentre(); // 👈
 
   const [openModal, setOpenModal] = useState(false);
   const [fileType, setFileType] = useState<"talkInfo" | "talkLibeles" | null>(null);
   const [formValues, setFormValues] = useState<{ [key: string]: string }>({});
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+
+  const intents: IntentConfig[] = [
+    { value: "all",          sing_label: "Appel reçu", label: "Appels reçus" },
+    { value: "prise de rdv", sing_label: "Rendez-vous", label: "Rendez-vous" },
+    { value: "urgence",      sing_label: "Urgence",     label: "Urgences" },
+  ];
+
+  const [callsCountByIntent, setCallsCountByIntent] = useState<number[]>([]);
+  const [loadingCalls, setLoadingCalls] = useState<boolean>(true);
+
+  // 🔄 Fetch des appels (centre-aware)
+  useEffect(() => {
+    async function fetchCalls() {
+      try {
+        setLoadingCalls(true);
+        const params = new URLSearchParams();
+        params.set("daysAgo", "all"); // tous les appels
+        if (selectedUserId) params.set("asUserId", String(selectedUserId)); // 👈
+
+        const response = await fetch(`/api/calls?${params.toString()}`);
+        if (!response.ok) {
+          console.error("Erreur lors de la récupération des données client.");
+          setCallsCountByIntent(intents.map(() => 0));
+          return;
+        }
+
+        const data: Call[] = await response.json();
+        setCallsCountByIntent(
+          intents.map((intent: IntentConfig) =>
+            data.filter((c: Call) => intent.value === "all" || c.intent === intent.value).length
+          )
+        );
+      } catch (error) {
+        console.error("Error fetching calls:", error);
+        setCallsCountByIntent(intents.map(() => 0));
+      } finally {
+        setLoadingCalls(false);
+      }
+    }
+
+    if (status === "authenticated") {
+      fetchCalls();
+    }
+  }, [status, selectedUserId]); // 👈 refetch quand on change de centre
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -57,16 +122,15 @@ const TalkPage = () => {
     }
   }, [status, router]);
 
+  // Modal docs (inchangé)
   useEffect(() => {
     if (!fileType || !openModal) return;
 
-    const storageKey =
-      fileType === "talkInfo" ? LOCAL_STORAGE_KEY_INFO : LOCAL_STORAGE_KEY_LIBELES;
-
+    const storageKey = fileType === "talkInfo" ? LOCAL_STORAGE_KEY_INFO : LOCAL_STORAGE_KEY_LIBELES;
     const baseData =
       fileType === "talkInfo"
         ? hardcodedInfoRows.map(([label]) => [label, ""])
-        : hardcodedLibelesRows.map(row => [...row, "", "", ""]);
+        : hardcodedLibelesRows.map((row) => [...row, "", "", ""]);
 
     const stored = localStorage.getItem(storageKey);
     if (stored) {
@@ -74,13 +138,12 @@ const TalkPage = () => {
     } else {
       setFormValues(
         Object.fromEntries(
-          baseData.map((row, i) => {
-            const inputs =
-              fileType === "talkInfo"
-                ? [0]
-                : [0, 1, 2].map(j => j + 3);
-            return inputs.map(j => [`${i}-${j}`, ""]);
-          }).flat()
+          baseData
+            .map((row, i) => {
+              const inputs = fileType === "talkInfo" ? [0] : [0, 1, 2].map((j) => j + 3);
+              return inputs.map((j) => [`${i}-${j}`, ""]);
+            })
+            .flat()
         )
       );
     }
@@ -95,8 +158,7 @@ const TalkPage = () => {
 
   const handleSave = () => {
     if (!fileType) return;
-    const storageKey =
-      fileType === "talkInfo" ? LOCAL_STORAGE_KEY_INFO : LOCAL_STORAGE_KEY_LIBELES;
+    const storageKey = fileType === "talkInfo" ? LOCAL_STORAGE_KEY_INFO : LOCAL_STORAGE_KEY_LIBELES;
     localStorage.setItem(storageKey, JSON.stringify(formValues));
     setUploadSuccess("Données enregistrées avec succès.");
   };
@@ -106,17 +168,108 @@ const TalkPage = () => {
       <Typography variant="h4" gutterBottom>
         LYRAE © Talk
       </Typography>
-      <Typography variant="subtitle1" gutterBottom>
-        Visualisez et modifiez les données nécessaires à votre espace LyraeTalk.
-      </Typography>
+
+      <Box sx={{ p: 3, mt: 2, bgcolor: "#fff", borderRadius: 2 }}>
+        <Typography variant="h5" gutterBottom>
+          Appels Reçus
+        </Typography>
+        <Typography variant="subtitle1" gutterBottom>
+          {selectedCentre
+            ? "Visualisez et consultez les appels du centre sélectionné."
+            : "Visualisez et consultez vos appels pris en charge par LyraeTalk."}
+        </Typography>
+
+        <Box sx={{ display: "flex", gap: 10, flexWrap: "wrap", mt: 2 }}>
+          <Card
+            sx={{
+              flex: "1 1 250px",
+              minHeight: "300px",
+              borderRadius: 2,
+              border: "1px solid #e0e0e0",
+              p: 2,
+            }}
+          >
+            <CardContent sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+              <Typography variant="h4">Appels</Typography>
+              <Typography variant="subtitle1" gutterBottom>
+                Total (toutes périodes)
+              </Typography>
+              <Box
+                sx={{
+                  mt: "auto",
+                  pt: 2,
+                  display: "flex",
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                }}
+              >
+                {loadingCalls ? (
+                  <CircularProgress />
+                ) : (
+                  callsCountByIntent.map((value, index) => (
+                    <Box
+                      key={index}
+                      sx={{
+                        pt: 2,
+                        m: 1,
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        flexDirection: "column",
+                        flexWrap: "wrap",
+                        width: "150px",
+                      }}
+                    >
+                      <Typography variant="h5" sx={{ mb: 0 }}>
+                        {value}
+                      </Typography>
+                      <Typography variant="subtitle1" sx={{ mb: 4 }}>
+                        {intents[index][value > 1 ? "label" : "sing_label"]}
+                      </Typography>
+                    </Box>
+                  ))
+                )}
+              </Box>
+              <Box sx={{ mt: "auto", pt: 2 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<IconEye size={18} />}
+                  onClick={() => router.push("/client/services/talk/calls")}
+                  sx={{
+                    borderColor: "#48C8AF",
+                    color: "#48C8AF",
+                    "&:hover": {
+                      borderColor: "#48C8AF",
+                      backgroundColor: "rgba(72,200,175,0.08)",
+                    },
+                  }}
+                >
+                  Voir
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
+      </Box>
 
       <Box sx={{ p: 3, mt: 2, bgcolor: "#fff", borderRadius: 2 }}>
         <Typography variant="h5" gutterBottom>
           Mes documents
         </Typography>
+        <Typography variant="subtitle1" gutterBottom>
+          Visualisez et modifiez les données nécessaires à votre espace LyraeTalk.
+        </Typography>
 
         <Box sx={{ display: "flex", gap: 10, flexWrap: "wrap", mt: 2 }}>
-          <Card sx={{ flex: "1 1 250px", minHeight: "300px", borderRadius: 2, border: "1px solid #e0e0e0", p: 2 }}>
+          <Card
+            sx={{
+              flex: "1 1 250px",
+              minHeight: "300px",
+              borderRadius: 2,
+              border: "1px solid #e0e0e0",
+              p: 2,
+            }}
+          >
             <CardContent sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
               <Typography variant="h4" sx={{ mb: 4 }}>
                 Document Informations
@@ -144,7 +297,15 @@ const TalkPage = () => {
             </CardContent>
           </Card>
 
-          <Card sx={{ flex: "1 1 250px", minHeight: "300px", borderRadius: 2, border: "1px solid #e0e0e0", p: 2 }}>
+          <Card
+            sx={{
+              flex: "1 1 250px",
+              minHeight: "300px",
+              borderRadius: 2,
+              border: "1px solid #e0e0e0",
+              p: 2,
+            }}
+          >
             <CardContent sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
               <Typography variant="h4" sx={{ mb: 4 }}>
                 Document Libellés
@@ -185,7 +346,14 @@ const TalkPage = () => {
                 <tr>
                   {(fileType === "talkInfo"
                     ? ["Étiquette", "Valeur"]
-                    : ["Code Neuracorp", "Libellé Neuracorp", "Code type examen Neuracorp", "Code Client", "Libellé Client", "Code type examen Client"]
+                    : [
+                        "Code Neuracorp",
+                        "Libellé Neuracorp",
+                        "Code type examen Neuracorp",
+                        "Code Client",
+                        "Libellé Client",
+                        "Code type examen Client",
+                      ]
                   ).map((header, idx) => (
                     <th
                       key={idx}
@@ -220,7 +388,10 @@ const TalkPage = () => {
                             variant="outlined"
                             value={formValues[fieldKey] || ""}
                             onChange={(e) =>
-                              setFormValues({ ...formValues, [fieldKey]: e.target.value })
+                              setFormValues({
+                                ...formValues,
+                                [fieldKey]: e.target.value,
+                              })
                             }
                           />
                         </td>
@@ -231,11 +402,7 @@ const TalkPage = () => {
               </tbody>
             </table>
           </Box>
-          {uploadSuccess && (
-            <Alert severity="success" sx={{ mt: 2 }}>
-              {uploadSuccess}
-            </Alert>
-          )}
+          {uploadSuccess && <Alert severity="success" sx={{ mt: 2 }}>{uploadSuccess}</Alert>}
         </DialogContent>
         <DialogActions>
           <Button
@@ -243,10 +410,7 @@ const TalkPage = () => {
             sx={{
               color: "#48C8AF",
               borderColor: "#48C8AF",
-              "&:hover": {
-                backgroundColor: "rgba(72,200,175,0.08)",
-                borderColor: "#48C8AF",
-              },
+              "&:hover": { backgroundColor: "rgba(72,200,175,0.08)", borderColor: "#48C8AF" },
             }}
           >
             Fermer
@@ -254,10 +418,7 @@ const TalkPage = () => {
           <Button
             variant="contained"
             onClick={handleSave}
-            sx={{
-              backgroundColor: "#48C8AF",
-              "&:hover": { backgroundColor: "#3AB19B" },
-            }}
+            sx={{ backgroundColor: "#48C8AF", "&:hover": { backgroundColor: "#3AB19B" } }}
           >
             Valider
           </Button>
