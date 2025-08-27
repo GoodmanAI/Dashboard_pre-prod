@@ -1,19 +1,35 @@
 "use client";
 
-import { useSession, signIn, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Box, Grid, Button, Card, Typography, useTheme } from "@mui/material";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import {
+  Box,
+  Grid,
+  Card,
+  Typography,
+  useTheme,
+  CircularProgress,
+} from "@mui/material";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SalesOverview from "@/app/(DashboardLayout)/components/dashboard/SalesOverview";
-import YearlyBreakup from "@/app/(DashboardLayout)/components/dashboard/YearlyBreakup";
-import MonthlyEarnings from "@/app/(DashboardLayout)/components/dashboard/MonthlyEarnings";
 
+/**
+ * Tableau de bord Administrateur
+ * - Contrôle l’accès (redirection si non ADMIN).
+ * - Présente un aperçu (SalesOverview) et des tuiles d’accès rapide aux modules admin.
+ * - Chaque tuile redirige vers la section de gestion correspondante.
+ */
 const AdminPage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const theme = useTheme();
 
+  /* -----------------------------------------------------------
+   * Sécurité / Navigation :
+   * - Si non authentifié → page de connexion
+   * - Si authentifié mais non ADMIN → redirection vers l’espace client
+   * ----------------------------------------------------------- */
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/authentication/signin");
@@ -22,36 +38,37 @@ const AdminPage = () => {
     }
   }, [session, status, router]);
 
+  /* -----------------------------------------------------------
+   * État de chargement : affiche un indicateur pendant la vérification
+   * de session pour éviter les effets de flash.
+   * ----------------------------------------------------------- */
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return (
+      <Box sx={{ display: "grid", placeItems: "center", minHeight: "50vh" }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
-  // Handlers for module navigation
+  /* -----------------------------------------------------------
+   * Actions de navigation vers les différents modules d’administration
+   * ----------------------------------------------------------- */
   const handleCreateClient = () => router.push("/admin/create-client");
   const handleManageClients = () => router.push("/admin/manage-clients");
   const handleCreateProduct = () => router.push("/admin/create-product");
   const handleViewReports = () => router.push("/admin/reports");
-  
+
+  /* -----------------------------------------------------------
+   * Rendu principal : aperçu + grille de tuiles d’accès rapide
+   * ----------------------------------------------------------- */
   return (
     <PageContainer title="Admin Dashboard" description="Admin Home Page">
       <Box>
         <Grid container spacing={3}>
-          {/* Existing sections */}
           <Grid item xs={12} lg={8}>
             <SalesOverview />
           </Grid>
-          <Grid item xs={12} lg={4}>
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <YearlyBreakup />
-              </Grid>
-              <Grid item xs={12}>
-                <MonthlyEarnings />
-              </Grid>
-            </Grid>
-          </Grid>
 
-          {/* New modules: 2x2 grid */}
           <Grid container item xs={12} spacing={3}>
             <Grid item xs={12} sm={6}>
               <Card
@@ -59,14 +76,12 @@ const AdminPage = () => {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  height: "150px",
+                  height: 150,
                   backgroundColor: theme.palette.primary.main,
                   color: "#fff",
                   cursor: "pointer",
                   transition: "0.3s",
-                  "&:hover": {
-                    backgroundColor: theme.palette.primary.dark,
-                  },
+                  "&:hover": { backgroundColor: theme.palette.primary.dark },
                 }}
                 onClick={handleCreateClient}
               >
@@ -75,20 +90,19 @@ const AdminPage = () => {
                 </Typography>
               </Card>
             </Grid>
+
             <Grid item xs={12} sm={6}>
               <Card
                 sx={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  height: "150px",
+                  height: 150,
                   backgroundColor: theme.palette.secondary.main,
                   color: "#fff",
                   cursor: "pointer",
                   transition: "0.3s",
-                  "&:hover": {
-                    backgroundColor: theme.palette.secondary.dark,
-                  },
+                  "&:hover": { backgroundColor: theme.palette.secondary.dark },
                 }}
                 onClick={handleManageClients}
               >
@@ -97,20 +111,19 @@ const AdminPage = () => {
                 </Typography>
               </Card>
             </Grid>
+
             <Grid item xs={12} sm={6}>
               <Card
                 sx={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  height: "150px",
+                  height: 150,
                   backgroundColor: "#795FED",
                   color: "#fff",
                   cursor: "pointer",
                   transition: "0.3s",
-                  "&:hover": {
-                    backgroundColor: "#6B5FED",
-                  },
+                  "&:hover": { backgroundColor: "#6B5FED" },
                 }}
                 onClick={handleCreateProduct}
               >
@@ -119,20 +132,19 @@ const AdminPage = () => {
                 </Typography>
               </Card>
             </Grid>
+
             <Grid item xs={12} sm={6}>
               <Card
                 sx={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  height: "150px",
+                  height: 150,
                   backgroundColor: "#B761D4",
-                  color: '#fff',
+                  color: "#fff",
                   cursor: "pointer",
                   transition: "0.3s",
-                  "&:hover": {
-                    backgroundColor: "#9E61D4",
-                  },
+                  "&:hover": { backgroundColor: "#9E61D4" },
                 }}
                 onClick={handleViewReports}
               >

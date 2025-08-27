@@ -1,24 +1,42 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { signIn, getSession, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import {
   Box,
   Typography,
   Stack,
   Button,
   Link,
-  TextField
+  TextField,
 } from "@mui/material";
-import { signIn, getSession, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 
+/**
+ * Page de connexion
+ * - Gère l’authentification via NextAuth (provider "credentials").
+ * - Redirige automatiquement selon le rôle utilisateur (ADMIN → /admin, CLIENT → /client).
+ * - Affiche un formulaire minimal (email / mot de passe) avec états de chargement.
+ */
 export default function SignIn() {
+  /* -------------------------------------------------------------------------- */
+  /*                                   États                                    */
+  /* -------------------------------------------------------------------------- */
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  /* -------------------------------------------------------------------------- */
+  /*                             Contexte & Navigation                           */
+  /* -------------------------------------------------------------------------- */
   const router = useRouter();
   const { data: session, status } = useSession();
 
+  /* -------------------------------------------------------------------------- */
+  /*                     Redirection si déjà authentifié                         */
+  /*  - Évite d’afficher le formulaire si une session valide existe.            */
+  /*  - Oriente vers l’espace adapté selon le rôle.                             */
+  /* -------------------------------------------------------------------------- */
   useEffect(() => {
     if (session?.user?.role) {
       if (session.user.role === "ADMIN") {
@@ -29,6 +47,12 @@ export default function SignIn() {
     }
   }, [session, router]);
 
+  /* -------------------------------------------------------------------------- */
+  /*                           Soumission du formulaire                          */
+  /*  - Appelle signIn("credentials") sans redirection automatique.              */
+  /*  - Récupère ensuite la session pour déterminer la route de destination.     */
+  /*  - Rafraîchit la route pour recharger les layouts dépendants de la session. */
+  /* -------------------------------------------------------------------------- */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -40,28 +64,33 @@ export default function SignIn() {
     });
 
     if (result?.error) {
-      console.error("error: ", result);
+      console.error("Erreur d’authentification:", result);
       setLoading(false);
       return;
     }
 
+    // On laisse NextAuth finaliser la session avant d’inspecter le rôle.
     setTimeout(async () => {
-      const session = await getSession();
+      const s = await getSession();
       let redirectUrl = "/authentication/signin";
-      if (session?.user?.role === "ADMIN") {
-        redirectUrl = "/admin";
-      } else if (session?.user?.role === "CLIENT") {
-        redirectUrl = "/client";
-      }
+      if (s?.user?.role === "ADMIN") redirectUrl = "/admin";
+      else if (s?.user?.role === "CLIENT") redirectUrl = "/client";
+
       router.push(redirectUrl);
       setLoading(false);
     }, 1000);
 
+    // Rafraîchit l’app pour que les layouts/menus reflètent immédiatement l’état connecté.
     setTimeout(() => {
       router.refresh();
     }, 1500);
   };
 
+  /* -------------------------------------------------------------------------- */
+  /*                                 Rendu UI                                   */
+  /*  - Layout centré, logos, titres, formulaire, pied de page.                 */
+  /*  - Styles en ligne pour rester autonome (peut être migré vers theme).      */
+  /* -------------------------------------------------------------------------- */
   return (
     <Box
       sx={{
@@ -79,17 +108,12 @@ export default function SignIn() {
         component="img"
         src="/images/logos/neuracorp-ai-icon_fond.png"
         alt="Neuracorp AI Icon"
-        sx={{
-          width: 80,
-          height: 80,
-          left: "calc(50% - 50px)",
-          top: 50,
-        }}
+        sx={{ width: 80, height: 80, left: "calc(50% - 50px)", top: 50 }}
       />
       <Box
         component="img"
         src="/images/logos/neuracorp_sans_logo.png"
-        alt="Horizontal Logo"
+        alt="Neuracorp Logo"
         sx={{
           width: 180,
           height: "auto",
@@ -99,21 +123,13 @@ export default function SignIn() {
         }}
       />
 
-      {/* Titre principal */}
       <Typography
         variant="h4"
-        sx={{
-          fontWeight: 600,
-          color: "#34495E",
-          textAlign: "center",
-          mt: 4,
-          mb: 2,
-        }}
+        sx={{ fontWeight: 600, color: "#34495E", textAlign: "center", mt: 4, mb: 2 }}
       >
         Connexion
       </Typography>
 
-      {/* Paragraphe de sous-titre / description */}
       <Typography
         sx={{
           fontWeight: 400,
@@ -127,64 +143,54 @@ export default function SignIn() {
         Entrez vos identifiants pour accéder à votre tableau de bord.
       </Typography>
 
-      {/* Conteneur du formulaire */}
-      <Box
-        sx={{
-          width: "90%",
-          maxWidth: "348px",
-          p: 2,
-        }}
-      >
+      {/* ---------------------------- Formulaire login ---------------------------- */}
+      <Box sx={{ width: "90%", maxWidth: 348, p: 2 }}>
         <form onSubmit={handleSubmit}>
           <Stack spacing={2}>
-            <Box>
-              <TextField
-                fullWidth
-                variant="outlined"
-                label="Email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-                sx={{
-                  backgroundColor: "#FFFFFF",
-                  borderRadius: "8px",
-                  "& .MuiOutlinedInput-root": {
-                    "& fieldset": {
-                      borderColor: "#F0F0F0",
-                      borderWidth: "1.5px",
-                      borderRadius: "8px",
-                    },
+            <TextField
+              fullWidth
+              variant="outlined"
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+              autoComplete="username"
+              sx={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: "8px",
+                "& .MuiOutlinedInput-root": {
+                  "& fieldset": {
+                    borderColor: "#F0F0F0",
+                    borderWidth: "1.5px",
+                    borderRadius: "8px",
                   },
-                }}
-              />
-            </Box>
+                },
+              }}
+            />
 
-            {/* Champ Password */}
-            <Box>
-              <TextField
-                fullWidth
-                variant="outlined"
-                label="Password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                sx={{
-                  backgroundColor: "#FFFFFF",
-                  borderRadius: "8px",
-                  "& .MuiOutlinedInput-root": {
-                    "& fieldset": {
-                      borderColor: "#F0F0F0",
-                      borderWidth: "1.5px",
-                      borderRadius: "8px",
-                    },
+            <TextField
+              fullWidth
+              variant="outlined"
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              autoComplete="current-password"
+              sx={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: "8px",
+                "& .MuiOutlinedInput-root": {
+                  "& fieldset": {
+                    borderColor: "#F0F0F0",
+                    borderWidth: "1.5px",
+                    borderRadius: "8px",
                   },
-                }}
-              />
-            </Box>
+                },
+              }}
+            />
 
-            {/* Bouton "Login" */}
             <Button
               type="submit"
               disabled={loading}
@@ -196,24 +202,17 @@ export default function SignIn() {
                 fontSize: "13px",
                 textTransform: "none",
                 py: 1.2,
-                ":hover": {
-                  backgroundColor: "#3AB19B",
-                },
+                ":hover": { backgroundColor: "#3AB19B" },
               }}
             >
               {loading ? "Signing In..." : "Login"}
             </Button>
 
-            {/* Lien Forgot password*/}
             <Box sx={{ textAlign: "center" }}>
               <Link
                 href="#"
                 underline="none"
-                sx={{
-                  fontWeight: 700,
-                  fontSize: "13px",
-                  color: "#34495E",
-                }}
+                sx={{ fontWeight: 700, fontSize: "13px", color: "#34495E" }}
               >
                 Forgot password?
               </Link>
@@ -222,21 +221,7 @@ export default function SignIn() {
         </form>
       </Box>
 
-      {/* Autre paragraphe optionnel sous le formulaire */}
-      {/* <Typography
-        sx={{
-          fontWeight: 400,
-          fontSize: "11px",
-          lineHeight: "24px",
-          textAlign: "center",
-          color: "#9CADBF",
-          mt: 2,
-        }}
-      >
-        Some secondary text here (optionnel).
-      </Typography> */}
-
-      {/* Pied de page */}
+      {/* ---------------------------------- Footer --------------------------------- */}
       <Typography
         sx={{
           position: "absolute",

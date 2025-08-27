@@ -1,4 +1,3 @@
-// src/app/api/products/route.ts
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -6,20 +5,68 @@ import prisma from '@/utils/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/authOptions'
 
+/**
+ * GET /api/products
+ * -----------------------------------------------------------------------------
+ * Expose la liste des produits selon le périmètre d’accès de l’appelant.
+ *
+ * Sécurité & autorisations
+ * - Requiert une session valide.
+ * - Règles d’accès :
+ *   • ADMIN : peut lister tous les produits (tous centres) ou filtrer
+ *     par centre via ?asUserId=<id>.
+ *   • CLIENT (centre) :
+ *       - Sans asUserId : ne voit que ses propres produits.
+ *       - Avec asUserId : doit être ADMIN_USER et manager du centre ciblé.
+ *
+ * Paramètres de requête
+ * - asUserId?: number — Facultatif. Cible un centre géré (ADMIN/ADMIN_USER).
+ *
+ * Forme de la réponse (200)
+ * [
+ *   {
+ *     id: number,
+ *     name: string,
+ *     description: string | null,
+ *     centres: [
+ *       {
+ *         id: number,
+ *         name: string | null,
+ *         email: string,
+ *         role: 'ADMIN_USER' | 'USER' | null,
+ *         address: string | null,
+ *         city: string | null,
+ *         postalCode: string | null,
+ *         country: string | null,
+ *         assignedAt: string (ISO)
+ *       }, ...
+ *     ]
+ *   }, ...
+ * ]
+ *
+ * Codes de réponse
+ * - 200 : succès.
+ * - 400 : paramètre invalide.
+ * - 401 : non authentifié.
+ * - 403 : accès interdit.
+ * - 500 : erreur interne.
+ */
 export async function GET(request: NextRequest) {
+  // 1) Contrôle d’accès : session requise
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // 2) Hydrate le contexte d’appelant (id/role) et charge le centreRole si compte “centre”
   const sessionUserId = Number(session.user.id)
-  const sessionRole = session.user.role as 'ADMIN' | 'CLIENT' // Role enum
-  // centreRole n'est défini que pour les comptes “centre”
+  const sessionRole = session.user.role as 'ADMIN' | 'CLIENT'
   const currentUser = await prisma.user.findUnique({
     where: { id: sessionUserId },
     select: { centreRole: true },
   })
 
+  // 3) Lecture/validation du filtre asUserId
   const { searchParams } = request.nextUrl
   const asUserIdParam = searchParams.get('asUserId')
   const asUserId = asUserIdParam ? Number(asUserIdParam) : undefined
@@ -28,12 +75,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // =======================
-    // 1) SUPER-ADMIN (role=ADMIN)
-    // =======================
+    // -------------------------------------------------------------------------
+    // Cas A — Rôle ADMIN : visibilité globale, avec ou sans filtre asUserId
+    // -------------------------------------------------------------------------
     if (sessionRole === 'ADMIN') {
+      // A1) Sans asUserId : retourne tous les produits et leurs centres affiliés
       if (!asUserId) {
-        // Comportement actuel: tous les produits + tous les centres
         const products = await prisma.product.findMany({
           select: {
             id: true,
@@ -79,7 +126,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(formatted, { status: 200 })
       }
 
-      // ADMIN + asUserId → filtre sur ce centre
+      // A2) Avec asUserId : limite aux produits affiliés à ce centre
       const products = await prisma.product.findMany({
         where: { userProducts: { some: { userId: asUserId } } },
         select: {
@@ -127,13 +174,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(formatted, { status: 200 })
     }
 
-    // =======================
-    // 2) ADMIN_USER ou USER
-    // =======================
+    // -------------------------------------------------------------------------
+    // Cas B — Rôle CLIENT (ADMIN_USER ou USER)
+    // -------------------------------------------------------------------------
     let effectiveUserId = sessionUserId
 
+    // B1) Ciblage d’un autre centre : requis ADMIN_USER + relation de gestion
     if (asUserId && asUserId !== sessionUserId) {
-      // Seuls les ADMIN_USER peuvent cibler un centre géré
       if (currentUser?.centreRole !== 'ADMIN_USER') {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
       }
@@ -149,7 +196,7 @@ export async function GET(request: NextRequest) {
       effectiveUserId = asUserId
     }
 
-    // Produits assignés à l'utilisateur “effectif”
+    // B2) Récupère les produits affiliés à l’utilisateur “effectif” (soi ou centre géré)
     const products = await prisma.product.findMany({
       where: { userProducts: { some: { userId: effectiveUserId } } },
       select: {
@@ -196,6 +243,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(formatted, { status: 200 })
   } catch (err) {
+    // Journalisation côté serveur — ne pas exposer de détails applicatifs
     console.error('Error fetching products:', err)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }

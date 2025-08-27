@@ -24,7 +24,24 @@ import {
 import { orange, green, red } from "@mui/material/colors";
 import { useCentre } from "@/app/context/CentreContext";
 
-// ---- Types ----
+/**
+ * Page « Support / Tickets » (côté client)
+ * --------------------------------------------------------------------
+ * Objectifs :
+ *  - Permettre la création de tickets support.
+ *  - Afficher la liste des tickets de l’utilisateur courant
+ *    ou, si un centre est sélectionné (Super Admin/Directeur), les tickets du centre ciblé.
+ *
+ * Principes clés :
+ *  - Centre-aware : toutes les opérations (lecture/écriture) respectent le centre sélectionné
+ *    via `asUserId` quand présent.
+ *  - UI simple en deux onglets : création et consultation.
+ *  - Gestion d’état locale, retours d’erreurs/succès explicites.
+ */
+
+// ==============================
+// Types de données
+// ==============================
 interface Ticket {
   id: number;
   subject: string;
@@ -34,7 +51,16 @@ interface Ticket {
   updatedAt: string;
 }
 
-// ---- UI helpers ----
+// ==============================
+// Aides UI (statut & utils)
+// ==============================
+
+/**
+ * Pastille colorée reflétant le statut d’un ticket.
+ * - PENDING: orange
+ * - IN_PROGRESS: vert
+ * - CLOSED: rouge
+ */
 const StatusDot = ({ status }: { status: Ticket["status"] }) => {
   let color: string = orange[500];
   if (status === "IN_PROGRESS") color = green[500];
@@ -53,18 +79,28 @@ const StatusDot = ({ status }: { status: Ticket["status"] }) => {
   );
 };
 
+/** Tronque un texte à la longueur demandée (avec ellipsis). */
 const truncate = (text: string, length: number) =>
   text.length > length ? text.slice(0, length) + "..." : text;
 
-// ---- Création ticket (centre-aware) ----
+// ==============================
+// Formulaire de création de ticket
+// ==============================
+
+/**
+ * Formulaire de création d’un ticket.
+ * - Respecte le contexte « centre » : si un centre est sélectionné, envoie `asUserId` au backend.
+ * - Expose un callback `onSuccess` pour piloter l’UI parent (ex. basculer d’onglet).
+ */
 const TicketForm = ({ onSuccess }: { onSuccess: () => void }) => {
-  const { selectedUserId } = useCentre(); // ← centre-aware
+  const { selectedUserId } = useCentre();
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  /** Soumission du formulaire : POST /api/tickets (optionnellement avec `asUserId`). */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -86,7 +122,7 @@ const TicketForm = ({ onSuccess }: { onSuccess: () => void }) => {
         setSuccessMessage(data.message || "Ticket créé avec succès.");
         setSubject("");
         setMessage("");
-        onSuccess(); // bascule sur l’onglet “Mes tickets”
+        onSuccess();
       } else {
         setErrorMessage(data.error || "Erreur lors de la création du ticket.");
       }
@@ -144,14 +180,23 @@ const TicketForm = ({ onSuccess }: { onSuccess: () => void }) => {
   );
 };
 
-// ---- Liste des tickets (centre-aware) ----
+// ==============================
+// Liste des tickets
+// ==============================
+
+/**
+ * Liste de tickets pour l’utilisateur courant ou pour le centre sélectionné.
+ * - Lecture via GET /api/tickets (optionnellement `asUserId`).
+ * - Affichage sous forme de cartes cliquables ouvrant un détail en modal.
+ */
 const TicketsList = () => {
-  const { selectedUserId, selectedCentre } = useCentre(); // ← centre-aware
+  const { selectedUserId, selectedCentre } = useCentre();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
+  /** Récupération des tickets. Se relance au changement de centre sélectionné. */
   useEffect(() => {
     async function fetchTickets() {
       setLoading(true);
@@ -174,7 +219,7 @@ const TicketsList = () => {
       }
     }
     fetchTickets();
-  }, [selectedUserId]); // ← refetch si changement de centre
+  }, [selectedUserId]);
 
   if (loading)
     return (
@@ -216,6 +261,7 @@ const TicketsList = () => {
         </Card>
       ))}
 
+      {/* Détail du ticket (modal) */}
       <Dialog
         open={Boolean(selectedTicket)}
         onClose={() => setSelectedTicket(null)}
@@ -261,12 +307,21 @@ const TicketsList = () => {
   );
 };
 
-// ---- Page ----
+// ==============================
+// Page principale
+// ==============================
+
+/**
+ * Container principal « Tickets » :
+ * - Redirige vers la page de connexion si non authentifié.
+ * - Gère les onglets : création / consultation.
+ */
 const TicketsPage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [tab, setTab] = useState(0);
 
+  /** Sécurité de route : redirection si l’utilisateur n’est pas connecté. */
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/authentication/signin");
@@ -275,7 +330,7 @@ const TicketsPage = () => {
 
   return (
     <Box sx={{ px: 4, py: 3, bgcolor: "#f5f5f5", minHeight: "100vh" }}>
-      {/* Bandeau d'en-tête */}
+      {/* En-tête de section Support */}
       <Box sx={{ backgroundColor: "#f5f5f5", py: 3, px: 2, mb: 4 }}>
         <Typography variant="h2" fontWeight="bold" sx={{ mb: 1 }}>
           Support
@@ -287,7 +342,7 @@ const TicketsPage = () => {
         </Typography>
       </Box>
 
-      {/* Contenu */}
+      {/* Contenu principal : onglets et vue active */}
       <Box sx={{ backgroundColor: "#fff", borderRadius: 2, boxShadow: 1, p: 3 }}>
         <Typography variant="h5" fontWeight="bold" gutterBottom>
           Tickets

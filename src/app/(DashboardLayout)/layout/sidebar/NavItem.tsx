@@ -1,88 +1,102 @@
 import React from "react";
-// mui imports
-import {
-  ListItemIcon,
-  ListItem,
-  List,
-  styled,
-  ListItemText,
-  useTheme,
-  ListItemButton,
-} from "@mui/material";
 import Link from "next/link";
+import {
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  styled,
+} from "@mui/material";
 
-type NavGroup = {
-  [x: string]: any;
+/**
+ * Contrat de configuration pour un élément de navigation latérale.
+ * - `icon` est un composant d’icône (ex. Tabler) recevant les props `stroke` et `size`.
+ * - `href` peut être interne (Next.js) ou externe (avec `external: true`).
+ */
+export type NavItemConfig = {
   id?: string;
-  navlabel?: boolean;
-  subheader?: string;
   title?: string;
-  icon?: any;
-  href?: any;
-  onClick?: React.MouseEvent<HTMLButtonElement, MouseEvent>;
+  icon?: React.ElementType<any>;
+  href?: string;
+  disabled?: boolean;
+  external?: boolean;
 };
 
-interface ItemType {
-  item: NavGroup;
-  onClick: (event: React.MouseEvent<HTMLElement>) => void;
-  hideMenu?: any;
-  level?: number | any;
+/**
+ * Contrat des props du composant `NavItem`.
+ * - `pathDirect` est l’URL actuelle (pour marquer l’item sélectionné).
+ * - `level` permet de styliser différemment les sous-niveaux.
+ * - `onClick` est invoqué au clic (fermeture du menu, tracking, etc.).
+ */
+type NavItemProps = {
+  item: NavItemConfig;
   pathDirect: string;
-}
+  level?: number;
+  onClick: (event: React.MouseEvent<HTMLElement>) => void;
+};
 
-const NavItem = ({ item, level, pathDirect, onClick }: ItemType) => {
-  const Icon = item.icon;
-  const theme = useTheme();
-  const itemIcon = <Icon stroke={1.5} size="1.3rem" />;
-
-  const ListItemStyled = styled(ListItem)(() => ({
-    padding: 0,
-    ".MuiButtonBase-root": {
-      whiteSpace: "nowrap",
-      marginBottom: "2px",
-      padding: "8px 10px",
-      borderRadius: "8px",
-      backgroundColor: level > 1 ? "transparent !important" : "inherit",
-      color: theme.palette.text.secondary,
-      paddingLeft: "10px",
+/**
+ * Style de l’élément de liste pour garantir :
+ * - cohérence des espacements et rayons de bordure
+ * - états hover/selected harmonisés
+ * - gestion d’un style plus neutre pour les niveaux profonds
+ */
+const ListItemStyled = styled(ListItem, {
+  shouldForwardProp: (prop) => prop !== "$level",
+})<{ $level?: number }>(({ theme, $level }) => ({
+  padding: 0,
+  ".MuiButtonBase-root": {
+    whiteSpace: "nowrap",
+    marginBottom: "2px",
+    padding: "8px 10px",
+    borderRadius: "8px",
+    backgroundColor: $level && $level > 1 ? "transparent !important" : "inherit",
+    color: theme.palette.text.secondary,
+    paddingLeft: "10px",
+    "&:hover": {
+      backgroundColor: theme.palette.primary.light,
+      color: "#48C8AF",
+    },
+    "&.Mui-selected": {
+      color: "white",
+      backgroundColor: "#48C8AF",
       "&:hover": {
-        backgroundColor: theme.palette.primary.light,
-        color: "#48C8AF",
-      },
-      "&.Mui-selected": {
-        color: "white",
         backgroundColor: "#48C8AF",
-        "&:hover": {
-          backgroundColor: "#48C8AF",
-          color: "white",
-        },
+        color: "white",
       },
     },
-  }));
+  },
+}));
+
+/**
+ * Élément de navigation :
+ * - rend un lien interne (Next Link) ou externe selon la config
+ * - affiche une icône et un libellé
+ * - gère l’état sélectionné en fonction de `pathDirect`
+ */
+const NavItem = ({ item, level, pathDirect, onClick }: NavItemProps) => {
+  const Icon = item.icon as React.ElementType<any> | undefined;
 
   return (
     <List component="div" disablePadding key={item.id}>
-      <ListItemStyled>
+      <ListItemStyled $level={level}>
         <ListItemButton
           component={Link}
-          href={item.href}
+          href={item.href || "#"}
           disabled={item.disabled}
-          selected={pathDirect === item.href}
-          target={item.external ? "_blank" : ""}
+          selected={Boolean(item.href) && pathDirect === item.href}
+          target={item.external ? "_blank" : undefined}
+          rel={item.external ? "noopener noreferrer" : undefined}
           onClick={onClick}
         >
-          <ListItemIcon
-            sx={{
-              minWidth: "36px",
-              p: "3px 0",
-              color: "inherit",
-            }}
-          >
-            {itemIcon}
-          </ListItemIcon>
-          <ListItemText>
-            <>{item.title}</>
-          </ListItemText>
+          {Icon && (
+            <ListItemIcon sx={{ minWidth: "36px", p: "3px 0", color: "inherit" }}>
+              <Icon stroke={1.5} size="1.3rem" />
+            </ListItemIcon>
+          )}
+
+          <ListItemText primary={item.title} />
         </ListItemButton>
       </ListItemStyled>
     </List>

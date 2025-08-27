@@ -1,4 +1,3 @@
-// src/app/api/tickets/route.ts
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -7,7 +6,38 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/authOptions'
 import { z } from 'zod'
 
-// ------- helpers -------
+/**
+ * API Tickets (centre-aware)
+ * -----------------------------------------------------------------------------
+ * Finalité
+ * - GET  : lister les tickets du compte courant ou d’un centre géré (ADMIN_USER).
+ * - POST : créer un ticket pour soi ou pour un centre géré (ADMIN_USER).
+ *
+ * Sécurité & contrôle d’accès
+ * - Authentification requise pour toutes les opérations (NextAuth).
+ * - Ciblage d’un autre centre via `asUserId` réservé aux utilisateurs `ADMIN_USER`
+ *   et uniquement pour les centres dont ils sont “manager”.
+ *
+ * Modèle d’erreurs
+ * - 401 Unauthorized : utilisateur non connecté.
+ * - 403 Forbidden    : rôle/portée insuffisants.
+ * - 400 Bad Request  : paramètres invalides (ex: asUserId non numérique, payload invalide).
+ * - 500 Internal     : erreur serveur générique (détails en logs uniquement).
+ *
+ * Stratégie de rendu / cache
+ * - `force-dynamic` : réponses spécifiques à l’utilisateur, non cacheables.
+ */
+
+/**
+ * Résout l’ID d’utilisateur “effectif” à utiliser pour les opérations (centre-aware).
+ * - Par défaut : l’utilisateur de session.
+ * - Avec `asUserId` : nécessite `ADMIN_USER` + relation de gestion (manager -> centre).
+ *
+ * @param sessionUserId - Identifiant de l’utilisateur courant
+ * @param request       - Requête HTTP (pour lecture des query params)
+ * @throws { status: number, msg: string } en cas d’accès interdit ou paramètre invalide
+ * @returns number - userId effectif à utiliser en base
+ */
 async function resolveEffectiveUserId(sessionUserId: number, request: NextRequest) {
   const { searchParams } = request.nextUrl
   const asUserIdParam = searchParams.get('asUserId')
@@ -40,7 +70,13 @@ async function resolveEffectiveUserId(sessionUserId: number, request: NextReques
   return effectiveUserId
 }
 
-// ------- GET: liste des tickets (centre-aware) -------
+/**
+ * GET /api/tickets
+ * -----------------------------------------------------------------------------
+ * Récupère la liste des tickets pour le user effectif.
+ * Supporte `asUserId` (centre géré) avec contrôles décrits dans `resolveEffectiveUserId`.
+ * Tri descendant par date de création.
+ */
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) {
@@ -70,7 +106,14 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ------- POST: création ticket (centre-aware) -------
+/**
+ * POST /api/tickets
+ * -----------------------------------------------------------------------------
+ * Crée un ticket pour le user effectif :
+ * - Si `asUserId` est fourni : doit être `ADMIN_USER` et manager du centre ciblé.
+ * - Le créateur (`createdById`) reste l’utilisateur courant (traçabilité).
+ * - Notifie le premier ADMIN trouvé pour traitement.
+ */
 const TicketSchema = z.object({
   subject: z.string().min(1),
   message: z.string().min(1),
@@ -106,6 +149,8 @@ export async function POST(request: NextRequest) {
       data: { userId: effectiveUserId, createdById: sessionUserId, subject, message },
     })
 
+    // Notification simple vers un ADMIN (si présent). En cas de multi-admins,
+    // envisager une diffusion plus robuste (broadcast) ou un système d’affectation.
     const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } })
     if (admin) {
       const actor = session.user.name ?? session.user.email
