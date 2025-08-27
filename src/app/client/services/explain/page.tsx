@@ -16,10 +16,13 @@ import MetricDonut from "@/components/MetricDonut";
 import MultiCurveChart from "@/components/MultiCurveChart";
 import { useCentre } from "@/app/context/CentreContext";
 
+/** Élément de commentaire patient associé à un mois. */
 interface CommentItem {
   date: string;
   comment: string;
 }
+
+/** Structure d’un point de métriques mensuelles pour Explain + Satisfy. */
 export interface CHUData {
   month: string;
   fullMonth: string;
@@ -31,19 +34,28 @@ export interface CHUData {
   moyenne: number;
   [key: string]: string | number;
 }
+
+/** Détails Explain renvoyés par l’API pour un produit utilisateur. */
 interface ExplainDetails {
   metricsByMonth: CHUData[];
   commentsByMonth: Record<string, CommentItem[]>[];
 }
+
+/** Lien produit-utilisateur tel que servi par /api/client. */
 interface UserProduct {
   product: { id: number; name: string };
   explainDetails: ExplainDetails | null;
 }
+
+/** Payload minimal de /api/client exploité par cette page. */
 interface ClientData {
   userProducts: UserProduct[];
 }
+
+/** Ensemble typé des clés de métriques représentées en anneaux. */
 type MetricKey = "moyenne" | "rdv" | "accueil" | "examen" | "secretaire" | "attente";
 
+/** Définition des courbes (libellés/couleurs/tooltip) affichées dans le graphique. */
 const curves = [
   { key: "moyenne", label: "Moyenne", color: "#838383", comment: "Note moyenne globale du mois sélectionné." },
   { key: "rdv", label: "RDV", color: "#1976d2", comment: "Satisfaction liée à la prise de rendez-vous." },
@@ -54,21 +66,31 @@ const curves = [
 ];
 
 export default function ExplainPage() {
+  /** Gestion session, navigation et contexte (centre sélectionné côté admin). */
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { selectedUserId, selectedCentre } = useCentre(); // 👈
+  const { selectedUserId, selectedCentre } = useCentre();
 
+  /** États d’affichage et de données. */
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<CHUData[]>([]);
   const [commentsMap, setCommentsMap] = useState<Record<string, CommentItem[]>>({});
   const [selectedMonth, setSelectedMonth] = useState<string>("");
 
+  /** Redirection si l’utilisateur n’est pas authentifié. */
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/authentication/signin");
     }
   }, [status, router]);
 
+  /**
+   * Chargement des métriques Explain :
+   * - Appelle /api/client (ou /api/client?asUserId=...) selon le centre sélectionné
+   * - Identifie le produit "Explain"
+   * - Normalise les commentaires sous forme de map { mois -> commentaires[] }
+   * - Sélectionne par défaut le premier mois retourné
+   */
   useEffect(() => {
     if (status !== "authenticated") return;
 
@@ -80,7 +102,6 @@ export default function ExplainPage() {
         setCommentsMap({});
         setSelectedMonth("");
 
-        // 👇 construit l’URL selon le centre sélectionné
         const url = selectedUserId
           ? `/api/client?asUserId=${selectedUserId}`
           : `/api/client`;
@@ -107,7 +128,7 @@ export default function ExplainPage() {
 
         setMetrics(m);
 
-        // Fusionne les commentaires par mois
+        // Fusion des maps de commentaires en une seule map indexée par mois.
         const merged: Record<string, CommentItem[]> = {};
         (explainUP.explainDetails.commentsByMonth || []).forEach((obj) => {
           Object.entries(obj).forEach(([mois, commentaires]) => {
@@ -115,6 +136,7 @@ export default function ExplainPage() {
           });
         });
 
+        // Garantit une entrée de commentaires pour chaque mois de métriques.
         const cMap: Record<string, CommentItem[]> = {};
         m.forEach(({ month }) => { cMap[month] = merged[month] || []; });
         setCommentsMap(cMap);
@@ -130,9 +152,12 @@ export default function ExplainPage() {
       }
     })();
 
-    return () => { cancelled = true; };
-  }, [status, selectedUserId]); // 👈 refetch quand on change de centre
+    return () => {
+      cancelled = true;
+    };
+  }, [status, selectedUserId]);
 
+  /** États transitoires (chargement / absence de données). */
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
@@ -151,13 +176,14 @@ export default function ExplainPage() {
     );
   }
 
+  /** Données du mois actuellement sélectionné (métriques + commentaires). */
   const selectedMonthData = metrics.find((d) => d.month === selectedMonth)!;
   const commentsData = commentsMap[selectedMonth] || [];
   const fullMonthName = selectedMonthData.fullMonth;
 
   return (
     <Box sx={{ backgroundColor: "#F8F8F8", minHeight: "100vh", p: 4, overflow: "auto" }}>
-      {/* Header */}
+      {/* En-tête (titre + sous-titre contextualisé selon centre sélectionné) */}
       <Box sx={{ textAlign: "left", mb: 4 }}>
         <Typography variant="h1">
           <Box component="span" sx={{ fontWeight: 900 }}>LYRAE©</Box> Explain + Satisfy
@@ -169,7 +195,7 @@ export default function ExplainPage() {
         </Typography>
       </Box>
 
-      {/* Chart + Donuts */}
+      {/* Zone principale : graphique multi-courbes + panneaux de métriques mensuelles */}
       <Grid container spacing={2} sx={{ mb: 4 }}>
         <Grid item xs={12} md={7}>
           <MultiCurveChart data={metrics} curves={curves} />
@@ -194,6 +220,7 @@ export default function ExplainPage() {
                 ))}
               </Select>
             </Box>
+
             <Grid container spacing={1} sx={{ flexGrow: 1 }}>
               <Grid item xs={5}>
                 <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
@@ -229,7 +256,7 @@ export default function ExplainPage() {
         </Grid>
       </Grid>
 
-      {/* Commentaires */}
+      {/* Liste des commentaires du mois sélectionné */}
       <Paper sx={{ p: 3, backgroundColor: "#FFF" }}>
         <Typography variant="h5">Les commentaires de votre service</Typography>
         <Typography variant="subtitle1" sx={{ mb: 3 }}>

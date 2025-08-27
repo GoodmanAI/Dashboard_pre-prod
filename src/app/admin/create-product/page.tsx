@@ -15,24 +15,46 @@ import {
 } from "@mui/material";
 import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elements/CustomTextField";
 
+/**
+ * Page d’administration : création d’un produit.
+ * Responsabilités :
+ *  - Gérer un formulaire contrôlé (nom, description).
+ *  - Afficher une boîte de confirmation avant soumission.
+ *  - Appeler l’API `/api/admin/create-product` et gérer les retours (succès/erreur).
+ *  - Fournir un retour utilisateur clair (Alertes).
+ */
 export default function CreateProductPage() {
+  /** État du formulaire (contrôlé). */
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+
+  /** État UI (chargement, modale, messages, erreurs de validation backend). */
   const [loading, setLoading] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ field?: string; message: string }[]>([]);
 
+  /**
+   * Ouvre la boîte de dialogue de confirmation au submit du formulaire.
+   * Intercepte le submit pour éviter l’envoi direct au backend.
+   */
   const handleOpenDialog = (e: React.FormEvent) => {
     e.preventDefault();
     setOpenDialog(true);
   };
 
+  /** Ferme la boîte de dialogue de confirmation. */
   const handleCloseDialog = () => {
     setOpenDialog(false);
   };
 
+  /**
+   * Valide la création côté serveur.
+   * - POST sur `/api/admin/create-product`.
+   * - Nettoie le formulaire si succès.
+   * - Alimente les messages et erreurs si échec.
+   */
   const handleCreateProduct = async () => {
     setLoading(true);
     setErrors([]);
@@ -46,7 +68,9 @@ export default function CreateProductPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, description }),
       });
+
       const data = await response.json();
+
       if (response.ok) {
         setSuccessMessage("Produit créé avec succès ! ✅");
         setName("");
@@ -60,13 +84,17 @@ export default function CreateProductPage() {
           setErrorMessage(data.error || "Une erreur s'est produite.");
         }
       }
-    } catch (err) {
+    } catch {
       setErrorMessage("Une erreur inattendue s'est produite.");
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * Rendu : formulaire, boîte de confirmation, et messages utilisateur.
+   * Le formulaire est volontairement simple (nom + description optionnelle).
+   */
   return (
     <Box
       sx={{
@@ -81,8 +109,11 @@ export default function CreateProductPage() {
       <Typography fontWeight="700" variant="h4" textAlign="center" mb={2}>
         Créer un produit
       </Typography>
+
+      {/* Formulaire principal contrôlé */}
       <form onSubmit={handleOpenDialog}>
         <Stack spacing={3}>
+          {/* Champ : Nom du produit */}
           <Box>
             <Typography variant="subtitle1" fontWeight={600} component="label" htmlFor="name" mb="5px">
               Nom du produit
@@ -99,6 +130,8 @@ export default function CreateProductPage() {
               helperText={errors.find((err) => err.field === "name")?.message || ""}
             />
           </Box>
+
+          {/* Champ : Description (optionnelle) */}
           <Box>
             <Typography variant="subtitle1" fontWeight={600} component="label" htmlFor="description" mb="5px">
               Description (optionnel)
@@ -115,6 +148,8 @@ export default function CreateProductPage() {
               helperText={errors.find((err) => err.field === "description")?.message || ""}
             />
           </Box>
+
+          {/* CTA : Soumission (ouvre la modale de confirmation) */}
           <Box>
             <Button color="primary" variant="contained" size="large" fullWidth type="submit" disabled={loading}>
               {loading ? "Création en cours…" : "Créer le produit"}
@@ -123,7 +158,7 @@ export default function CreateProductPage() {
         </Stack>
       </form>
 
-      {/* Confirmation Dialog */}
+      {/* Modale de confirmation avant envoi serveur */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
@@ -154,7 +189,7 @@ export default function CreateProductPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Messages de succès et d'erreur */}
+      {/* Messages de statut utilisateur */}
       {successMessage && <Alert severity="success" sx={{ mt: 2 }}>{successMessage}</Alert>}
       {errorMessage && <Alert severity="error" sx={{ mt: 2 }}>{errorMessage}</Alert>}
     </Box>

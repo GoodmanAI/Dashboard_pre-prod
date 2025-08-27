@@ -11,8 +11,11 @@ import {
   Button,
   CircularProgress,
 } from "@mui/material";
-import { useCentre } from "@/app/context/CentreContext"; // 👈
+import { useCentre } from "@/app/context/CentreContext";
 
+/**
+ * Types de données échangées avec l’API / structure locale.
+ */
 interface ClientData {
   id: number;
   name: string;
@@ -35,16 +38,27 @@ interface UserProduct {
   assignedAt: string;
 }
 
+/**
+ * Page d’accueil Client.
+ * - Centre-aware : si un centre est sélectionné, toutes les lectures se font au nom de ce centre (paramètre `asUserId`).
+ * - Charge le profil client/centre puis le catalogue des produits (public) avec fallback robuste.
+ * - Affiche les produits disponibles et l’état d’affiliation pour guider la navigation.
+ */
 const ClientHomePage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { selectedUserId, selectedCentre } = useCentre(); // 👈
+  const { selectedUserId, selectedCentre } = useCentre();
 
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch du client courant (ou du centre sélectionné)
+  /**
+   * Chargement des données principales (client/centre + produits).
+   * - Construit l’URL client selon le centre sélectionné.
+   * - Préserve l’UI en cas d’erreur via des fallbacks (produits affiliés).
+   * - Utilise un flag `cancelled` pour éviter tout setState après un unmount.
+   */
   useEffect(() => {
     if (status !== "authenticated") return;
 
@@ -53,7 +67,7 @@ const ClientHomePage = () => {
       try {
         setLoading(true);
 
-        // 👇 centre-aware
+        // URL du client/centre (centre-aware).
         const clientUrl = selectedUserId
           ? `/api/client?asUserId=${selectedUserId}`
           : `/api/client`;
@@ -64,7 +78,7 @@ const ClientHomePage = () => {
         if (cancelled) return;
         setClientData(client);
 
-        // Charger le catalogue public une seule fois (si pas déjà chargé)
+        // Chargement du catalogue public (une seule fois si possible).
         if (!allProducts.length) {
           const resProducts = await fetch("/api/public/products");
           if (resProducts.ok) {
@@ -74,12 +88,11 @@ const ClientHomePage = () => {
               setAllProducts(
                 productsArray.length
                   ? productsArray
-                  // fallback: si l’API publique n’a rien, on utilise les produits du client
                   : (client.userProducts || []).map((up: UserProduct) => up.product)
               );
             }
           } else {
-            // fallback si l’API publique est indisponible
+            // Fallback si l’API publique est indisponible.
             if (!cancelled) {
               setAllProducts((client.userProducts || []).map((up: UserProduct) => up.product));
             }
@@ -87,7 +100,7 @@ const ClientHomePage = () => {
         }
       } catch (error) {
         console.error("Error fetching data", error);
-        // fallback minimal pour ne pas bloquer l’UI
+        // Fallback minimal pour ne pas bloquer l’UI.
         if (clientData?.userProducts?.length && !allProducts.length) {
           setAllProducts(clientData.userProducts.map((up) => up.product));
         }
@@ -101,12 +114,18 @@ const ClientHomePage = () => {
     };
   }, [status, selectedUserId]);
 
+  /**
+   * Sécurisation de route : redirection vers la page de connexion si non authentifié.
+   */
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/authentication/signin");
     }
   }, [status, router]);
 
+  /**
+   * État de chargement global.
+   */
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
@@ -119,18 +138,25 @@ const ClientHomePage = () => {
     );
   }
 
+  /**
+   * Aucun produit disponible (public ni affilié).
+   */
   if (!allProducts.length) {
     return <Typography>Aucun produit trouvé.</Typography>;
   }
 
+  // Tri stable par id pour un rendu déterministe.
   const sortedProducts = [...allProducts].sort((a, b) => a.id - b.id);
 
-  // Map d’affiliation pour le client/centre affiché
+  // Index des affiliations pour consultation O(1).
   const affiliatedMap = new Map<number, UserProduct>();
   clientData?.userProducts.forEach((up) => {
     affiliatedMap.set(up.product.id, up);
   });
 
+  /**
+   * Mise en forme du nom « LYRAE » (accent de marque).
+   */
   const renderProductName = (name: string) => {
     if (name.toLowerCase().startsWith("lyrae")) {
       const remainder = name.slice(5);
@@ -144,6 +170,10 @@ const ClientHomePage = () => {
     return name;
   };
 
+  /**
+   * Routage contextuel selon le produit.
+   * - Les pages cibles liront `selectedUserId` via le contexte.
+   */
   const getProductRoute = (name: string) => {
     if (name.toLowerCase().includes("explain")) {
       return "/client/services/explain";
@@ -154,9 +184,13 @@ const ClientHomePage = () => {
     }
   };
 
+  /**
+   * Rendu :
+   * - En-tête de bienvenue contextualisée (centre sélectionné vs propre compte).
+   * - Grille de cartes produits avec statut d’affiliation, date d’adhésion et CTA.
+   */
   return (
     <Box sx={{ backgroundColor: "#F8F8F8", minHeight: "100vh", p: 4 }}>
-      {/* Titre */}
       <Box sx={{ textAlign: "left", mb: 4 }}>
         <Typography variant="h1" sx={{ mb: 1, fontWeight: 500 }}>
           Bienvenue,{" "}
@@ -172,7 +206,6 @@ const ClientHomePage = () => {
         </Typography>
       </Box>
 
-      {/* Grid des cards produits */}
       <Grid container spacing={3}>
         {sortedProducts.map((product) => {
           const affiliated = affiliatedMap.get(product.id);
@@ -199,7 +232,6 @@ const ClientHomePage = () => {
                   m: "auto",
                 }}
               >
-                {/* Titre du produit */}
                 <Typography
                   sx={{
                     fontFamily: "Inter",
@@ -212,7 +244,6 @@ const ClientHomePage = () => {
                   {renderProductName(product.name)}
                 </Typography>
 
-                {/* Statut + date d’adhésion */}
                 <Box
                   sx={{
                     display: "flex",
@@ -269,7 +300,6 @@ const ClientHomePage = () => {
                   )}
                 </Box>
 
-                {/* Description */}
                 <Box
                   sx={{
                     width: "190px",
@@ -295,7 +325,6 @@ const ClientHomePage = () => {
                   </Typography>
                 </Box>
 
-                {/* CTA */}
                 <Box sx={{ flexGrow: 1 }} />
                 <Button
                   variant="contained"
@@ -316,7 +345,7 @@ const ClientHomePage = () => {
                     if (route.startsWith("http")) {
                       window.open(route, "_blank");
                     } else {
-                      router.push(route); // Les pages cibles liront selectedUserId via le contexte
+                      router.push(route);
                     }
                   }}
                 >

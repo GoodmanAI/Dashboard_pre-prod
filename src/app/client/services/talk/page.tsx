@@ -18,11 +18,16 @@ import {
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { IconEye } from "@tabler/icons-react";
-import { useCentre } from "@/app/context/CentreContext"; // 👈
+import { useCentre } from "@/app/context/CentreContext";
 
+/**
+ * Clés « de base » pour le stockage local.
+ * Elles seront « namespacées » dynamiquement par centre/utilisateur.
+ */
 const LOCAL_STORAGE_KEY_INFO = "lyrae_talk_info_fields";
 const LOCAL_STORAGE_KEY_LIBELES = "lyrae_talk_libeles_fields";
 
+/** Modèle statique des lignes pour le document “Informations”. */
 const hardcodedInfoRows = [
   ["Nom du service"],
   ["Adresse"],
@@ -31,6 +36,7 @@ const hardcodedInfoRows = [
   ["Site Web"],
 ];
 
+/** Modèle statique des lignes pour le document “Libellés”. */
 const hardcodedLibelesRows = [
   ["NC001", "Echographie", "US"],
   ["NC002", "IRM", "MR"],
@@ -44,6 +50,7 @@ const hardcodedLibelesRows = [
   ["NC010", "Radiographie Bras", "RX02"],
 ];
 
+/** Typage minimal d’un appel consommé par l’UI. */
 interface Call {
   id: number;
   caller: string;
@@ -56,39 +63,71 @@ interface Call {
   steps: string[];
 }
 
+/** Structure des libellés d’intentions pour l’affichage. */
 interface IntentConfig {
   value: string;
   sing_label: string;
   label: string;
 }
 
+/**
+ * Page LYRAE © Talk (section tableau de bord)
+ * - Agrégats d’appels par intention
+ * - Gestion de documents (Informations / Libellés) avec persistance localStorage
+ * - Contexte « centre » : les données locales sont isolées par centre/utilisateur
+ */
 const TalkPage = () => {
+  /** Contexte d’authentification et navigation. */
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { selectedUserId, selectedCentre } = useCentre(); // 👈
 
+  /** Contexte métier : centre sélectionné (pour admin) ou utilisateur courant. */
+  const { selectedUserId, selectedCentre } = useCentre();
+
+  /** État UI : ouverture modale, type de fichier, formulaire et feedback. */
   const [openModal, setOpenModal] = useState(false);
   const [fileType, setFileType] = useState<"talkInfo" | "talkLibeles" | null>(null);
   const [formValues, setFormValues] = useState<{ [key: string]: string }>({});
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
 
+  /** Définition des intentions supportées pour le compteur. */
   const intents: IntentConfig[] = [
-    { value: "all",          sing_label: "Appel reçu", label: "Appels reçus" },
+    { value: "all",          sing_label: "Appel reçu",  label: "Appels reçus" },
     { value: "prise de rdv", sing_label: "Rendez-vous", label: "Rendez-vous" },
     { value: "urgence",      sing_label: "Urgence",     label: "Urgences" },
   ];
 
+  /** État : compte des appels par intention + progression de chargement. */
   const [callsCountByIntent, setCallsCountByIntent] = useState<number[]>([]);
   const [loadingCalls, setLoadingCalls] = useState<boolean>(true);
 
-  // 🔄 Fetch des appels (centre-aware)
+  /**
+   * Résolution de l’identifiant « cible » pour le stockage (centre sélectionné si admin,
+   * sinon utilisateur courant). Sert à « namespacer » les clés localStorage.
+   */
+  const targetUserId = selectedUserId ?? (session?.user?.id ? Number(session.user.id) : undefined);
+
+  /**
+   * Génère une clé de localStorage isolée par centre/utilisateur pour éviter les collisions
+   * quand un super-admin bascule d’un centre à l’autre.
+   */
+  const makeStorageKey = (type: "talkInfo" | "talkLibeles") => {
+    const base = type === "talkInfo" ? LOCAL_STORAGE_KEY_INFO : LOCAL_STORAGE_KEY_LIBELES;
+    return targetUserId ? `${base}_${targetUserId}` : base;
+  };
+
+  /**
+   * Chargement des appels pour le panneau de synthèse.
+   * - Filtre sur le centre (asUserId) si applicable
+   * - Décompte par intention pour l’affichage
+   */
   useEffect(() => {
     async function fetchCalls() {
       try {
         setLoadingCalls(true);
         const params = new URLSearchParams();
-        params.set("daysAgo", "all"); // tous les appels
-        if (selectedUserId) params.set("asUserId", String(selectedUserId)); // 👈
+        params.set("daysAgo", "all");
+        if (selectedUserId) params.set("asUserId", String(selectedUserId));
 
         const response = await fetch(`/api/calls?${params.toString()}`);
         if (!response.ok) {
@@ -114,25 +153,33 @@ const TalkPage = () => {
     if (status === "authenticated") {
       fetchCalls();
     }
-  }, [status, selectedUserId]); // 👈 refetch quand on change de centre
+  }, [status, selectedUserId]);
 
+  /** Redirection des utilisateurs non authentifiés vers la page de connexion. */
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/authentication/signin");
     }
   }, [status, router]);
 
-  // Modal docs (inchangé)
+  /**
+   * Initialisation des valeurs du formulaire dans la modale
+   * à l’ouverture ET à chaque changement de centre/compte ciblé.
+   * Les données sont lues/écrites dans le localStorage « namespacé ».
+   */
   useEffect(() => {
     if (!fileType || !openModal) return;
 
-    const storageKey = fileType === "talkInfo" ? LOCAL_STORAGE_KEY_INFO : LOCAL_STORAGE_KEY_LIBELES;
+    const storageKey = makeStorageKey(fileType);
+
     const baseData =
       fileType === "talkInfo"
         ? hardcodedInfoRows.map(([label]) => [label, ""])
         : hardcodedLibelesRows.map((row) => [...row, "", "", ""]);
 
-    const stored = localStorage.getItem(storageKey);
+    const stored =
+      typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
+
     if (stored) {
       setFormValues(JSON.parse(stored));
     } else {
@@ -149,26 +196,30 @@ const TalkPage = () => {
     }
 
     setUploadSuccess(null);
-  }, [fileType, openModal]);
+  }, [fileType, openModal, selectedUserId, session?.user?.id]);
 
+  /** Ouvre la modale et définit le type de document à éditer. */
   const handleOpenModal = (type: "talkInfo" | "talkLibeles") => {
     setFileType(type);
     setOpenModal(true);
   };
 
+  /** Persiste les données éditées dans le localStorage « namespacé ». */
   const handleSave = () => {
     if (!fileType) return;
-    const storageKey = fileType === "talkInfo" ? LOCAL_STORAGE_KEY_INFO : LOCAL_STORAGE_KEY_LIBELES;
+    const storageKey = makeStorageKey(fileType);
     localStorage.setItem(storageKey, JSON.stringify(formValues));
     setUploadSuccess("Données enregistrées avec succès.");
   };
 
   return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
+      {/* Titre principal de la page */}
       <Typography variant="h4" gutterBottom>
         LYRAE © Talk
       </Typography>
 
+      {/* Bloc synthèse des appels (agrégés par intention) */}
       <Box sx={{ p: 3, mt: 2, bgcolor: "#fff", borderRadius: 2 }}>
         <Typography variant="h5" gutterBottom>
           Appels Reçus
@@ -194,6 +245,8 @@ const TalkPage = () => {
               <Typography variant="subtitle1" gutterBottom>
                 Total (toutes périodes)
               </Typography>
+
+              {/* Compteurs par intention + état de chargement */}
               <Box
                 sx={{
                   mt: "auto",
@@ -230,6 +283,8 @@ const TalkPage = () => {
                   ))
                 )}
               </Box>
+
+              {/* Lien vers la vue détaillée des appels */}
               <Box sx={{ mt: "auto", pt: 2 }}>
                 <Button
                   variant="outlined"
@@ -252,6 +307,7 @@ const TalkPage = () => {
         </Box>
       </Box>
 
+      {/* Bloc « Mes documents » (édition locale par centre) */}
       <Box sx={{ p: 3, mt: 2, bgcolor: "#fff", borderRadius: 2 }}>
         <Typography variant="h5" gutterBottom>
           Mes documents
@@ -261,6 +317,7 @@ const TalkPage = () => {
         </Typography>
 
         <Box sx={{ display: "flex", gap: 10, flexWrap: "wrap", mt: 2 }}>
+          {/* Carte : Document Informations */}
           <Card
             sx={{
               flex: "1 1 250px",
@@ -297,6 +354,7 @@ const TalkPage = () => {
             </CardContent>
           </Card>
 
+          {/* Carte : Document Libellés */}
           <Card
             sx={{
               flex: "1 1 250px",
@@ -335,9 +393,11 @@ const TalkPage = () => {
         </Box>
       </Box>
 
+      {/* Modale d’édition des documents (données localStorage isolées par centre) */}
       <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="lg" fullWidth>
         <DialogTitle>
           Données de {fileType === "talkInfo" ? "Document Informations" : "Document Libellés"}
+          {selectedCentre?.name ? ` — ${selectedCentre.name}` : ""}
         </DialogTitle>
         <DialogContent dividers sx={{ maxHeight: "70vh", overflowY: "auto" }}>
           <Box sx={{ overflowX: "auto" }}>

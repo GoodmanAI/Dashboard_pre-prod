@@ -1,127 +1,89 @@
 import { useMediaQuery, Box, Drawer } from "@mui/material";
+import { Theme } from "@mui/material/styles";
+import { Sidebar } from "react-mui-sidebar";
 import SidebarItems from "./SidebarItems";
-import { Sidebar, Logo } from 'react-mui-sidebar';
 
+/**
+ * Propriétés du composant MSidebar.
+ * - `isMobileSidebarOpen` : état d’ouverture du tiroir sur mobiles.
+ * - `onSidebarClose` : callback déclenché à la fermeture du tiroir mobile.
+ * - `isSidebarOpen` : état d’ouverture du panneau latéral sur desktop.
+ */
 interface ItemType {
   isMobileSidebarOpen: boolean;
   onSidebarClose: (event: React.MouseEvent<HTMLElement>) => void;
   isSidebarOpen: boolean;
 }
 
-const MSidebar = ({
-  isMobileSidebarOpen,
-  onSidebarClose,
-  isSidebarOpen,
-}: ItemType) => {
-  const lgUp = useMediaQuery((theme: any) => theme.breakpoints.up("lg"));
+/**
+ * Barre latérale applicative (desktop + mobile).
+ * - Utilise un Drawer permanent sur desktop et temporaire sur mobile.
+ * - Encapsule le composant `react-mui-sidebar` pour le rendu et la logique de collapse.
+ * - Centralise la configuration (largeur, couleurs, scrollbars) pour un thème cohérent.
+ */
+const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemType) => {
+  // Point de coupure pour basculer entre desktop et mobile
+  const lgUp = useMediaQuery((theme: Theme) => theme.breakpoints.up("lg"));
 
+  // Largeur fixe du panneau latéral
   const sidebarWidth = "270px";
 
-  // Custom CSS for short scrollbar
+  // Styles de barre de défilement compacts (WebKit)
   const scrollbarStyles = {
-    '&::-webkit-scrollbar': {
-      width: '7px',
-
-    },
-    '&::-webkit-scrollbar-thumb': {
-      backgroundColor: '#eff2f7',
-      borderRadius: '15px',
-    },
+    "&::-webkit-scrollbar": { width: "7px" },
+    "&::-webkit-scrollbar-thumb": { backgroundColor: "#eff2f7", borderRadius: "15px" },
   };
 
-
+  // ----- Affichage desktop (Drawer permanent) -----
   if (lgUp) {
     return (
-      <Box
-        sx={{
-          width: sidebarWidth,
-          flexShrink: 0,
-        }}
-      >
-        {/* ------------------------------------------- */}
-        {/* Sidebar for desktop */}
-        {/* ------------------------------------------- */}
+      <Box sx={{ width: sidebarWidth, flexShrink: 0 }}>
         <Drawer
           anchor="left"
           open={isSidebarOpen}
           variant="permanent"
-          PaperProps={{
-            sx: {
-              boxSizing: "border-box",
-              ...scrollbarStyles,
-            },
-          }}
+          PaperProps={{ sx: { boxSizing: "border-box", ...scrollbarStyles } }}
         >
-          {/* ------------------------------------------- */}
-          {/* Sidebar Box */}
-          {/* ------------------------------------------- */}
-          <Box
-            sx={{
-              height: "100%",
-            }}
-          >
+          <Box sx={{ height: "100%" }}>
             <Sidebar
-              width={'270px'}
+              width={sidebarWidth}
               collapsewidth="80px"
               open={isSidebarOpen}
               themeColor="#5d87ff"
               themeSecondaryColor="#48C8AF"
               showProfile={false}
             >
-              {/* ------------------------------------------- */}
-              {/* Logo */}
-              {/* ------------------------------------------- */}
-              <Box
-                sx={{
-                  p: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
+              {/* Zone logo */}
+              <Box sx={{ p: 2, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Box
                   component="img"
                   src="/images/logos/neuracorp_logo.png"
-                  alt="Logo"
-                  sx={{
-                    width: "210px",
-                    height: "auto",
-                  }}
+                  alt="Logo Neuracorp"
+                  sx={{ width: "210px", height: "auto" }}
                 />
               </Box>
-              <Box>
-                {/* ------------------------------------------- */}
-                {/* Sidebar Items */}
-                {/* ------------------------------------------- */}
-                <SidebarItems />
-{/*                 <Upgrade /> */}
-              </Box>
-            </Sidebar >
+
+              {/* Navigation latérale */}
+              <SidebarItems />
+            </Sidebar>
           </Box>
         </Drawer>
       </Box>
     );
   }
 
+  // ----- Affichage mobile (Drawer temporaire) -----
   return (
     <Drawer
       anchor="left"
       open={isMobileSidebarOpen}
       onClose={onSidebarClose}
       variant="temporary"
-      PaperProps={{
-        sx: {
-          boxShadow: (theme) => theme.shadows[8],
-          ...scrollbarStyles,
-        },
-      }}
+      PaperProps={{ sx: (theme) => ({ boxShadow: theme.shadows[8], ...scrollbarStyles }) }}
     >
-      {/* ------------------------------------------- */}
-      {/* Sidebar Box */}
-      {/* ------------------------------------------- */}
       <Box px={2}>
         <Sidebar
-          width={'270px'}
+          width={sidebarWidth}
           collapsewidth="80px"
           isCollapse={false}
           mode="light"
@@ -130,38 +92,20 @@ const MSidebar = ({
           themeSecondaryColor="#48C8AF"
           showProfile={false}
         >
-          {/* ------------------------------------------- */}
-          {/* Logo */}
-          {/* ------------------------------------------- */}
-          <Box
-              sx={{
-                p: 2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Box
-                component="img"
-                src="/images/logos/neuracorp_logo.png"
-                alt="Logo"
-                sx={{
-                  width: "210px",
-                  height: "auto",
-                }}
-              />
-            </Box>
-          {/* ------------------------------------------- */}
-          {/* Sidebar Items */}
-          {/* ------------------------------------------- */}
+          {/* Zone logo */}
+          <Box sx={{ p: 2, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Box
+              component="img"
+              src="/images/logos/neuracorp_logo.png"
+              alt="Logo Neuracorp"
+              sx={{ width: "210px", height: "auto" }}
+            />
+          </Box>
+
+          {/* Navigation latérale */}
           <SidebarItems />
-{/*           <Upgrade /> */}
         </Sidebar>
       </Box>
-      {/* ------------------------------------------- */}
-      {/* Sidebar For Mobile */}
-      {/* ------------------------------------------- */}
-
     </Drawer>
   );
 };

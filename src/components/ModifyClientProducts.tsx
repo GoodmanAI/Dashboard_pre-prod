@@ -20,6 +20,11 @@ import {
   Alert,
 } from "@mui/material";
 
+/**
+ * Types de base pour les entités manipulées par ce module.
+ * - Client  : cible de la modification (affiliation/désaffiliation produit).
+ * - Product : produit disponible dans le catalogue.
+ */
 interface Client {
   id: number;
   name: string;
@@ -31,7 +36,18 @@ interface Product {
   name: string;
 }
 
+/**
+ * Composant d’administration permettant d’affilier ou de désaffilier
+ * un ensemble de produits à un client donné.
+ *
+ * Principes :
+ * - Récupère la liste des clients et des produits au montage.
+ * - Permet la sélection d’un client, d’un ou plusieurs produits, et d’une action (add/remove).
+ * - Demande confirmation avant de soumettre la modification au backend.
+ * - Affiche clairement l’état (chargement, succès, erreur).
+ */
 export default function ModifyClientProducts() {
+  /* ------------------------- ÉTAT LOCAL ------------------------- */
   const [clients, setClients] = useState<Client[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedClient, setSelectedClient] = useState<number | null>(null);
@@ -42,6 +58,7 @@ export default function ModifyClientProducts() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
+  /* ----------------------- FETCH : CLIENTS ----------------------- */
   useEffect(() => {
     const fetchClients = async () => {
       try {
@@ -50,7 +67,7 @@ export default function ModifyClientProducts() {
         if (response.ok) {
           setClients(data || []);
         } else {
-            setErrorMessage(data.error || "Failed to fetch clients.");
+          setErrorMessage(data.error || "Failed to fetch clients.");
         }
       } catch (err) {
         console.error("Error fetching clients:", err);
@@ -61,6 +78,7 @@ export default function ModifyClientProducts() {
     fetchClients();
   }, []);
 
+  /* ----------------------- FETCH : PRODUITS ---------------------- */
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -80,26 +98,27 @@ export default function ModifyClientProducts() {
     fetchProducts();
   }, []);
 
+  /* ------------------------ HANDLERS UI ------------------------- */
+  // Ouvre/ferme la boîte de dialogue de confirmation
   const handleOpenDialog = () => {
     setConfirmDialogOpen(true);
   };
-
   const handleCloseDialog = () => {
     setConfirmDialogOpen(false);
   };
 
+  // Met à jour la liste des produits sélectionnés (avec date d’affiliation par défaut)
   const handleProductChange = (event: any) => {
     const selectedIds = event.target.value as number[];
-
-    // Créer un tableau avec les dates d'affiliation
     const updatedProducts = selectedIds.map((id) => {
       const existing = selectedProducts.find((p) => p.productId === id);
       return existing || { productId: id, assignedAt: new Date().toISOString() };
     });
-
     setSelectedProducts(updatedProducts);
   };
 
+  /* --------------------- SUBMISSION BACKEND --------------------- */
+  // Soumet l’action (add/remove) avec le client et les produits sélectionnés
   const handleSubmit = async () => {
     setLoading(true);
     setSuccessMessage(null);
@@ -114,7 +133,7 @@ export default function ModifyClientProducts() {
         },
         body: JSON.stringify({
           clientId: selectedClient,
-          products: selectedProducts, // Envoyer { productId, assignedAt }
+          products: selectedProducts, // { productId, assignedAt }
           action,
         }),
       });
@@ -135,12 +154,15 @@ export default function ModifyClientProducts() {
     }
   };
 
+  /* -------------------------- RENDU UI -------------------------- */
   return (
     <Box>
+      {/* Titre de section */}
       <Typography variant="h5" mb={2}>
         Modify Client Products
       </Typography>
 
+      {/* Sélection du client cible */}
       <FormControl fullWidth margin="normal">
         <InputLabel id="client-select-label">Select Client</InputLabel>
         <Select
@@ -149,10 +171,7 @@ export default function ModifyClientProducts() {
           onChange={(e) => setSelectedClient(Number(e.target.value))}
           MenuProps={{
             PaperProps: {
-              style: {
-                maxHeight: 200,
-                overflowY: "auto",
-              },
+              style: { maxHeight: 200, overflowY: "auto" },
             },
           }}
         >
@@ -164,6 +183,7 @@ export default function ModifyClientProducts() {
         </Select>
       </FormControl>
 
+      {/* Sélection multi-produits (affichage en Chips) */}
       <FormControl fullWidth margin="normal">
         <InputLabel id="product-select-label">Select Products</InputLabel>
         <Select
@@ -173,10 +193,7 @@ export default function ModifyClientProducts() {
           onChange={handleProductChange}
           MenuProps={{
             PaperProps: {
-              style: {
-                maxHeight: 200,
-                overflowY: "auto",
-              },
+              style: { maxHeight: 200, overflowY: "auto" },
             },
           }}
           renderValue={(selected) => (
@@ -196,6 +213,7 @@ export default function ModifyClientProducts() {
         </Select>
       </FormControl>
 
+      {/* Choix de l’action : ajout ou retrait */}
       <FormControl fullWidth margin="normal">
         <InputLabel id="action-select-label">Action</InputLabel>
         <Select
@@ -208,6 +226,7 @@ export default function ModifyClientProducts() {
         </Select>
       </FormControl>
 
+      {/* Soumission (confirmation via dialog) */}
       <Stack mt={2}>
         <Button
           variant="contained"
@@ -219,7 +238,7 @@ export default function ModifyClientProducts() {
         </Button>
       </Stack>
 
-      {/* Confirmation Dialog */}
+      {/* Boîte de dialogue de confirmation avant exécution */}
       <Dialog open={confirmDialogOpen} onClose={handleCloseDialog}>
         <DialogTitle>Confirm Modification</DialogTitle>
         <DialogContent>
@@ -237,20 +256,26 @@ export default function ModifyClientProducts() {
               <strong>Action:</strong> {action}
             </Typography>
             <Typography>
-              <strong>Products:</strong> {selectedProducts.map((p) => products.find((prod) => prod.id === p.productId)?.name).join(", ")}
+              <strong>Products:</strong>{" "}
+              {selectedProducts
+                .map((p) => products.find((prod) => prod.id === p.productId)?.name)
+                .join(", ")}
             </Typography>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog} color="secondary">Cancel</Button>
-          <Button onClick={handleSubmit} color="primary" variant="contained">Confirm</Button>
+          <Button onClick={handleCloseDialog} color="secondary">
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} color="primary" variant="contained">
+            Confirm
+          </Button>
         </DialogActions>
       </Dialog>
 
-      {/* ✅ Messages de succès et d'erreur */}
+      {/* Messages de statut (succès/erreur) après soumission */}
       {successMessage && <Alert severity="success" sx={{ mt: 2 }}>{successMessage}</Alert>}
       {errorMessage && <Alert severity="error" sx={{ mt: 2 }}>{errorMessage}</Alert>}
-
     </Box>
   );
 }

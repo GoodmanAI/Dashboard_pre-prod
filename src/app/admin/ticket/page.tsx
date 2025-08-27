@@ -22,6 +22,17 @@ import {
 } from "@mui/material";
 import { orange, green, red } from "@mui/material/colors";
 
+/**
+ * Page d'administration des tickets.
+ * - Récupère les tickets et la liste des clients.
+ * - Offre des filtres par client et par statut.
+ * - Permet la mise à jour du statut d'un ticket via un dialogue.
+ */
+
+/* ------------------------------------ */
+/* Types & constantes de présentation   */
+/* ------------------------------------ */
+
 interface Ticket {
   id: number;
   subject: string;
@@ -36,42 +47,62 @@ interface Ticket {
   };
 }
 
-const StatusDot = ({ status }: { status: Ticket["status"] }) => {
-  let color: string = orange[500];
-  if (status === "IN_PROGRESS") {
-    color = green[500];
-  } else if (status === "CLOSED") {
-    color = red[500];
-  }
-  return (
-    <Box
-      sx={{
-        width: 12,
-        height: 12,
-        borderRadius: "50%",
-        backgroundColor: color,
-        display: "inline-block",
-        mr: 1,
-      }}
-    />
-  );
+const STATUS_COLOR: Record<Ticket["status"], string> = {
+  PENDING: orange[500],
+  IN_PROGRESS: green[500],
+  CLOSED: red[500],
 };
 
+/* ------------------------------------ */
+/* Composants atomiques                 */
+/* ------------------------------------ */
+
+/** Pastille colorée indiquant le statut d’un ticket. */
+const StatusDot = ({ status }: { status: Ticket["status"] }) => (
+  <Box
+    sx={{
+      width: 12,
+      height: 12,
+      borderRadius: "50%",
+      backgroundColor: STATUS_COLOR[status],
+      display: "inline-block",
+      mr: 1,
+    }}
+  />
+);
+
+/** Tronque un texte à une longueur maximale. */
 const truncate = (text: string, length: number) =>
-  text.length > length ? text.slice(0, length) + "..." : text;
+  text.length > length ? `${text.slice(0, length)}...` : text;
+
+/* ------------------------------------ */
+/* Composant principal                  */
+/* ------------------------------------ */
 
 const AdminTicketsPage = () => {
   const router = useRouter();
+
+  // État : données et cycle de vie
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [clients, setClients] = useState<{ id: number; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // État : sélection et édition
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
-  const [updateStatus, setUpdateStatus] = useState<"PENDING" | "IN_PROGRESS" | "CLOSED">("PENDING");
+  const [updateStatus, setUpdateStatus] =
+    useState<"PENDING" | "IN_PROGRESS" | "CLOSED">("PENDING");
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
+
+  // État : filtres
   const [filterClient, setFilterClient] = useState<number | "all">("all");
-  const [filterStatus, setFilterStatus] = useState<"all" | "PENDING" | "IN_PROGRESS" | "CLOSED">("all");
-  const [clients, setClients] = useState<{ id: number; name: string }[]>([]);
+  const [filterStatus, setFilterStatus] =
+    useState<"all" | "PENDING" | "IN_PROGRESS" | "CLOSED">("all");
+
+  /* ------------------------------------ */
+  /* Effets : chargement initial          */
+  /* ------------------------------------ */
 
   useEffect(() => {
     async function fetchTickets() {
@@ -84,7 +115,7 @@ const AdminTicketsPage = () => {
         } else {
           setError(data.error || "Error fetching tickets.");
         }
-      } catch (err) {
+      } catch {
         setError("Unexpected error while fetching tickets.");
       } finally {
         setLoading(false);
@@ -95,10 +126,9 @@ const AdminTicketsPage = () => {
       try {
         const res = await fetch("/api/admin/clients");
         const data = await res.json();
-        if (res.ok) {
-          setClients(data);
-        }
+        if (res.ok) setClients(data);
       } catch (err) {
+        // Erreur non bloquante : les filtres clients ne seront pas proposés.
         console.error("Error fetching clients:", err);
       }
     }
@@ -107,17 +137,29 @@ const AdminTicketsPage = () => {
     fetchClients();
   }, []);
 
+  /* ------------------------------------ */
+  /* Sélecteurs dérivés (filtres/ordre)   */
+  /* ------------------------------------ */
+
   const filteredTickets = tickets.filter((ticket) => {
-    const clientMatch = filterClient === "all" ? true : ticket.user.id === filterClient;
-    const statusMatch = filterStatus === "all" ? true : ticket.status === filterStatus;
+    const clientMatch =
+      filterClient === "all" ? true : ticket.user.id === filterClient;
+    const statusMatch =
+      filterStatus === "all" ? true : ticket.status === filterStatus;
     return clientMatch && statusMatch;
   });
 
-  const statusOrder = { "PENDING": 0, "IN_PROGRESS": 1, "CLOSED": 2 };
+  const statusOrder = { PENDING: 0, IN_PROGRESS: 1, CLOSED: 2 } as const;
+
   const sortedTickets = [...filteredTickets].sort(
     (a, b) => statusOrder[a.status] - statusOrder[b.status]
   );
 
+  /* ------------------------------------ */
+  /* Actions                              */
+  /* ------------------------------------ */
+
+  /** Met à jour le statut du ticket sélectionné côté serveur puis côté client. */
   const handleUpdateStatus = async () => {
     if (!selectedTicket) return;
     try {
@@ -129,30 +171,37 @@ const AdminTicketsPage = () => {
       const data = await res.json();
       if (res.ok) {
         setUpdateSuccess(data.message || "Ticket status updated successfully.");
-        // Actualiser la liste locale
-        const updatedTickets = tickets.map((ticket) =>
-          ticket.id === selectedTicket.id ? { ...ticket, status: updateStatus } : ticket
+        const updatedTickets = tickets.map((t) =>
+          t.id === selectedTicket.id ? { ...t, status: updateStatus } : t
         );
         setTickets(updatedTickets);
         setSelectedTicket({ ...selectedTicket, status: updateStatus });
       } else {
         setUpdateError(data.error || "Failed to update ticket status.");
       }
-    } catch (err) {
+    } catch {
       setUpdateError("Unexpected error while updating ticket status.");
     }
   };
 
+  /* ------------------------------------ */
+  /* États intermédiaires (UI)            */
+  /* ------------------------------------ */
+
   if (loading) return <CircularProgress />;
   if (error) return <Alert severity="error">{error}</Alert>;
   if (tickets.length === 0) return <Typography>No tickets found.</Typography>;
+
+  /* ------------------------------------ */
+  /* Rendu                                */
+  /* ------------------------------------ */
 
   return (
     <Box sx={{ p: 4 }}>
       <Typography variant="h4" gutterBottom align="center">
         Tickets - Administration
       </Typography>
-      {/* Filtres */}
+
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
         <FormControl sx={{ minWidth: 150 }}>
           <InputLabel id="client-filter-label">Client</InputLabel>
@@ -162,13 +211,8 @@ const AdminTicketsPage = () => {
             label="Client"
             onChange={(e) => setFilterClient(e.target.value as number | "all")}
             MenuProps={{
-                PaperProps: {
-                  style: {
-                    maxHeight: 200,
-                    overflowY: "auto",
-                  },
-                },
-              }}
+              PaperProps: { style: { maxHeight: 200, overflowY: "auto" } },
+            }}
           >
             <MenuItem value="all">All</MenuItem>
             {clients.map((client) => (
@@ -178,6 +222,7 @@ const AdminTicketsPage = () => {
             ))}
           </Select>
         </FormControl>
+
         <FormControl sx={{ minWidth: 150 }}>
           <InputLabel id="status-filter-label">Status</InputLabel>
           <Select
@@ -185,7 +230,9 @@ const AdminTicketsPage = () => {
             value={filterStatus}
             label="Status"
             onChange={(e) =>
-              setFilterStatus(e.target.value as "all" | "PENDING" | "IN_PROGRESS" | "CLOSED")
+              setFilterStatus(
+                e.target.value as "all" | "PENDING" | "IN_PROGRESS" | "CLOSED"
+              )
             }
           >
             <MenuItem value="all">All</MenuItem>
@@ -196,20 +243,21 @@ const AdminTicketsPage = () => {
         </FormControl>
       </Box>
 
-      {/* Légende des statuts */}
       <Box sx={{ mt: 2, mb: 3 }}>
         <Typography variant="caption" sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
-          <Box sx={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: orange[500], mr: 1 }} /> Pending
+          <Box sx={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: orange[500], mr: 1 }} />
+          Pending
         </Typography>
         <Typography variant="caption" sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
-          <Box sx={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: green[500], mr: 1 }} /> In Progress
+          <Box sx={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: green[500], mr: 1 }} />
+          In Progress
         </Typography>
         <Typography variant="caption" sx={{ display: "flex", alignItems: "center" }}>
-          <Box sx={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: red[500], mr: 1 }} /> Closed
+          <Box sx={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: red[500], mr: 1 }} />
+          Closed
         </Typography>
       </Box>
-      
-      {/* Liste des tickets */}
+
       {sortedTickets.map((ticket) => (
         <Card
           key={ticket.id}
@@ -241,7 +289,7 @@ const AdminTicketsPage = () => {
           </CardContent>
         </Card>
       ))}
-      {/* Détails du ticket dans une popup */}
+
       <Dialog
         open={Boolean(selectedTicket)}
         onClose={() => setSelectedTicket(null)}
@@ -256,9 +304,11 @@ const AdminTicketsPage = () => {
                 {selectedTicket.message}
               </Typography>
               <Divider sx={{ my: 2 }} />
+
               <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
                 Statut: {selectedTicket.status}
               </Typography>
+
               <FormControl fullWidth sx={{ mb: 2 }}>
                 <InputLabel id="update-status-label">Mettre à jour le statut</InputLabel>
                 <Select
@@ -266,7 +316,9 @@ const AdminTicketsPage = () => {
                   value={updateStatus}
                   label="Mettre à jour le statut"
                   onChange={(e) =>
-                    setUpdateStatus(e.target.value as "PENDING" | "IN_PROGRESS" | "CLOSED")
+                    setUpdateStatus(
+                      e.target.value as "PENDING" | "IN_PROGRESS" | "CLOSED"
+                    )
                   }
                 >
                   <MenuItem value="PENDING">Pending</MenuItem>
@@ -274,8 +326,10 @@ const AdminTicketsPage = () => {
                   <MenuItem value="CLOSED">Closed</MenuItem>
                 </Select>
               </FormControl>
+
               {updateError && <Alert severity="error" sx={{ mb: 2 }}>{updateError}</Alert>}
               {updateSuccess && <Alert severity="success" sx={{ mb: 2 }}>{updateSuccess}</Alert>}
+
               <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
                 Créé le:{" "}
                 <span>
