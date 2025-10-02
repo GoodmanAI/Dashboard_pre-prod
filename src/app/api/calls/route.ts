@@ -6,36 +6,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { subDays } from "date-fns";
 
-/**
- * GET /api/calls
- * ---------------------------------------------------------------------------
- * Récupère la liste des appels d’un utilisateur (centre) avec filtres optionnels.
- *
- * Authentification
- * - Requiert une session NextAuth valide.
- * - Supporte l’“impersonation” via ?asUserId= lorsque l’utilisateur courant
- *   possède le rôle de centre ADMIN_USER et gère le centre ciblé.
- *
- * Paramètres de requête (query)
- * - intent?: string            → filtre exact (insensible à la casse) sur l’intention.
- * - daysAgo?: number | "all"   → si nombre, restreint aux appels créés depuis N jours ;
- *                                si "all" ou absent, pas de filtre temporel.
- * - asUserId?: number          → identifiant d’un centre géré (utilisable uniquement par un ADMIN_USER
- *                                qui est le manager du centre ciblé).
- *
- * Codes de réponse
- * - 200: liste des appels.
- * - 400: paramètre de requête invalide.
- * - 403: accès refusé (non connecté ou non autorisé pour asUserId).
- * - 500: erreur serveur inattendue.
- *
- * Remarques d’implémentation
- * - Le filtre “intent” est appliqué en mode insensible à la casse côté Prisma.
- * - Le filtre temporel s’appuie sur createdAt >= now - daysAgo.
- */
 export async function GET(request: NextRequest) {
   try {
-    // Vérifie la présence d’une session utilisateur
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -47,14 +19,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
     const intent = searchParams.get("intent") ?? undefined;
 
-    // Parse du filtre temporel (daysAgo)
     const daysAgoParam = searchParams.get("daysAgo");
     const parsed = daysAgoParam && daysAgoParam !== "all" ? Number(daysAgoParam) : undefined;
     const daysAgo = Number.isFinite(parsed as number) ? (parsed as number) : undefined;
 
-    // Résolution de l’utilisateur effectif (impersonation pour ADMIN_USER)
     const asUserIdParam = searchParams.get("asUserId");
-    let effectiveUserId = session.user.id;
+    let effectiveUserId = session.user.id as number;
 
     if (asUserIdParam) {
       const asUserId = Number(asUserIdParam);
@@ -62,10 +32,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Paramètre asUserId invalide." }, { status: 400 });
       }
 
-      // Sécurité : n’autoriser l’accès à un autre user que si ADMIN_USER + centre géré
       if (asUserId !== session.user.id) {
         const current = await prisma.user.findUnique({
-          where: { id: session.user.id },
+          where: { id: session.user.id as number },
           select: { centreRole: true },
         });
 
@@ -74,7 +43,7 @@ export async function GET(request: NextRequest) {
         }
 
         const managed = await prisma.user.findFirst({
-          where: { id: asUserId, managerId: session.user.id },
+          where: { id: asUserId, managerId: session.user.id as number },
           select: { id: true },
         });
 
@@ -86,25 +55,80 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Construction du filtre Prisma
+    // ===== DEMO MODE PARAMETERS =====
+    const demo = ["1", "true", "yes"].includes((searchParams.get("demo") || "").toLowerCase());
+    const demoDaysRaw = Number(searchParams.get("demoDays") || "30");
+    const demoDays = Number.isFinite(demoDaysRaw) && demoDaysRaw > 0 ? demoDaysRaw : 30;
+    const anchorParam = searchParams.get("anchor"); // ISO venant du front
+    const anchorNow = anchorParam ? new Date(anchorParam) : new Date(); // fallback = now
+    const demoPreserveDow = ["1", "true", "yes"].includes(
+      (searchParams.get("demoPreserveDow") || "").toLowerCase()
+    );
+    // =================================
+
     const where: any = {
       userId: effectiveUserId,
       ...(intent && { intent: { equals: intent, mode: "insensitive" } }),
     };
 
-    if (daysAgo !== undefined) {
+    if (!demo && daysAgo !== undefined) {
       where.createdAt = { gte: subDays(new Date(), daysAgo) };
     }
 
-    // Requête et tri décroissant par date de création
     const calls = await prisma.call.findMany({
       where,
       orderBy: { createdAt: "desc" },
     });
 
+    if (demo) {
+      // Remap temporel stable basé sur 'anchorNow', avec option de préservation du jour de semaine
+      const mapped = calls.map((c) => {
+        const original = new Date(c.createdAt as unknown as string);
+        const h = original.getHours();
+        const m = original.getMinutes();
+        const s = original.getSeconds();
+        const origDow = original.getDay();  // 0=dim ... 6=sam
+        const anchorDow = anchorNow.getDay();
+
+        // base pseudo-aléatoire stable dans [0, demoDays)
+        const base = Math.abs((c.id * 9301 + (effectiveUserId as number) * 49297)) % demoDays;
+
+        let bucket = base;
+
+        // On veut (anchorNow - bucket).getDay() === origDow
+        // => bucket ≡ (anchorDow - origDow) (mod 7)
+        if (demoPreserveDow && demoDays >= 7) {
+          const needMod = (anchorDow - origDow + 7) % 7;
+          const mod = ((base - needMod) % 7 + 7) % 7; // vrai modulo positif
+          bucket = base - mod;
+          while (bucket >= demoDays) bucket -= 7;
+          while (bucket < 0) bucket += 7;
+        }
+
+        const synthetic = new Date(anchorNow);
+        synthetic.setHours(h, m, s, 0);
+        synthetic.setDate(anchorNow.getDate() - bucket);
+
+        return {
+          ...c,
+          createdAt: synthetic, // renvoyé en ISO par Next
+        };
+      });
+
+      // Applique daysAgo APRÈS remap si demandé
+      let filtered = mapped;
+      if (daysAgo !== undefined) {
+        const threshold = subDays(anchorNow, daysAgo).getTime();
+        filtered = mapped.filter(
+          (c) => new Date(c.createdAt as unknown as string).getTime() >= threshold
+        );
+      }
+
+      return NextResponse.json(filtered, { status: 200 });
+    }
+
     return NextResponse.json(calls, { status: 200 });
   } catch (error) {
-    // Journalisation serveur pour diagnostic ; message générique côté client
     console.error("Error fetching calls:", error);
     return NextResponse.json({ error: "Une erreur est survenue." }, { status: 500 });
   }

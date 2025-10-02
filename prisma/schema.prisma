@@ -23,6 +23,20 @@ enum TicketStatus {
   CLOSED
 }
 
+enum CallIntent {
+  RDV
+  INFO
+  URGENCE
+  ANNULATION
+  CONSULTATION
+}
+
+enum CallStatus {
+  COMPLETED
+  ABANDONED
+  TRANSFERRED
+}
+
 model User {
   id             Int              @id @default(autoincrement())
   name           String?
@@ -151,19 +165,25 @@ model Notification {
 }
 
 model Call {
-  id           Int      @id @default(autoincrement())
+  id           Int       @id @default(autoincrement())
   userId       Int
   createdById  Int?
 
   caller       String
   called       String
-  intent       String?
+
+  intent       String?   // ex: "prise de rdv" | "info" | "urgence" | "annulation" | "consultation"
+
+  intentCode   CallIntent?
+  status       CallStatus @default(COMPLETED)
+  durationSec  Int        @default(0)
+
   firstname    String?
   lastname     String?
   birthdate    DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime   @default(now())
   steps        String[]
 
-  user         User     @relation("CallForUser", fields: [userId], references: [id], onDelete: Cascade)
-  createdBy    User?     @relation("CallCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  user         User       @relation("CallForUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy    User?      @relation("CallCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 }

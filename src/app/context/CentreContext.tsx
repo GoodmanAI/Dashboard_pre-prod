@@ -1,22 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from "react";
 import { useSession } from "next-auth/react";
-
-/**
- * # Contexte Centre
- * Fournit au front une gestion centralisée des “centres” administrés :
- * - Liste des centres gérés par l’utilisateur (si `centreRole === ADMIN_USER`)
- * - Centre actuellement sélectionné (persisté en localStorage)
- * - Méthode pour changer de centre actif
- *
- * Ce contexte est lu par les vues “centre-aware” (Explain, Talk, Tickets, etc.)
- * afin d’ajouter automatiquement `asUserId` aux requêtes API lorsque requis.
- */
-
-/* ============================= */
-/* ========== Types ============ */
-/* ============================= */
 
 /**
  * Représentation minimale d’un centre (utilisateur géré).
@@ -34,6 +25,7 @@ export interface ManagedUser {
 
 /**
  * Signature publique du contexte consommé par les composants.
+ * (ne pas modifier pour éviter les breaking changes)
  */
 interface CentreContextType {
   centres: ManagedUser[];
@@ -42,31 +34,11 @@ interface CentreContextType {
   setSelectedCentreById: (id: number) => void;
 }
 
-/* ============================= */
-/* ========= Constantes ======== */
-/* ============================= */
-
-/**
- * Clé de persistance de l’ID centre sélectionné (localStorage).
- */
+/** Clé de persistance de l’ID centre sélectionné (localStorage). */
 const STORAGE_KEY = "lyrae_selected_centre_id";
-
-/* ============================= */
-/* ===== Création du contexte == */
-/* ============================= */
 
 const CentreContext = createContext<CentreContextType | undefined>(undefined);
 
-/* ============================= */
-/* ===== Fournisseur (Provider) =*/
-/* ============================= */
-
-/**
- * Enveloppe l’application pour exposer le contexte “centre”.
- * - Au login, récupère les centres gérés si l’utilisateur est `ADMIN_USER`.
- * - Restaure la sélection précédente depuis localStorage si possible.
- * - Synchronise `selectedUserId` à partir du centre actif.
- */
 export const CentreProvider = ({ children }: { children: ReactNode }) => {
   const { status } = useSession();
   const [centres, setCentres] = useState<ManagedUser[]>([]);
@@ -74,42 +46,91 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * Chargement initial des centres lorsque la session est authentifiée.
-   * - Fait un GET `/api/client` pour obtenir `centreRole` et `managedUsers`.
-   * - Si l’utilisateur n’a pas le rôle centre admin, on nettoie l’état et le stockage local.
+   * - GET `/api/client` pour obtenir `centreRole` et `managedUsers`.
+   * - Si l’utilisateur n’est pas ADMIN_USER, nettoyage de l’état et du stockage local.
    */
   useEffect(() => {
-    if (status === "authenticated") {
-      fetch("/api/client")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.centreRole === "ADMIN_USER" && Array.isArray(data.managedUsers)) {
-            setCentres(data.managedUsers);
+    if (status !== "authenticated") return;
 
-            // Restauration d’une sélection précédente si valide, sinon fallback au premier centre.
-            const storedId = Number(localStorage.getItem(STORAGE_KEY) || "");
-            const fallback = data.managedUsers[0] ?? null;
-            const initial =
-              data.managedUsers.find((u: ManagedUser) => u.id === storedId) || fallback;
+    let cancelled = false;
 
-            setSelectedCentre(initial);
+    (async () => {
+      try {
+        const res = await fetch("/api/client", { cache: "no-store" });
+        const data = await res.json();
+
+        if (cancelled) return;
+
+        if (data?.centreRole === "ADMIN_USER" && Array.isArray(data?.managedUsers)) {
+          const list: ManagedUser[] = data.managedUsers;
+          setCentres(list);
+
+          // Restauration d’une sélection précédente si valide, sinon fallback au premier centre.
+          const raw = (typeof window !== "undefined" && localStorage.getItem(STORAGE_KEY)) || "";
+          const storedId = Number(raw);
+          const fallback = list[0] ?? null;
+          const initial =
+            list.find((u) => u.id === storedId) || fallback;
+
+          setSelectedCentre(initial || null);
+
+          // Re-synchronise le storage si besoin
+          if (initial) {
+            localStorage.setItem(STORAGE_KEY, String(initial.id));
           } else {
-            setCentres([]);
-            setSelectedCentre(null);
             localStorage.removeItem(STORAGE_KEY);
           }
-        })
-        .catch((err) => console.error("Failed to load centres:", err));
-    }
+        } else {
+          setCentres([]);
+          setSelectedCentre(null);
+          if (typeof window !== "undefined") {
+            localStorage.removeItem(STORAGE_KEY);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load centres:", err);
+        setCentres([]);
+        setSelectedCentre(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [status]);
 
   /**
+   * Si la liste des centres change et que le centre sélectionné actuel
+   * n’en fait plus partie, on force un fallback propre.
+   */
+  useEffect(() => {
+    if (!centres.length) return;
+    if (selectedCentre && centres.some((c) => c.id === selectedCentre.id)) return;
+
+    const raw = (typeof window !== "undefined" && localStorage.getItem(STORAGE_KEY)) || "";
+    const storedId = Number(raw);
+    const next =
+      centres.find((c) => c.id === storedId) || centres[0] || null;
+
+    setSelectedCentre(next);
+    if (next) {
+      localStorage.setItem(STORAGE_KEY, String(next.id));
+    } else if (typeof window !== "undefined") {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centres]);
+
+  /**
    * Change le centre actif et persiste l’ID en localStorage.
-   * @param id - Identifiant du centre cible
    */
   const setSelectedCentreById = (id: number) => {
     const centre = centres.find((c) => c.id === id) || null;
     setSelectedCentre(centre);
-    if (centre) localStorage.setItem(STORAGE_KEY, String(centre.id));
+    if (typeof window !== "undefined") {
+      if (centre) localStorage.setItem(STORAGE_KEY, String(centre.id));
+      else localStorage.removeItem(STORAGE_KEY);
+    }
   };
 
   return (
@@ -126,14 +147,6 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-/* ============================= */
-/* ===== Hook consommateur ===== */
-/* ============================= */
-
-/**
- * Hook sécurisé pour consommer le contexte Centre.
- * Doit être utilisé à l’intérieur d’un `CentreProvider`.
- */
 export const useCentre = (): CentreContextType => {
   const context = useContext(CentreContext);
   if (!context) throw new Error("useCentre must be used within a CentreProvider");
