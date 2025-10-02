@@ -69,25 +69,29 @@ const DEFAULTS: TalkSettings = {
     mammo: false,
   },
   examQuestions: {
-    radiographie: ["Zone à radiographier ?", "Ordonnance disponible ?"],
+    radiographie: ["Avez‑vous mal à la cheville si vous appuyez dessus ou la faites pivoter ?", "Votre cheville est‑elle souvent enflée, surtout après activité ?", "Êtes‑vous tombé ou avez vous reçu un coup récemment ?"],
     echographie: [
-      "Type d’échographie (abdominale, thyroïde…) ?",
-      "Jeûne requis renseigné au patient ?",
+      "Avez-vous senti de petites boules dans le cou ?",
+      "Voyez-vous un gonflement du cou ?",
+      "Avez-vous mal au cou ?"
     ],
-    scanner: ["Scanner avec ou sans injection ?", "Allergie à l’iode connue ?"],
+    scanner: ["Avez-vous eu de la fièvre récente avec une douleur au ventre localisée ?", "Avez-vous des vomissements répétés et l’impression que les gaz ou les selles ne passent plus ?", "Avez-vous été opéré de l’abdomen ou eu une endoscopie/intervention récente ?"],
     irm: [
-      "Contre-indications (pacemaker, éclats métalliques…) ?",
-      "Claustrophobie à signaler ?",
+      "Avez-vous mal à l’épaule depuis plusieurs jours ?",
+      "Avez-vous du mal à lever le bras ou à le bouger normalement ?",
+      "Vous êtes-vous récemment cogné ou blessé à l’épaule ?"
     ],
-    mammo: [],
+    mammo: [
+      "Avez-vous été opéré du sein?",
+      "Êtes-vous une personne à mobilité réduite?"
+    ],
   },
   specificNotes:
     "Accès parking limité : privilégier le parking P2 (entrée rue des Fleurs).",
 };
 
 /**
- * Démos de voix (dépose tes fichiers dans /public/voices/)
- * - Modifie les src si tu préfères d'autres chemins.
+ * Démos de voix (fichiers dans /public/voices/)
  */
 const VOICE_DEMOS: Array<{
   key: VoiceKey;
@@ -98,19 +102,19 @@ const VOICE_DEMOS: Array<{
   {
     key: "femme",
     label: "Voix 1",
-    desc: "Clarté et douceur, idéale pour l’accueil.",
+    desc: "Voix réaliste, idéale pour l’accueil.",
     src: "/voices/voix_1.mp3",
   },
   {
     key: "homme",
     label: "Voix 2",
-    desc: "Clarté et douceur, idéale pour l’accueil.",
+    desc: "",
     src: "/voices/voix_2.mp3",
   },
   {
     key: "neutre",
     label: "Voix 3",
-    desc: "Clarté et douceur, idéale pour l’accueil.",
+    desc: "",
     src: "/voices/voix_3.mp3",
   },
 ];
@@ -594,31 +598,31 @@ export default function ParametrageTalkPage() {
 
           <Stack spacing={3}>
             <QuestionsEditor
-              label="Radiographie"
+              label="Radiographie de la cheville"
               value={settings.examQuestions.radiographie}
               onChange={(v) => updateExamQuestions("radiographie", v)}
             />
             <Divider />
             <QuestionsEditor
-              label="Échographie"
+              label="Échographie cervicale"
               value={settings.examQuestions.echographie}
               onChange={(v) => updateExamQuestions("echographie", v)}
             />
             <Divider />
             <QuestionsEditor
-              label="Scanner"
+              label="Scanner abdominal"
               value={settings.examQuestions.scanner}
               onChange={(v) => updateExamQuestions("scanner", v)}
             />
             <Divider />
             <QuestionsEditor
-              label="IRM"
+              label="IRM de l'épaule"
               value={settings.examQuestions.irm}
               onChange={(v) => updateExamQuestions("irm", v)}
             />
             <Divider />
             <QuestionsEditor
-              label="Mammographie"
+              label="Mammographie Standard"
               value={settings.examQuestions.mammo}
               onChange={(v) => updateExamQuestions("mammo", v)}
             />
