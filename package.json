@@ -9,7 +9,8 @@
     "lint": "next lint",
     "seed": "ts-node prisma/seed.ts",
     "seed-data": "ts-node prisma/seed-metrics-comments.ts",
-    "seed-calls": "ts-node prisma/seed_calls.ts"
+    "seed-calls": "ts-node prisma/seed_calls.ts",
+    "seed-demo-calls": "ts-node prisma/seed_demo_calls.ts"
   },
   "dependencies": {
     "@emotion/cache": "11.11.0",

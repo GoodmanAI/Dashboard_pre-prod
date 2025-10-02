@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -23,7 +23,7 @@ import {
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { IconEye } from "@tabler/icons-react";
+import { IconEye, IconChevronLeft } from "@tabler/icons-react";
 import { useCentre } from "@/app/context/CentreContext";
 
 /** Représentation d’un appel tel que renvoyé par l’API. */
@@ -49,10 +49,26 @@ interface IntentConfig {
 type Speaker = "Patient" | "Secrétaire";
 type Message = { speaker: Speaker; text: string };
 
-/**
- * Transcriptions « démo » servant de contenu statique
- * pour la présentation, affichées en fonction de l’intention.
- */
+/* ===================== DEMO figée ===================== */
+const DEMO_MODE = true; // passe à false si tu veux repasser en live
+const DEMO_ANCHOR_ISO =
+  process.env.NEXT_PUBLIC_DEMO_ANCHOR_ISO || "2025-03-01T12:00:00.000Z";
+const DEMO_DAYS = 35; // fenêtre de remap (30–45 ok)
+
+const isAbortError = (e: unknown) =>
+  !!e && typeof e === "object" && (e as any).name === "AbortError";
+
+// Bornes (00:00–23:59) du "jour démo" (timezone du navigateur)
+function getAnchorDayBounds(anchorIso: string) {
+  const anchor = new Date(anchorIso);
+  const start = new Date(anchor);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(anchor);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+/* ================== Transcriptions démo ================== */
 const transcriptRDV: Message[] = [
   { speaker: "Patient",     text: "Bonjour, je souhaiterais prendre rendez-vous pour une IRM." },
   { speaker: "Secrétaire",  text: "Bien sûr. Pour quelle région anatomique précise souhaitez-vous réaliser l’IRM ?" },
@@ -76,124 +92,163 @@ const transcriptURGENCE: Message[] = [
   { speaker: "Secrétaire",  text: "Je note que vous demandez un rendez-vous en urgence, je vais vous rediriger vers une secrétaire pour s'occuper de vous." },
 ];
 
-/** Libellés « métier » pour les étapes affichées dans la modale. */
-const STEP_LABELS = ["Identification", "Type d’examen", "Créneaux horaires"] as const;
+const transcriptANNULATION: Message[] = [
+  { speaker: "Patient",    text: "Bonjour, je dois annuler mon rendez-vous de demain." },
+  { speaker: "Secrétaire", text: "Très bien, je vais regarder. Vous souhaitez annuler votre rendez-vous du 12 juin à 10h, c'est bien ça ?" },
+  { speaker: "Patient",    text: "Oui s'il vous plait." },
+  { speaker: "Secrétaire", text: "C’est noté, votre rendez-vous est annulé. Vous recevrez une confirmation par SMS. Bonne journée !" },
+];
 
-/**
- * Retourne la liste d’étapes à afficher selon l’intention normalisée.
- * - prise de rdv : 3 étapes
- * - urgence      : 1 étape
- * - info         : 0 étape
- */
+const transcriptCONSULTATION: Message[] = [
+  { speaker: "Patient",    text: "Bonjour, je souhaite connaître l'heure exact de mon rendez-vous." },
+  { speaker: "Secrétaire", text: "Bien sûr. Je vois que vous avez un rendez-vous pour une IRM du poignet le 10 juin à 10h30." },
+  { speaker: "Patient",    text: "Très bien, merci." },
+];
+
+/* ====================== Helpers ====================== */
 function stepsForIntent(intentNorm: string): string[] {
-  if (intentNorm === "prise de rdv") return STEP_LABELS.slice(0, 3);
-  if (intentNorm === "urgence")      return STEP_LABELS.slice(0, 1);
+  const v = intentNorm.toLowerCase();
+  if (v === "prise de rdv" || v.includes("rdv"))     return ["Identification", "Type d’examen", "Créneaux horaires"];
+  if (v === "urgence"      || v.includes("urg"))     return ["Identification"];
+  if (v === "annulation"   || v.includes("annul"))   return ["Identification", "Annulation"];
+  if (v === "consultation" || v.includes("consult")) return ["Identification", "Consultation"];
+  if (v === "info"         || v.includes("info"))    return [];
   return [];
 }
 
-/** Sélecteur de transcription statique selon l’intention normalisée. */
 function transcriptForIntent(intentNorm: string): Message[] {
-  if (intentNorm === "prise de rdv") return transcriptRDV;
-  if (intentNorm === "urgence")      return transcriptURGENCE;
-  if (intentNorm === "info")         return transcriptINFO;
+  const v = intentNorm.toLowerCase();
+  if (v === "prise de rdv" || v.includes("rdv"))       return transcriptRDV;
+  if (v === "urgence"      || v.includes("urg"))       return transcriptURGENCE;
+  if (v === "info"         || v.includes("info"))      return transcriptINFO;
+  if (v === "annulation"   || v.includes("annul"))     return transcriptANNULATION;
+  if (v === "consultation" || v.includes("consult"))   return transcriptCONSULTATION;
   return transcriptRDV;
 }
 
-/** Utilitaire d’affichage de date (avec/sans heure). */
 function fDate(v?: string | null, withTime = true) {
   if (!v) return "--";
   const d = new Date(v);
   return withTime ? d.toLocaleString() : d.toLocaleDateString();
 }
 
-/** Normalisation d’une intention en minuscules/trim pour comparaisons. */
 function normalizeIntent(v?: string | null) {
   return (v ?? "").trim().toLowerCase();
 }
 
-/**
- * Page LYRAE © Talk
- * - Liste les appels avec filtrage par intention
- * - Affiche une modale de détails incluant une transcription démo
- * - Gère le contexte « centre » (asUserId) pour les administrateurs
- */
+/* ====================== Page ====================== */
 export default function TalkPage() {
-  // Contexte d’authentification et de navigation.
   const { data: session, status } = useSession();
   const router = useRouter();
   const { selectedUserId, selectedCentre } = useCentre();
 
-  // Définition des intentions disponibles pour le filtrage.
   const intents: IntentConfig[] = [
     { value: "all",          label: "Tous" },
     { value: "prise de rdv", label: "Rendez-vous" },
     { value: "urgence",      label: "Urgences" },
     { value: "info",         label: "Informations" },
+    { value: "annulation",   label: "Annulations" },
+    { value: "consultation", label: "Consultations" },
   ];
 
-  // État local : filtre, données, chargement, et modale de détails.
   const [selectedIntent, setSelectedIntent] = useState("all");
   const [calls, setCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Modal Détails
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedCall, setSelectedCall] = useState<Call | null>(null);
 
-  /**
-   * Récupère les appels selon :
-   * - l’intention sélectionnée
-   * - le centre sélectionné (asUserId) le cas échéant
-   */
-  const fetchCalls = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("daysAgo", "all");
-      if (selectedIntent !== "all") params.set("intent", selectedIntent);
-      if (selectedUserId) params.set("asUserId", String(selectedUserId));
-
-      const res = await fetch(`/api/calls?${params.toString()}`);
-      if (!res.ok) throw new Error("Erreur lors du fetch des appels");
-      const data: Call[] = await res.json();
-      setCalls(data);
-    } catch (err) {
-      console.error(err);
-      setCalls([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedIntent, selectedUserId]);
-
-  /** Déclenche le chargement des appels à l’authentification. */
-  useEffect(() => {
-    if (status === "authenticated") {
-      fetchCalls();
-    }
-  }, [status, fetchCalls]);
-
-  /** Redirige les utilisateurs non authentifiés vers la page de connexion. */
+  // Redirige si non authentifié
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/authentication/signin");
     }
   }, [status, router]);
 
+  // Fetch des appels — uniquement la "journée" figée autour de l'anchor démo
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        setLoading(true);
+
+        const params = new URLSearchParams();
+        params.set("daysAgo", "1");
+        if (DEMO_MODE) {
+          params.set("demo", "1");
+          params.set("demoDays", String(DEMO_DAYS));
+          params.set("anchor", DEMO_ANCHOR_ISO);
+          params.set("demoPreserveDow", "1");
+        }
+        if (selectedUserId) params.set("asUserId", String(selectedUserId));
+        if (selectedIntent !== "all") params.set("intent", selectedIntent);
+
+        const res = await fetch(`/api/calls?${params.toString()}`, {
+          signal: controller.signal,
+          cache: "no-store",
+          headers: { "Cache-Control": "no-store" },
+        });
+        if (!res.ok) throw new Error("Erreur lors du fetch des appels");
+        const data: Call[] = await res.json();
+
+        // On garde strictement la "journée" du jour d'anchor (00:00 -> 23:59)
+        const { start, end } = getAnchorDayBounds(DEMO_ANCHOR_ISO);
+        const todaysCalls = data.filter((c) => {
+          const d = new Date(c.createdAt);
+          return d >= start && d <= end;
+        });
+
+        setCalls(todaysCalls);
+      } catch (e) {
+        if (!isAbortError(e)) {
+          // autre erreur réseau
+          setCalls([]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [status, selectedUserId, selectedIntent]);
+
   return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-      {/* Titre de la page */}
-      <Typography variant="h4" gutterBottom>
-        LYRAE © Talk
-      </Typography>
+      {/* En-tête */}
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+        <Typography variant="h4">LYRAE © Talk</Typography>
+        <Button
+          variant="outlined"
+          startIcon={<IconChevronLeft size={18} />}
+          onClick={() => router.push("/client/services/talk")}
+          sx={{
+            borderColor: "#48C8AF",
+            color: "#48C8AF",
+            whiteSpace: "nowrap",
+            "&:hover": {
+              borderColor: "#48C8AF",
+              backgroundColor: "rgba(72,200,175,0.08)",
+            },
+          }}
+        >
+          Retour à Talk
+        </Button>
+      </Box>
 
-      {/* Carte principale : filtre + liste des appels + action "Voir tous" */}
-      <Box sx={{ p: 3, mt: 2, bgcolor: "#fff", borderRadius: 2 }}>
+      {/* Carte principale : filtre + liste des appels */}
+      <Box sx={{ p: 3, mt: 1, bgcolor: "#fff", borderRadius: 2 }}>
         <Typography variant="h5" gutterBottom>
           Appels Reçus
         </Typography>
         <Typography variant="subtitle2" sx={{ mb: 2, color: "text.secondary" }}>
-          {selectedCentre ? "Centre sélectionné" : "Vos données"} — toutes périodes
+          {selectedCentre ? "Centre sélectionné" : "Vos données"} — dernières 24h
         </Typography>
 
-        {/* Sélecteur d’intention (filtrage côté API) */}
+        {/* Filtre d’intention */}
         <Box sx={{ mb: 2, maxWidth: 240 }}>
           <FormControl fullWidth size="small">
             <InputLabel id="intent-label">Filtrer par intention</InputLabel>
@@ -212,7 +267,7 @@ export default function TalkPage() {
           </FormControl>
         </Box>
 
-        {/* États de la liste : chargement, vide, ou grille des cartes d’appels */}
+        {/* Liste / états */}
         {loading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
             <CircularProgress sx={{ color: "#48C8AF" }} />
@@ -238,7 +293,8 @@ export default function TalkPage() {
                       <strong>Nom :</strong> {call.firstname ?? "--"} {call.lastname ?? ""}
                     </Typography>
                     <Typography variant="body2">
-                      <strong>Date de naissance :</strong> {call.birthdate ? fDate(call.birthdate, false) : "--"}
+                      <strong>Date de naissance :</strong>{" "}
+                      {call.birthdate ? fDate(call.birthdate, false) : "--"}
                     </Typography>
                     <Typography variant="caption" display="block" sx={{ mt: 1, color: "text.secondary" }}>
                       {fDate(call.createdAt)}
@@ -271,31 +327,14 @@ export default function TalkPage() {
             ))}
           </Grid>
         )}
-
-        {/* Lien vers la page liste complète */}
-        <Box sx={{ mt: 3, textAlign: "right" }}>
-          <Button
-            variant="outlined"
-            startIcon={<IconEye size={18} />}
-            onClick={() => router.push("/client/services/talk/calls")}
-            sx={{
-              borderColor: "#48C8AF",
-              color: "#48C8AF",
-              "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
-            }}
-          >
-            Voir tous
-          </Button>
-        </Box>
       </Box>
 
-      {/* Modale de détails d’un appel : méta-infos, étapes mappées et transcription démo */}
+      {/* Modale de détails */}
       <Dialog open={detailsOpen} onClose={() => setDetailsOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Détails de l’appel {selectedCall ? `#${selectedCall.id}` : ""}</DialogTitle>
         <DialogContent dividers>
           {selectedCall ? (
             <>
-              {/* En-tête : intention + date de création */}
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2, flexWrap: "wrap" }}>
                 <Chip
                   label={selectedCall.intent || "—"}
@@ -308,19 +347,18 @@ export default function TalkPage() {
                 </Typography>
               </Box>
 
-              {/* Identité / coordonnées de l’appel */}
               <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mb: 2 }}>
                 <Typography variant="body2"><strong>De :</strong> {selectedCall.caller}</Typography>
-                <Typography variant="body2"><strong>À :</strong> {selectedCall.called}</Typography>
+                {/* <Typography variant="body2"><strong>À :</strong> {selectedCall.called}</Typography> */}
                 <Typography variant="body2">
                   <strong>Nom :</strong> {selectedCall.firstname ?? "--"} {selectedCall.lastname ?? ""}
                 </Typography>
                 <Typography variant="body2">
-                  <strong>Date de naissance :</strong> {selectedCall.birthdate ? fDate(selectedCall.birthdate, false) : "--"}
+                  <strong>Date de naissance :</strong>{" "}
+                  {selectedCall.birthdate ? fDate(selectedCall.birthdate, false) : "--"}
                 </Typography>
               </Box>
 
-              {/* Étapes (mappées fonctionnellement selon l’intention) */}
               {(() => {
                 const intentNorm = normalizeIntent(selectedCall.intent);
                 const mappedSteps = stepsForIntent(intentNorm);
@@ -341,7 +379,6 @@ export default function TalkPage() {
 
               <Divider sx={{ my: 2 }} />
 
-              {/* Transcription statique (démo) selon l’intention */}
               <Typography variant="h6" sx={{ mb: 1 }}>
                 Transcription de l&apos;appel
               </Typography>
