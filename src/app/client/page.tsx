@@ -343,9 +343,10 @@ const ClientHomePage = () => {
                   onClick={() => {
                     const route = getProductRoute(product.name);
                     if (route.startsWith("http")) {
-                      window.open(route, "_blank");
+                      console.log(route + `/${product.id}`)
+                      window.open(route + `/${product.id}`, "_blank");
                     } else {
-                      router.push(route);
+                      router.push(route + `/${product.id}`);
                     }
                   }}
                 >

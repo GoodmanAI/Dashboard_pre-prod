@@ -21,6 +21,7 @@ import {
   Alert,
   Divider,
   Radio,
+  Switch
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddIcon from "@mui/icons-material/Add";
@@ -47,6 +48,7 @@ type TalkSettings = {
   examsAccepted: Record<ExamKey, boolean>;
   examQuestions: Record<ExamKey, string[]>;
   specificNotes: string;
+  reconnaissance: boolean;
 };
 
 const DEFAULTS: TalkSettings = {
@@ -88,6 +90,7 @@ const DEFAULTS: TalkSettings = {
   },
   specificNotes:
     "Accès parking limité : privilégier le parking P2 (entrée rue des Fleurs).",
+  reconnaissance: false
 };
 
 /**
@@ -223,10 +226,17 @@ function QuestionsEditor({
   );
 }
 
-export default function ParametrageTalkPage() {
+interface TalkPageProps {
+    params: {
+        id: string; // captured from the URL
+    };
+}
+
+export default function ParametrageTalkPage({ params }: TalkPageProps) {
   const router = useRouter();
   const { selectedUserId, selectedCentre } = useCentre();
-
+  const userProductId = Number(params.id);
+  
   const { load, save, reset, storageKey } = useLocalSettingsStorage(selectedUserId);
 
   const [settings, setSettings] = useState<TalkSettings>(DEFAULTS);
@@ -240,6 +250,35 @@ export default function ParametrageTalkPage() {
   // Audio preview state
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playingKey, setPlayingKey] = useState<VoiceKey | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+
+    async function fetchSettings() {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/configuration?userProductId=${userProductId}`);
+        if (!res.ok) {
+          console.error("Failed to load settings:", res.statusText);
+          setLoading(false);
+          return;
+        }
+
+        const data = await res.json();
+        // setSettings((prev) => ({
+        //   ...prev,
+        //   ...data, // Merge fetched settings into state
+        // }));
+      } catch (error) {
+        console.error("Error fetching settings:", error);
+      } finally {
+        console.log("settings after fetch", settings);
+        setLoading(false);
+      }
+    }
+    
+    fetchSettings();
+  }, [userProductId]);
 
   useEffect(() => {
     setSettings(load());
@@ -265,6 +304,13 @@ export default function ParametrageTalkPage() {
   const updateExamQuestions = (k: ExamKey, list: string[]) =>
     setSettings((s) => ({ ...s, examQuestions: { ...s.examQuestions, [k]: list.slice(0, 3) } }));
 
+  const handleSwitchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSettings(prev => ({
+      ...prev,
+      reconnaissance: event.target.checked,
+    }));
+  };
+  
   const removePlanningNote = (idx: number) =>
     update(
       "fullPlanningNotes",
@@ -274,13 +320,25 @@ export default function ParametrageTalkPage() {
   const addPlanningNote = () =>
     update("fullPlanningNotes", [...settings.fullPlanningNotes, ""]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!settings.botName.trim()) {
       setSnack({ open: true, msg: "Le nom du chatbot est requis.", sev: "error" });
       return;
     }
     setSaving(true);
     try {
+      try {
+        await fetch("/api/configuration", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userProductId,
+            ...settings
+          }),
+        });
+      } catch (error) {
+        console.error("Error updating setting:", error);
+      }
       save(settings);
       setSnack({
         open: true,
@@ -461,6 +519,7 @@ export default function ParametrageTalkPage() {
               label="Nom du chatbot"
               value={settings.botName}
               onChange={(e) => update("botName", e.target.value)}
+              InputLabelProps={{ shrink: true }}
             />
 
             <TextField
@@ -470,6 +529,7 @@ export default function ParametrageTalkPage() {
               fullWidth
               multiline
               minRows={2}
+              InputLabelProps={{ shrink: true }}
             />
 
             <TextField
@@ -480,6 +540,7 @@ export default function ParametrageTalkPage() {
               multiline
               minRows={2}
               helperText="Affichée / énoncée lorsque l’IA détecte une urgence en dehors des heures d’ouverture."
+              InputLabelProps={{ shrink: true }}
             />
 
             <Box>
@@ -487,26 +548,30 @@ export default function ParametrageTalkPage() {
                 Mode d’appel
               </Typography>
               <Stack direction="row" spacing={2}>
-                <FormControlLabel
-                  value="decroche"
-                  control={
-                    <Radio
-                      checked={settings.callMode === "decroche"}
-                      onChange={() => update("callMode", "decroche")}
+                {settings.callMode &&
+                  <>
+                    <FormControlLabel
+                      value="decroche"
+                      control={
+                        <Radio
+                          checked={settings.callMode === "decroche"}
+                          onChange={() => update("callMode", "decroche")}
+                        />
+                      }
+                      label="Décroché"
                     />
-                  }
-                  label="Décroché"
-                />
-                <FormControlLabel
-                  value="debordement"
-                  control={
-                    <Radio
-                      checked={settings.callMode === "debordement"}
-                      onChange={() => update("callMode", "debordement")}
+                    <FormControlLabel
+                      value="debordement"
+                      control={
+                        <Radio
+                          checked={settings.callMode === "debordement"}
+                          onChange={() => update("callMode", "debordement")}
+                        />
+                      }
+                      label="Débordement"
                     />
-                  }
-                  label="Débordement"
-                />
+                  </>
+                }
               </Stack>
             </Box>
           </Stack>
@@ -586,7 +651,7 @@ export default function ParametrageTalkPage() {
         </AccordionDetails>
       </Accordion>
 
-      {/* Questions par examen */}
+      {/* Questions par examen */} 
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="h6">Questions médicales par examen</Typography>
@@ -597,35 +662,45 @@ export default function ParametrageTalkPage() {
           </Typography>
 
           <Stack spacing={3}>
-            <QuestionsEditor
-              label="Radiographie de la cheville"
-              value={settings.examQuestions.radiographie}
-              onChange={(v) => updateExamQuestions("radiographie", v)}
-            />
+            {settings.examQuestions.radiographie &&
+              <QuestionsEditor
+                label="Radiographie de la cheville"
+                value={settings.examQuestions.radiographie}
+                onChange={(v) => updateExamQuestions("radiographie", v)}
+              />
+            }
             <Divider />
-            <QuestionsEditor
-              label="Échographie cervicale"
-              value={settings.examQuestions.echographie}
-              onChange={(v) => updateExamQuestions("echographie", v)}
-            />
+            {settings.examQuestions.echographie &&
+              <QuestionsEditor
+                label="Échographie cervicale"
+                value={settings.examQuestions.echographie}
+                onChange={(v) => updateExamQuestions("echographie", v)}
+              />
+            }
             <Divider />
-            <QuestionsEditor
-              label="Scanner abdominal"
-              value={settings.examQuestions.scanner}
-              onChange={(v) => updateExamQuestions("scanner", v)}
-            />
+            {settings.examQuestions.scanner &&
+              <QuestionsEditor
+                label="Scanner abdominal"
+                value={settings.examQuestions.scanner}
+                onChange={(v) => updateExamQuestions("scanner", v)}
+              />
+            }
             <Divider />
-            <QuestionsEditor
-              label="IRM de l'épaule"
-              value={settings.examQuestions.irm}
-              onChange={(v) => updateExamQuestions("irm", v)}
-            />
+            {settings.examQuestions.irm &&
+              <QuestionsEditor
+                label="IRM de l'épaule"
+                value={settings.examQuestions.irm}
+                onChange={(v) => updateExamQuestions("irm", v)}
+              />
+            }
             <Divider />
-            <QuestionsEditor
-              label="Mammographie Standard"
-              value={settings.examQuestions.mammo}
-              onChange={(v) => updateExamQuestions("mammo", v)}
-            />
+            {settings.examQuestions.mammo &&
+              <QuestionsEditor
+                label="Mammographie Standard"
+                value={settings.examQuestions.mammo}
+                onChange={(v) => updateExamQuestions("mammo", v)}
+              />
+            }
           </Stack>
         </AccordionDetails>
       </Accordion>
@@ -645,6 +720,23 @@ export default function ParametrageTalkPage() {
             onChange={(e) => update("specificNotes", e.target.value)}
           />
         </AccordionDetails>
+      </Accordion>
+
+      {/* Reconnaissance du numéro de téléphone */}
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="h6">Reconnaissance Automatique</Typography>
+        </AccordionSummary>
+        {!loading &&
+          <AccordionDetails>
+            OFF
+            <Switch
+              checked={settings.reconnaissance}
+              onChange={handleSwitchChange}
+            />
+            ON
+          </AccordionDetails>
+        }
       </Accordion>
 
       {/* Barre d’action */}

@@ -38,23 +38,23 @@ enum CallStatus {
 }
 
 model User {
-  id             Int              @id @default(autoincrement())
-  name           String?
-  email          String           @unique
-  password       String
-  role           Role             @default(CLIENT)
-  centreRole     CentreRole?
+  id         Int         @id @default(autoincrement())
+  name       String?
+  email      String      @unique
+  password   String
+  role       Role        @default(CLIENT)
+  centreRole CentreRole?
 
   // Self-relation pour gérer admin_user → centres
-  managerId      Int?             
-  manager        User?            @relation("UserManager", fields: [managerId], references: [id], onDelete: Cascade)
-  managedUsers   User[]           @relation("UserManager")
+  managerId    Int?
+  manager      User?  @relation("UserManager", fields: [managerId], references: [id], onDelete: Cascade)
+  managedUsers User[] @relation("UserManager")
 
   // Infos “centre”
-  address        String?
-  city           String?
-  postalCode     String?
-  country        String?
+  address    String?
+  city       String?
+  postalCode String?
+  country    String?
 
   userProducts   UserProduct[]
   userNumbers    UserNumber[]
@@ -65,44 +65,45 @@ model User {
   createdTickets Ticket[]         @relation("TicketCreatedBy")
   createdCalls   Call[]           @relation("CallCreatedBy")
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id             Int              @id @default(autoincrement())
+  name           String           @unique
+  description    String?
+  userProducts   UserProduct[]
+  FileSubmission FileSubmission[]
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 }
 
-model Product {
-  id            Int            @id @default(autoincrement())
-  name          String         @unique
-  description   String?
-  userProducts  UserProduct[]
-  FileSubmission FileSubmission[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-}
-
 model UserProduct {
-  id               Int       @id @default(autoincrement())
-  userId           Int
-  productId        Int
-  assignedAt       DateTime  @default(now())
-  removedAt        DateTime?
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  productId  Int
+  assignedAt DateTime  @default(now())
+  removedAt  DateTime?
 
-  explainDetails   LyraeExplainDetails?
-  talkDetails      LyraeTalkDetails?
+  explainDetails LyraeExplainDetails?
+  talkDetails    LyraeTalkDetails?
 
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product          Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  TalkSettings TalkSettings?
 
   @@unique([userId, productId])
 }
 
 model UserNumber {
-  id           Int       @id @default(autoincrement())
-  userId       Int
-  number       String
-  assignedAt   DateTime  @default(now())
-  removedAt    DateTime?
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  number     String
+  assignedAt DateTime  @default(now())
+  removedAt  DateTime?
 
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model LyraeExplainDetails {
@@ -112,78 +113,96 @@ model LyraeExplainDetails {
   commentsByMonth  Json      @default("[]")
   metricsUpdatedAt DateTime?
 
-  userProduct      UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
+  userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
 }
 
 model LyraeTalkDetails {
-  id                       Int                   @id @default(autoincrement())
-  userProductId            Int                   @unique
-  talkInfoValidated        Boolean?              @default(false)
-  talkLibelesValidated     Boolean?              @default(false)
+  id                   Int      @id @default(autoincrement())
+  userProductId        Int      @unique
+  talkInfoValidated    Boolean? @default(false)
+  talkLibelesValidated Boolean? @default(false)
 
-  userProduct              UserProduct           @relation(fields: [userProductId], references: [id], onDelete: Cascade)
+  userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
 }
 
 model FileSubmission {
-  id         Int       @id @default(autoincrement())
-  userId     Int
-  productId  Int
-  fileName   String
-  fileUrl    String
-  createdAt  DateTime  @default(now())
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  fileName  String
+  fileUrl   String
+  createdAt DateTime @default(now())
 
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model Ticket {
-  id           Int          @id @default(autoincrement())
-  userId       Int
-  createdById  Int?
+  id          Int  @id @default(autoincrement())
+  userId      Int
+  createdById Int?
 
-  subject      String
-  message      String
-  status       TicketStatus @default(PENDING)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  subject   String
+  message   String
+  status    TicketStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  user         User         @relation("TicketForUser", fields: [userId], references: [id], onDelete: Cascade)
-  createdBy    User?         @relation("TicketCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  user          User           @relation("TicketForUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy     User?          @relation("TicketCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   notifications Notification[]
 }
 
 model Notification {
-  id         Int      @id @default(autoincrement())
-  ticketId   Int?
-  userId     Int
-  message    String
-  isRead     Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  ticketId  Int?
+  userId    Int
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
 
-  ticket     Ticket?   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticket Ticket? @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Call {
-  id           Int       @id @default(autoincrement())
-  userId       Int
-  createdById  Int?
+  id          Int  @id @default(autoincrement())
+  userId      Int
+  createdById Int?
 
-  caller       String
-  called       String
+  caller String
+  called String
 
-  intent       String?   // ex: "prise de rdv" | "info" | "urgence" | "annulation" | "consultation"
+  intent String? // ex: "prise de rdv" | "info" | "urgence" | "annulation" | "consultation"
 
-  intentCode   CallIntent?
-  status       CallStatus @default(COMPLETED)
-  durationSec  Int        @default(0)
+  intentCode  CallIntent?
+  status      CallStatus  @default(COMPLETED)
+  durationSec Int         @default(0)
 
-  firstname    String?
-  lastname     String?
-  birthdate    DateTime?
-  createdAt    DateTime   @default(now())
-  steps        String[]
+  firstname String?
+  lastname  String?
+  birthdate DateTime?
+  createdAt DateTime  @default(now())
+  steps     String[]
 
-  user         User       @relation("CallForUser", fields: [userId], references: [id], onDelete: Cascade)
-  createdBy    User?      @relation("CallCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  user      User  @relation("CallForUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("CallCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+}
+
+model TalkSettings {
+  id                  Int      @id @default(autoincrement())
+  userProductId       Int      @unique
+  voice               String?
+  botName             String?
+  welcomeMsg          String?
+  emergencyOutOfHours String?
+  callMode            String?
+  fullPlanningNotes   Json     @default("[]")
+  examsAccepted       Json     @default("{}")
+  examQuestions       Json     @default("{}")
+  specificNotes       String?
+  reconnaissance      Boolean  @default(false)
+  updatedAt           DateTime @updatedAt
+
+  userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
 }
