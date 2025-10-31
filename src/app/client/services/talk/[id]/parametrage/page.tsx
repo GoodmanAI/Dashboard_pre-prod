@@ -433,7 +433,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         <CardContent sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Typography variant="body2" color="text.secondary">
             Paramètres pour le {" "}
-            <strong>{selectedCentre?.name ?? "votre compte"}</strong>.
+            <strong>{selectedCentre?.name ?? "compte"}</strong>.
           </Typography>
         </CardContent>
       </Card>
@@ -735,6 +735,28 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               onChange={handleSwitchChange}
             />
             ON
+          </AccordionDetails>
+        }
+      </Accordion>
+
+      {/* Reconnaissance du numéro de téléphone */}
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="h6">Correspondance des examens</Typography>
+        </AccordionSummary>
+        {!loading &&
+          <AccordionDetails>
+            <Button
+              variant="outlined"
+              onClick={() => router.push(`/client/services/talk/${userProductId}/parametrage/mapping_exam`)}
+              sx={{
+                borderColor: "#48C8AF",
+                color: "#48C8AF",
+                "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
+              }}
+            >
+              Paramétrer les examens
+            </Button>
           </AccordionDetails>
         }
       </Accordion>

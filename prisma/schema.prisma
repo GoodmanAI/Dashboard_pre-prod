@@ -190,19 +190,36 @@ model Call {
 }
 
 model TalkSettings {
-  id                  Int      @id @default(autoincrement())
-  userProductId       Int      @unique
+  id                  Int       @id @default(autoincrement())
+  userProductId       Int       @unique
+
   voice               String?
   botName             String?
   welcomeMsg          String?
   emergencyOutOfHours String?
   callMode            String?
-  fullPlanningNotes   Json     @default("[]")
-  examsAccepted       Json     @default("{}")
-  examQuestions       Json     @default("{}")
+
+  fullPlanningNotes   Json      @default("[]")
+
+  // Each exam row
+  exams               TalkExam[]
+
   specificNotes       String?
-  reconnaissance      Boolean  @default(false)
-  updatedAt           DateTime @updatedAt
+  reconnaissance      Boolean   @default(false)
+  updatedAt           DateTime  @updatedAt
 
   userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
+}
+
+model TalkExam {
+  id            Int      @id @default(autoincrement())
+  talkSettingsId Int
+  commentaire   String?
+  interrogatoire Json?    @default("[]")
+  synonymes     Json?    @default("[]")
+  codeExamen    String?
+  libelle       String?
+  typeExamen    String?
+
+  talkSettings TalkSettings @relation(fields: [talkSettingsId], references: [id], onDelete: Cascade)
 }
