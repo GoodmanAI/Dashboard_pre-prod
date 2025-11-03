@@ -23,8 +23,8 @@ interface ExamData {
 
 
 interface EditableTableProps {
-  data: any;
-  setData: (newData: any[]) => void;
+  data: any[];
+  setData: React.Dispatch<React.SetStateAction<any[]>>
 }
 
 export function EditableTable({data, setData}: EditableTableProps) {
@@ -42,7 +42,7 @@ export function EditableTable({data, setData}: EditableTableProps) {
     (_, index) => index !== 3 && index !== 5
   );
 
-  const handleChange = (rowIndex, key, newValue) => {
+  const handleChange = (rowIndex: any, key: any, newValue: any) => {
     setData((prevData) => {
       const updated = [...prevData];
       updated[startIndex + rowIndex] = {
@@ -54,7 +54,7 @@ export function EditableTable({data, setData}: EditableTableProps) {
   };
 
   // update a single cell
-  const handleArrayChange = (rowIndex, key, valueIndex, newValue) => {
+  const handleArrayChange = (rowIndex: any, key: any, valueIndex: any, newValue: any) => {
     setData((prevData) => {
       console.log("prevData", prevData)
       const updated = [...prevData];
@@ -95,7 +95,7 @@ export function EditableTable({data, setData}: EditableTableProps) {
     });
   };
 
-  const parseMaybeArray = (val) => {
+  const parseMaybeArray = (val: any) => {
     if (Array.isArray(val)) return val;
     if (typeof val !== "string" || !val.trim()) return [];
 
@@ -122,7 +122,7 @@ export function EditableTable({data, setData}: EditableTableProps) {
     return [];
   };
 
-  const addArrayInput = (rowIndex, key) => {
+  const addArrayInput = (rowIndex: any, key: any) => {
     setData((prevData) => {
       const updated = [...prevData];
       const arr = parseMaybeArray(updated[startIndex + rowIndex][key]);
@@ -163,7 +163,7 @@ export function EditableTable({data, setData}: EditableTableProps) {
           </tr>
         </thead>
         <tbody>
-          {currentRows.map((row, rowIndex) => (
+          {currentRows.map((row: any, rowIndex: any) => (
             <tr
               key={rowIndex}
               style={{
@@ -335,7 +335,7 @@ export function EditableTable({data, setData}: EditableTableProps) {
 }
 
 export default function MappingExam({ params }: TalkPageProps) {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<any[]>([]);
   const [saving, setSaving] = useState<any>(null);
   const userProductId = Number(params.id);
 
@@ -379,7 +379,7 @@ export default function MappingExam({ params }: TalkPageProps) {
       <h1 className="text-xl font-bold mb-4">
         Mapping Exam — Product #{userProductId}
       </h1>
-      {data && 
+      {data.length && 
         <>
           <EditableTable data={data} setData={setData} />
           <Stack
