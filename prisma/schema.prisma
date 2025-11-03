@@ -206,6 +206,8 @@ model TalkSettings {
 
   specificNotes       String?
   reconnaissance      Boolean   @default(false)
+  examsAccepted      Json?
+  examQuestions      Json?
   updatedAt           DateTime  @updatedAt
 
   userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
