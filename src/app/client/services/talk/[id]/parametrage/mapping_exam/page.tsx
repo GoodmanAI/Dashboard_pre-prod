@@ -27,7 +27,7 @@ interface EditableTableProps {
   setData: React.Dispatch<React.SetStateAction<any[]>>
 }
 
-export function EditableTable({data, setData}: EditableTableProps) {
+function EditableTable({data, setData}: EditableTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 20;
 
