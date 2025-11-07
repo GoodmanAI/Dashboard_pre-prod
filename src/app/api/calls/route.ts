@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/utils/prisma";
+import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { subDays } from "date-fns";
@@ -131,5 +131,40 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Error fetching calls:", error);
     return NextResponse.json({ error: "Une erreur est survenue." }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  const prisma = new PrismaClient();
+  try {
+    const body = await req.json();
+    const { userProductId, centerId } = body;
+
+    // Basic validation
+    if (!userProductId || !centerId) {
+      return NextResponse.json(
+        { error: "Missing required fields: userProductId and centerId" },
+        { status: 400 }
+      );
+    }
+
+    // Create new ReceivedCalls record
+    const newCall = await prisma.receivedCalls.create({
+      data: {
+        userProductId,
+        centerId,
+      },
+    });
+
+    return NextResponse.json(
+      { message: "Received call created successfully", data: newCall },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    console.error("Error creating received call:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

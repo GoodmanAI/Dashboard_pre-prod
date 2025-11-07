@@ -45,12 +45,10 @@ model User {
   role       Role        @default(CLIENT)
   centreRole CentreRole?
 
-  // Self-relation pour gérer admin_user → centres
   managerId    Int?
   manager      User?  @relation("UserManager", fields: [managerId], references: [id], onDelete: Cascade)
   managedUsers User[] @relation("UserManager")
 
-  // Infos “centre”
   address    String?
   city       String?
   postalCode String?
@@ -64,6 +62,9 @@ model User {
   calls          Call[]           @relation("CallForUser")
   createdTickets Ticket[]         @relation("TicketCreatedBy")
   createdCalls   Call[]           @relation("CallCreatedBy")
+
+  // 👇 this must match the name in ReceivedCalls.center
+  receivedCallsAsCenter ReceivedCalls[] @relation("ReceivedCallsCenter")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -92,6 +93,9 @@ model UserProduct {
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
   TalkSettings TalkSettings?
+
+  // 👇 Relation back to ReceivedCalls
+  receivedCalls ReceivedCalls[] @relation("UserProductReceivedCalls")
 
   @@unique([userId, productId])
 }
@@ -190,8 +194,8 @@ model Call {
 }
 
 model TalkSettings {
-  id                  Int       @id @default(autoincrement())
-  userProductId       Int       @unique
+  id            Int @id @default(autoincrement())
+  userProductId Int @unique
 
   voice               String?
   botName             String?
@@ -199,29 +203,29 @@ model TalkSettings {
   emergencyOutOfHours String?
   callMode            String?
 
-  fullPlanningNotes   Json      @default("[]")
+  fullPlanningNotes Json  @default("[]")
+  examsAccepted     Json? @default("{}")
+  examQuestions     Json? @default("{}")
 
-  // Each exam row
-  exams               TalkExam[]
+  // 🆕 all your exam rows stored here
+  exams Json @default("[]")
 
-  specificNotes       String?
-  reconnaissance      Boolean   @default(false)
-  examsAccepted      Json?
-  examQuestions      Json?
-  updatedAt           DateTime  @updatedAt
+  specificNotes  String?
+  reconnaissance Boolean  @default(false)
+  updatedAt      DateTime @updatedAt
 
   userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
 }
 
-model TalkExam {
+model ReceivedCalls {
   id            Int      @id @default(autoincrement())
-  talkSettingsId Int
-  commentaire   String?
-  interrogatoire Json?    @default("[]")
-  synonymes     Json?    @default("[]")
-  codeExamen    String?
-  libelle       String?
-  typeExamen    String?
+  userProductId Int
+  centerId      Int
+  createdAt     DateTime @default(now())
 
-  talkSettings TalkSettings @relation(fields: [talkSettingsId], references: [id], onDelete: Cascade)
+  // 👇 Must use the same relation name
+  userProduct UserProduct @relation("UserProductReceivedCalls", fields: [userProductId], references: [id], onDelete: Cascade)
+
+  // Relation to User (center)
+  center User @relation("ReceivedCallsCenter", fields: [centerId], references: [id], onDelete: Cascade)
 }
