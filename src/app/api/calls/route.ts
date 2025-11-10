@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/authOptions";
 import { subDays } from "date-fns";
 
 export async function GET(request: NextRequest) {
+  const prisma = new PrismaClient();
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
