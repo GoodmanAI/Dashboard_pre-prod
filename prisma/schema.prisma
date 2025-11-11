@@ -95,7 +95,8 @@ model UserProduct {
   TalkSettings TalkSettings?
 
   // 👇 Relation back to ReceivedCalls
-  receivedCalls ReceivedCalls[] @relation("UserProductReceivedCalls")
+  receivedCalls       ReceivedCalls[]          @relation("UserProductReceivedCalls")
+  informationSettings TalkInformationSettings? @relation("TalkInformationSettingsRelation")
 
   @@unique([userId, productId])
 }
@@ -228,4 +229,14 @@ model ReceivedCalls {
 
   // Relation to User (center)
   center User @relation("ReceivedCallsCenter", fields: [centerId], references: [id], onDelete: Cascade)
+}
+
+model TalkInformationSettings {
+  id            Int      @id @default(autoincrement())
+  userProductId Int      @unique
+  data          Json     @default("{}")
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+
+  userProduct UserProduct @relation("TalkInformationSettingsRelation", fields: [userProductId], references: [id], onDelete: Cascade)
 }
