@@ -352,22 +352,24 @@ export default function MappingExam({ params }: TalkPageProps) {
 
   const handleSave = async () => {
     try {
-      console.log(data)
-      // const response = await fetch("/parametres/save", {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify(data),
-      // });
+      const response = await fetch("/api/configuration/mapping", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userProductId: userProductId,
+          data
+        }),
+      });
 
-      // if (!response.ok) {
-      //   throw new Error(`Failed to save data: ${response.statusText}`);
-      // }
+      if (!response.ok) {
+        throw new Error(`Failed to save data: ${response.statusText}`);
+      }
 
-      // const result = await response.json();
-      // console.log("✅ Data saved successfully:", result);
-      // alert("Les paramètres ont été enregistrés avec succès !");
+      const result = await response.json();
+      console.log("✅ Data saved successfully:", result);
+      alert("Les paramètres ont été enregistrés avec succès !");
     } catch (error) {
       console.error("❌ Error saving data:", error);
       alert("Erreur lors de l'enregistrement des paramètres.");

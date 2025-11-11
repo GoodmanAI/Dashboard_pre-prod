@@ -651,60 +651,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         </AccordionDetails>
       </Accordion>
 
-      {/* Questions par examen */} 
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6">Questions médicales par examen</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Configurez de 1 à 3 questions par examen.
-          </Typography>
-
-          <Stack spacing={3}>
-            {settings.examQuestions.radiographie &&
-              <QuestionsEditor
-                label="Radiographie de la cheville"
-                value={settings.examQuestions.radiographie}
-                onChange={(v) => updateExamQuestions("radiographie", v)}
-              />
-            }
-            <Divider />
-            {settings.examQuestions.echographie &&
-              <QuestionsEditor
-                label="Échographie cervicale"
-                value={settings.examQuestions.echographie}
-                onChange={(v) => updateExamQuestions("echographie", v)}
-              />
-            }
-            <Divider />
-            {settings.examQuestions.scanner &&
-              <QuestionsEditor
-                label="Scanner abdominal"
-                value={settings.examQuestions.scanner}
-                onChange={(v) => updateExamQuestions("scanner", v)}
-              />
-            }
-            <Divider />
-            {settings.examQuestions.irm &&
-              <QuestionsEditor
-                label="IRM de l'épaule"
-                value={settings.examQuestions.irm}
-                onChange={(v) => updateExamQuestions("irm", v)}
-              />
-            }
-            <Divider />
-            {settings.examQuestions.mammo &&
-              <QuestionsEditor
-                label="Mammographie Standard"
-                value={settings.examQuestions.mammo}
-                onChange={(v) => updateExamQuestions("mammo", v)}
-              />
-            }
-          </Stack>
-        </AccordionDetails>
-      </Accordion>
-
       {/* Consignes spécifiques */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
