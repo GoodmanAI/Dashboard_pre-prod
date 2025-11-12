@@ -411,7 +411,7 @@ export default function TalkPage({ params }: TalkPageProps) {
             <Button
               variant="outlined"
               startIcon={<IconEye size={18} />}
-              onClick={() => router.push("/client/services/talk/informationnel")}
+              onClick={() => router.push(`/client/services/talk/${userProductId}/informationnel`)}
               sx={{
                 borderColor: "#48C8AF",
                 color: "#48C8AF",
