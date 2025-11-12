@@ -5,18 +5,18 @@ import { PrismaClient, TalkSettings, User, Product } from '@prisma/client'
 export async function GET(req: NextRequest) {
   const prisma = new PrismaClient();
   const { searchParams } = new URL(req.url);
-  const talkSettingsId = searchParams.get("talkSettingsId");
+  const userProductId = searchParams.get("userProductId");
 
-  if (!talkSettingsId) {
+  if (!userProductId) {
     return NextResponse.json(
-      { error: "Missing talkSettingsId parameter" },
+      { error: "Missing userProductId parameter" },
       { status: 400 }
     );
   }
 
   try {
-    const exams = await prisma.talkExam.findMany({
-      where: { talkSettingsId: Number(talkSettingsId) },
+    const exams = await prisma.talkSettings.findMany({
+      where: { userProductId: Number(userProductId) },
     });
 
     return NextResponse.json(exams);
