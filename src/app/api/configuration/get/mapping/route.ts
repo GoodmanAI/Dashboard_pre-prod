@@ -1,6 +1,6 @@
-// src/app/api/configuration/route.ts
+// src/app/api/configuration/get/mapping/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient, TalkSettings, User, Product } from '@prisma/client'
+import { PrismaClient } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   const prisma = new PrismaClient();
@@ -15,17 +15,25 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const exams = await prisma.talkSettings.findMany({
+    const settings = await prisma.talkSettings.findUnique({
       where: { userProductId: Number(userProductId) },
     });
 
-    return NextResponse.json(exams);
+    if (!settings) {
+      return NextResponse.json(
+        { error: "No mapping found" },
+        { status: 400 } // <-- your preference
+      );
+    }
+
+    return NextResponse.json(settings.exams || []);
   } catch (error) {
-    console.error("Failed to fetch exams:", error);
+    console.error("Failed to fetch mapping:", error);
     return NextResponse.json(
-      { error: "Failed to fetch exams" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
-
 }

@@ -1,15 +1,13 @@
 "use client";
-import  { useState, useEffect } from "react";
+
+import { useState, useEffect } from "react";
 import SaveIcon from "@mui/icons-material/Save";
-import {
-  Stack,
-  Button
-} from "@mui/material";
+import { Stack, Button, Snackbar, Alert, Portal } from "@mui/material";
 
 interface TalkPageProps {
-    params: {
-        id: string; // captured from the URL
-    };
+  params: {
+    id: string; // captured from the URL
+  };
 }
 
 interface ExamData {
@@ -21,26 +19,24 @@ interface ExamData {
   typeExamen: string;
 }
 
-
 interface EditableTableProps {
   data: any[];
-  setData: React.Dispatch<React.SetStateAction<any[]>>
+  setData: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
-function EditableTable({data, setData}: EditableTableProps) {
+function EditableTable({ data, setData }: EditableTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 20;
 
-  // pagination math
+  // Pagination math
   const startIndex = (currentPage - 1) * rowsPerPage;
   const endIndex = startIndex + rowsPerPage;
   const currentRows = data.slice(startIndex, endIndex);
   const totalPages = Math.ceil(data.length / rowsPerPage);
 
   const allKeys = Object.keys(data[0]);
-  const visibleKeys = allKeys.filter(
-    (_, index) => index !== 3 && index !== 5
-  );
+  console.log(allKeys)
+  const visibleKeys = allKeys.filter((_, index) => index !== 1 && index !== 4);
 
   const handleChange = (rowIndex: any, key: any, newValue: any) => {
     setData((prevData) => {
@@ -53,13 +49,10 @@ function EditableTable({data, setData}: EditableTableProps) {
     });
   };
 
-  // update a single cell
   const handleArrayChange = (rowIndex: any, key: any, valueIndex: any, newValue: any) => {
     setData((prevData) => {
-      console.log("prevData", prevData)
       const updated = [...prevData];
       const targetIndex = startIndex + rowIndex;
-      
       let currentVal = updated[targetIndex][key];
       let currentArray: string[] = [];
 
@@ -67,13 +60,9 @@ function EditableTable({data, setData}: EditableTableProps) {
         currentArray = [...currentVal];
       } else if (typeof currentVal === "string") {
         const trimmed = currentVal.trim();
-
-        // Check if it looks like an array literal
         if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
           const content = trimmed.slice(1, -1).trim();
-
           if (content) {
-            // Split on commas that are outside quotes, then remove surrounding quotes and trim
             currentArray = content
               .split(/,(?=(?:[^'"]|'[^']*'|"[^"]*")*$)/)
               .map((s) => s.trim().replace(/^['"]|['"]$/g, ""))
@@ -82,10 +71,8 @@ function EditableTable({data, setData}: EditableTableProps) {
         }
       }
 
-      // Update only the targeted value
       currentArray[valueIndex] = newValue;
 
-      // ✅ Save as a JSON string for consistency with the rest of your table
       updated[targetIndex] = {
         ...updated[targetIndex],
         [key]: JSON.stringify(currentArray),
@@ -101,16 +88,13 @@ function EditableTable({data, setData}: EditableTableProps) {
 
     const trimmed = val.trim();
 
-    // ✅ Case 1: proper JSON array
     if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
       try {
         const parsed = JSON.parse(trimmed);
         if (Array.isArray(parsed)) return parsed;
       } catch {
-        // try lightweight recovery if it's a pseudo-JSON like [a, b]
         const content = trimmed.slice(1, -1).trim();
         if (!content) return [];
-        // Split on closing bracket or comma followed by quote-like or uppercase letter
         const items = content
           .split(/"\s*,\s*"|',\s*'|"\s*,\s*'|'\s*,\s*"/)
           .map((s) => s.replace(/^['"]|['"]$/g, "").trim());
@@ -118,7 +102,6 @@ function EditableTable({data, setData}: EditableTableProps) {
       }
     }
 
-    // ✅ Case 2: not JSON — treat as plain string, not an array
     return [];
   };
 
@@ -154,7 +137,7 @@ function EditableTable({data, setData}: EditableTableProps) {
                   padding: "8px",
                   backgroundColor: "rgba(230, 230, 230, 0.6)",
                   textAlign: "left",
-                  width: index === 0 || index === 1 ? "15%" : index == 2 ? "25%" : "auto"
+                  width: index == 4 ? "30%" : "15%"
                 }}
               >
                 {key}
@@ -162,44 +145,37 @@ function EditableTable({data, setData}: EditableTableProps) {
             ))}
           </tr>
         </thead>
+
         <tbody>
           {currentRows.map((row: any, rowIndex: any) => (
             <tr
               key={rowIndex}
               style={{
                 backgroundColor:
-                  rowIndex % 2 === 0
-                    ? "rgba(74, 200, 175, 0.1)"
-                    : "rgba(255, 255, 255, 1)",
+                  rowIndex % 2 === 0 ? "rgba(74, 200, 175, 0.1)" : "rgba(255, 255, 255, 1)",
               }}
             >
               {visibleKeys.map((key, index) => {
                 const rawValue = row[key];
                 const arrValue = parseMaybeArray(rawValue);
-                const isArrayLike = arrValue.length > 0;
-
-                // 👇 Only the 4th column (index 3) uses multiple inputs
-                const isArrayColumn = index === 3;
+                const isArrayColumn = index === 4;
+                const editable = ![0, 2, 3].includes(index);
 
                 return (
                   <td
                     key={key}
                     style={{
                       border: "1px solid #ccc",
-                      padding: "20px 10px",
-                      width: index === 0 || index == 1 ? "15%" : index == 2 ? "25%" : "auto",
-                      verticalAlign: "middle"
+                      padding: "15px 10px",
+                      width: index === 0 || index == 1 || index == 2 ? "15%" : "auto",
+                      verticalAlign: "middle",
+                      height: "120px"
                     }}
                   >
-                    {isArrayColumn ? (
+                  {editable ? (
+                    isArrayColumn ? (
                       arrValue.length > 0 ? (
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "6px",
-                          }}
-                        >
+                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                           {arrValue.map((item, i) => (
                             <input
                               key={i}
@@ -218,7 +194,6 @@ function EditableTable({data, setData}: EditableTableProps) {
                               }}
                             />
                           ))}
-
                           <button
                             onClick={() => addArrayInput(rowIndex, key)}
                             onMouseEnter={(e) =>
@@ -235,7 +210,7 @@ function EditableTable({data, setData}: EditableTableProps) {
                               cursor: "pointer",
                               fontSize: "0.9em",
                               transition: "background-color 0.2s ease",
-                              width: "100%"
+                              width: "100%",
                             }}
                           >
                             + Ajouter une question
@@ -257,32 +232,46 @@ function EditableTable({data, setData}: EditableTableProps) {
                             cursor: "pointer",
                             fontSize: "0.9em",
                             transition: "background-color 0.2s ease",
-                            width: "100%"
+                            width: "100%",
                           }}
                         >
                           + Ajouter une question
                         </button>
                       )
                     ) : (
-                      <textarea
-                        value={String(rawValue || "")}
-                        onChange={(e) =>
-                          handleChange(rowIndex, key, e.target.value)
-                        }
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          boxSizing: "border-box",
-                          border: "none",
-                          padding: "8px",
-                          fontFamily: "inherit",
-                          fontSize: "inherit",
-                          resize: "none",
-                          background: "transparent",
-                        }}
-                        rows={2}
-                      />
-                    )}
+                        <input
+                          type="text"
+                          value={String(rawValue || "")}
+                          onChange={(e) => handleChange(rowIndex, key, e.target.value)}
+                          style={{
+                            width: "100%",
+                            boxSizing: "border-box",
+                            border: "0",
+                            borderBottom: "1px solid gray",
+                            padding: "8px",
+                            fontFamily: "inherit",
+                            fontSize: "inherit",
+                            resize: "none",
+                            background: "transparent",
+                          }}
+                        />
+                    )
+              ) : (<div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      padding: "8px",
+                      boxSizing: "border-box",
+                      fontFamily: "inherit",
+                      fontSize: "inherit",
+                      overflow: "auto",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      backgroundColor: "transparent",
+                    }}
+                  >
+                    {isArrayColumn ? arrValue.join(", ") : rawValue}
+                  </div>)}
                   </td>
                 );
               })}
@@ -337,42 +326,115 @@ function EditableTable({data, setData}: EditableTableProps) {
 export default function MappingExam({ params }: TalkPageProps) {
   const [data, setData] = useState<any[]>([]);
   const [saving, setSaving] = useState<any>(null);
-  const userProductId = Number(params.id);
+  const [snack, setSnack] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
+  const userProductId = Number(params.id);
+    
   useEffect(() => {
-    fetch("/api/data/exams")
-      .then((res) => res.json())
-      .then((json) => setData(json))
-      .catch((err) => console.error("Failed to load data:", err));
-  }, []);
+  const fetchData = async () => {
+    try {
+      // 1️⃣ Try fetching the user's saved mapping from the DB
+      const res = await fetch(`/api/configuration/get/mapping?userProductId=${userProductId}`);
+
+      if (res.ok) {
+        console.log("1")
+        const json = await res.json();
+
+        // Handle both possible formats (array or object)
+        const formatted = Array.isArray(json)
+          ? json
+          : Object.entries(json).map(([code, exam]) => ({
+              codeExamen: code,
+              ...exam,
+            }));
+
+        console.log("✅ Loaded mapping from DB:", formatted);
+        const processedData = formatted.map((row: any) => {
+        const newRow: any = {};
+        const entries = Object.entries(row);
+
+        entries.forEach(([key, value], index) => {
+          // Insert codeExamenClient at index 2 if not already added
+          if (index === 2 && !newRow.hasOwnProperty("codeExamenClient")) {
+            // Use existing value if present, otherwise empty string
+            newRow["codeExamenClient"] = row.hasOwnProperty("codeExamenClient")
+              ? row["codeExamenClient"]
+              : "";
+          }
+
+          // Skip adding codeExamenClient again if it's already in row
+          if (key !== "codeExamenClient") {
+            newRow[key] = value;
+          }
+        });
+
+        // If row has fewer than 2 keys, or codeExamenClient wasn't inserted, append at the end
+        if (!newRow.hasOwnProperty("codeExamenClient")) {
+          newRow["codeExamenClient"] = row.hasOwnProperty("codeExamenClient")
+            ? row["codeExamenClient"]
+            : "";
+        }
+
+        return newRow;
+      });
+
+        setData(processedData);
+      } else if (res.status === 404) {
+        console.log("2")
+        // 2️⃣ Fallback to base data if no user mapping exists
+        console.log("ℹ️ No existing mapping found, loading default data...");
+        const fallbackRes = await fetch("/api/data/exams");
+        if (!fallbackRes.ok) throw new Error("Failed to load default exams");
+        const fallbackJson = await fallbackRes.json();
+        setData(fallbackJson);
+      } else {
+        throw new Error(`Unexpected response: ${res.status}`);
+      }
+    } catch (err) {
+      console.error("❌ Failed to load data:", err);
+
+      // 3️⃣ As a last resort, attempt base data anyway
+      try {
+        const fallbackRes = await fetch("/api/data/exams");
+        if (fallbackRes.ok) {
+          const fallbackJson = await fallbackRes.json();
+          setData(fallbackJson);
+        }
+      } catch (e) {
+        console.error("❌ Fallback also failed:", e);
+      }
+    }
+  };
+
+  fetchData();
+}, [userProductId]);
 
   useEffect(() => {
     console.log("Loaded data:", data);
   }, [data]);
 
   const handleSave = async () => {
+    setSaving(true);
     try {
       const response = await fetch("/api/configuration/mapping", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userProductId: userProductId,
-          data
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userProductId, data }),
       });
 
       if (!response.ok) {
         throw new Error(`Failed to save data: ${response.statusText}`);
       }
-
+      setSnack({ open: true, message: "Configuration enregistrée avec succès.", severity: "success" })
       const result = await response.json();
       console.log("✅ Data saved successfully:", result);
-      alert("Les paramètres ont été enregistrés avec succès !");
+      setSaving(false);
     } catch (error) {
       console.error("❌ Error saving data:", error);
-      alert("Erreur lors de l'enregistrement des paramètres.");
     }
   };
 
@@ -381,7 +443,8 @@ export default function MappingExam({ params }: TalkPageProps) {
       <h1 className="text-xl font-bold mb-4">
         Mapping Exam — Product #{userProductId}
       </h1>
-      {data.length && 
+
+      {data.length > 0 && (
         <>
           <EditableTable data={data} setData={setData} />
           <Stack
@@ -412,8 +475,18 @@ export default function MappingExam({ params }: TalkPageProps) {
               Enregistrer
             </Button>
           </Stack>
+          <Portal>
+            <Snackbar
+              anchorOrigin={{vertical: "top", horizontal: "right"}}
+              open={snack.open}
+              autoHideDuration={3000}
+              onClose={() => setSnack((s) => ({ ...s, open: false }))}
+            >
+              <Alert severity={snack.severity}>{snack.message}</Alert>
+            </Snackbar>
+          </Portal>
         </>
-      }
+      )}
     </main>
   );
 }
