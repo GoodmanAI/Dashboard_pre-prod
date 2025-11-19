@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const exams = settings.exams || [];
+    const exams: any = settings.exams || [];
 
     // Transform array → keyed object
     const keyed = Object.fromEntries(
