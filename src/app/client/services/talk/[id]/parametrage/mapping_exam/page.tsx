@@ -350,7 +350,7 @@ export default function MappingExam({ params }: TalkPageProps) {
         // Handle both possible formats (array or object)
         const formatted = Array.isArray(json)
           ? json
-          : Object.entries(json).map(([code, exam]) => ({
+          : Object.entries(json).map(([code, exam]: any) => ({
               codeExamen: code,
               ...exam,
             }));
