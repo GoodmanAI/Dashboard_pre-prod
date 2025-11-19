@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Optionally sanitize array-like strings before saving
+    // Fonction pour parser les chaînes qui ressemblent à des tableaux
     const parseArrayString = (val: any) => {
       if (!val || typeof val !== "string") return val;
       const trimmed = val.trim();
@@ -30,17 +30,23 @@ export async function POST(req: Request) {
       return val;
     };
 
+    // Nettoyage des données
     const cleanedData = data.map((row: any) => ({
       ...row,
       Interrogatoire: parseArrayString(row.Interrogatoire),
       Synonymes: parseArrayString(row.Synonymes),
     }));
 
-    // Store the entire data array in JSON
+    // Transformation tableau → objet clé → valeur (codeExamen comme clé)
+    const keyedData = Object.fromEntries(
+      cleanedData.map((row: any) => [row.codeExamen, row])
+    );
+
+    // Sauvegarde dans la BDD
     await prisma.talkSettings.upsert({
-      where: { userProductId },
-      update: { exams: cleanedData },
-      create: { userProductId, exams: cleanedData },
+      where: { userProductId: Number(userProductId) },
+      update: { exams: keyedData },
+      create: { userProductId: Number(userProductId), exams: keyedData },
     });
 
     return NextResponse.json({ success: true, count: cleanedData.length });

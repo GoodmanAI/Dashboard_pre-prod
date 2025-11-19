@@ -97,6 +97,7 @@ model UserProduct {
   // 👇 Relation back to ReceivedCalls
   receivedCalls       ReceivedCalls[]          @relation("UserProductReceivedCalls")
   informationSettings TalkInformationSettings? @relation("TalkInformationSettingsRelation")
+  examMappings        ExamMapping[]
 
   @@unique([userId, productId])
 }
@@ -239,4 +240,16 @@ model TalkInformationSettings {
   createdAt     DateTime @default(now())
 
   userProduct UserProduct @relation("TalkInformationSettingsRelation", fields: [userProductId], references: [id], onDelete: Cascade)
+}
+
+model ExamMapping {
+  id            Int    @id @default(autoincrement())
+  userProductId Int
+  examCode      String
+  labelFr       String
+  diminutif     String
+
+  userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
+
+  @@unique([userProductId, examCode])
 }

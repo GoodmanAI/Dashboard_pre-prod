@@ -1,11 +1,12 @@
-// src/app/api/configuration/get/mapping/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   const prisma = new PrismaClient();
   const { searchParams } = new URL(req.url);
+
   const userProductId = searchParams.get("userProductId");
+  const codeExamen = searchParams.get("codeExamen"); // <--- nouveau paramètre
 
   if (!userProductId) {
     return NextResponse.json(
@@ -22,11 +23,41 @@ export async function GET(req: NextRequest) {
     if (!settings) {
       return NextResponse.json(
         { error: "No mapping found" },
-        { status: 400 } // <-- your preference
+        { status: 404 }
       );
     }
 
-    return NextResponse.json(settings.exams || []);
+    const exams = settings.exams || [];
+
+    // Transform array → keyed object
+    const keyed = Object.fromEntries(
+      exams.map((exam: any) => [exam.codeExamen, exam])
+    );
+
+    // -------------------------------------
+    // 🔍 Si un codeExamen est demandé
+    // -------------------------------------
+    if (codeExamen) {
+      const exam = keyed[codeExamen];
+
+      if (!exam) {
+        return NextResponse.json(
+          { error: `No exam found for codeExamen "${codeExamen}"` },
+          { status: 404 }
+        );
+      }
+
+      // Retourne un objet (PAS un tableau)
+      return NextResponse.json({
+        [codeExamen]: exam
+      });
+    }
+
+    // -------------------------------------
+    // 🔍 Sinon : retourner l'objet complet
+    // -------------------------------------
+    return NextResponse.json(keyed);
+
   } catch (error) {
     console.error("Failed to fetch mapping:", error);
     return NextResponse.json(

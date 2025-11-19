@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react";
 import SaveIcon from "@mui/icons-material/Save";
+import SettingsIcon from '@mui/icons-material/Settings';
 import { Stack, Button, Snackbar, Alert, Portal } from "@mui/material";
+import { useRouter } from "next/navigation";
+import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 
 interface TalkPageProps {
   params: {
@@ -331,7 +334,7 @@ export default function MappingExam({ params }: TalkPageProps) {
     message: "",
     severity: "success",
   });
-
+  const router = useRouter();
   const userProductId = Number(params.id);
     
   useEffect(() => {
@@ -343,7 +346,7 @@ export default function MappingExam({ params }: TalkPageProps) {
       if (res.ok) {
         console.log("1")
         const json = await res.json();
-
+        console.log(json);
         // Handle both possible formats (array or object)
         const formatted = Array.isArray(json)
           ? json
@@ -440,12 +443,25 @@ export default function MappingExam({ params }: TalkPageProps) {
 
   return (
     <main className="p-6">
-      <h1 className="text-xl font-bold mb-4">
-        Mapping Exam — Product #{userProductId}
+      <h1 className="text-xl font-bold mb-8">
+        Correspondance des Examens
       </h1>
 
       {data.length > 0 && (
         <>
+          <Button
+            variant="contained"
+            startIcon={<ArrowBackIosIcon />}
+            onClick={() => { return router.back() }}
+            disabled={saving}
+            sx={{
+              backgroundColor: "#48C8AF",
+              "&:hover": { backgroundColor: "#3bb49d" },
+              marginBottom: "10px"
+            }}
+          >
+            Retour
+          </Button>
           <EditableTable data={data} setData={setData} />
           <Stack
             direction={{ xs: "column", sm: "row" }}
@@ -459,9 +475,21 @@ export default function MappingExam({ params }: TalkPageProps) {
               px: 2,
               mt: 2,
               borderTop: "1px solid #eee",
-              justifyContent: "flex-end",
+              justifyContent: "space-between"
             }}
           >
+            <Button
+              variant="contained"
+              startIcon={<SettingsIcon />}
+              onClick={() => router.push(`/client/services/talk/${userProductId}/parametrage/mapping_exam/type_exam`)}
+              disabled={saving}
+              sx={{
+                backgroundColor: "#48C8AF",
+                "&:hover": { backgroundColor: "#3bb49d" },
+              }}
+            >
+              Modifier Types d'examens
+            </Button>
             <Button
               variant="contained"
               startIcon={<SaveIcon />}
