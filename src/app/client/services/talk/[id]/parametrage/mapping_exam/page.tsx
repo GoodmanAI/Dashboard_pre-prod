@@ -488,7 +488,7 @@ export default function MappingExam({ params }: TalkPageProps) {
                 "&:hover": { backgroundColor: "#3bb49d" },
               }}
             >
-              Modifier Types d'examens
+              Modifier Types d&apos;examens
             </Button>
             <Button
               variant="contained"

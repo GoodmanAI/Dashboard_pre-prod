@@ -68,8 +68,8 @@ export default function EditTypeExam({ params }: TalkPageProps){
             <table style={{width: "100%", padding: "0 50px", borderCollapse: "collapse", textAlign: "left"}}>
                 <thead>
                     <tr style={{backgroundColor: "rgba(230, 230, 230, 0.6)"}}>
-                        <th style={{padding: "5px 10px", border: "1px solid black"}}>Type d'examen</th>
-                        <th style={{padding: "5px 10px", border: "1px solid black"}}>Diminutif d'examen</th>
+                        <th style={{padding: "5px 10px", border: "1px solid black"}}>Type d&apos;examens</th>
+                        <th style={{padding: "5px 10px", border: "1px solid black"}}>Diminutif d&apos;examens</th>
                     </tr>
                 </thead>
                 {/* <tbody>
