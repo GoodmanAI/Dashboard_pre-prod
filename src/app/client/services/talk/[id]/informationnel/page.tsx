@@ -17,6 +17,13 @@ import {
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
+const emptyDay: DayHours = { enabled: false, ranges: [] };
+
+type DayHours = {
+  enabled: boolean;
+  ranges: { start: string; end: string }[];
+};
+
 type FormState = {
   // Informations générales
   centreName: string;
@@ -34,10 +41,15 @@ type FormState = {
   publicTransport: string;
 
   // Horaires & disponibilité
-  openingHours: string;
-  pauseHours: string;
-  phoneHours: string;
-  closedDays: string;
+  weeklyHours: {
+    monday: DayHours;
+    tuesday: DayHours;
+    wednesday: DayHours;
+    thursday: DayHours;
+    friday: DayHours;
+    saturday: DayHours;
+    sunday: DayHours;
+  };
 
   // Contacts
   secretariatPhone: string;
@@ -109,10 +121,15 @@ const initialState: FormState = {
   patientParking: "",
   publicTransport: "",
 
-  openingHours: "",
-  pauseHours: "",
-  phoneHours: "",
-  closedDays: "",
+  weeklyHours: {
+    monday: { ...emptyDay },
+    tuesday: { ...emptyDay },
+    wednesday: { ...emptyDay },
+    thursday: { ...emptyDay },
+    friday: { ...emptyDay },
+    saturday: { ...emptyDay },
+    sunday: { ...emptyDay },
+  },
 
   secretariatPhone: "",
   responsibleContact: "",
@@ -168,6 +185,90 @@ interface TalkPageProps {
     };
 }
 
+function DayHoursField({
+  day,
+  data,
+  onChange,
+}: {
+  day: string;
+  data: DayHours;
+  onChange: (update: DayHours) => void;
+}) {
+  return (
+    <Box sx={{ border: "1px solid #ddd", p: 2, borderRadius: 1 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Typography variant="subtitle1" sx={{ textTransform: "capitalize" }}>
+          {day}
+        </Typography>
+
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() =>
+            onChange({ ...data, enabled: !data.enabled })
+          }
+        >
+          {data.enabled ? "Ouvert" : "Fermé"}
+        </Button>
+      </Stack>
+
+      {data.enabled && (
+        <Stack spacing={1} mt={2}>
+          {data.ranges.map((r, idx) => (
+            <Stack direction="row" spacing={2} key={idx}>
+              <TextField
+                label="Début"
+                type="time"
+                value={r.start}
+                onChange={(e) => {
+                  const newRanges = [...data.ranges];
+                  newRanges[idx].start = e.target.value;
+                  onChange({ ...data, ranges: newRanges });
+                }}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                label="Fin"
+                type="time"
+                value={r.end}
+                onChange={(e) => {
+                  const newRanges = [...data.ranges];
+                  newRanges[idx].end = e.target.value;
+                  onChange({ ...data, ranges: newRanges });
+                }}
+                InputLabelProps={{ shrink: true }}
+              />
+
+              <Button
+                color="error"
+                onClick={() => {
+                  const newRanges = data.ranges.filter((_, i) => i !== idx);
+                  onChange({ ...data, ranges: newRanges });
+                }}
+              >
+                Supprimer
+              </Button>
+            </Stack>
+          ))}
+
+          <Button
+            variant="contained"
+            size="small"
+            onClick={() =>
+              onChange({
+                ...data,
+                ranges: [...data.ranges, { start: "", end: "" }],
+              })
+            }
+          >
+            Ajouter une plage horaire
+          </Button>
+        </Stack>
+      )}
+    </Box>
+  );
+}
+
 export default function DashboardTalkForm({ params }: TalkPageProps) {
   const [form, setForm] = useState<FormState>(initialState);
   const [snack, setSnack] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
@@ -197,18 +298,43 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    console.log(JSON.stringify(form));
-
     try {
-      const res = await fetch("/api/configuration/informationnel", {
+      const { weeklyHours, ...restWithoutWeeklyHours } = form;
+
+      const resInfo = await fetch("/api/configuration/informationnel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({userProductId: userProductId, ...form}),
+        body: JSON.stringify({
+          userProductId,
+          ...restWithoutWeeklyHours,
+        }),
       });
 
-      if (!res.ok) throw new Error(`Erreur serveur: ${res.status}`);
+      if (!resInfo.ok) {
+        const errData = await resInfo.json().catch(() => null);
+        throw new Error(errData?.error || `Erreur informationnel: ${resInfo.status}`);
+      }
 
-      setSnack({ open: true, message: "Configuration enregistrée avec succès.", severity: "success" });
+      const resHours = await fetch("/api/configuration/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userProductId,
+          weeklyHours: form.weeklyHours,
+        }),
+      });
+
+      if (!resHours.ok) {
+        const errData = await resHours.json().catch(() => null);
+        throw new Error(errData?.error || `Erreur horaires: ${resHours.status}`);
+      }
+
+      setSnack({
+        open: true,
+        message: "Configuration enregistrée avec succès.",
+        severity: "success",
+      });
+
     } catch (err) {
       console.error("Erreur lors de l’envoi :", err);
       setSnack({
@@ -219,6 +345,24 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
     }
   };
 
+  useEffect(() => {
+  async function loadWeeklyHours() {
+    const res = await fetch(`/api/configuration/informationnel/horaires?userProductId=${userProductId}`);
+    const json = await res.json();
+
+    if (json.success && json.data.weeklyHours) {
+      setForm((prev) => ({
+        ...prev,
+        weeklyHours: { 
+          ...prev.weeklyHours, 
+          ...json.data.weeklyHours 
+        }
+      }));
+    }
+  }
+
+  loadWeeklyHours();
+}, []);
 
   return (
     <Box sx={{ maxWidth: 1100, mx: "auto", my: 6, px: 2 }}>
@@ -365,38 +509,20 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
           </AccordionSummary>
           <AccordionDetails>
             <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField
-                  label="Heures d’ouverture"
-                  value={form.openingHours}
-                  onChange={handleChange("openingHours")}
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Heures de pause/fermeture quotidienne (ex. midi)"
-                  value={form.pauseHours}
-                  onChange={handleChange("pauseHours")}
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Horaires de disponibilité téléphonique des secrétaires"
-                  value={form.phoneHours}
-                  onChange={handleChange("phoneHours")}
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Jours/périodes de fermeture régulière"
-                  value={form.closedDays}
-                  onChange={handleChange("closedDays")}
-                  fullWidth
-                />
-              </Grid>
+              {Object.entries(form.weeklyHours).map(([day, data]) => (
+                <Grid item xs={12} sm={6} key={day}>
+                  <DayHoursField
+                    day={day}
+                    data={data}
+                    onChange={(updated) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        weeklyHours: { ...prev.weeklyHours, [day]: updated },
+                      }))
+                    }
+                  />
+                </Grid>
+              ))}
             </Grid>
           </AccordionDetails>
         </Accordion>
