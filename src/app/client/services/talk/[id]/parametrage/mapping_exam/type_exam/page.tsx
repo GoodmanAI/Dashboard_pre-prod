@@ -105,7 +105,7 @@ export default function EditTypeExam({ params }: TalkPageProps){
                     </tr>
                 </tbody> */}
                 <tbody>
-              {Object.entries(mapping).map(([code, item]) => (
+              {Object.entries(mapping).map(([code, item]: any) => (
                 <tr key={code}>
                   <td style={{padding: "20px 10px", border: "1px solid black"}}>{code == 0 ? "Echographie" : code == 1 ? "Mammographie" : code == 2 ? "Radio" : code == 3 ? "IRM" : "Scanner"}</td>
 
