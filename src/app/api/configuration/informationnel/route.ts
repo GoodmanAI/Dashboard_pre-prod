@@ -15,7 +15,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Vérifier que le userProduct existe
     const userProduct = await prisma.userProduct.findUnique({
       where: { id: userProductId },
     });
@@ -27,17 +26,26 @@ export async function POST(req: Request) {
       );
     }
 
-    // Upsert : crée ou met à jour selon si la fiche existe déjà
     const saved = await prisma.talkInformationSettings.upsert({
       where: { userProductId },
       update: { data: formData },
       create: { userProductId, data: formData },
-      include: { userProduct: true },
     });
+
+    // --------------✨ CALCUL DU NOMBRE DE CHAMPS REMPLIS ✨--------------
+    const values = Object.values(formData);
+    const filledSections = values.filter(
+      (v) => v !== null && v !== "" && String(v).trim() !== ""
+    ).length;
+
+    const totalSections = Object.keys(formData).length;
+    // --------------------------------------------------------------------
 
     return NextResponse.json({
       success: true,
       message: "Configuration enregistrée avec succès",
+      filledSections,
+      totalSections,
       data: saved,
     });
   } catch (error: any) {
@@ -76,9 +84,19 @@ export async function GET(req: Request) {
 
     const data = userProduct.informationSettings?.data ?? {};
 
+    // ---- ✨ NOUVEAU : calcul remplissage ✨ ----
+    const totalSections = Object.keys(data).length;
+
+    const filledSections = Object.values(data).filter(
+      (v) => v && String(v).trim() !== ""
+    ).length;
+    // -------------------------------------------
+
     return NextResponse.json({
       success: true,
       data,
+      filledSections,
+      totalSections,
       userProduct: {
         id: userProduct.id,
         userId: userProduct.userId,

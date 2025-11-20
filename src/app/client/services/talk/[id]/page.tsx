@@ -107,6 +107,8 @@ interface TalkPageProps {
 }
 
 export default function TalkPage({ params }: TalkPageProps) {
+  const [filledSections, setFilledSections] = useState(0);
+  const [totalSections, setTotalSections] = useState(0);
   const { data: session, status } = useSession();
   const router = useRouter();
   const { selectedUserId, selectedCentre } = useCentre();
@@ -126,6 +128,27 @@ export default function TalkPage({ params }: TalkPageProps) {
       router.push("/authentication/signin");
     }
   }, [status, router]);
+
+  useEffect(() => {
+  if (!userProductId) return;
+
+  (async () => {
+    try {
+      const res = await fetch(`/api/configuration/informationnel?userProductId=${userProductId}`, {
+        cache: "no-store",
+      });
+
+      const json = await res.json();
+
+      if (json.success) {
+        setFilledSections(json.filledSections ?? 0);
+        setTotalSections(json.totalSections ?? 0);
+      }
+    } catch (e) {
+      console.error("Erreur récupération info counter:", e);
+    }
+  })();
+}, [userProductId]);
 
   // Charge les compteurs par intention (24h démo gelées)
   useEffect(() => {
@@ -388,7 +411,7 @@ export default function TalkPage({ params }: TalkPageProps) {
           Gérez les documents “Informations” et “Libellés” de votre service. Les données sont
           enregistrées localement et isolées par centre sélectionné.
         </Typography>
-
+        
         <Card
           sx={{
             mt: 2,
@@ -408,6 +431,12 @@ export default function TalkPage({ params }: TalkPageProps) {
                 Ouvrir la page dédiée pour consulter et modifier les champs informationnels et les libellés.
               </Typography>
             </Box>
+            <Typography
+              variant="h6"
+              sx={{ color: "#48C8AF", fontWeight: "bold", whiteSpace: "nowrap", mr: 2 }}
+            >
+              {filledSections}/{totalSections}
+            </Typography>
             <Button
               variant="outlined"
               startIcon={<IconEye size={18} />}

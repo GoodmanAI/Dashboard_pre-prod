@@ -16,6 +16,7 @@ import {
   Alert,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import SaveIcon from "@mui/icons-material/Save";
 
 const emptyDay: DayHours = { enabled: false, ranges: [] };
 
@@ -276,6 +277,7 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
     message: "",
     severity: "success",
   });
+  const [saving, setSaving] = useState<any>(null);
   const userProductId = Number(params.id);
 
   useEffect(() => {
@@ -295,55 +297,104 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
       setForm((prev) => ({ ...prev, [key]: e.target.value }));
     };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    const handleSave = async () => {
+      setSaving(true);
+      try {
+        const { weeklyHours, ...restWithoutWeeklyHours } = form;
 
-    try {
-      const { weeklyHours, ...restWithoutWeeklyHours } = form;
+        const resInfo = await fetch("/api/configuration/informationnel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userProductId,
+            ...restWithoutWeeklyHours,
+          }),
+        });
 
-      const resInfo = await fetch("/api/configuration/informationnel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userProductId,
-          ...restWithoutWeeklyHours,
-        }),
-      });
+        if (!resInfo.ok) {
+          const errData = await resInfo.json().catch(() => null);
+          throw new Error(errData?.error || `Erreur informationnel: ${resInfo.status}`);
+        }
 
-      if (!resInfo.ok) {
-        const errData = await resInfo.json().catch(() => null);
-        throw new Error(errData?.error || `Erreur informationnel: ${resInfo.status}`);
+        const resHours = await fetch(`/api/configuration/informationnel/horaires?userProductId=${userProductId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userProductId,
+            weeklyHours: form.weeklyHours,
+          }),
+        });
+
+        if (!resHours.ok) {
+          const errData = await resHours.json().catch(() => null);
+          throw new Error(errData?.error || `Erreur horaires: ${resHours.status}`);
+        }
+
+        setSnack({
+          open: true,
+          message: "Configuration enregistrée avec succès.",
+          severity: "success",
+        });
+        setSaving(false);
+      } catch (err) {
+        console.error("Erreur lors de l’envoi :", err);
+        setSnack({
+          open: true,
+          message: "Erreur lors de l’enregistrement. Vérifiez la console.",
+          severity: "error",
+        });
       }
+    };
 
-      const resHours = await fetch("/api/configuration/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userProductId,
-          weeklyHours: form.weeklyHours,
-        }),
-      });
+  // const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
 
-      if (!resHours.ok) {
-        const errData = await resHours.json().catch(() => null);
-        throw new Error(errData?.error || `Erreur horaires: ${resHours.status}`);
-      }
+  //   try {
+  //     const { weeklyHours, ...restWithoutWeeklyHours } = form;
 
-      setSnack({
-        open: true,
-        message: "Configuration enregistrée avec succès.",
-        severity: "success",
-      });
+  //     const resInfo = await fetch("/api/configuration/informationnel", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         userProductId,
+  //         ...restWithoutWeeklyHours,
+  //       }),
+  //     });
 
-    } catch (err) {
-      console.error("Erreur lors de l’envoi :", err);
-      setSnack({
-        open: true,
-        message: "Erreur lors de l’enregistrement. Vérifiez la console.",
-        severity: "error",
-      });
-    }
-  };
+  //     if (!resInfo.ok) {
+  //       const errData = await resInfo.json().catch(() => null);
+  //       throw new Error(errData?.error || `Erreur informationnel: ${resInfo.status}`);
+  //     }
+
+  //     const resHours = await fetch("/api/configuration/test", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         userProductId,
+  //         weeklyHours: form.weeklyHours,
+  //       }),
+  //     });
+
+  //     if (!resHours.ok) {
+  //       const errData = await resHours.json().catch(() => null);
+  //       throw new Error(errData?.error || `Erreur horaires: ${resHours.status}`);
+  //     }
+
+  //     setSnack({
+  //       open: true,
+  //       message: "Configuration enregistrée avec succès.",
+  //       severity: "success",
+  //     });
+
+  //   } catch (err) {
+  //     console.error("Erreur lors de l’envoi :", err);
+  //     setSnack({
+  //       open: true,
+  //       message: "Erreur lors de l’enregistrement. Vérifiez la console.",
+  //       severity: "error",
+  //     });
+  //   }
+  // };
 
   useEffect(() => {
   async function loadWeeklyHours() {
@@ -365,12 +416,12 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
 }, []);
 
   return (
-    <Box sx={{ maxWidth: 1100, mx: "auto", my: 6, px: 2 }}>
+    <Box sx={{ my: 6, px: 2 }}>
       <Typography variant="h4" align="center" gutterBottom>
         Fiche client — Paramétrage Lyrae Talk
       </Typography>
 
-      <form onSubmit={handleSubmit}>
+      <form>
         {/* Informations générales */}
         <Accordion defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -971,21 +1022,36 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
             />
           </AccordionDetails>
         </Accordion>
-
-        <Stack direction="row" justifyContent="center" spacing={2} mt={3}>
-          <Button variant="contained" color="primary" type="submit">
-            Enregistrer la fiche client
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={() => {
-              setForm(initialState);
-            }}
-          >
-            Réinitialiser
-          </Button>
-        </Stack>
+        
       </form>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1}
+        sx={{
+          position: "sticky",
+          bottom: 0,
+          bgcolor: "rgba(248,248,248,0.9)",
+          backdropFilter: "blur(6px)",
+          py: 1.5,
+          px: 2,
+          mt: 2,
+          borderTop: "1px solid #eee",
+          justifyContent: "flex-end"
+        }}
+      >
+        <Button
+          variant="contained"
+          startIcon={<SaveIcon />}
+          onClick={handleSave}
+          disabled={saving}
+          sx={{
+            backgroundColor: "#48C8AF",
+            "&:hover": { backgroundColor: "#3bb49d" },
+          }}
+        >
+          Enregistrer
+        </Button>
+      </Stack>
 
        <Snackbar
         open={snack.open}

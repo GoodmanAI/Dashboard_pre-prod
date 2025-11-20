@@ -162,6 +162,7 @@ function EditableTable({ data, setData }: EditableTableProps) {
                 const rawValue = row[key];
                 const arrValue = parseMaybeArray(rawValue);
                 const isArrayColumn = index === 4;
+                const isSynonymesColumn = key === "Synonymes";
                 const editable = ![0, 2, 3].includes(index);
 
                 return (
@@ -169,7 +170,7 @@ function EditableTable({ data, setData }: EditableTableProps) {
                     key={key}
                     style={{
                       border: "1px solid #ccc",
-                      padding: "15px 10px",
+                      padding: isSynonymesColumn ? "5px 10px" : "15px 10px",
                       width: index === 0 || index == 1 || index == 2 ? "15%" : "auto",
                       verticalAlign: "middle",
                       height: "120px"
@@ -273,7 +274,7 @@ function EditableTable({ data, setData }: EditableTableProps) {
                       backgroundColor: "transparent",
                     }}
                   >
-                    {isArrayColumn ? arrValue.join(", ") : rawValue}
+                    {isArrayColumn ? arrValue.join(", ") : isSynonymesColumn ? arrValue.join("\n") : rawValue}
                   </div>)}
                   </td>
                 );
@@ -327,6 +328,7 @@ function EditableTable({ data, setData }: EditableTableProps) {
 }
 
 export default function MappingExam({ params }: TalkPageProps) {
+  const [filterSynonymes, setFilterSynonymes] = useState("");
   const [data, setData] = useState<any[]>([]);
   const [saving, setSaving] = useState<any>(null);
   const [snack, setSnack] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
@@ -336,7 +338,7 @@ export default function MappingExam({ params }: TalkPageProps) {
   });
   const router = useRouter();
   const userProductId = Number(params.id);
-    
+  
   useEffect(() => {
   const fetchData = async () => {
     try {
@@ -420,6 +422,31 @@ export default function MappingExam({ params }: TalkPageProps) {
     console.log("Loaded data:", data);
   }, [data]);
 
+  const filteredData = data.filter((row) => {
+    if (!filterSynonymes.trim()) return true;
+
+    const search = filterSynonymes.toLowerCase();
+
+    let value = row["Synonymes"];
+
+    // Convert the synonyms into an array
+    let array: string[] = [];
+
+    if (Array.isArray(value)) {
+      array = value;
+    } else if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) array = parsed;
+      } catch {
+        array = value.split(",").map((s) => s.trim());
+      }
+    }
+
+    // Check if ANY synonym contains the search text
+    return array.some((item) => item.toLowerCase().includes(search));
+  });
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -462,7 +489,22 @@ export default function MappingExam({ params }: TalkPageProps) {
           >
             Retour
           </Button>
-          <EditableTable data={data} setData={setData} />
+          <input
+            type="text"
+            placeholder="Filtrer par synonymes…"
+            value={filterSynonymes}
+            onChange={(e) => setFilterSynonymes(e.target.value)}
+            style={{
+              width: "300px",
+              padding: "8px",
+              marginBottom: "20px",
+              marginRight: "50px",
+              float: "right",
+              border: "1px solid #ccc",
+              borderRadius: "6px",
+            }}
+          />
+          <EditableTable data={filteredData} setData={setData} />
           <Stack
             direction={{ xs: "column", sm: "row" }}
             spacing={1}
