@@ -48,7 +48,7 @@ const ClientHomePage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { selectedUserId, selectedCentre } = useCentre();
-
+  console.log("session", session);
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,7 +66,6 @@ const ClientHomePage = () => {
     (async () => {
       try {
         setLoading(true);
-
         // URL du client/centre (centre-aware).
         const clientUrl = selectedUserId
           ? `/api/client?asUserId=${selectedUserId}`
