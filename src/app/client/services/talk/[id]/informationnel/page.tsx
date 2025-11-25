@@ -1053,13 +1053,16 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
         </Button>
       </Stack>
 
-       <Snackbar
-        open={snack.open}
-        autoHideDuration={3000}
-        onClose={() => setSnack((s) => ({ ...s, open: false }))}
-      >
-        <Alert severity={snack.severity}>{snack.message}</Alert>
-      </Snackbar>
+      <Portal>
+        <Snackbar
+          anchorOrigin={{vertical: "top", horizontal: "right"}}
+          open={snack.open}
+          autoHideDuration={3000}
+          onClose={() => setSnack((s) => ({ ...s, open: false }))}
+        >
+          <Alert severity={snack.severity}>{snack.message}</Alert>
+        </Snackbar>
+      </Portal>
     </Box>
   );
 }

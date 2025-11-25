@@ -8,7 +8,7 @@ import {
   Card,
   CardContent,
   Grid,
-  Skeleton, // <= NEW
+  Skeleton,
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
