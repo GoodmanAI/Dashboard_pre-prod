@@ -69,21 +69,16 @@ export default function SignIn() {
       return;
     }
 
-    // On laisse NextAuth finaliser la session avant d’inspecter le rôle.
-    setTimeout(async () => {
-      const s = await getSession();
-      let redirectUrl = "/authentication/signin";
-      if (s?.user?.role === "ADMIN") redirectUrl = "/admin";
-      else if (s?.user?.role === "CLIENT") redirectUrl = "/client";
+    // on attend que NextAuth mette à jour la session
+    const session = await getSession();
 
-      router.push(redirectUrl);
-      setLoading(false);
-    }, 1000);
+    if (session?.user?.role === "ADMIN") {
+      router.push("/admin");
+    } else {
+      router.push("/client");
+    }
 
-    // Rafraîchit l’app pour que les layouts/menus reflètent immédiatement l’état connecté.
-    setTimeout(() => {
-      router.refresh();
-    }, 1500);
+    router.refresh();
   };
 
   /* -------------------------------------------------------------------------- */

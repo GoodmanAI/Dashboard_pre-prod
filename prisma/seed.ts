@@ -14,10 +14,11 @@ const SUPER_ADMIN_PASSWORD: string = process.env.ADMIN_PASSWORD ?? 'secret123'
 const DIRECTOR_EMAIL: string       = 'compte_dg@mail.fr'
 const DIRECTOR_PASSWORD: string    = '1234'
 
-const CENTRE_CREDENTIALS: { email: string; password: string }[] = [
+const CENTRE_CREDENTIALS: { email: string; password: string, name?: string }[] = [
   { email: 'compte_centre1@mail.fr', password: '1234' },
   { email: 'compte_centre2@mail.fr', password: '1234' },
-  { email: 'compte_centre3@mail.fr', password: '1234' }
+  { email: 'compte_centre3@mail.fr', password: '1234' },
+  { email: 'lecreusot@mail.fr', password: 'lyraetalk', name: "Montchanin - Le Creusot"}
 ]
 
 // Dates, statuts & intents
@@ -78,7 +79,7 @@ async function main(): Promise<void> {
       where: { email: cred.email },
       update: {},
       create: {
-        name: `Centre ${CENTRE_CREDENTIALS.indexOf(cred) + 1}`,
+        name: cred.name ? cred.name : `Centre ${CENTRE_CREDENTIALS.indexOf(cred) + 1}`,
         email: cred.email,
         password: hashedPw,
         role: 'CLIENT' as const,
@@ -94,18 +95,19 @@ async function main(): Promise<void> {
   }
 
   // 5. Assignation des deux produits & détails pour LyraeExplain
+  console.log("centreUsers", centreUsers)
   for (const centre of centreUsers) {
-  await prisma.userProduct.upsert({
-    where: { userId_productId: { userId: centre.id, productId: lyraeExplain.id } },
-    update: {},
-    create: { userId: centre.id, productId: lyraeExplain.id },
-  })
-  await prisma.userProduct.upsert({
-    where: { userId_productId: { userId: centre.id, productId: lyraeTalk.id } },
-    update: {},
-    create: { userId: centre.id, productId: lyraeTalk.id },
-  })
-}
+    await prisma.userProduct.upsert({
+      where: { userId_productId: { userId: centre.id, productId: lyraeExplain.id } },
+      update: {},
+      create: { userId: centre.id, productId: lyraeExplain.id },
+    })
+    await prisma.userProduct.upsert({
+      where: { userId_productId: { userId: centre.id, productId: lyraeTalk.id } },
+      update: {},
+      create: { userId: centre.id, productId: lyraeTalk.id },
+    })
+  }
 
   // 6. Tickets aléatoires (2-3 par centre)
   for (const centre of centreUsers) {
