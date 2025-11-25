@@ -71,6 +71,7 @@ async function main(): Promise<void> {
     }
   })
 
+  
   // 4. Centres (sub-users)
   const centreUsers: User[] = []
   for (const cred of CENTRE_CREDENTIALS) {
