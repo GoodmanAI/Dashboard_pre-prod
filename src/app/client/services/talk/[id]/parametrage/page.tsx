@@ -159,7 +159,7 @@ function useLocalSettingsStorage(selectedUserId?: number | null) {
 
   const reset = useCallback(() => {
     localStorage.setItem(storageKey, JSON.stringify(DEFAULTS));
-  }, []);
+  }, [storageKey]);
 
   return { storageKey, load, save, reset };
 }
@@ -278,7 +278,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
     }
     
     fetchSettings();
-  }, [userProductId]);
+  }, [userProductId, settings]);
 
   useEffect(() => {
     setSettings(load());
