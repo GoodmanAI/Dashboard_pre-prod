@@ -561,20 +561,31 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
           </AccordionSummary>
           <AccordionDetails>
             <Grid container spacing={2}>
-              {Object.entries(form.weeklyHours).map(([day, data]) => (
-                <Grid item xs={12} sm={6} key={day}>
-                  <DayHoursField
-                    day={day}
-                    data={data}
-                    onChange={(updated) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        weeklyHours: { ...prev.weeklyHours, [day]: updated },
-                      }))
-                    }
-                  />
-                </Grid>
-              ))}
+              {Object.entries(form.weeklyHours).map(([day, data]: any) => { 
+                const mapping: any = {
+                  monday: "lundi",
+                  tuesday: "mardi",
+                  wednesday: "mercredi",
+                  thursday: "jeudi",
+                  friday: "vendredi",
+                  saturday: "samedi",
+                  sunday: "dimanche"
+                }
+                return (
+                  <Grid item xs={12} sm={6} key={day}>
+                    <DayHoursField
+                      day={mapping[day]}
+                      data={data}
+                      onChange={(updated) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          weeklyHours: { ...prev.weeklyHours, [day]: updated },
+                        }))
+                      }
+                    />
+                  </Grid>
+                )}
+              )}
             </Grid>
           </AccordionDetails>
         </Accordion>
