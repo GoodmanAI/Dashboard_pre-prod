@@ -105,7 +105,7 @@ model UserProduct {
 model UserNumber {
   id         Int       @id @default(autoincrement())
   userId     Int
-  number     String
+  number     String    @unique
   assignedAt DateTime  @default(now())
   removedAt  DateTime?
 
