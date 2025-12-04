@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       welcomeMsg: string | null;
       emergencyOutOfHours: string | null;
       callMode: "decroche" | "debordement" | null;
-      fullPlanningNotes: string[];
+      fullPlanningNotes: Record<string, string>;
       examsAccepted: Record<string, boolean>;
       examQuestions: Record<string, string[]>;
       specificNotes: string | null;
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       welcomeMsg: settings.welcomeMsg,
       emergencyOutOfHours: settings.emergencyOutOfHours,
       callMode: settings.callMode as "decroche" | "debordement" | null,
-      fullPlanningNotes: settings.fullPlanningNotes as string[],
+      fullPlanningNotes: settings.fullPlanningNotes as Record<string, string>,
       examsAccepted: settings.examsAccepted as Record<string, boolean>,
       examQuestions: settings.examQuestions as Record<string, string[]>,
       specificNotes: settings.specificNotes,

@@ -6,6 +6,7 @@ import {
   IconLifebuoy,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
+import { useSession } from "next-auth/react";
 
 /**
  * Typages des éléments de menu :
@@ -39,6 +40,7 @@ export type SidebarItem = NavLabel | MenuLink;
  *  - Les éléments cliquables possèdent un `id` unique, un `title`,
  *    une `icon` Tabler et une `href` absolue vers la page cible.
  */
+
 const Menuitems: SidebarItem[] = [
   // === Section : Accueil ===
   { navlabel: true, subheader: "Home" },
@@ -49,26 +51,26 @@ const Menuitems: SidebarItem[] = [
     href: "/client",
   },
 
-  // === Section : Services ===
-  { navlabel: true, subheader: "Services" },
-  {
-    id: uniqueId(),
-    title: "LYRAE © Explain + Satisfy",
-    icon: IconFilePencil,
-    href: "/client/services/explain",
-  },
-  {
-    id: uniqueId(),
-    title: "LYRAE © Talk (Radiologie)",
-    icon: IconPhone,
-    href: "/client/services/talk",
-  },
-  {
-    id: uniqueId(),
-    title: "LYRAE © Talk (Dentisterie)",
-    icon: IconPhone,
-    href: "/client/services/talk-dentist",
-  },
+  // // === Section : Services ===
+  // { navlabel: true, subheader: "Services" },
+  // {
+  //   id: uniqueId(),
+  //   title: "LYRAE © Explain + Satisfy",
+  //   icon: IconFilePencil,
+  //   href: "/client/services/explain",
+  // },
+  // {
+  //   id: uniqueId(),
+  //   title: "LYRAE © Talk (Radiologie)",
+  //   icon: IconPhone,
+  //   href: "/client/services/talk",
+  // },
+  // {
+  //   id: uniqueId(),
+  //   title: "LYRAE © Talk (Dentisterie)",
+  //   icon: IconPhone,
+  //   href: "/client/services/talk-dentist",
+  // },
 
   // === Section : Assistance ===
   { navlabel: true, subheader: "Assistance" },

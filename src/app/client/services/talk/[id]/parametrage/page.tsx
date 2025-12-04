@@ -44,7 +44,7 @@ type TalkSettings = {
   welcomeMsg: string;
   emergencyOutOfHours: string;
   callMode: "decroche" | "debordement";
-  fullPlanningNotes: string[];
+  fullPlanningNotes: Record<ExamKey, string>;
   examsAccepted: Record<ExamKey, boolean>;
   examQuestions: Record<ExamKey, string[]>;
   specificNotes: string;
@@ -59,10 +59,13 @@ const DEFAULTS: TalkSettings = {
   emergencyOutOfHours:
     "En cas d’urgence hors horaires d’ouverture, merci d’appeler le 15 (SAMU) ou de vous rendre aux urgences les plus proches.",
   callMode: "decroche",
-  fullPlanningNotes: [
-    "Rappeler le lendemain matin",
-    "Consulter le site web pour les créneaux mis à jour",
-  ],
+  fullPlanningNotes: {
+    radiographie: "Rappeler le lendemain matin",
+    irm: "",
+    echographie: "",
+    scanner: "Consulter radiologie-ville.fr pour les créneaux mis à jour",
+    mammo: "",
+  },
   examsAccepted: {
     radiographie: true,
     irm: true,
@@ -311,15 +314,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
     }));
   };
   
-  const removePlanningNote = (idx: number) =>
-    update(
-      "fullPlanningNotes",
-      settings.fullPlanningNotes.filter((_, i) => i !== idx)
-    );
-
-  const addPlanningNote = () =>
-    update("fullPlanningNotes", [...settings.fullPlanningNotes, ""]);
-
   const handleSave = async () => {
     if (!settings.botName.trim()) {
       setSnack({ open: true, msg: "Le nom du chatbot est requis.", sev: "error" });
@@ -533,7 +527,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
             />
 
             <TextField
-              label="Consigne si URGENCE détectée hors horaires"
+              label="Consigne à donner au patient si urgence détectée en heure non ouvrable. "
               value={settings.emergencyOutOfHours}
               onChange={(e) => update("emergencyOutOfHours", e.target.value)}
               fullWidth
@@ -583,39 +577,45 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="h6">Planning rempli — consignes</Typography>
         </AccordionSummary>
+
         <AccordionDetails>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Ajoutez des consignes (ex : “rappeler tel jour”, “consulter le site web”…).
+            Définissez une consigne par examen lorsque le planning est complet.
           </Typography>
-          <Stack spacing={1}>
-            {settings.fullPlanningNotes.map((note, idx) => (
-              <Stack key={idx} direction="row" spacing={1}>
+
+          <Stack spacing={2}>
+            {([
+              ["radiographie", "Radiographie"],
+              ["irm", "IRM"],
+              ["echographie", "Échographie"],
+              ["scanner", "Scanner"],
+              ["mammo", "Mammographie"],
+            ] as [ExamKey, string][]).map(([key, label]) => (
+              <Box key={key}>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  {label}
+                </Typography>
+
                 <TextField
                   fullWidth
                   size="small"
-                  value={note}
-                  placeholder={`Consigne ${idx + 1}`}
-                  onChange={(e) => {
-                    const next = [...settings.fullPlanningNotes];
-                    next[idx] = e.target.value;
-                    update("fullPlanningNotes", next);
-                  }}
+                  multiline
+                  minRows={2}
+                  placeholder={`Consigne pour ${label}`}
+                  value={settings.fullPlanningNotes[key]}
+                  onChange={(e) =>
+                    update("fullPlanningNotes", {
+                      ...settings.fullPlanningNotes,
+                      [key]: e.target.value,
+                    })
+                  }
                 />
-                <IconButton onClick={() => removePlanningNote(idx)} aria-label="remove">
-                  <DeleteIcon />
-                </IconButton>
-              </Stack>
+              </Box>
             ))}
-            <Button
-              onClick={addPlanningNote}
-              startIcon={<AddIcon />}
-              sx={{ alignSelf: "flex-start", textTransform: "none" }}
-            >
-              Ajouter une consigne
-            </Button>
           </Stack>
         </AccordionDetails>
       </Accordion>
+
 
       {/* Examens acceptés */}
       <Accordion>
