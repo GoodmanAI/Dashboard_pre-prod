@@ -33,7 +33,6 @@ export async function GET(req: NextRequest) {
       where: { userProductId },
     });
 
-    // 3️⃣ Mapping FR -> Code
     const examCodeMap: Record<string, string> = {
       Echographie: "US",
       Mammographie: "MG",
@@ -42,11 +41,11 @@ export async function GET(req: NextRequest) {
       Scanner: "CT",
     };
 
-    // 🔹 Créer libelleFr pour la réponse frontend
     const mappedExamMappings = mappings.map((m: any) => ({
       ...m,
-      libelleFr: examCodeMap[m.fr] ?? m.fr,
+      labelFr: examCodeMap[m.fr] ?? m.fr, // labelFr contient maintenant le code
     }));
+
     const defaultTypes = {
       types: [],
       accepted: {},

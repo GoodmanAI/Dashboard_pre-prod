@@ -39,7 +39,7 @@ export async function GET(req: Request) {
   return NextResponse.json(mappings);
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const url = new URL(req.url);
   const userProductId = url.searchParams.get("userProductId");
 
@@ -53,19 +53,29 @@ export async function POST(req: Request) {
   const id = Number(userProductId);
   const data = await req.json();
 
-  // Clean existing
+  // Mapping FR -> Code pour labelFr si pas fourni
+  const examCodeMap: Record<string, string> = {
+    Echographie: "US",
+    Mammographie: "MG",
+    Radio: "RX",
+    IRM: "MR",
+    Scanner: "CT",
+  };
+
+  // Nettoyer les entrées existantes
   await prisma.examMapping.deleteMany({
-    where: { userProductId: id }
+    where: { userProductId: id },
   });
 
-  // Insert
+  // Créer de nouvelles entrées
   await prisma.examMapping.createMany({
     data: Object.entries(data).map(([code, row]: any) => ({
       userProductId: id,
       examCode: code,
-      labelFr: row.fr,
-      diminutif: row.diminutif
-    }))
+      fr: row.fr, // Nom français
+      diminutif: row.diminutif,
+      labelFr: row.labelFr ?? examCodeMap[row.fr] ?? row.fr, // Code ou fallback
+    })),
   });
 
   return NextResponse.json({ success: true });
