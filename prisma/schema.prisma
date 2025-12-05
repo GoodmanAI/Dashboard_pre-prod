@@ -94,13 +94,15 @@ model UserProduct {
   product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
   TalkSettings TalkSettings?
 
-  // 👇 Relation back to ReceivedCalls
   receivedCalls       ReceivedCalls[]          @relation("UserProductReceivedCalls")
   informationSettings TalkInformationSettings? @relation("TalkInformationSettingsRelation")
   examMappings        ExamMapping[]
 
+  CallConversations   CallConversation[]
+
   @@unique([userId, productId])
 }
+
 
 model UserNumber {
   id         Int       @id @default(autoincrement())
