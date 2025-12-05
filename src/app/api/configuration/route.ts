@@ -42,12 +42,11 @@ export async function GET(req: NextRequest) {
       Scanner: "CT",
     };
 
-    console.log(mappings);
+    // 🔹 Créer libelleFr pour la réponse frontend
     const mappedExamMappings = mappings.map((m: any) => ({
       ...m,
-      fr: examCodeMap[m.fr] ?? m.fr,
+      libelleFr: examCodeMap[m.fr] ?? m.fr,
     }));
-
     const defaultTypes = {
       types: [],
       accepted: {},
