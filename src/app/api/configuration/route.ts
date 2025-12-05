@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
       where: { userProductId },
     });
 
+    // 3️⃣ Mapping FR -> Code pour labelFr
     const examCodeMap: Record<string, string> = {
       Echographie: "US",
       Mammographie: "MG",
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
 
     const mappedExamMappings = mappings.map((m: any) => ({
       ...m,
-      labelFr: examCodeMap[m.fr] ?? m.fr, // labelFr contient maintenant le code
+      labelFr: examCodeMap[m.fr] ?? m.fr, // ✅ labelFr contient maintenant le code
     }));
 
     const defaultTypes = {
@@ -68,15 +69,17 @@ export async function GET(req: NextRequest) {
     };
 
     return NextResponse.json(response, { status: 200 });
-
   } catch (error) {
     console.error("Error in GET /configuration:", error);
     return NextResponse.json(
       { error: "Failed to fetch configuration" },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
+
 
 
 
