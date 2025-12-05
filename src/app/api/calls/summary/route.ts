@@ -16,7 +16,6 @@ export async function POST(req: NextRequest) {
 
     const { userProductId, centerId, steps, stats } = data;
 
-    // Validation basique
     if (!userProductId || !centerId || !steps || !Array.isArray(steps)) {
       return NextResponse.json(
         { error: "Missing or invalid parameters" },
@@ -24,21 +23,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 🔄 Transformation des steps → { speaker, text }
+    // Transformation des steps
     const stepsTransformed: Step[] = steps.map((text: string, index: number) => ({
       speaker: index % 2 === 0 ? "Lyrae" : "User",
       text,
     }));
 
-    // 💾 Sauvegarde en base
     await prisma.callConversation.create({
-      data: {
-        userProductId,
-        centerId,
-        steps: stepsTransformed as Prisma.JsonValue, // ✅ cast vers JsonValue
-        stats: stats as Prisma.JsonValue,                 // JSON
-      },
-    });
+  data: {
+    userProductId,
+    centerId,
+    steps: stepsTransformed as unknown as Prisma.InputJsonValue,
+    stats: stats as unknown as Prisma.InputJsonValue,
+  },
+});
 
     return NextResponse.json({ success: true }, { status: 200 });
 
