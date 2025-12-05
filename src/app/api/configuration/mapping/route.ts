@@ -16,11 +16,15 @@ export async function POST(req: NextRequest) {
       where: { userProductId: Number(userProductId) },
     });
 
-    // 🔒 Fusion sécurisée
+    const existingExams = Array.isArray(existing?.exams)
+      ? (existing.exams as Record<string, any>[])
+    : [];
+
     const merged = data.map((row: any, index: number) => ({
-      ...(existing?.exams?.[index] || {}), // garde les anciens champs
-      ...row,                              // remplace uniquement ce que tu modifies
+      ...(existingExams[index] || {}),
+      ...row,
     }));
+
 
     // 🔹 Upsert
     const settings = await prisma.talkSettings.upsert({
