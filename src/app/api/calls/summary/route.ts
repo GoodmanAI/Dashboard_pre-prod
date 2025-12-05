@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
       data: {
         userProductId,
         centerId,
-        steps: stepsTransformed, // JSON
-        stats,                   // JSON
+        steps: stepsTransformed as Prisma.JsonValue, // ✅ cast vers JsonValue
+        stats: stats as Prisma.JsonValue,                 // JSON
       },
     });
 
