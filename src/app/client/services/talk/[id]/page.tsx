@@ -203,7 +203,7 @@ export default function TalkPage({ params }: TalkPageProps) {
     })();
 
     return () => controller.abort();
-  }, [status, selectedUserId]);
+  }, [status, selectedUserId, userProductId]);
 
   // Charge l’aperçu histogramme (30j démo gelés)
   useEffect(() => {
@@ -256,7 +256,7 @@ export default function TalkPage({ params }: TalkPageProps) {
     })();
 
     return () => controller.abort();
-  }, [status, selectedUserId]);
+  }, [status, selectedUserId, userProductId]);
 
   return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>

@@ -52,20 +52,10 @@ export default function CallListPage({ params }: CallListPageProps) {
       .finally(() => setLoading(false));
   }, [userProductId]); // ne dépend plus de rien d'autre
 
-    return (
+  return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-      {/* Bouton retour */}
-      <Button
-        variant="contained"
-        startIcon={<ArrowBackIosIcon />}
-        onClick={() => router.back()}
-        sx={{ mb: 2, backgroundColor: "#48C8AF", "&:hover": { backgroundColor: "#3bb49d" } }}
-      >
-        Retour
-      </Button>
-
       <Typography variant="h5" gutterBottom>
-        Conversation
+        Tous les appels pour UserProduct #{userProductId}
       </Typography>
 
       {loading && (
@@ -76,143 +66,57 @@ export default function CallListPage({ params }: CallListPageProps) {
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      {!loading && !error && steps.length === 0 && (
-        <Alert severity="info">Aucune conversation trouvée pour cet appel.</Alert>
+      {!loading && !error && calls.length === 0 && (
+        <Alert severity="info">Aucun appel trouvé pour ce UserProduct.</Alert>
       )}
 
-      {/* Affichage de la conversation */}
-      {steps.map((text, idx) => {
-        const speaker = idx % 2 === 0 ? "Lyrae" : "User"; // Lyrae commence
-        return (
-          <Box
-            key={idx}
-            sx={{
-              display: "flex",
-              justifyContent: speaker === "Lyrae" ? "flex-start" : "flex-end",
-              mb: 1,
-            }}
-          >
-            <Box
-              sx={{
-                p: 1.25,
-                borderRadius: 2,
-                bgcolor: speaker === "Lyrae" ? "rgba(72,200,175,0.15)" : "#eee",
-                maxWidth: "75%",
-              }}
-            >
-              <Typography
-                variant="caption"
-                sx={{ fontWeight: 700, color: "text.secondary", mb: 0.5 }}
-              >
-                {speaker}
-              </Typography>
-              <Typography variant="body2">{text}</Typography>
-            </Box>
-          </Box>
-        );
-      })}
+      <Grid container spacing={2}>
+        {calls.map((call) => (
+          <Grid item xs={12} sm={6} md={4} key={call.id}>
+            <Card variant="outlined">
+              <CardContent sx={{ p: 2 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  <strong>Call ID:</strong> {call.id}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Center ID:</strong> {call.centerId}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>RDV Status:</strong> {call.stats.rdv_status ?? "—"}
+                </Typography>
+                <Divider sx={{ my: 1 }} />
+                <Typography variant="subtitle2" gutterBottom>
+                  Transcription (extrait)
+                </Typography>
+                {Object.entries(call.steps).map(([speaker, text], idx) => (
+                  <Typography key={idx} variant="body2">
+                    <strong>{speaker}:</strong> {text}
+                  </Typography>
+                ))}
+                <Box sx={{ textAlign: "right", mt: 1 }}>
+                  <Button
+                    size="small"
+                    startIcon={<IconEye size={16} />}
+                    sx={{
+                      borderColor: "#48C8AF",
+                      color: "#48C8AF",
+                      textTransform: "none",
+                      "&:hover": {
+                        backgroundColor: "rgba(72,200,175,0.08)",
+                        borderColor: "#48C8AF",
+                      },
+                    }}
+                    variant="outlined"
+                    onClick={() => router.push(`/client/services/talk/${userProductId}/calls/details/${call.id}`)}
+                  >
+                    Détails
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
     </Box>
   );
 }
-
-
-// "use client";
-
-// import { useEffect, useState } from "react";
-// import { Box, Typography, CircularProgress, Alert, Button } from "@mui/material";
-// import { useRouter } from "next/navigation";
-// import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
-
-// export default function CallConversationPage({ params }: { params: { id: string; callId: string } }) {
-//   const router = useRouter();
-//   const [steps, setSteps] = useState<string[]>([]);
-//   const [loading, setLoading] = useState(true);
-//   const [error, setError] = useState<string | null>(null);
-
-//   const userProductId = Number(params.id);
-//   const callId = Number(params.callId);
-
-//   useEffect(() => {
-//     if (!userProductId || !callId) return;
-
-//     setLoading(true);
-//     setError(null);
-
-//     fetch(`/api/calls?userProductId=${userProductId}&call=${callId}`)
-//       .then((res) => {
-//         if (!res.ok) throw new Error("Erreur lors du fetch de l'appel");
-//         return res.json();
-//       })
-//       .then((data: { steps: string[] }[]) => {
-//         if (data.length > 0) {
-//           setSteps(data[0].steps ?? []);
-//         } else {
-//           setSteps([]);
-//         }
-//       })
-//       .catch((err) => setError(err.message))
-//       .finally(() => setLoading(false));
-//   }, [userProductId, callId]);
-
-//   return (
-//     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-//       {/* Bouton retour */}
-//       <Button
-//         variant="contained"
-//         startIcon={<ArrowBackIosIcon />}
-//         onClick={() => router.back()}
-//         sx={{ mb: 2, backgroundColor: "#48C8AF", "&:hover": { backgroundColor: "#3bb49d" } }}
-//       >
-//         Retour
-//       </Button>
-
-//       <Typography variant="h5" gutterBottom>
-//         Conversation
-//       </Typography>
-
-//       {loading && (
-//         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-//           <CircularProgress sx={{ color: "#48C8AF" }} />
-//         </Box>
-//       )}
-
-//       {error && <Alert severity="error">{error}</Alert>}
-
-//       {!loading && !error && steps.length === 0 && (
-//         <Alert severity="info">Aucune conversation trouvée pour cet appel.</Alert>
-//       )}
-
-//       {/* Affichage de la conversation */}
-//       {steps.map((text, idx) => {
-//         const speaker = idx % 2 === 0 ? "Lyrae" : "User"; // Lyrae commence
-//         return (
-//           <Box
-//             key={idx}
-//             sx={{
-//               display: "flex",
-//               justifyContent: speaker === "Lyrae" ? "flex-start" : "flex-end",
-//               mb: 1,
-//             }}
-//           >
-//             <Box
-//               sx={{
-//                 p: 1.25,
-//                 borderRadius: 2,
-//                 bgcolor: speaker === "Lyrae" ? "rgba(72,200,175,0.15)" : "#eee",
-//                 maxWidth: "75%",
-//               }}
-//             >
-//               <Typography
-//                 variant="caption"
-//                 sx={{ fontWeight: 700, color: "text.secondary", mb: 0.5 }}
-//               >
-//                 {speaker}
-//               </Typography>
-//               <Typography variant="body2">{text}</Typography>
-//             </Box>
-//           </Box>
-//         );
-//       })}
-//     </Box>
-//   );
-// }

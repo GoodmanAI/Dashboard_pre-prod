@@ -290,7 +290,7 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
       }
     }
     loadConfig();
-  }, []);
+  }, [userProductId]);
 
   const handleChange =
     (key: string) =>
@@ -414,7 +414,7 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
   }
 
   loadWeeklyHours();
-}, []);
+}, [userProductId]);
 
   return (
     <Box sx={{ my: 6, px: 2 }}>
