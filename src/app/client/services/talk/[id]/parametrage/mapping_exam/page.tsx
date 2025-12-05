@@ -1,100 +1,218 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Box, Typography, CircularProgress, Alert, Button } from "@mui/material";
+import { useState, useEffect } from "react";
+import SaveIcon from "@mui/icons-material/Save";
+import SettingsIcon from "@mui/icons-material/Settings";
+import { Stack, Button, Snackbar, Alert, Portal } from "@mui/material";
 import { useRouter } from "next/navigation";
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 
-type Speaker = "Lyrae" | "User";
+interface TalkPageProps {
+  params: { id: string };
+}
 
-export default function CallConversationPage({ params }: { params: { id: string; callId: string } }) {
-  const router = useRouter();
-  const [steps, setSteps] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+interface EditableTableProps {
+  data: any[];
+  setData: React.Dispatch<React.SetStateAction<any[]>>;
+}
 
-  const userProductId = Number(params.id);
-  const callId = Number(params.callId);
+function EditableTable({ data, setData }: EditableTableProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 20;
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const currentRows = data.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(data.length / rowsPerPage);
 
-  useEffect(() => {
-    if (!userProductId || !callId) return;
+  const visibleKeys = [
+    "typeExamen",
+    "codeExamen",
+    "libelle",
+    // "typeExamenClient",
+    "codeExamenClient",
+    "libelleClient"
+  ];
 
-    setLoading(true);
-    setError(null);
-
-    fetch(`/api/calls?userProductId=${userProductId}&call=${callId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Erreur lors du fetch de l'appel");
-        return res.json();
-      })
-      .then((data: { steps: string[] }[]) => {
-        if (data.length > 0) {
-          setSteps(data[0].steps ?? []);
-        } else {
-          setSteps([]);
-        }
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [userProductId, callId]);
+  const handleChange = (rowIndex: number, key: string, value: string) => {
+    setData(prev => {
+      const updated = [...prev];
+      updated[startIndex + rowIndex] = {
+        ...updated[startIndex + rowIndex],
+        [key]: value,
+      };
+      return updated;
+    });
+  };
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
+    <div>
+      <table style={{ borderCollapse: "collapse", width: "100%", tableLayout: "fixed" }}>
+        <thead>
+          <tr>
+            {visibleKeys.map((key) => (
+              <th key={key} style={{
+                border: "1px solid #ccc",
+                padding: "8px",
+                backgroundColor: "#eee",
+                textAlign: "left"
+              }}>
+                {key}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {currentRows.map((row, rowIndex) => (
+            <tr key={rowIndex} style={{
+              backgroundColor: rowIndex % 2 === 0 ? "rgba(74,200,175,0.1)" : "#fff"
+            }}>
+              {visibleKeys.map((key) => {
+                const isClientCol = key.includes("Client");
+                return (
+                  <td key={key} style={{ border: "1px solid #ccc", padding: "8px" }}>
+                    {isClientCol ? (
+                      <input
+                        type="text"
+                        value={row[key] || ""}
+                        onChange={(e) => handleChange(rowIndex, key, e.target.value)}
+                        style={{ width: "100%", boxSizing: "border-box", padding: "6px" }}
+                      />
+                    ) : (
+                      <span>{row[key]}</span>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Pagination */}
+      <div style={{ marginTop: "10px", display: "flex", justifyContent: "center", gap: "10px" }}>
+        <button
+          onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+          disabled={currentPage === 1}
+          style={{ padding: "5px 10px", cursor: currentPage === 1 ? "not-allowed" : "pointer" }}
+        >
+          Previous
+        </button>
+        <span>Page {currentPage} of {totalPages}</span>
+        <button
+          onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+          disabled={currentPage === totalPages}
+          style={{ padding: "5px 10px", cursor: currentPage === totalPages ? "not-allowed" : "pointer" }}
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function MappingExam({ params }: TalkPageProps) {
+  const [data, setData] = useState<any[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [snack, setSnack] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({ open: false, message: "", severity: "success" });
+  const router = useRouter();
+  const userProductId = Number(params.id);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch(`/api/configuration/get/mapping?userProductId=${userProductId}`);
+        if (res.ok) {
+          const json = await res.json();
+          const formatted = Array.isArray(json) ? json : Object.values(json);
+          setData(formatted);
+        } else if (res.status === 404) {
+          const fallbackRes = await fetch("/api/data/exams");
+          if (!fallbackRes.ok) throw new Error("Failed to load default exams");
+          const fallbackJson = await fallbackRes.json();
+          setData(fallbackJson);
+        } else {
+          throw new Error(`Unexpected response: ${res.status}`);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchData();
+  }, [userProductId]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch("/api/configuration/mapping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userProductId, data })
+      });
+      if (!response.ok) throw new Error(`Failed to save: ${response.statusText}`);
+      setSnack({ open: true, message: "Configuration enregistrée avec succès.", severity: "success" });
+    } catch (error) {
+      console.error(error);
+      setSnack({ open: true, message: "Erreur lors de la sauvegarde.", severity: "error" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <main className="p-6">
+      <h1 className="text-xl font-bold mb-8">Correspondance des Examens</h1>
+
       <Button
         variant="contained"
         startIcon={<ArrowBackIosIcon />}
         onClick={() => router.back()}
-        sx={{ mb: 2, backgroundColor: "#48C8AF", "&:hover": { backgroundColor: "#3bb49d" } }}
+        disabled={saving}
+        sx={{ backgroundColor: "#48C8AF", "&:hover": { backgroundColor: "#3bb49d" }, marginBottom: "10px" }}
       >
         Retour
       </Button>
 
-      <Typography variant="h5" gutterBottom>
-        Conversation
-      </Typography>
+      {data.length > 0 && (
+        <>
+          <EditableTable data={data} setData={setData} />
 
-      {loading && (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-          <CircularProgress sx={{ color: "#48C8AF" }} />
-        </Box>
-      )}
-
-      {error && <Alert severity="error">{error}</Alert>}
-
-      {!loading && !error && steps.length === 0 && (
-        <Alert severity="info">Aucune conversation trouvée pour cet appel.</Alert>
-      )}
-
-      {steps.map((text, idx) => {
-        const speaker: Speaker = idx % 2 === 0 ? "Lyrae" : "User";
-        return (
-          <Box
-            key={idx}
-            sx={{
-              display: "flex",
-              justifyContent: speaker === "Lyrae" ? "flex-start" : "flex-end",
-              mb: 1,
-            }}
-          >
-            <Box
-              sx={{
-                p: 1.25,
-                borderRadius: 2,
-                bgcolor: speaker === "Lyrae" ? "rgba(72,200,175,0.15)" : "#eee",
-                maxWidth: "75%",
-              }}
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{
+            position: "sticky", bottom: 0, bgcolor: "rgba(248,248,248,0.9)",
+            backdropFilter: "blur(6px)", py: 1.5, px: 2, mt: 2,
+            borderTop: "1px solid #eee", justifyContent: "space-between"
+          }}>
+            <Button
+              variant="contained"
+              startIcon={<SettingsIcon />}
+              onClick={() => router.push(`/client/services/talk/${userProductId}/parametrage/mapping_exam/type_exam`)}
+              disabled={saving}
+              sx={{ backgroundColor: "#48C8AF", "&:hover": { backgroundColor: "#3bb49d" } }}
             >
-              <Typography
-                variant="caption"
-                sx={{ fontWeight: 700, color: "text.secondary", mb: 0.5 }}
-              >
-                {speaker}
-              </Typography>
-              <Typography variant="body2">{text}</Typography>
-            </Box>
-          </Box>
-        );
-      })}
-    </Box>
+              Modifier Types d&apos;examens
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon />}
+              onClick={handleSave}
+              disabled={saving}
+              sx={{ backgroundColor: "#48C8AF", "&:hover": { backgroundColor: "#3bb49d" } }}
+            >
+              Enregistrer
+            </Button>
+          </Stack>
+
+          <Portal>
+            <Snackbar
+              anchorOrigin={{ vertical: "top", horizontal: "right" }}
+              open={snack.open}
+              autoHideDuration={3000}
+              onClose={() => setSnack((s) => ({ ...s, open: false }))}
+            >
+              <Alert severity={snack.severity}>{snack.message}</Alert>
+            </Snackbar>
+          </Portal>
+        </>
+      )}
+    </main>
   );
 }

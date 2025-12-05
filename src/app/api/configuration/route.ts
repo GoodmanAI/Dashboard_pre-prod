@@ -4,6 +4,7 @@ import { PrismaClient, TalkSettings, User, Product } from '@prisma/client'
 
 export async function GET(req: NextRequest) {
   const prisma = new PrismaClient();
+
   try {
     const { searchParams } = new URL(req.url);
     const userProductId = Number(searchParams.get("userProductId"));
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // ✅ Fetch settings for that userProductId
+    // 1️⃣ Récupérer les TalkSettings
     const settings = await prisma.talkSettings.findUnique({
       where: { userProductId },
     });
@@ -27,40 +28,58 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // ✅ Map database object to your frontend type
-    const response: {
-      voice: string | null;
-      botName: string | null;
-      welcomeMsg: string | null;
-      emergencyOutOfHours: string | null;
-      callMode: "decroche" | "debordement" | null;
-      fullPlanningNotes: Record<string, string>;
-      examsAccepted: Record<string, boolean>;
-      examQuestions: Record<string, string[]>;
-      specificNotes: string | null;
-      reconnaissance: boolean;
-    } = {
+    // 2️⃣ Récupérer les mappings
+    const mappings = await prisma.examMapping.findMany({
+      where: { userProductId },
+    });
+
+    // 3️⃣ Mapping FR -> Code
+    const examCodeMap: Record<string, string> = {
+      Echographie: "US",
+      Mammographie: "MG",
+      Radio: "RX",
+      IRM: "MR",
+      Scanner: "CT",
+    };
+
+    const mappedExamMappings = mappings.map((m: any) => ({
+      ...m,
+      fr: examCodeMap[m.fr] ?? m.fr,
+    }));
+
+    const defaultTypes = {
+      types: [],
+      accepted: {},
+      questions: {},
+    };
+
+    // 4️⃣ Réponse finale
+    const response = {
       voice: settings.voice,
       botName: settings.botName,
       welcomeMsg: settings.welcomeMsg,
       emergencyOutOfHours: settings.emergencyOutOfHours,
-      callMode: settings.callMode as "decroche" | "debordement" | null,
-      fullPlanningNotes: settings.fullPlanningNotes as Record<string, string>,
-      examsAccepted: settings.examsAccepted as Record<string, boolean>,
-      examQuestions: settings.examQuestions as Record<string, string[]>,
+      callMode: settings.callMode,
+      fullPlanningNotes: settings.fullPlanningNotes,
+      examsAccepted: settings.examsAccepted,
+      examQuestions: settings.examQuestions,
       specificNotes: settings.specificNotes,
       reconnaissance: settings.reconnaissance,
+      examMappings: mappedExamMappings.length > 0 ? mappedExamMappings : defaultTypes,
     };
 
     return NextResponse.json(response, { status: 200 });
+
   } catch (error) {
-    console.error("Error fetching TalkSettings:", error);
+    console.error("Error in GET /configuration:", error);
     return NextResponse.json(
-      { error: "Failed to fetch TalkSettings" },
+      { error: "Failed to fetch configuration" },
       { status: 500 }
     );
   }
 }
+
+
 
 export async function POST(req: NextRequest) {
   const prisma = new PrismaClient();

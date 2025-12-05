@@ -12,24 +12,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "userProductId and data are required" }, { status: 400 });
     }
 
-    // 🔹 Transform data if needed (ex: remove temporary fields)
-    const exams = data.map((row: any) => ({
-      typeExamen: row.typeExamen,
-      codeExamen: row.codeExamen,
-      libelle: row.libelle,
-      typeExamenClient: row.typeExamenClient || "",
-      codeExamenClient: row.codeExamenClient || "",
-      libelleClient: row.libelleClient || ""
+    const existing = await prisma.talkSettings.findUnique({
+      where: { userProductId: Number(userProductId) },
+    });
+
+    // 🔒 Fusion sécurisée
+    const merged = data.map((row: any, index: number) => ({
+      ...(existing?.exams?.[index] || {}), // garde les anciens champs
+      ...row,                              // remplace uniquement ce que tu modifies
     }));
 
-    // 🔹 Upsert TalkSettings
+    // 🔹 Upsert
     const settings = await prisma.talkSettings.upsert({
       where: { userProductId: Number(userProductId) },
-      update: { exams },
-      create: { userProductId: Number(userProductId), exams },
+      update: { exams: merged },
+      create: { userProductId: Number(userProductId), exams: merged },
     });
 
     return NextResponse.json({ success: true, settings });
+
   } catch (error) {
     console.error("Failed to save mapping:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
