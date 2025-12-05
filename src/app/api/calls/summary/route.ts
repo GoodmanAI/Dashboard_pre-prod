@@ -1,5 +1,4 @@
-// pages/api/calls/summary.ts
-import type { NextApiRequest, NextApiResponse } from "next";
+import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -11,56 +10,43 @@ interface Step {
   text: string;
 }
 
-interface CallSummaryRequest {
-  userProductId: number;
-  centerId: number;
-  steps: string[];
-  stats: {
-    intents: string[];
-    rdv_status: "success" | "no_slot" | "not_performed" | "cancelled" | "modified" | null;
-    patient_status: "known" | "new" | "third_party" | null;
-    end_reason: "hangup" | "transfer" | "error_logic" | "error_timeout" | null;
-    questions_completed: boolean;
-    exam_code: string | null;
-  };
-}
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<{ success: boolean } | { error: string }>
-) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
+export async function POST(req: NextRequest) {
   try {
-    const data: CallSummaryRequest = req.body;
+    const data = await req.json();
 
     const { userProductId, centerId, steps, stats } = data;
 
+    // Validation basique
     if (!userProductId || !centerId || !steps || !Array.isArray(steps)) {
-      return res.status(400).json({ error: "Missing or invalid parameters" });
+      return NextResponse.json(
+        { error: "Missing or invalid parameters" },
+        { status: 400 }
+      );
     }
 
-    // Transformation du tableau en Step[] avec alternance Lyrae/User
-    const stepsTransformed: Step[] = steps.map((text, index) => ({
+    // 🔄 Transformation des steps → { speaker, text }
+    const stepsTransformed: Step[] = steps.map((text: string, index: number) => ({
       speaker: index % 2 === 0 ? "Lyrae" : "User",
       text,
     }));
 
-    // Enregistrement dans la base
+    // 💾 Sauvegarde en base
     await prisma.callConversation.create({
       data: {
         userProductId,
         centerId,
-        steps: stepsTransformed, // Prisma JSON
-        stats,
+        steps: stepsTransformed, // JSON
+        stats,                   // JSON
       },
     });
 
-    return res.status(200).json({ success: true });
+    return NextResponse.json({ success: true }, { status: 200 });
+
   } catch (error) {
-    console.error("Error saving call summary:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error("❌ Error saving call summary:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
