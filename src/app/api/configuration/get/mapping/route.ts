@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 
+type ExamMap = Record<string, any>;
+
 export async function GET(req: NextRequest) {
   const prisma = new PrismaClient();
   const { searchParams } = new URL(req.url);
@@ -27,20 +29,16 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const exams: any = settings.exams || [];
+    // 🔥 Nouveau format : déjà un objet { codeExamen: examData }
+    const exams = (settings.exams || {}) as ExamMap;
 
     console.log("exams", exams);
 
-    // Transform array → keyed object
-    const keyed = Object.fromEntries(
-      exams.map((exam: any) => [exam.codeExamen, exam])
-    );
-
-    // -------------------------------------
-    // 🔍 Si un codeExamen est demandé
-    // -------------------------------------
+    // -------------------------------------------------------------------
+    // 🔍 Si un codeExamen est demandé → renvoyer uniquement cet examen
+    // -------------------------------------------------------------------
     if (codeExamen) {
-      const exam = keyed[codeExamen];
+      const exam = exams[codeExamen];
 
       if (!exam) {
         return NextResponse.json(
@@ -49,16 +47,13 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      // Retourne un objet (PAS un tableau)
-      return NextResponse.json({
-        [codeExamen]: exam
-      });
+      return NextResponse.json({ [codeExamen]: exam });
     }
 
-    // -------------------------------------
-    // 🔍 Sinon : retourner l'objet complet
-    // -------------------------------------
-    return NextResponse.json(keyed);
+    // -------------------------------------------------------------------
+    // 🔍 Sinon : renvoyer tout l'objet tel quel
+    // -------------------------------------------------------------------
+    return NextResponse.json(exams);
 
   } catch (error) {
     console.error("Failed to fetch mapping:", error);
