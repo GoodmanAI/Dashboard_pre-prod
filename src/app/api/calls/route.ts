@@ -1,171 +1,62 @@
-export const dynamic = "force-dynamic";
-
+// app/api/calls/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { subDays } from "date-fns";
+
+export const dynamic = "force-dynamic";
+
+const prisma = new PrismaClient();
+
+interface CallListPageProps {
+  params: { id: string }; // récupéré depuis la route Next.js
+}
 
 export async function GET(request: NextRequest) {
-  const prisma = new PrismaClient();
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Access denied. Seuls les utilisateurs connectés peuvent accéder à leurs appels" },
-        { status: 403 }
-      );
-    }
-
     const { searchParams } = request.nextUrl;
-    const intent = searchParams.get("intent") ?? undefined;
+    const userProductIdParam = searchParams.get("userProductId");
+    const callIdParam = searchParams.get("call");
 
-    const daysAgoParam = searchParams.get("daysAgo");
-    const parsed = daysAgoParam && daysAgoParam !== "all" ? Number(daysAgoParam) : undefined;
-    const daysAgo = Number.isFinite(parsed as number) ? (parsed as number) : undefined;
-
-    const asUserIdParam = searchParams.get("asUserId");
-    let effectiveUserId = session.user.id as number;
-
-    if (asUserIdParam) {
-      const asUserId = Number(asUserIdParam);
-      if (!Number.isFinite(asUserId)) {
-        return NextResponse.json({ error: "Paramètre asUserId invalide." }, { status: 400 });
-      }
-
-      if (asUserId !== session.user.id) {
-        const current = await prisma.user.findUnique({
-          where: { id: session.user.id as number },
-          select: { centreRole: true },
-        });
-
-        if (current?.centreRole !== "ADMIN_USER") {
-          return NextResponse.json({ error: "Action non autorisée." }, { status: 403 });
-        }
-
-        const managed = await prisma.user.findFirst({
-          where: { id: asUserId, managerId: session.user.id as number },
-          select: { id: true },
-        });
-
-        if (!managed) {
-          return NextResponse.json({ error: "Centre non géré par cet administrateur." }, { status: 403 });
-        }
-
-        effectiveUserId = asUserId;
-      }
+    if (!userProductIdParam) {
+      return NextResponse.json({ error: "Paramètre userProductId manquant." }, { status: 400 });
     }
 
-    // ===== DEMO MODE PARAMETERS =====
-    const demo = ["1", "true", "yes"].includes((searchParams.get("demo") || "").toLowerCase());
-    const demoDaysRaw = Number(searchParams.get("demoDays") || "30");
-    const demoDays = Number.isFinite(demoDaysRaw) && demoDaysRaw > 0 ? demoDaysRaw : 30;
-    const anchorParam = searchParams.get("anchor"); // ISO venant du front
-    const anchorNow = anchorParam ? new Date(anchorParam) : new Date(); // fallback = now
-    const demoPreserveDow = ["1", "true", "yes"].includes(
-      (searchParams.get("demoPreserveDow") || "").toLowerCase()
-    );
-    // =================================
-
-    const where: any = {
-      userId: effectiveUserId,
-      ...(intent && { intent: { equals: intent, mode: "insensitive" } }),
-    };
-
-    if (!demo && daysAgo !== undefined) {
-      where.createdAt = { gte: subDays(new Date(), daysAgo) };
+    const userProductId = Number(userProductIdParam);
+    if (!Number.isFinite(userProductId)) {
+      return NextResponse.json({ error: "Paramètre userProductId invalide." }, { status: 400 });
     }
 
-    const calls = await prisma.call.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-    });
+    let calls;
 
-    if (demo) {
-      // Remap temporel stable basé sur 'anchorNow', avec option de préservation du jour de semaine
-      const mapped = calls.map((c) => {
-        const original = new Date(c.createdAt as unknown as string);
-        const h = original.getHours();
-        const m = original.getMinutes();
-        const s = original.getSeconds();
-        const origDow = original.getDay();  // 0=dim ... 6=sam
-        const anchorDow = anchorNow.getDay();
+    if (callIdParam) {
+      // Si un callId est fourni, on ne récupère que ce call
+      const callId = Number(callIdParam);
+      if (!Number.isFinite(callId)) {
+        return NextResponse.json({ error: "Paramètre call invalide." }, { status: 400 });
+      }
 
-        // base pseudo-aléatoire stable dans [0, demoDays)
-        const base = Math.abs((c.id * 9301 + (effectiveUserId as number) * 49297)) % demoDays;
-
-        let bucket = base;
-
-        // On veut (anchorNow - bucket).getDay() === origDow
-        // => bucket ≡ (anchorDow - origDow) (mod 7)
-        if (demoPreserveDow && demoDays >= 7) {
-          const needMod = (anchorDow - origDow + 7) % 7;
-          const mod = ((base - needMod) % 7 + 7) % 7; // vrai modulo positif
-          bucket = base - mod;
-          while (bucket >= demoDays) bucket -= 7;
-          while (bucket < 0) bucket += 7;
-        }
-
-        const synthetic = new Date(anchorNow);
-        synthetic.setHours(h, m, s, 0);
-        synthetic.setDate(anchorNow.getDate() - bucket);
-
-        return {
-          ...c,
-          createdAt: synthetic, // renvoyé en ISO par Next
-        };
+      const call = await prisma.callConversation.findFirst({
+        where: { id: callId, userProductId },
       });
 
-      // Applique daysAgo APRÈS remap si demandé
-      let filtered = mapped;
-      if (daysAgo !== undefined) {
-        const threshold = subDays(anchorNow, daysAgo).getTime();
-        filtered = mapped.filter(
-          (c) => new Date(c.createdAt as unknown as string).getTime() >= threshold
+      if (!call) {
+        return NextResponse.json(
+          { error: "Aucun appel trouvé pour ce userProductId avec cet id." },
+          { status: 404 }
         );
       }
 
-      return NextResponse.json(filtered, { status: 200 });
+      calls = [call]; // Retourne sous forme de tableau pour cohérence
+    } else {
+      // Sinon, récupère tous les appels pour ce userProductId
+      calls = await prisma.callConversation.findMany({
+        where: { userProductId },
+        orderBy: { createdAt: "desc" },
+      });
     }
 
     return NextResponse.json(calls, { status: 200 });
   } catch (error) {
-    console.error("Error fetching calls:", error);
+    console.error("Erreur fetching calls:", error);
     return NextResponse.json({ error: "Une erreur est survenue." }, { status: 500 });
-  }
-}
-
-export async function POST(req: Request) {
-  const prisma = new PrismaClient();
-  try {
-    const body = await req.json();
-    const { userProductId, centerId } = body;
-
-    // Basic validation
-    if (!userProductId || !centerId) {
-      return NextResponse.json(
-        { error: "Missing required fields: userProductId and centerId" },
-        { status: 400 }
-      );
-    }
-
-    // Create new ReceivedCalls record
-    const newCall = await prisma.receivedCalls.create({
-      data: {
-        userProductId,
-        centerId,
-      },
-    });
-
-    return NextResponse.json(
-      { message: "Received call created successfully", data: newCall },
-      { status: 201 }
-    );
-  } catch (error: any) {
-    console.error("Error creating received call:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
   }
 }

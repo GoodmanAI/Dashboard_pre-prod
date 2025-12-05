@@ -162,7 +162,6 @@ export default function TalkPage({ params }: TalkPageProps) {
 
         const params = new URLSearchParams();
         // 24h côté API
-        params.set("daysAgo", "1");
 
         // démo gelée
         if (DEMO_MODE) {
@@ -175,10 +174,9 @@ export default function TalkPage({ params }: TalkPageProps) {
         // centre sélectionné
         if (selectedUserId) params.set("asUserId", String(selectedUserId));
 
-        const res = await fetch(`/api/calls?${params.toString()}`, {
+        const res = await fetch(`/api/calls?userProductId=${userProductId}`, {
           signal: controller.signal,
           cache: "no-store",
-          headers: { "Cache-Control": "no-store" },
         });
         if (!res.ok) throw new Error("Erreur récupération appels");
         const data: Call[] = await res.json();
@@ -218,7 +216,6 @@ export default function TalkPage({ params }: TalkPageProps) {
         setLoadingPreview(true);
 
         const params = new URLSearchParams();
-        params.set("daysAgo", "30");
         if (DEMO_MODE) {
           params.set("demo", "1");
           params.set("demoDays", String(DEMO_DAYS));
@@ -227,10 +224,9 @@ export default function TalkPage({ params }: TalkPageProps) {
         }
         if (selectedUserId) params.set("asUserId", String(selectedUserId));
 
-        const res = await fetch(`/api/calls?${params.toString()}`, {
+        const res = await fetch(`/api/calls?userProductId=${userProductId}`, {
           signal: controller.signal,
           cache: "no-store",
-          headers: { "Cache-Control": "no-store" },
         });
         if (!res.ok) throw new Error("Erreur récupération stats");
         const calls: Call[] = await res.json();
@@ -337,7 +333,7 @@ export default function TalkPage({ params }: TalkPageProps) {
                   <Button
                     variant="outlined"
                     startIcon={<IconEye size={18} />}
-                    onClick={() => router.push("/client/services/talk/calls")}
+                    onClick={() => router.push(`/client/services/talk/${userProductId}/calls`)}
                     sx={{
                       borderColor: "#48C8AF",
                       color: "#48C8AF",

@@ -1,14 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Box, Typography, CircularProgress, Alert, Button } from "@mui/material";
-import { useRouter } from "next/navigation";
-import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
+import { Box, Typography, CircularProgress, Alert } from "@mui/material";
 
 type Speaker = "Lyrae" | "User";
 
 export default function CallConversationPage({ params }: { params: { id: string; callId: string } }) {
-  const router = useRouter();
   const [steps, setSteps] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,15 +37,6 @@ export default function CallConversationPage({ params }: { params: { id: string;
 
   return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-      <Button
-        variant="contained"
-        startIcon={<ArrowBackIosIcon />}
-        onClick={() => router.back()}
-        sx={{ mb: 2, backgroundColor: "#48C8AF", "&:hover": { backgroundColor: "#3bb49d" } }}
-      >
-        Retour
-      </Button>
-
       <Typography variant="h5" gutterBottom>
         Conversation
       </Typography>

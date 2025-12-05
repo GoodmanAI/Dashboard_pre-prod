@@ -1,95 +1,66 @@
-import { NextRequest, NextResponse } from "next/server";
+// pages/api/calls/summary.ts
+import type { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export async function POST(req: NextRequest) {
+type Speaker = "Lyrae" | "User";
+
+interface Step {
+  speaker: Speaker;
+  text: string;
+}
+
+interface CallSummaryRequest {
+  userProductId: number;
+  centerId: number;
+  steps: string[];
+  stats: {
+    intents: string[];
+    rdv_status: "success" | "no_slot" | "not_performed" | "cancelled" | "modified" | null;
+    patient_status: "known" | "new" | "third_party" | null;
+    end_reason: "hangup" | "transfer" | "error_logic" | "error_timeout" | null;
+    questions_completed: boolean;
+    exam_code: string | null;
+  };
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<{ success: boolean } | { error: string }>
+) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
   try {
-    const body = await req.json();
+    const data: CallSummaryRequest = req.body;
 
-    const {
-      userProductId,
-      centerId,
-      steps,
-      stats,
-    } = body;
+    const { userProductId, centerId, steps, stats } = data;
 
-    // -------------------------
-    // ✅ VALIDATION
-    // -------------------------
-
-    if (!userProductId || typeof userProductId !== "number") {
-      return NextResponse.json(
-        { error: "userProductId must be a number" },
-        { status: 400 }
-      );
+    if (!userProductId || !centerId || !steps || !Array.isArray(steps)) {
+      return res.status(400).json({ error: "Missing or invalid parameters" });
     }
 
-    if (!centerId || typeof centerId !== "number") {
-      return NextResponse.json(
-        { error: "centerId must be a number" },
-        { status: 400 }
-      );
-    }
+    // Transformation du tableau en Step[] avec alternance Lyrae/User
+    const stepsTransformed: Step[] = steps.map((text, index) => ({
+      speaker: index % 2 === 0 ? "Lyrae" : "User",
+      text,
+    }));
 
-    if (!steps || typeof steps !== "object" || Array.isArray(steps)) {
-      return NextResponse.json(
-        { error: "steps must be a JSON object" },
-        { status: 400 }
-      );
-    }
-
-    if (!stats || typeof stats !== "object" || Array.isArray(stats)) {
-      return NextResponse.json(
-        { error: "stats must be a JSON object" },
-        { status: 400 }
-      );
-    }
-
-    // Validate stats structure (optional but recommended)
-    const {
-      intents,
-      rdv_status,
-      patient_status,
-      end_reason,
-      questions_completed,
-      exam_code,
-    } = stats;
-
-    if (intents && !Array.isArray(intents)) {
-      return NextResponse.json(
-        { error: "stats.intents must be an array" },
-        { status: 400 }
-      );
-    }
-
-    // -------------------------
-    // ✅ SAVE IN DATABASE
-    // -------------------------
-
-    const saved = await prisma.callConversation.create({
+    // Enregistrement dans la base
+    await prisma.callConversation.create({
       data: {
         userProductId,
         centerId,
-        steps,
-        stats: {
-          intents: intents ?? [],
-          rdv_status: rdv_status ?? null,
-          patient_status: patient_status ?? null,
-          end_reason: end_reason ?? null,
-          questions_completed: questions_completed ?? false,
-          exam_code: exam_code ?? null,
-        },
+        steps: stepsTransformed, // Prisma JSON
+        stats,
       },
     });
 
-    return NextResponse.json({ success: true, saved }, { status: 200 });
-
+    return res.status(200).json({ success: true });
   } catch (error) {
-    console.error("Error in call-conversation API:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("Error saving call summary:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
