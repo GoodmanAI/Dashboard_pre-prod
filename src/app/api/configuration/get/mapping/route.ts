@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
   const userProductId = searchParams.get("userProductId");
-  const codeExamen = searchParams.get("codeExamen"); // <--- nouveau paramètre
+  const codeExamen = searchParams.get("codeExamen");
 
   if (!userProductId) {
     return NextResponse.json(
@@ -28,6 +28,8 @@ export async function GET(req: NextRequest) {
     }
 
     const exams: any = settings.exams || [];
+
+    console.log("exams", exams);
 
     // Transform array → keyed object
     const keyed = Object.fromEntries(
