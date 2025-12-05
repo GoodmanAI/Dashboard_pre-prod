@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
       Scanner: "CT",
     };
 
+    console.log(mappings);
     const mappedExamMappings = mappings.map((m: any) => ({
       ...m,
       fr: examCodeMap[m.fr] ?? m.fr,

@@ -116,7 +116,10 @@ export default function EditTypeExam({ params }: TalkPageProps){
                       onChange={(e) =>
                         setMapping((prev) => ({
                           ...prev,
-                          [code]: { ...prev[code], labelFr: code == 0 ? "Echographie" : code == 1 ? "Mammographie" : code == 2 ? "Radio" : code == 3 ? "IRM" : "Scanner", diminutif: e.target.value }
+                          [code]: { 
+                            ...prev[code], 
+                            diminutif: e.target.value 
+                          }
                         }))
                       }
                     />
