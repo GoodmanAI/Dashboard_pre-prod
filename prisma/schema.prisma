@@ -257,3 +257,14 @@ model ExamMapping {
 
   @@unique([userProductId, examCode])
 }
+
+model CallConversation {
+  id            Int      @id @default(autoincrement())
+  userProductId Int
+  centerId      Int
+  steps         Json     @default("{}")
+  stats         Json     @default("{}")
+  createdAt     DateTime @default(now())
+
+  userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
+}

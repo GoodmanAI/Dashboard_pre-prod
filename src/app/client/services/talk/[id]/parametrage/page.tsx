@@ -654,7 +654,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       {/* Consignes spécifiques */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6">Consignes spécifiques</Typography>
+          <Typography variant="h6">Consignes d’accessibilité et de logistique</Typography>
         </AccordionSummary>
         <AccordionDetails>
           <TextField
