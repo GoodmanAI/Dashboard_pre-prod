@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import SaveIcon from "@mui/icons-material/Save";
 import SettingsIcon from "@mui/icons-material/Settings";
-import { Stack, Button, Snackbar, Alert, Portal } from "@mui/material";
+import { Stack, Button, Snackbar, Alert, Portal, TextField } from "@mui/material";
 import { useRouter } from "next/navigation";
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 
@@ -18,26 +18,35 @@ interface EditableTableProps {
 
 function EditableTable({ data, setData }: EditableTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [search, setSearch] = useState("");
+
   const rowsPerPage = 20;
+
+  // 🔍 Filtering rows
+  const filteredRows = data.filter((row) =>
+    Object.values(row).some((value: any) =>
+      String(value || "").toLowerCase().includes(search.toLowerCase())
+    )
+  );
+
   const startIndex = (currentPage - 1) * rowsPerPage;
-  const endIndex = startIndex + rowsPerPage;
-  const currentRows = data.slice(startIndex, endIndex);
-  const totalPages = Math.ceil(data.length / rowsPerPage);
+  const currentRows = filteredRows.slice(startIndex, startIndex + rowsPerPage);
+  const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
 
   const visibleKeys = [
     "typeExamen",
     "codeExamen",
     "libelle",
-    // "typeExamenClient",
     "codeExamenClient",
-    "libelleClient"
+    "libelleClient",
+    "performed", // <-- New column
   ];
 
-  const handleChange = (rowIndex: number, key: string, value: string) => {
-    setData(prev => {
+  const handleChange = (rowIndex: number, key: string, value: any) => {
+    setData((prev) => {
       const updated = [...prev];
-      updated[startIndex + rowIndex] = {
-        ...updated[startIndex + rowIndex],
+      updated[rowIndex] = {
+        ...updated[rowIndex],
         [key]: value,
       };
       return updated;
@@ -46,6 +55,21 @@ function EditableTable({ data, setData }: EditableTableProps) {
 
   return (
     <div>
+      {/* 🔍 Search bar */}
+      <div style={{ marginBottom: "15px", maxWidth: 350 }}>
+        <TextField
+          label="Rechercher..."
+          variant="outlined"
+          size="small"
+          fullWidth
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setCurrentPage(1);
+          }}
+        />
+      </div>
+
       <table style={{ borderCollapse: "collapse", width: "100%", tableLayout: "fixed" }}>
         <thead>
           <tr>
@@ -67,14 +91,35 @@ function EditableTable({ data, setData }: EditableTableProps) {
               backgroundColor: rowIndex % 2 === 0 ? "rgba(74,200,175,0.1)" : "#fff"
             }}>
               {visibleKeys.map((key) => {
-                const isClientCol = key.includes("Client");
+                const isEditable =
+                  key.includes("Client") || key === "performed";
+
                 return (
                   <td key={key} style={{ border: "1px solid #ccc", padding: "8px" }}>
-                    {isClientCol ? (
+                    {/* NEW: checkbox for "performed" */}
+                    {key === "performed" ? (
+                      <input
+                        type="checkbox"
+                        checked={!!row[key]}
+                        onChange={(e) =>
+                          handleChange(
+                            (currentPage - 1) * rowsPerPage + rowIndex,
+                            key,
+                            e.target.checked
+                          )
+                        }
+                      />
+                    ) : isEditable ? (
                       <input
                         type="text"
                         value={row[key] || ""}
-                        onChange={(e) => handleChange(rowIndex, key, e.target.value)}
+                        onChange={(e) =>
+                          handleChange(
+                            (currentPage - 1) * rowsPerPage + rowIndex,
+                            key,
+                            e.target.value
+                          )
+                        }
                         style={{ width: "100%", boxSizing: "border-box", padding: "6px" }}
                       />
                     ) : (
@@ -91,17 +136,15 @@ function EditableTable({ data, setData }: EditableTableProps) {
       {/* Pagination */}
       <div style={{ marginTop: "10px", display: "flex", justifyContent: "center", gap: "10px" }}>
         <button
-          onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+          onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
           disabled={currentPage === 1}
-          style={{ padding: "5px 10px", cursor: currentPage === 1 ? "not-allowed" : "pointer" }}
         >
           Previous
         </button>
-        <span>Page {currentPage} of {totalPages}</span>
+        <span>Page {currentPage} sur {totalPages}</span>
         <button
-          onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+          onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
           disabled={currentPage === totalPages}
-          style={{ padding: "5px 10px", cursor: currentPage === totalPages ? "not-allowed" : "pointer" }}
         >
           Next
         </button>
@@ -113,7 +156,12 @@ function EditableTable({ data, setData }: EditableTableProps) {
 export default function MappingExam({ params }: TalkPageProps) {
   const [data, setData] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
-  const [snack, setSnack] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({ open: false, message: "", severity: "success" });
+  const [snack, setSnack] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
+    open: false,
+    message: "",
+    severity: "success"
+  });
+
   const router = useRouter();
   const userProductId = Number(params.id);
 
@@ -124,14 +172,16 @@ export default function MappingExam({ params }: TalkPageProps) {
         if (res.ok) {
           const json = await res.json();
           const formatted = Array.isArray(json) ? json : Object.values(json);
-          setData(formatted);
+          const withPerformed = formatted.map((row: any) => ({
+            ...row,
+            performed: row.performed === undefined ? true : row.performed
+          }));
+
+          setData(withPerformed);
         } else if (res.status === 404) {
           const fallbackRes = await fetch("/api/data/exams");
-          if (!fallbackRes.ok) throw new Error("Failed to load default exams");
           const fallbackJson = await fallbackRes.json();
           setData(fallbackJson);
-        } else {
-          throw new Error(`Unexpected response: ${res.status}`);
         }
       } catch (err) {
         console.error(err);
@@ -148,10 +198,11 @@ export default function MappingExam({ params }: TalkPageProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userProductId, data })
       });
-      if (!response.ok) throw new Error(`Failed to save: ${response.statusText}`);
-      setSnack({ open: true, message: "Configuration enregistrée avec succès.", severity: "success" });
+
+      if (!response.ok) throw new Error("Failed to save");
+
+      setSnack({ open: true, message: "Configuration enregistrée.", severity: "success" });
     } catch (error) {
-      console.error(error);
       setSnack({ open: true, message: "Erreur lors de la sauvegarde.", severity: "error" });
     } finally {
       setSaving(false);
@@ -167,7 +218,7 @@ export default function MappingExam({ params }: TalkPageProps) {
         startIcon={<ArrowBackIosIcon />}
         onClick={() => router.back()}
         disabled={saving}
-        sx={{ backgroundColor: "#48C8AF", "&:hover": { backgroundColor: "#3bb49d" }, marginBottom: "10px" }}
+        sx={{ backgroundColor: "#48C8AF" }}
       >
         Retour
       </Button>
@@ -176,26 +227,25 @@ export default function MappingExam({ params }: TalkPageProps) {
         <>
           <EditableTable data={data} setData={setData} />
 
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{
-            position: "sticky", bottom: 0, bgcolor: "rgba(248,248,248,0.9)",
-            backdropFilter: "blur(6px)", py: 1.5, px: 2, mt: 2,
-            borderTop: "1px solid #eee", justifyContent: "space-between"
-          }}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ position: "sticky", bottom: 0 }}>
             <Button
               variant="contained"
               startIcon={<SettingsIcon />}
-              onClick={() => router.push(`/client/services/talk/${userProductId}/parametrage/mapping_exam/type_exam`)}
+              onClick={() =>
+                router.push(`/client/services/talk/${userProductId}/parametrage/mapping_exam/type_exam`)
+              }
               disabled={saving}
-              sx={{ backgroundColor: "#48C8AF", "&:hover": { backgroundColor: "#3bb49d" } }}
+              sx={{ backgroundColor: "#48C8AF" }}
             >
               Modifier Types d&apos;examens
             </Button>
+
             <Button
               variant="contained"
               startIcon={<SaveIcon />}
               onClick={handleSave}
               disabled={saving}
-              sx={{ backgroundColor: "#48C8AF", "&:hover": { backgroundColor: "#3bb49d" } }}
+              sx={{ backgroundColor: "#48C8AF" }}
             >
               Enregistrer
             </Button>

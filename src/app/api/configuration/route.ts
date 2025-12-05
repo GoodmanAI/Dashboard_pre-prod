@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
       labelFr: examCodeMap[m.fr] ?? m.fr, // ✅ labelFr contient maintenant le code
     }));
 
+    console.log("mappedExamMappings", mappedExamMappings);
     const defaultTypes = {
       types: [],
       accepted: {},

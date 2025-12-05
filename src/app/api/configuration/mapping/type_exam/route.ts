@@ -39,7 +39,7 @@ export async function GET(req: Request) {
   return NextResponse.json(mappings);
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   const url = new URL(req.url);
   const userProductId = url.searchParams.get("userProductId");
 
