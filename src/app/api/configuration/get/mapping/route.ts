@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
           Synonymes: row.Synonymes || "[]",
           Interrogatoire: row.Interrogatoire || "[]",
           Commentaire: row.Commentaire || "",
-          performed: false,
+          performed: true,
           typeExamenClient: "",
           codeExamenClient: "",
           libelleClient: ""
