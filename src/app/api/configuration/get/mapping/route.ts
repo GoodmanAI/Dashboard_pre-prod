@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
 
     // ✅ 2. Charger Azure Blob
     const connectionString =
-      process.env.AZURE_STORAGE_CONNECTION_STRING_NEURACORP_EXAMS;
+      process.env.NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING_NEURACORP_EXAMS;
     const containerName =
       process.env.NEURACORP_EXAMS_CONTAINER || "neuracorp-exams";
     const blobName =
