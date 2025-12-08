@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
-import fs from "fs";
-import path from "path";
-import Papa from "papaparse"; // npm install papaparse
+import { BlobServiceClient } from "@azure/storage-blob";
+import Papa from "papaparse";
+import * as XLSX from "xlsx";
 
-type ExamMap = Record<string, any>;
+type Exam = Record<string, any>;
+type ExamMap = Record<string, Exam>;
+
+export const runtime = "nodejs";
+
+async function streamToBuffer(readableStream?: NodeJS.ReadableStream | null) {
+  if (!readableStream) return Buffer.alloc(0);
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of readableStream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
 
 export async function GET(req: NextRequest) {
   const prisma = new PrismaClient();
@@ -14,7 +27,10 @@ export async function GET(req: NextRequest) {
   const codeExamen = searchParams.get("codeExamen");
 
   if (!userProductId) {
-    return NextResponse.json({ error: "Missing userProductId parameter" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing userProductId parameter" },
+      { status: 400 }
+    );
   }
 
   try {
@@ -22,58 +38,102 @@ export async function GET(req: NextRequest) {
       where: { userProductId: Number(userProductId) },
     });
 
-    let exams: ExamMap = {};
+    const examsMap: ExamMap = {};
 
+    // ✅ 1. Charger BDD en priorité
     if (settings && Array.isArray(settings.exams)) {
-      // ✅ Transforme le tableau en objet { codeExamen: examData }
       settings.exams.forEach((exam: any) => {
-        if (exam.codeExamen) exams[exam.codeExamen] = exam;
-      });
-    } else {
-      console.log("there");
-      // 🔹 Fallback CSV
-      const csvFilePath = path.join(process.cwd(), "public", "mock-datas.csv");
-      const csvContent = fs.readFileSync(csvFilePath, "utf-8");
-      const parsed = Papa.parse(csvContent, { header: true, skipEmptyLines: true });
-      
-      parsed.data.forEach((row: any) => {
-        // Nettoyage des clés : trim() pour enlever les espaces
-        const cleanedRow: any = {};
-        Object.entries(row).forEach(([k, v]: any) => {
-          cleanedRow[k.trim()] = v.trim();
-        });
-
-        if (cleanedRow['codeExamen NEURACORP']) {
-          exams[cleanedRow['codeExamen NEURACORP']] = {
-            typeExamen: cleanedRow['typeExamen NEURACORP'] || "",
-            codeExamen: cleanedRow['codeExamen NEURACORP'] || "",
-            libelle: cleanedRow['libelle NEURACORP'] || "",
-            typeExamenClient: cleanedRow['typeExamen Client'] || "",
-            codeExamenClient: cleanedRow['codeExamen Client'] || "",
-            libelleClient: cleanedRow['libelle Client'] || "",
+        if (exam.codeExamen) {
+          examsMap[exam.codeExamen] = {
+            ...exam,
           };
         }
       });
-
     }
 
-    // 🔍 Retourne un codeExamen spécifique si demandé
+    // ✅ 2. Charger Azure Blob
+    const connectionString =
+      process.env.AZURE_STORAGE_CONNECTION_STRING_NEURACORP_EXAMS;
+    const containerName =
+      process.env.NEURACORP_EXAMS_CONTAINER || "neuracorp-exams";
+    const blobName =
+      process.env.NEURACORP_EXAMS_BLOB || "examens_neuracorp_azure.xlsx";
+
+    if (!connectionString) {
+      throw new Error("Missing Azure Storage connection string");
+    }
+
+    const blobServiceClient =
+      BlobServiceClient.fromConnectionString(connectionString);
+    const containerClient =
+      blobServiceClient.getContainerClient(containerName);
+    const blobClient = containerClient.getBlobClient(blobName);
+
+    const download = await blobClient.download();
+    const buffer = await streamToBuffer(
+      download.readableStreamBody as NodeJS.ReadableStream
+    );
+
+    let rows: any[] = [];
+
+    if (blobName.endsWith(".csv")) {
+      const csvText = buffer.toString("utf-8");
+      const parsed = Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+      });
+      rows = parsed.data as any[];
+    } else {
+      const workbook = XLSX.read(buffer, { type: "buffer" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      rows = XLSX.utils.sheet_to_json(sheet);
+    }
+
+    // ✅ 3. Ajouter Azure seulement si pas déjà en BDD
+    rows.forEach((row: any) => {
+      const code = row.codeExamen || row["codeExamen NEURACORP"];
+      if (!code) return;
+
+      if (!examsMap[code]) {
+        examsMap[code] = {
+          typeExamen: row.typeExamen || "",
+          codeExamen: code,
+          libelle: row.libelle || "",
+          Synonymes: row.Synonymes || "[]",
+          Interrogatoire: row.Interrogatoire || "[]",
+          Commentaire: row.Commentaire || "",
+          performed: false,
+          typeExamenClient: "",
+          codeExamenClient: "",
+          libelleClient: ""
+        };
+      }
+    });
+
+    // 🔍 Filtre par codeExamen si demandé
     if (codeExamen) {
-      const exam = exams[codeExamen];
+      const exam = examsMap[codeExamen];
+
       if (!exam) {
         return NextResponse.json(
           { error: `No exam found for codeExamen "${codeExamen}"` },
           { status: 404 }
         );
       }
+
       return NextResponse.json({ [codeExamen]: exam });
     }
 
-    console.log(exams)
-    return NextResponse.json(exams);
+    // ✅ Retourne tableau fusionné
+    return NextResponse.json(Object.values(examsMap));
   } catch (error: any) {
-    console.error("Failed to fetch mapping:", error);
-    return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
+    console.error("Failed to fetch exams:", error);
+
+    return NextResponse.json(
+      { error: "Internal Server Error", details: error.message },
+      { status: 500 }
+    );
   } finally {
     await prisma.$disconnect();
   }

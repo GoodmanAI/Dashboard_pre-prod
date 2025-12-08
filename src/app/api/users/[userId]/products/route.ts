@@ -47,7 +47,6 @@ export async function GET(
       orderBy: { assignedAt: 'asc' }
     })
 
-    console.log(userProducts);
     // Normalisation des dates
     const formatted = userProducts.map(up => ({
       id: up.id,

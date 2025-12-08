@@ -45,11 +45,9 @@ const ClientHomePage = () => {
 
         // On utilise l'id de l'utilisateur de la session
         const userId = (session.user as any).id;
-        console.log(userId);
         const res = await fetch(`/api/users/${userId}/products`);
         if (!res.ok) throw new Error("Erreur lors de la récupération des produits.");
         const productsData = await res.json();
-        console.log("productsData", productsData)
         if (!cancelled) setUserProducts(productsData);
       } catch (error) {
         console.error("Error fetching user products:", error);

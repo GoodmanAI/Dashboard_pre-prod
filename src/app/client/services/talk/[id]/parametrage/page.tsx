@@ -275,7 +275,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       } catch (error) {
         console.error("Error fetching settings:", error);
       } finally {
-        console.log("settings after fetch", settings);
         setLoading(false);
       }
     }
