@@ -28,7 +28,6 @@ interface Product {
  * - Récupère les produits de l’utilisateur courant directement depuis l’API dédiée.
  */
 const ClientHomePage = () => {
-  console.log(process.env.NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING_NEURACORP_EXAMS)
   const { data: session, status } = useSession();
   const router = useRouter();
   const [userProducts, setUserProducts] = useState<Product[]>([]);

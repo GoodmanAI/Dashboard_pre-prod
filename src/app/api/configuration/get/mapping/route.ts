@@ -52,12 +52,9 @@ export async function GET(req: NextRequest) {
     }
 
     // ✅ 2. Charger Azure Blob
-    const connectionString =
-      process.env.NEXT_PUBLIC_AZURE_STORAGE_CONNECTION_STRING_NEURACORP_EXAMS;
-    const containerName =
-      process.env.NEURACORP_EXAMS_CONTAINER || "neuracorp-exams";
-    const blobName =
-      process.env.NEURACORP_EXAMS_BLOB || "examens_neuracorp_azure.xlsx";
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+    const containerName = process.env.NEURACORP_EXAMS_CONTAINER || "neuracorp-exams";
+    const blobName = process.env.NEURACORP_EXAMS_BLOB || "examens_neuracorp_azure.xlsx";
 
     if (!connectionString) {
       throw new Error("Missing Azure Storage connection string");
