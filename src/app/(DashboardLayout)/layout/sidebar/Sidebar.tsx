@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { useMediaQuery, Box, Drawer } from "@mui/material";
 import { Theme } from "@mui/material/styles";
 import { Sidebar } from "react-mui-sidebar";
+import { useRouter } from 'next/navigation';
 import SidebarItems from "./SidebarItems";
-
+import { useSession } from "next-auth/react";
 /**
  * Propriétés du composant MSidebar.
  * - `isMobileSidebarOpen` : état d’ouverture du tiroir sur mobiles.
@@ -23,7 +25,36 @@ interface ItemType {
  */
 const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemType) => {
   // Point de coupure pour basculer entre desktop et mobile
+  
   const lgUp = useMediaQuery((theme: Theme) => theme.breakpoints.up("lg"));
+  const router = useRouter();
+  const { data: session } = useSession();
+  const [products, setProducts] = useState([]);
+  const [talkId, setTalkId] = useState([]);
+
+  const userId = session?.user.id;
+
+  useEffect(() => {
+    const load = async () => {
+      if (!userId) return;
+
+      const res = await fetch(`/api/users/${userId}/products`);
+      const data = await res.json();
+      setProducts(data);
+    };
+
+    load();
+  }, [userId]);
+
+  useEffect(() => {
+    if (products) {
+      products.forEach((product: any) => {
+        if (product.name === "LyraeTalk") {
+          setTalkId(product.id);
+        }
+      })
+    }
+  }, [products])
 
   // Largeur fixe du panneau latéral
   const sidebarWidth = "270px";
@@ -60,6 +91,7 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
                   src="/images/logos/neuracorp_logo.png"
                   alt="Logo Neuracorp"
                   sx={{ width: "210px", height: "auto" }}
+                  onClick={() => router.push(`/client/services/talk/${talkId}`)}
                 />
               </Box>
 

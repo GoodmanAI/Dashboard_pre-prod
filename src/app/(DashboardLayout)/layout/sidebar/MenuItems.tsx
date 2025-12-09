@@ -4,6 +4,7 @@ import {
   IconLayoutDashboard,
   IconPhone,
   IconLifebuoy,
+  IconQuestionMark
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -43,16 +44,35 @@ export type SidebarItem = NavLabel | MenuLink;
 
 const Menuitems: SidebarItem[] = [
   // === Section : Accueil ===
-  { navlabel: true, subheader: "Home" },
-  {
-    id: uniqueId(),
-    title: "Dashboard",
-    icon: IconLayoutDashboard,
-    href: "/client",
-  },
+  // { navlabel: true, subheader: "Home" },
+  // {
+  //   id: uniqueId(),
+  //   title: "Dashboard",
+  //   icon: IconLayoutDashboard,
+  //   href: "/client",
+  // },
 
   // // === Section : Services ===
-  // { navlabel: true, subheader: "Services" },
+  { navlabel: true, subheader: "Configuration" },
+   {
+    id: uniqueId(),
+    title: "Mapping des examens",
+    icon: IconFilePencil,
+    href: "/client/services/talk/{TALK_ID}/parametrage/mapping_exam",
+  },
+  {
+    id: uniqueId(),
+    title: "Module informationnel",
+    icon: IconQuestionMark,
+    href: "/client/services/talk/{TALK_ID}/informationnel",
+  },
+  { navlabel: true, subheader: "Statistiques" },
+  {
+    id: uniqueId(),
+    title: "Liste des appels",
+    icon: IconPhone,
+    href: "/client/services/talk/{TALK_ID}/calls",
+  },
   // {
   //   id: uniqueId(),
   //   title: "LYRAE © Explain + Satisfy",

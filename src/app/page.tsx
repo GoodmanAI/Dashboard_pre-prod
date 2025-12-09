@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
@@ -16,6 +16,31 @@ import PageContainer from '@/app/(DashboardLayout)/components/container/PageCont
 const Dashboard = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [products, setProducts] = useState([]);
+  const [talkId, setTalkId] = useState([]);
+  const userId = session?.user.id;
+
+  useEffect(() => {
+      const load = async () => {
+        if (!userId) return;
+  
+        const res = await fetch(`/api/users/${userId}/products`);
+        const data = await res.json();
+        setProducts(data);
+      };
+  
+      load();
+  }, [userId]);
+
+  useEffect(() => {
+    if (products) {
+      products.forEach((product: any) => {
+        if (product.name === "LyraeTalk") {
+          setTalkId(product.id);
+        }
+      })
+    }
+  }, [products])
 
   /**
    * Redirections côté client en fonction de l’état de session :
@@ -32,7 +57,7 @@ const Dashboard = () => {
     } else if (session?.user?.role === "ADMIN") {
       router.push("/admin");
     } else {
-      router.push("/client");
+      router.push(`/client/servies/talk/${talkId}`);
     }
   }, [session, status, router]);
 

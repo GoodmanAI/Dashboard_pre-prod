@@ -59,7 +59,12 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
       if (item.navlabel && item.subheader === "Services") return false;
       if (item.title?.toUpperCase().includes("LYRAE")) return false;
     } else {
-      console.log("products", products);
+      if (item.href && item.href.includes("{TALK_ID}")) {
+        const talk: any = products.find((el: any) => el.name == "LyraeTalk");
+        if (!talk) return false;
+        const talkId = talk.id;
+        item.href = item.href.replace("{TALK_ID}", talkId);
+      }
     }
     return true;
   });

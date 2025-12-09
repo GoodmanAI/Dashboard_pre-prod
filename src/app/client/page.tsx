@@ -79,7 +79,7 @@ const ClientHomePage = () => {
   }
 
   // Tri stable par id
-  const sortedProducts = [...userProducts].sort((a, b) => a.id - b.id);
+  const sortedProducts = [...userProducts].sort((a, b) => a.id - b.id).filter((el) => {return el.name != "LyraeExplain"});
 
   const renderProductName = (name: string) => {
     if (name.toLowerCase().startsWith("lyrae")) {

@@ -37,15 +37,8 @@ export default function SignIn() {
   /*  - Évite d’afficher le formulaire si une session valide existe.            */
   /*  - Oriente vers l’espace adapté selon le rôle.                             */
   /* -------------------------------------------------------------------------- */
-  useEffect(() => {
-    if (session?.user?.role) {
-      if (session.user.role === "ADMIN") {
-        router.push("/admin");
-      } else if (session.user.role === "CLIENT") {
-        router.push("/client");
-      }
-    }
-  }, [session, router]);
+  const [products, setProducts] = useState([]);
+  const [talkId, setTalkId] = useState([]);
 
   /* -------------------------------------------------------------------------- */
   /*                           Soumission du formulaire                          */
@@ -71,11 +64,28 @@ export default function SignIn() {
 
     // on attend que NextAuth mette à jour la session
     const session = await getSession();
+    
+    const userId = session?.user.id;
+    const res = await fetch(`/api/users/${userId}/products`);
+
+    const data = await res.json();
+    
+    const product: any = await data.find((product: any) => {
+      if (product.name === "LyraeTalk") {
+        return true;
+      }
+    });
+
+    console.log("product", product);
 
     if (session?.user?.role === "ADMIN") {
       router.push("/admin");
     } else {
-      router.push("/client");
+      if (product && product.id) {
+        router.push(`/client/services/talk/${product.id}`);
+      } else {
+        router.push(`/client/services/talk/`);
+      }
     }
 
     router.refresh();
