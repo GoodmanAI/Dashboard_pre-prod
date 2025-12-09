@@ -90,7 +90,7 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
                   component="img"
                   src="/images/logos/neuracorp_logo.png"
                   alt="Logo Neuracorp"
-                  sx={{ width: "210px", height: "auto" }}
+                  sx={{ width: "210px", height: "auto", cursor: "pointer" }}
                   onClick={() => router.push(`/client/services/talk/${talkId}`)}
                 />
               </Box>
