@@ -706,6 +706,28 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         }
       </Accordion>
 
+      {/* Questionnaire */}
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="h6">Paramétrer le questionnaire par examen</Typography>
+        </AccordionSummary>
+        {!loading &&
+          <AccordionDetails>
+            <Button
+              variant="outlined"
+              onClick={() => router.push(`/client/services/talk/${userProductId}/parametrage/questions_exam`)}
+              sx={{
+                borderColor: "#48C8AF",
+                color: "#48C8AF",
+                "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
+              }}
+            >
+              Paramétrer les questions
+            </Button>
+          </AccordionDetails>
+        }
+      </Accordion>
+
       {/* Barre d’action */}
       <Stack
         direction={{ xs: "column", sm: "row" }}

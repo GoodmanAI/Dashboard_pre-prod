@@ -4,7 +4,8 @@ import {
   IconLayoutDashboard,
   IconPhone,
   IconLifebuoy,
-  IconQuestionMark
+  IconQuestionMark,
+  IconAdjustmentsAlt
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -65,6 +66,12 @@ const Menuitems: SidebarItem[] = [
     title: "Module informationnel",
     icon: IconQuestionMark,
     href: "/client/services/talk/{TALK_ID}/informationnel",
+  },
+  {
+    id: uniqueId(),
+    title: "Questions par examen",
+    icon: IconAdjustmentsAlt,
+    href: "/client/services/talk/{TALK_ID}/parametrage/questions_exam"
   },
   { navlabel: true, subheader: "Statistiques" },
   {
