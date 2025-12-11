@@ -384,7 +384,7 @@ export default function TalkPage({ params }: TalkPageProps) {
               <Button
                 variant="outlined"
                 startIcon={<IconChartBar size={18} />}
-                onClick={() => router.push("/client/services/talk/stats_appel")}
+                onClick={() => router.push(`/client/services/talk/${userProductId}/stats_appel`)}
                 sx={{
                   borderColor: "#48C8AF",
                   color: "#48C8AF",

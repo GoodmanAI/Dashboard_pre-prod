@@ -205,7 +205,9 @@ function ChartSkeleton() {
    Page
 ========================================================= */
 
-export default function StatsAppelPage() {
+export default function StatsAppelPage({ params }: any) {
+  const userProductId = Number(params.id);
+
   const { data: session, status } = useSession();
   const router = useRouter();
   const { centres, selectedUserId } = useCentre();
@@ -245,6 +247,10 @@ export default function StatsAppelPage() {
   // map période -> daysAgo pour requête serveur
   const daysAgoForPeriod = (p: PeriodKey) => (p === "24h" ? 1 : p === "7j" ? 7 : 30);
 
+  useEffect(() => {
+    console.log(calls);
+  }, [calls]);
+
   // Fetch principal
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -270,6 +276,15 @@ export default function StatsAppelPage() {
           asUserId: String(effectiveUserId),
           demoPreserveDow: "1",
         });
+
+        const callsUrl = `/api/calls?userProductId=${userProductId}`;
+         const callsRes = await fetch(callsUrl, {
+          signal: controller.signal,
+          cache: "no-store",
+          headers: { "Cache-Control": "no-store" },
+        });
+
+        setCalls(await callsRes.json());
 
         const url = `/api/calls?${params.toString()}`;
 

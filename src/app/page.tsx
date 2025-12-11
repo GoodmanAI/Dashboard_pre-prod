@@ -17,7 +17,7 @@ const Dashboard = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [products, setProducts] = useState([]);
-  const [talkId, setTalkId] = useState([]);
+  const [talkId, setTalkId] = useState(null);
   const userId = session?.user.id;
 
   useEffect(() => {
@@ -26,21 +26,15 @@ const Dashboard = () => {
   
         const res = await fetch(`/api/users/${userId}/products`);
         const data = await res.json();
-        setProducts(data);
+        data.forEach((product: any) => {
+          if (product.name === "LyraeTalk") {
+            setTalkId(product.id);
+          }
+        })
       };
   
       load();
   }, [userId]);
-
-  useEffect(() => {
-    if (products) {
-      products.forEach((product: any) => {
-        if (product.name === "LyraeTalk") {
-          setTalkId(product.id);
-        }
-      })
-    }
-  }, [products])
 
   /**
    * Redirections côté client en fonction de l’état de session :
@@ -57,9 +51,11 @@ const Dashboard = () => {
     } else if (session?.user?.role === "ADMIN") {
       router.push("/admin");
     } else {
-      router.push(`/client/servies/talk/${talkId}`);
+      if(talkId){
+        router.push(`/client/services/talk/${talkId}`);
+      }
     }
-  }, [session, status, router]);
+  }, [session, status, router, talkId]);
 
   /**
    * Rendu minimal affiché le temps que la redirection s’effectue.
