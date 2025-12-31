@@ -30,6 +30,24 @@ type Exam = {
   Interrogatoire: string[];
 };
 
+function parseStringArray(value?: string): string[] {
+  if (!value || typeof value !== "string") return [];
+
+  try {
+    // Remplace quotes simples → doubles quotes
+    const json = value
+      .replace(/'/g, '"')
+      .replace(/\n/g, "")
+      .trim();
+
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.error("Failed to parse string array:", value);
+    return [];
+  }
+}
+
 export default function EditExamQuestions({ params }: PageProps) {
   const userProductId = Number(params.id);
   const router = useRouter();
@@ -47,6 +65,7 @@ export default function EditExamQuestions({ params }: PageProps) {
         `/api/configuration/exam?userProductId=${userProductId}`
       );
       const data = await res.json();
+      console.log("data", data);
       setExams(data);
     };
 
@@ -170,7 +189,7 @@ export default function EditExamQuestions({ params }: PageProps) {
                   {/* Questions */}
                   <TableCell>
                     <Stack spacing={1.5}>
-                      {exam.Interrogatoire?.map((q, idx) => (
+                      {parseStringArray(exam.Interrogatoire)?.map((q, idx) => (
                         <TextField
                           key={idx}
                           fullWidth

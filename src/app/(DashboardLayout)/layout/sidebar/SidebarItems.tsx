@@ -40,8 +40,8 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
 
   useEffect(() => {
     const load = async () => {
+      console.log(userId)
       if (!userId) return;
-
       const res = await fetch(`/api/users/${userId}/products`);
       const data = await res.json();
       setProducts(data);
@@ -59,11 +59,13 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
       if (item.navlabel && item.subheader === "Services") return false;
       if (item.title?.toUpperCase().includes("LYRAE")) return false;
     } else {
-      if (item.href && item.href.includes("{TALK_ID}")) {
-        const talk: any = products.find((el: any) => el.name == "LyraeTalk");
-        if (!talk) return false;
-        const talkId = talk.id;
-        item.href = item.href.replace("{TALK_ID}", talkId);
+      if (products.length) {
+        if (item.href && item.href.includes("{TALK_ID}")) {
+          const talk: any = products.find((el: any) => el.name == "LyraeTalk");
+          if (!talk) return false;
+          const talkId = talk.id;
+          item.href = item.href.replace("{TALK_ID}", talkId);
+        }
       }
     }
     return true;

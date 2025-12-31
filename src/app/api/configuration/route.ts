@@ -1,10 +1,12 @@
-// src/app/api/configuration/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient, TalkSettings, User, Product } from '@prisma/client'
+import { PrismaClient } from "@prisma/client";
 
+const prisma = new PrismaClient();
+
+/**
+ * GET /api/configuration?userProductId=XX
+ */
 export async function GET(req: NextRequest) {
-  const prisma = new PrismaClient();
-
   try {
     const { searchParams } = new URL(req.url);
     const userProductId = Number(searchParams.get("userProductId"));
@@ -28,12 +30,12 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 2️⃣ Récupérer les mappings
+    // 2️⃣ Récupérer les mappings d’examens
     const mappings = await prisma.examMapping.findMany({
       where: { userProductId },
     });
 
-    // 3️⃣ Mapping FR -> Code pour labelFr
+    // 3️⃣ Mapping FR -> Code
     const examCodeMap: Record<string, string> = {
       Echographie: "US",
       Mammographie: "MG",
@@ -44,10 +46,9 @@ export async function GET(req: NextRequest) {
 
     const mappedExamMappings = mappings.map((m: any) => ({
       ...m,
-      labelFr: examCodeMap[m.fr] ?? m.fr, // ✅ labelFr contient maintenant le code
+      labelFr: examCodeMap[m.fr] ?? m.fr,
     }));
 
-    console.log("mappedExamMappings", mappedExamMappings);
     const defaultTypes = {
       types: [],
       accepted: {},
@@ -55,37 +56,48 @@ export async function GET(req: NextRequest) {
     };
 
     // 4️⃣ Réponse finale
-    const response = {
-      voice: settings.voice,
-      botName: settings.botName,
-      welcomeMsg: settings.welcomeMsg,
-      emergencyOutOfHours: settings.emergencyOutOfHours,
-      callMode: settings.callMode,
-      fullPlanningNotes: settings.fullPlanningNotes,
-      examsAccepted: settings.examsAccepted,
-      examQuestions: settings.examQuestions,
-      specificNotes: settings.specificNotes,
-      reconnaissance: settings.reconnaissance,
-      examMappings: mappedExamMappings.length > 0 ? mappedExamMappings : defaultTypes,
-    };
+    return NextResponse.json(
+      {
+        voice: settings.voice,
+        botName: settings.botName,
+        welcomeMsg: settings.welcomeMsg,
+        emergencyOutOfHours: settings.emergencyOutOfHours,
+        callMode: settings.callMode,
+        fullPlanningNotes: settings.fullPlanningNotes,
+        examsAccepted: settings.examsAccepted,
+        examQuestions: settings.examQuestions,
+        specificNotes: settings.specificNotes,
+        reconnaissance: settings.reconnaissance,
 
-    return NextResponse.json(response, { status: 200 });
+        centerName: settings.centerName,
+        address: settings.address,
+        address2: settings.address2,
+
+        // 🆕 NOUVEAUX CHAMPS
+        centerPhone: settings.centerPhone,
+        centerWebsite: settings.centerWebsite,
+        centerMail: settings.centerMail,
+
+        examMappings:
+          mappedExamMappings.length > 0
+            ? mappedExamMappings
+            : defaultTypes,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Error in GET /configuration:", error);
     return NextResponse.json(
       { error: "Failed to fetch configuration" },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
-
-
-
+/**
+ * POST /api/configuration
+ */
 export async function POST(req: NextRequest) {
-  const prisma = new PrismaClient();
   try {
     const body = await req.json();
 
@@ -101,18 +113,33 @@ export async function POST(req: NextRequest) {
       examQuestions,
       specificNotes,
       reconnaissance,
+
+      centerName,
+      address,
+      address2,
+
+      // 🆕 NOUVEAUX CHAMPS
+      centerPhone,
+      centerWebsite,
+      centerMail,
     } = body;
 
-    // ✅ Validate inputs
+    // ✅ Validations minimales
     if (typeof userProductId !== "number") {
-      return NextResponse.json({ error: "userProductId must be a number" }, { status: 400 });
+      return NextResponse.json(
+        { error: "userProductId must be a number" },
+        { status: 400 }
+      );
     }
 
     if (typeof reconnaissance !== "boolean") {
-      return NextResponse.json({ error: "reconnaissance must be a boolean" }, { status: 400 });
+      return NextResponse.json(
+        { error: "reconnaissance must be a boolean" },
+        { status: 400 }
+      );
     }
 
-    // ✅ Save or update TalkSettings
+    // ✅ Upsert TalkSettings
     const settings = await prisma.talkSettings.upsert({
       where: { userProductId },
       update: {
@@ -126,6 +153,15 @@ export async function POST(req: NextRequest) {
         examQuestions,
         specificNotes,
         reconnaissance,
+
+        centerName,
+        address,
+        address2,
+
+        // 🆕 NOUVEAUX CHAMPS
+        centerPhone,
+        centerWebsite,
+        centerMail,
       },
       create: {
         userProductId,
@@ -139,12 +175,27 @@ export async function POST(req: NextRequest) {
         examQuestions,
         specificNotes,
         reconnaissance,
+
+        centerName,
+        address,
+        address2,
+
+        // 🆕 NOUVEAUX CHAMPS
+        centerPhone,
+        centerWebsite,
+        centerMail,
       },
     });
 
-    return NextResponse.json({ success: true, settings }, { status: 200 });
+    return NextResponse.json(
+      { success: true, settings },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Error saving TalkSettings:", error);
-    return NextResponse.json({ error: "Failed to save TalkSettings" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to save TalkSettings" },
+      { status: 500 }
+    );
   }
 }

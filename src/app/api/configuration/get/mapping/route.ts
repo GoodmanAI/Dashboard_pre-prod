@@ -40,7 +40,9 @@ export async function GET(req: NextRequest) {
 
     const examsMap: ExamMap = {};
 
-    // ✅ 1. Charger BDD en priorité
+    // Charger BDD en priorité
+    console.log("\n\n\n\n\n\n\n\n\n\n\n\n HELLO \n\n\n\n\n\n\n\n\n\n\n\n")
+    console.log("settings", settings);
     if (settings && Array.isArray(settings.exams)) {
       settings.exams.forEach((exam: any) => {
         if (exam.codeExamen) {
@@ -51,7 +53,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ✅ 2. Charger Azure Blob
+    // Charger Azure Blob
     const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
     const containerName = process.env.NEURACORP_EXAMS_CONTAINER || "neuracorp-exams";
     const blobName = process.env.NEURACORP_EXAMS_BLOB || "examens_neuracorp_azure.xlsx";
@@ -87,10 +89,11 @@ export async function GET(req: NextRequest) {
       rows = XLSX.utils.sheet_to_json(sheet);
     }
 
-    // ✅ 3. Ajouter Azure seulement si pas déjà en BDD
     rows.forEach((row: any) => {
       const code = row.codeExamen || row["codeExamen NEURACORP"];
       if (!code) return;
+
+      console.log(row);
 
       if (!examsMap[code]) {
         examsMap[code] = {

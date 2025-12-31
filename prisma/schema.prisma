@@ -211,18 +211,25 @@ model TalkSettings {
   examsAccepted     Json? @default("{}")
   examQuestions     Json? @default("{}")
 
-  // 🆕 all your exam rows stored here
   exams Json @default("[]")
-
-  // 🆕 consignes différenciées par modalité d'examen
   examInstructions Json? @default("{}")
 
   specificNotes  String?
   reconnaissance Boolean  @default(false)
-  updatedAt      DateTime @updatedAt
+
+  centerName String?
+  address    String?
+  address2   String?
+
+  centerPhone   String?
+  centerWebsite String?
+  centerMail    String?
+
+  updatedAt DateTime @updatedAt
 
   userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
 }
+
 
 model ReceivedCalls {
   id            Int      @id @default(autoincrement())

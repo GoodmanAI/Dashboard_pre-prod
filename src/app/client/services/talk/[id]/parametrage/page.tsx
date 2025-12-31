@@ -49,6 +49,15 @@ type TalkSettings = {
   examQuestions: Record<ExamKey, string[]>;
   specificNotes: string;
   reconnaissance: boolean;
+
+  centerName?: string;
+  address?: string;
+  address2?: string;
+
+  // 🆕 NOUVEAUX CHAMPS
+  centerPhone?: string;
+  centerWebsite?: string;
+  centerMail?: string;
 };
 
 const DEFAULTS: TalkSettings = {
@@ -59,6 +68,7 @@ const DEFAULTS: TalkSettings = {
   emergencyOutOfHours:
     "En cas d’urgence hors horaires d’ouverture, merci d’appeler le 15 (SAMU) ou de vous rendre aux urgences les plus proches.",
   callMode: "decroche",
+
   fullPlanningNotes: {
     radiographie: "Rappeler le lendemain matin",
     irm: "",
@@ -66,6 +76,7 @@ const DEFAULTS: TalkSettings = {
     scanner: "Consulter radiologie-ville.fr pour les créneaux mis à jour",
     mammo: "",
   },
+
   examsAccepted: {
     radiographie: true,
     irm: true,
@@ -73,27 +84,27 @@ const DEFAULTS: TalkSettings = {
     scanner: true,
     mammo: false,
   },
+
   examQuestions: {
-    radiographie: ["Avez‑vous mal à la cheville si vous appuyez dessus ou la faites pivoter ?", "Votre cheville est‑elle souvent enflée, surtout après activité ?", "Êtes‑vous tombé ou avez vous reçu un coup récemment ?"],
-    echographie: [
-      "Avez-vous senti de petites boules dans le cou ?",
-      "Voyez-vous un gonflement du cou ?",
-      "Avez-vous mal au cou ?"
-    ],
-    scanner: ["Avez-vous eu de la fièvre récente avec une douleur au ventre localisée ?", "Avez-vous des vomissements répétés et l’impression que les gaz ou les selles ne passent plus ?", "Avez-vous été opéré de l’abdomen ou eu une endoscopie/intervention récente ?"],
-    irm: [
-      "Avez-vous mal à l’épaule depuis plusieurs jours ?",
-      "Avez-vous du mal à lever le bras ou à le bouger normalement ?",
-      "Vous êtes-vous récemment cogné ou blessé à l’épaule ?"
-    ],
-    mammo: [
-      "Avez-vous été opéré du sein?",
-      "Êtes-vous une personne à mobilité réduite?"
-    ],
+    radiographie: [],
+    irm: [],
+    echographie: [],
+    scanner: [],
+    mammo: [],
   },
+
   specificNotes:
     "Accès parking limité : privilégier le parking P2 (entrée rue des Fleurs).",
-  reconnaissance: false
+  reconnaissance: false,
+
+  centerName: "Imagerie",
+  address: "",
+  address2: "",
+
+  // 🆕 NOUVEAUX CHAMPS
+  centerPhone: "",
+  centerWebsite: "",
+  centerMail: "",
 };
 
 /**
@@ -249,6 +260,8 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
     msg: string;
     sev: "success" | "error";
   }>({ open: false, msg: "", sev: "success" });
+  const [zipCode, setZipCode] = useState("");
+  const [city, setCity] = useState("");
 
   // Audio preview state
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -283,7 +296,14 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   }, [userProductId, settings]);
 
   useEffect(() => {
-    setSettings(load());
+    const loaded = load();
+    setSettings(loaded);
+
+    if (loaded.address2) {
+      const [zip, ...cityParts] = loaded.address2.split(" ");
+      setZipCode(zip || "");
+      setCity(cityParts.join(" ") || "");
+    }
   }, [load, storageKey]);
 
   useEffect(() => {
@@ -535,6 +555,76 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               helperText="Affichée / énoncée lorsque l’IA détecte une urgence en dehors des heures d’ouverture."
               InputLabelProps={{ shrink: true }}
             />
+
+            <TextField
+              fullWidth
+              label="Nom du centre"
+              value={settings.centerName}
+              onChange={(e) => update("centerName", e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+
+            <TextField
+              fullWidth
+              label="Adresse"
+              value={settings.address}
+              onChange={(e) => update("address", e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Code postal"
+                value={zipCode}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setZipCode(val);
+                  update("address2", `${val} ${city}`.trim());
+                }}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+
+              <TextField
+                label="Ville"
+                value={city}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCity(val);
+                  update("address2", `${zipCode} ${val}`.trim());
+                }}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            </Stack>
+
+            <TextField
+              fullWidth
+              label="Téléphone du centre"
+              value={settings.centerPhone}
+              onChange={(e) => update("centerPhone", e.target.value)}
+              placeholder="01 23 45 67 89"
+              InputLabelProps={{ shrink: true }}
+            />
+
+            <TextField
+              fullWidth
+              label="Site web du centre"
+              value={settings.centerWebsite}
+              onChange={(e) => update("centerWebsite", e.target.value)}
+              placeholder="https://www.centre-imagerie.fr"
+              InputLabelProps={{ shrink: true }}
+            />
+
+            <TextField
+              fullWidth
+              label="Email du centre"
+              value={settings.centerMail}
+              onChange={(e) => update("centerMail", e.target.value)}
+              placeholder="contact@centre.fr"
+              InputLabelProps={{ shrink: true }}
+            />
+
 
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
