@@ -176,7 +176,7 @@ export default function MappingExam({ params }: TalkPageProps) {
             ...row,
             performed: row.performed === undefined ? true : row.performed
           }));
-
+          
           setData(withPerformed);
         } else if (res.status === 404) {
           const fallbackRes = await fetch("/api/data/exams");

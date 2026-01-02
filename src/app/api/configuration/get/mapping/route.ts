@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
 
     const examsMap: ExamMap = {};
 
+    console.log(settings);
     // Charger BDD en priorité
     if (settings && Array.isArray(settings.exams)) {
       settings.exams.forEach((exam: any) => {
@@ -106,7 +107,7 @@ export async function GET(req: NextRequest) {
         };
       }
     });
-
+    
     // 🔍 Filtre par codeExamen si demandé
     if (codeExamen) {
       const exam = examsMap[codeExamen];
