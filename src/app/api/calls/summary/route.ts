@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     await prisma.callConversation.create({
   data: {
     userProductId,
-    centerId,
+    centerId: 0,
     steps: stepsTransformed as unknown as Prisma.InputJsonValue,
     stats: stats as unknown as Prisma.InputJsonValue,
   },
