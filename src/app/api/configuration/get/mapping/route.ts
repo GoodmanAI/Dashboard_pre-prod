@@ -41,8 +41,6 @@ export async function GET(req: NextRequest) {
     const examsMap: ExamMap = {};
 
     // Charger BDD en priorité
-    console.log("\n\n\n\n\n\n\n\n\n\n\n\n HELLO \n\n\n\n\n\n\n\n\n\n\n\n")
-    console.log("settings", settings);
     if (settings && Array.isArray(settings.exams)) {
       settings.exams.forEach((exam: any) => {
         if (exam.codeExamen) {
@@ -92,8 +90,6 @@ export async function GET(req: NextRequest) {
     rows.forEach((row: any) => {
       const code = row.codeExamen || row["codeExamen NEURACORP"];
       if (!code) return;
-
-      console.log(row);
 
       if (!examsMap[code]) {
         examsMap[code] = {
