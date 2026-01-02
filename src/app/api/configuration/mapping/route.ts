@@ -16,8 +16,6 @@ export async function POST(req: NextRequest) {
       where: { userProductId: Number(userProductId) },
     });
 
-    console.log("existing", existing);
-
     const existingExams = Array.isArray(existing?.exams)
       ? (existing.exams as Record<string, any>[])
     : [];

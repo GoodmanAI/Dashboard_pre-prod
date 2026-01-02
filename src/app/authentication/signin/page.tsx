@@ -76,8 +76,6 @@ export default function SignIn() {
       }
     });
 
-    console.log("product", product);
-
     if (session?.user?.role === "ADMIN") {
       router.push("/admin");
     } else {

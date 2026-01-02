@@ -34,23 +34,57 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const settings = await prisma.talkSettings.findUnique({
+    const settings: any = await prisma.talkSettings.findUnique({
       where: { userProductId: Number(userProductId) },
     });
 
     const examsMap: ExamMap = {};
 
     console.log(settings);
-    // Charger BDD en priorité
-    if (settings && Array.isArray(settings.exams)) {
-      settings.exams.forEach((exam: any) => {
-        if (exam.codeExamen) {
-          examsMap[exam.codeExamen] = {
-            ...exam,
+
+    if (settings && settings.exams) {
+      const examsFromSettings =
+        typeof settings.exams === "string"
+          ? JSON.parse(settings.exams)
+          : settings.exams; // déjà un objet
+
+      // Si c'est un tableau
+      if (Array.isArray(examsFromSettings)) {
+        examsFromSettings.forEach((exam: any) => {
+          if (exam.codeExamen) {
+            examsMap[exam.codeExamen] = {
+              typeExamen: exam.typeExamen || "",
+              codeExamen: exam.codeExamen,
+              libelle: exam.libelle || "",
+              Synonymes: exam.Synonymes || "[]",
+              Interrogatoire: exam.Interrogatoire || "[]",
+              Commentaire: exam.Commentaire || "",
+              performed: exam.performed ?? true,
+              typeExamenClient: exam.typeExamenClient || "",
+              libelleClient: exam.libelleClient || "",
+              codeExamenClient: exam.codeExamenClient || exam.codeExamen
+            };
+          }
+        });
+      } else if (typeof examsFromSettings === "object") {
+        // Objet avec des clés
+        Object.entries(examsFromSettings).forEach(([code, exam]: [string, any]) => {
+          examsMap[code] = {
+            typeExamen: exam.typeExamen || "",
+            codeExamen: code,
+            libelle: exam.libelle || "",
+            Synonymes: exam.Synonymes || "[]",
+            Interrogatoire: exam.Interrogatoire || "[]",
+            Commentaire: exam.Commentaire || "",
+            performed: exam.performed ?? true,
+            typeExamenClient: exam.typeExamenClient || "",
+            libelleClient: exam.libelleClient || "",
+            codeExamenClient: exam.codeExamenClient || code
           };
-        }
-      });
+        });
+      }
     }
+
 
     // Charger Azure Blob
     const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
@@ -88,11 +122,14 @@ export async function GET(req: NextRequest) {
       rows = XLSX.utils.sheet_to_json(sheet);
     }
 
+    console.log(examsMap)
     rows.forEach((row: any) => {
       const code = row.codeExamen || row["codeExamen NEURACORP"];
+      console.log(code);
       if (!code) return;
 
       if (!examsMap[code]) {
+      console.log(examsMap[code])
         examsMap[code] = {
           typeExamen: row.typeExamen || "",
           codeExamen: code,
@@ -100,10 +137,9 @@ export async function GET(req: NextRequest) {
           Synonymes: row.Synonymes || "[]",
           Interrogatoire: row.Interrogatoire || "[]",
           Commentaire: row.Commentaire || "",
-          performed: true,
-          typeExamenClient: "",
-          codeExamenClient: "",
-          libelleClient: ""
+          performed: row.performed || true,
+          typeExamenClient: row.typeExamenClient || "",
+          libelleClient: row.libelleClient || ""
         };
       }
     });

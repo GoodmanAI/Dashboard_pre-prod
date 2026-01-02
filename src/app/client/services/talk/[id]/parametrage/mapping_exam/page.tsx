@@ -110,9 +110,12 @@ function EditableTable({ data, setData }: EditableTableProps) {
                         }
                       />
                     ) : isEditable ? (
+                      <>
+                      {/* {console.log("row", row)} */}
+
                       <input
                         type="text"
-                        value={row[key] || ""}
+                        value={row[key] ?? ""}
                         onChange={(e) =>
                           handleChange(
                             (currentPage - 1) * rowsPerPage + rowIndex,
@@ -122,6 +125,8 @@ function EditableTable({ data, setData }: EditableTableProps) {
                         }
                         style={{ width: "100%", boxSizing: "border-box", padding: "6px" }}
                       />
+
+                      </>
                     ) : (
                       <span>{row[key]}</span>
                     )}
@@ -171,12 +176,13 @@ export default function MappingExam({ params }: TalkPageProps) {
         const res = await fetch(`/api/configuration/get/mapping?userProductId=${userProductId}`);
         if (res.ok) {
           const json = await res.json();
+          console.log("json", json)
           const formatted = Array.isArray(json) ? json : Object.values(json);
           const withPerformed = formatted.map((row: any) => ({
             ...row,
             performed: row.performed === undefined ? true : row.performed
           }));
-          
+        
           setData(withPerformed);
         } else if (res.status === 404) {
           const fallbackRes = await fetch("/api/data/exams");
