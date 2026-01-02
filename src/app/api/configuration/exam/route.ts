@@ -49,8 +49,13 @@ export async function GET(req: Request) {
     // Format legacy tableau
     if (Array.isArray(settings.exams)) {
       for (const exam of settings.exams) {
-        if (exam.codeExamen) {
-          examsMap[exam.codeExamen] = exam;
+        if (
+          exam &&
+          typeof exam === "object" &&
+          "codeExamen" in exam &&
+          typeof (exam as any).codeExamen === "string"
+        ) {
+          examsMap[(exam as any).codeExamen] = exam;
         }
       }
     }
