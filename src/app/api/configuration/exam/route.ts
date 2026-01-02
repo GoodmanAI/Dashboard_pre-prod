@@ -38,7 +38,13 @@ export async function GET(req: Request) {
 
   const examsMap: Record<string, any> = {};
 
-  if (settings?.exams && !Array.isArray(settings.exams)) {
+  if (settings?.exams) {
+    // ✅ Cas 1 : exams est déjà un objet (format actuel recommandé)
+    if (!Array.isArray(settings.exams)) {
+      Object.assign(examsMap, settings.exams);
+    }
+
+    // ⚠️ Cas legacy : exams est un tableau
     if (Array.isArray(settings.exams)) {
       settings.exams.forEach((exam: any) => {
         if (exam.codeExamen) {
