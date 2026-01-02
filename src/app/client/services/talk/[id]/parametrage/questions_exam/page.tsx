@@ -65,12 +65,24 @@ export default function EditExamQuestions({ params }: PageProps) {
         `/api/configuration/exam?userProductId=${userProductId}`
       );
       const data = await res.json();
-      console.log("data", data);
-      setExams(data);
+
+      const normalized: Record<string, Exam> = {};
+
+      Object.entries(data).forEach(([code, exam]: any) => {
+        normalized[code] = {
+          ...exam,
+          Interrogatoire: Array.isArray(exam.Interrogatoire)
+            ? exam.Interrogatoire
+            : parseStringArray(exam.Interrogatoire),
+        };
+      });
+
+      setExams(normalized);
     };
 
     fetchExams();
   }, [userProductId]);
+
 
   // Reset page quand on cherche
   useEffect(() => {
@@ -189,7 +201,7 @@ export default function EditExamQuestions({ params }: PageProps) {
                   {/* Questions */}
                   <TableCell>
                     <Stack spacing={1.5}>
-                      {parseStringArray(exam.Interrogatoire)?.map((q, idx) => (
+                      {exam.Interrogatoire.map((q, idx) => (
                         <TextField
                           key={idx}
                           fullWidth
