@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
     const { userProductId, centerId, steps, stats } = data;
 
-    if (!userProductId || !centerId || !steps || !Array.isArray(steps)) {
+    if (!userProductId || !steps || !Array.isArray(steps)) {
       return NextResponse.json(
         { error: "Missing or invalid parameters" },
         { status: 400 }
