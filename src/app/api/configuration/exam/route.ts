@@ -28,34 +28,36 @@ export async function GET(req: Request) {
     );
   }
 
-  /* ============================
-   * 1️⃣ Charger DB (prioritaire)
-   * ============================ */
   const settings = await prisma.talkSettings.findUnique({
     where: { userProductId },
     select: { exams: true },
   });
 
+  /* ============================
+   * 1️⃣ BDD = SOURCE UNIQUE
+   * ============================ */
   const examsMap: Record<string, any> = {};
 
   if (settings?.exams) {
-    // ✅ Cas 1 : exams est déjà un objet (format actuel recommandé)
+    // Format objet (recommandé)
     if (!Array.isArray(settings.exams)) {
-      Object.assign(examsMap, settings.exams);
+      for (const [code, exam] of Object.entries(settings.exams)) {
+        examsMap[code] = exam;
+      }
     }
 
-    // ⚠️ Cas legacy : exams est un tableau
+    // Format legacy tableau
     if (Array.isArray(settings.exams)) {
-      settings.exams.forEach((exam: any) => {
+      for (const exam of settings.exams) {
         if (exam.codeExamen) {
           examsMap[exam.codeExamen] = exam;
         }
-      });
+      }
     }
   }
 
   /* ============================
-   * 2️⃣ Charger Azure en complément
+   * 2️⃣ AZURE = FALLBACK
    * ============================ */
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
   const containerName =
@@ -94,14 +96,12 @@ export async function GET(req: Request) {
     rows = XLSX.utils.sheet_to_json(sheet);
   }
 
-  /* ============================
-   * 3️⃣ Fusion Azure → examsMap
-   * ============================ */
-  rows.forEach((row: any) => {
+  for (const row of rows) {
     const code = row.codeExamen || row["codeExamen NEURACORP"];
-    if (!code) return;
-    // ⚠️ Azure ne remplace JAMAIS la DB
-    if (!examsMap[code]) {
+    if (!code) continue;
+
+    // 🔒 VERROU ANTI-OVERRIDE
+    if (!(code in examsMap)) {
       examsMap[code] = {
         typeExamen: row.typeExamen || "",
         codeExamen: code,
@@ -115,11 +115,8 @@ export async function GET(req: Request) {
         libelleClient: "",
       };
     }
-  });
+  }
 
-  /* ============================
-   * 4️⃣ Retour FINAL → OBJET
-   * ============================ */
   return NextResponse.json(examsMap);
 }
 
