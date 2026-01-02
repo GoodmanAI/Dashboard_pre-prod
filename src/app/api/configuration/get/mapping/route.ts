@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      return NextResponse.json(exam);
+      return NextResponse.json({ [codeExamen]: exam });
     }
 
     // ✅ Retourne tableau fusionné
