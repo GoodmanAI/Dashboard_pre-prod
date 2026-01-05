@@ -182,7 +182,7 @@ export default function EditExamQuestions({ params }: PageProps) {
             <TableHead>
               <TableRow sx={{ backgroundColor: "rgba(230,230,230,0.6)" }}>
                 <TableCell>
-                  Code examen
+                  Libellé examen
                 </TableCell>
                 <TableCell>
                   Questions
@@ -195,7 +195,7 @@ export default function EditExamQuestions({ params }: PageProps) {
                 <TableRow key={code}>
                   {/* Code */}
                   <TableCell sx={{ verticalAlign: "top", width: 220 }}>
-                    {exam.codeExamen}
+                    {exam.libelle}
                   </TableCell>
 
                   {/* Questions */}
