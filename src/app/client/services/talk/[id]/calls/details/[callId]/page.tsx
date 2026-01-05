@@ -6,7 +6,8 @@ import { Box, Typography, CircularProgress, Alert } from "@mui/material";
 type Speaker = "Lyrae" | "User";
 
 export default function CallConversationPage({ params }: { params: { id: string; callId: string } }) {
-  const [steps, setSteps] = useState<string[]>([]);
+  const [steps, setSteps] = useState<Object[]>([]);
+  const [sorted, setSorted] = useState<Boolean>(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +36,18 @@ export default function CallConversationPage({ params }: { params: { id: string;
       .finally(() => setLoading(false));
   }, [userProductId, callId]);
 
+  useEffect(() => {
+    if (steps.length > 0 && sorted === false) {
+      setSorted(true);
+      const filtered = steps.filter((line: any) => {
+        console.log(line.text.includes("WaitSound"));
+        return !line.text.includes("WaitSound")
+      });
+
+      setSteps(filtered)
+    }
+  }, [steps]);
+
   return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
       <Typography variant="h5" gutterBottom>
@@ -53,8 +66,9 @@ export default function CallConversationPage({ params }: { params: { id: string;
         <Alert severity="info">Aucune conversation trouvée pour cet appel.</Alert>
       )}
 
-      {steps.map((text, idx) => {
+      {steps.map((text: any, idx: any) => {
         const speaker: Speaker = idx % 2 === 0 ? "Lyrae" : "User";
+        
         return (
           <Box
             key={idx}
@@ -76,9 +90,11 @@ export default function CallConversationPage({ params }: { params: { id: string;
                 variant="caption"
                 sx={{ fontWeight: 700, color: "text.secondary", mb: 0.5 }}
               >
-                {speaker}
               </Typography>
-              <Typography variant="body2">{text}</Typography>
+              <Typography variant="body2">
+                {console.log(text)}
+                {text.text}
+              </Typography>
             </Box>
           </Box>
         );

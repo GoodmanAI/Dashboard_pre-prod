@@ -21,7 +21,7 @@ const PageContainer = ({ title, description, children }: Props) => (
     <div>
       {/* Métadonnées de document (SEO) */}
       <Helmet>
-        <title>Dashboard LyraeTalk</title>
+        <title>LyraeTalk | Dashboard</title>
         <meta name="description" content={description} />
       </Helmet>
 

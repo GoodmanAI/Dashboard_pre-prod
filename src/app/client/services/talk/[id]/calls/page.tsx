@@ -1,7 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Box, Typography, Card, CardContent, CircularProgress, Grid, Alert, Button, Divider } from "@mui/material";
+import {
+  Box,
+  Typography,
+  CircularProgress,
+  Alert,
+  Button,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  Chip,
+} from "@mui/material";
 import { IconEye } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 
@@ -11,7 +23,7 @@ interface CallSummary {
   id: number;
   userProductId: number;
   centerId: number;
-  steps: Record<Speaker, string>;
+  steps: Record<Speaker, any>;
   stats: {
     intents: string[];
     rdv_status: "success" | "no_slot" | "not_performed" | "cancelled" | "modified" | null;
@@ -54,7 +66,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
   return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-      <Typography variant="h5" gutterBottom>
+      {/* <Typography variant="h5" gutterBottom>
         Tous les appels pour UserProduct #{userProductId}
       </Typography>
 
@@ -68,32 +80,62 @@ export default function CallListPage({ params }: CallListPageProps) {
 
       {!loading && !error && calls.length === 0 && (
         <Alert severity="info">Aucun appel trouvé pour ce UserProduct.</Alert>
-      )}
+      )} */}
 
-      <Grid container spacing={2}>
-        {calls.map((call) => (
-          <Grid item xs={12} sm={6} md={4} key={call.id}>
-            <Card variant="outlined">
-              <CardContent sx={{ p: 2 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  <strong>Call ID:</strong> {call.id}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Center ID:</strong> {call.centerId}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>RDV Status:</strong> {call.stats.rdv_status ?? "—"}
-                </Typography>
-                <Divider sx={{ my: 1 }} />
-                <Typography variant="subtitle2" gutterBottom>
-                  Transcription (extrait)
-                </Typography>
-                {Object.entries(call.steps).map(([speaker, text], idx) => (
-                  <Typography key={idx} variant="body2">
-                    <strong>{speaker}:</strong> {text}
-                  </Typography>
-                ))}
-                <Box sx={{ textAlign: "right", mt: 1 }}>
+      <List sx={{ bgcolor: "white", borderRadius: 2 }}>
+        {calls.map((call, index) => {
+          const firstStep = Object.values(call.steps)[0] as any | undefined;
+          const secondStep = Object.values(call.steps)[2] as any | undefined;
+
+          console.log(secondStep)
+          return (
+            <Box key={call.id}>
+              <ListItem alignItems="flex-start">
+                <ListItemText
+                  primary={
+                    <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                      <Typography variant="subtitle1" fontWeight={600}>
+                        Appel #{call.id}
+                      </Typography>
+
+                      {call.stats.rdv_status && (
+                        <Chip
+                          size="small"
+                          label={call.stats.rdv_status}
+                          color={
+                            call.stats.rdv_status === "success"
+                              ? "success"
+                              : call.stats.rdv_status === "cancelled"
+                              ? "error"
+                              : "default"
+                          }
+                        />
+                      )}
+                    </Box>
+                  }
+                  secondary={
+                    <Box sx={{ mt: 0.5 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Centre ID : {call.centerId}
+                      </Typography>
+
+                      {firstStep && (
+                        <Typography
+                          variant="body2"
+                          sx={{ mt: 0.5 }}
+                          noWrap
+                        >
+                          <p><strong>{firstStep.text}</strong></p>
+                          {secondStep &&
+                            <p><strong>{secondStep.text}</strong></p>
+                          }
+                        </Typography>
+                      )}
+                    </Box>
+                  }
+                />
+
+                <ListItemSecondaryAction>
                   <Button
                     size="small"
                     startIcon={<IconEye size={16} />}
@@ -103,20 +145,25 @@ export default function CallListPage({ params }: CallListPageProps) {
                       textTransform: "none",
                       "&:hover": {
                         backgroundColor: "rgba(72,200,175,0.08)",
-                        borderColor: "#48C8AF",
                       },
                     }}
                     variant="outlined"
-                    onClick={() => router.push(`/client/services/talk/${userProductId}/calls/details/${call.id}`)}
+                    onClick={() =>
+                      router.push(
+                        `/client/services/talk/${userProductId}/calls/details/${call.id}`
+                      )
+                    }
                   >
                     Détails
                   </Button>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                </ListItemSecondaryAction>
+              </ListItem>
+
+              {/* {index < calls.length - 1 && <Divider component="li" />} */}
+            </Box>
+          );
+        })}
+      </List>
     </Box>
   );
 }
