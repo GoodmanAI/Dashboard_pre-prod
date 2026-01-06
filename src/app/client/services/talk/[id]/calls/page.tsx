@@ -94,7 +94,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
       <List sx={{ bgcolor: "white", borderRadius: 2 }}>
         {calls.length == 0 && 
-          <Typography variant="h6">Pas d'appels à lister pour l'instant</Typography>
+          <Typography variant="h6">Pas d&apos;appels à lister pour l'instant</Typography>
         }
         {calls.length != 0 &&
         <>
