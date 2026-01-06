@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import { IconEye } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
+import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 
 type Speaker = "Lyrae" | "User";
 
@@ -62,10 +63,19 @@ export default function CallListPage({ params }: CallListPageProps) {
       .then((data: CallSummary[]) => setCalls(data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
+
   }, [userProductId]); // ne dépend plus de rien d'autre
 
   return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
+      <Button
+        variant="contained"
+        startIcon={<ArrowBackIosIcon />}
+        onClick={() => router.back()}
+        sx={{ backgroundColor: "#48C8AF", marginBottom: 2 }}
+      >
+        Retour
+      </Button>
       {/* <Typography variant="h5" gutterBottom>
         Tous les appels pour UserProduct #{userProductId}
       </Typography>
@@ -83,86 +93,89 @@ export default function CallListPage({ params }: CallListPageProps) {
       )} */}
 
       <List sx={{ bgcolor: "white", borderRadius: 2 }}>
-        {calls.map((call, index) => {
-          const firstStep = Object.values(call.steps)[0] as any | undefined;
-          const secondStep = Object.values(call.steps)[2] as any | undefined;
+        {calls.length == 0 && 
+          <Typography variant="h6">Pas d'appels à lister pour l'instant</Typography>
+        }
+        {calls.length != 0 &&
+        <>
+          {calls.map((call, index) => {
+            const firstStep = Object.values(call.steps)[0] as any | undefined;
+            const secondStep = Object.values(call.steps)[2] as any | undefined;
 
-          console.log(secondStep)
-          return (
-            <Box key={call.id}>
-              <ListItem alignItems="flex-start">
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                      <Typography variant="subtitle1" fontWeight={600}>
-                        Appel #{call.id}
-                      </Typography>
-
-                      {call.stats.rdv_status && (
-                        <Chip
-                          size="small"
-                          label={call.stats.rdv_status}
-                          color={
-                            call.stats.rdv_status === "succès"
-                              ? "success"
-                              : call.stats.rdv_status === "annulé"
-                              ? "error"
-                              : "default"
-                          }
-                        />
-                      )}
-                    </Box>
-                  }
-                  secondary={
-                    <Box sx={{ mt: 0.5 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Centre ID : {call.centerId}
-                      </Typography>
-
-                      {firstStep && (
-                        <Typography
-                          variant="body2"
-                          sx={{ mt: 0.5 }}
-                          noWrap
-                        >
-                          <p><strong>{firstStep.text}</strong></p>
-                          {secondStep &&
-                            <p><strong>{secondStep.text}</strong></p>
-                          }
+            console.log(secondStep)
+            return (
+              <Box key={call.id}>
+                <ListItem alignItems="flex-start">
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                        <Typography variant="subtitle1" fontWeight={600}>
+                          Appel #{call.id}
                         </Typography>
-                      )}
-                    </Box>
-                  }
-                />
 
-                <ListItemSecondaryAction>
-                  <Button
-                    size="small"
-                    startIcon={<IconEye size={16} />}
-                    sx={{
-                      borderColor: "#48C8AF",
-                      color: "#48C8AF",
-                      textTransform: "none",
-                      "&:hover": {
-                        backgroundColor: "rgba(72,200,175,0.08)",
-                      },
-                    }}
-                    variant="outlined"
-                    onClick={() =>
-                      router.push(
-                        `/client/services/talk/${userProductId}/calls/details/${call.id}`
-                      )
+                        {call.stats.rdv_status && (
+                          <Chip
+                            size="small"
+                            label={call.stats.rdv_status}
+                            color={
+                              call.stats.rdv_status === "succès"
+                                ? "success"
+                                : call.stats.rdv_status === "annulé"
+                                ? "error"
+                                : "default"
+                            }
+                          />
+                        )}
+                      </Box>
                     }
-                  >
-                    Détails
-                  </Button>
-                </ListItemSecondaryAction>
-              </ListItem>
+                    secondary={
+                      <Box sx={{ mt: 0.5 }}>
+                        {firstStep && (
+                          <Typography
+                            variant="body2"
+                            sx={{ mt: 0.5 }}
+                            noWrap
+                          >
+                            <p><strong>{firstStep.text}</strong></p>
+                            {secondStep &&
+                              <p><strong>{secondStep.text}</strong></p>
+                            }
+                          </Typography>
+                        )}
+                      </Box>
+                    }
+                  />
 
-              {/* {index < calls.length - 1 && <Divider component="li" />} */}
-            </Box>
-          );
-        })}
+                  <ListItemSecondaryAction>
+                    <Button
+                      size="small"
+                      startIcon={<IconEye size={16} />}
+                      sx={{
+                        borderColor: "#48C8AF",
+                        color: "#48C8AF",
+                        textTransform: "none",
+                        "&:hover": {
+                          backgroundColor: "rgba(72,200,175,0.08)",
+                        },
+                      }}
+                      variant="outlined"
+                      onClick={() =>
+                        router.push(
+                          `/client/services/talk/${userProductId}/calls/details/${call.id}`
+                        )
+                      }
+                    >
+                      Détails
+                    </Button>
+                  </ListItemSecondaryAction>
+                </ListItem>
+
+                {/* {index < calls.length - 1 && <Divider component="li" />} */}
+              </Box>
+            );
+          })}
+        </>
+        }
       </List>
     </Box>
   );

@@ -405,7 +405,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           <Button
             variant="outlined"
             startIcon={<IconChevronLeft size={18} />}
-            onClick={() => router.push("/client/services/talk")}
+            onClick={() => router.push(`/client/services/talk/${userProductId}`)}
             sx={{
               borderColor: "#48C8AF",
               color: "#48C8AF",
