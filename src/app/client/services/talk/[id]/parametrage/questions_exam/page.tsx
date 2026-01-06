@@ -181,10 +181,10 @@ export default function EditExamQuestions({ params }: PageProps) {
           <Table>
             <TableHead>
               <TableRow sx={{ backgroundColor: "rgba(230,230,230,0.6)" }}>
-                <TableCell>
+                <TableCell sx={{ fontSize: 16}}>
                   Libellé examen
                 </TableCell>
-                <TableCell>
+                <TableCell sx={{ fontSize: 16}}>
                   Questions
                 </TableCell>
               </TableRow>
