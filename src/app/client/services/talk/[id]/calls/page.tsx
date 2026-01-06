@@ -103,9 +103,9 @@ export default function CallListPage({ params }: CallListPageProps) {
                           size="small"
                           label={call.stats.rdv_status}
                           color={
-                            call.stats.rdv_status === "success"
+                            call.stats.rdv_status === "succès"
                               ? "success"
-                              : call.stats.rdv_status === "cancelled"
+                              : call.stats.rdv_status === "annulé"
                               ? "error"
                               : "default"
                           }

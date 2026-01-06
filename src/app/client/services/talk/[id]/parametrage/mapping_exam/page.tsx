@@ -42,6 +42,15 @@ function EditableTable({ data, setData }: EditableTableProps) {
     "performed", // <-- New column
   ];
 
+  const columnLabels: Record<string, string> = {
+  typeExamen: "Type examen",
+  codeExamen: "Code examen",
+  libelle: "Libellé",
+  codeExamenClient: "Code examen client",
+  libelleClient: "Libellé client",
+  performed: "Attribué à Lyrae", // 👈 changement uniquement visuel
+};
+
   const handleChange = (rowIndex: number, key: string, value: any) => {
     setData((prev) => {
       const updated = [...prev];
@@ -80,7 +89,7 @@ function EditableTable({ data, setData }: EditableTableProps) {
                 backgroundColor: "#eee",
                 textAlign: "left"
               }}>
-                {key}
+                {columnLabels[key] ?? key}
               </th>
             ))}
           </tr>
