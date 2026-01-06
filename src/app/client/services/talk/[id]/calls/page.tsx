@@ -26,9 +26,9 @@ interface CallSummary {
   steps: Record<Speaker, any>;
   stats: {
     intents: string[];
-    rdv_status: "success" | "no_slot" | "not_performed" | "cancelled" | "modified" | null;
-    patient_status: "known" | "new" | "third_party" | null;
-    end_reason: "hangup" | "transfer" | "error_logic" | "error_timeout" | null;
+    rdv_status: "succès" | "pas de créneaux" | "pas effectué" | "annulé" | "modifié" | null;
+    patient_status: "connu" | "nouveau" | "third_party" | null;
+    end_reason: "raccroché" | "transferré" | "erreur logique" | "erreur timeout" | null;
     questions_completed: boolean;
     exam_code: string | null;
   };

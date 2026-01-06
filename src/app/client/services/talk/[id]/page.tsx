@@ -25,6 +25,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
+import ClientLayout from "./ClientLayout";
 
 interface Call {
   id: number;
@@ -121,6 +122,8 @@ export default function TalkPage({ params }: TalkPageProps) {
   // Données d’aperçu histogramme (droite)
   const [previewData, setPreviewData] = useState<PreviewPoint[]>([]);
   const [loadingPreview, setLoadingPreview] = useState<boolean>(true);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Redirige si non authentifié
   useEffect(() => {
@@ -258,230 +261,236 @@ export default function TalkPage({ params }: TalkPageProps) {
     return () => controller.abort();
   }, [status, selectedUserId, userProductId]);
 
+  if (!mounted) return null;
   return (
-    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-      {/* Titre principal */}
-      <Typography variant="h4" gutterBottom>
-        LYRAE © Talk
-      </Typography>
+    <ClientLayout>
+      <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
+        {/* Titre principal */}
+        <Typography variant="h4" gutterBottom>
+          LYRAE © Talk
+        </Typography>
 
-      {/* SECTION 1 : Appels (à gauche) + Statistiques (à droite) */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        {/* Colonne Appels (gauche) */}
-        <Grid item xs={12} md={7}>
-          <Box sx={{ p: 3, bgcolor: "#fff", borderRadius: 2, height: "100%" }}>
-            <Typography variant="h5" gutterBottom>
-              Appels
-            </Typography>
-            <Typography variant="subtitle1" gutterBottom>
-              {selectedCentre
-                ? "Visualisez les appels du centre sélectionné."
-                : "Visualisez vos appels pris en charge par LyraeTalk."}
-            </Typography>
+        {/* SECTION 1 : Appels (à gauche) + Statistiques (à droite) */}
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          {/* Colonne Appels (gauche) */}
+          <Grid item xs={12} md={7}>
+            <Box sx={{ p: 3, bgcolor: "#fff", borderRadius: 2, height: "100%" }}>
+              <Typography variant="h5" gutterBottom>
+                Appels
+              </Typography>
+              {selectedCentre !== undefined && (
+                <Typography variant="subtitle1" gutterBottom>
+                  {selectedCentre
+                    ? "Visualisez les appels du centre sélectionné."
+                    : "Visualisez vos appels pris en charge par LyraeTalk."}
+                </Typography>
+)}
 
-            <Card
-              sx={{
-                borderRadius: 2,
-                border: "1px solid #e0e0e0",
-                p: 2,
-                mt: 2,
-              }}
-            >
-              <CardContent sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
-                <Typography variant="h6">Total (24h)</Typography>
+              <Card
+                sx={{
+                  borderRadius: 2,
+                  border: "1px solid #e0e0e0",
+                  p: 2,
+                  mt: 2,
+                }}
+              >
+                <CardContent sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                  <Typography variant="h6">Total (24h)</Typography>
 
-                <Box
-                  sx={{
-                    mt: 1,
-                    display: "flex",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  {loadingCounts ? (
-                    // ---- Skeletons des 3 compteurs ----
-                    <>
-                      <CountItemSkeleton />
-                      <CountItemSkeleton />
-                      <CountItemSkeleton />
-                    </>
-                  ) : (
-                    intents.map((it, index) => (
-                      <Box
-                        key={it.value}
-                        sx={{
-                          pt: 2,
-                          m: 1,
-                          display: "flex",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          flexDirection: "column",
-                          width: "150px",
-                        }}
-                      >
-                        <Typography variant="h5" sx={{ mb: 0 }}>
-                          {callsCountByIntent[index] ?? 0}
-                        </Typography>
-                        <Typography variant="subtitle1" sx={{ mb: 4 }}>
-                          {(callsCountByIntent[index] ?? 0) > 1 ? it.label : it.sing_label}
-                        </Typography>
-                      </Box>
-                    ))
-                  )}
-                </Box>
-
-                <Box sx={{ mt: "auto", pt: 2 }}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<IconEye size={18} />}
-                    onClick={() => router.push(`/client/services/talk/${userProductId}/calls`)}
+                  <Box
                     sx={{
-                      borderColor: "#48C8AF",
-                      color: "#48C8AF",
-                      "&:hover": {
-                        borderColor: "#48C8AF",
-                        backgroundColor: "rgba(72,200,175,0.08)",
-                      },
+                      mt: 1,
+                      display: "flex",
+                      flexWrap: "wrap",
                     }}
                   >
-                    Voir la liste des appels
-                  </Button>
+                    {loadingCounts ? (
+                      // ---- Skeletons des 3 compteurs ----
+                      <>
+                        <CountItemSkeleton />
+                        <CountItemSkeleton />
+                        <CountItemSkeleton />
+                      </>
+                    ) : (
+                      intents.map((it, index) => (
+                        <Box
+                          key={it.value}
+                          sx={{
+                            pt: 2,
+                            m: 1,
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            flexDirection: "column",
+                            width: "150px",
+                          }}
+                        >
+                          <Typography variant="h5" sx={{ mb: 0 }}>
+                            {callsCountByIntent[index] ?? 0}
+                          </Typography>
+                          <Typography variant="subtitle1" sx={{ mb: 4 }}>
+                            {(callsCountByIntent[index] ?? 0) > 1 ? it.label : it.sing_label}
+                          </Typography>
+                        </Box>
+                      ))
+                    )}
+                  </Box>
+
+                  <Box sx={{ mt: "auto", pt: 2 }}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<IconEye size={18} />}
+                      onClick={() => router.push(`/client/services/talk/${userProductId}/calls`)}
+                      sx={{
+                        borderColor: "#48C8AF",
+                        color: "#48C8AF",
+                        "&:hover": {
+                          borderColor: "#48C8AF",
+                          backgroundColor: "rgba(72,200,175,0.08)",
+                        },
+                      }}
+                    >
+                      Voir la liste des appels
+                    </Button>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Box>
+          </Grid>
+
+          {/* Colonne Statistiques (droite) */}
+          <Grid item xs={12} md={5}>
+            <Box sx={{ p: 3, bgcolor: "#fff", borderRadius: 2, height: "100%" }}>
+              <Typography variant="h5" gutterBottom>
+                Statistiques appels
+              </Typography>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                Aperçu des 14 derniers jours (nombre d’appels / jour)
+              </Typography>
+
+              {loadingPreview ? (
+                // ---- Skeleton du graphique ----
+                <ChartSkeleton />
+              ) : previewData.length === 0 ? (
+                <Typography color="text.secondary">Aucune donnée à afficher.</Typography>
+              ) : (
+                <Box sx={{ height: 260 }}>
+                  {mounted &&
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={previewData}>
+                        <CartesianGrid stroke="#e0e0e0" strokeDasharray="3 3" />
+                        <XAxis dataKey="day" />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip />
+                        <Bar dataKey="total" fill="#48C8AF" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  }
                 </Box>
-              </CardContent>
-            </Card>
-          </Box>
+              )}
+
+              <Box sx={{ textAlign: "right", mt: 2 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<IconChartBar size={18} />}
+                  onClick={() => router.push(`/client/services/talk/${userProductId}/stats_appel`)}
+                  sx={{
+                    borderColor: "#48C8AF",
+                    color: "#48C8AF",
+                    "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
+                  }}
+                >
+                  Voir les statistiques détaillées
+                </Button>
+              </Box>
+            </Box>
+          </Grid>
         </Grid>
 
-        {/* Colonne Statistiques (droite) */}
-        <Grid item xs={12} md={5}>
-          <Box sx={{ p: 3, bgcolor: "#fff", borderRadius: 2, height: "100%" }}>
-            <Typography variant="h5" gutterBottom>
-              Statistiques appels
-            </Typography>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
-              Aperçu des 14 derniers jours (nombre d’appels / jour)
-            </Typography>
-
-            {loadingPreview ? (
-              // ---- Skeleton du graphique ----
-              <ChartSkeleton />
-            ) : previewData.length === 0 ? (
-              <Typography color="text.secondary">Aucune donnée à afficher.</Typography>
-            ) : (
-              <Box sx={{ height: 260 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={previewData}>
-                    <CartesianGrid stroke="#e0e0e0" strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="total" fill="#48C8AF" />
-                  </BarChart>
-                </ResponsiveContainer>
+        {/* === Bloc 2 : Informations & Libellés === */}
+        <Box sx={{ p: 3, mt: 2, bgcolor: "#fff", borderRadius: 2 }}>
+          <Typography variant="h5" gutterBottom>
+            Informations & Libellés
+          </Typography>
+          <Typography variant="subtitle1" gutterBottom>
+            Gérez les documents “Informations” et “Libellés” de votre service. Les données sont
+            enregistrées localement et isolées par centre sélectionné.
+          </Typography>
+          
+          <Card
+            sx={{
+              mt: 2,
+              borderRadius: 2,
+              border: "1px solid #e0e0e0",
+              p: 2,
+            }}
+          >
+            <CardContent
+              sx={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 2 }}
+            >
+              <Box>
+                <Typography variant="h6" sx={{ mb: 0.5 }}>
+                  Accéder aux documents
+                </Typography>
+                <Typography variant="body1" color="text.secondary">
+                  Ouvrir la page dédiée pour consulter et modifier les champs informationnels et les libellés.
+                </Typography>
               </Box>
-            )}
-
-            <Box sx={{ textAlign: "right", mt: 2 }}>
+                {loadingCounts ? (
+                  <Skeleton width={40} height={24} />
+                ) : (
+                  <Typography variant="h6">{filledSections}/{totalSections}</Typography>
+                )}
               <Button
                 variant="outlined"
-                startIcon={<IconChartBar size={18} />}
-                onClick={() => router.push(`/client/services/talk/${userProductId}/stats_appel`)}
+                startIcon={<IconEye size={18} />}
+                onClick={() => router.push(`/client/services/talk/${userProductId}/informationnel`)}
                 sx={{
                   borderColor: "#48C8AF",
                   color: "#48C8AF",
-                  "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
+                  whiteSpace: "nowrap",
+                  "&:hover": {
+                    borderColor: "#48C8AF",
+                    backgroundColor: "rgba(72,200,175,0.08)",
+                  },
                 }}
               >
-                Voir les statistiques détaillées
+                Ouvrir
               </Button>
-            </Box>
-          </Box>
-        </Grid>
-      </Grid>
+            </CardContent>
+          </Card>
+        </Box>
 
-      {/* === Bloc 2 : Informations & Libellés === */}
-      <Box sx={{ p: 3, mt: 2, bgcolor: "#fff", borderRadius: 2 }}>
-        <Typography variant="h5" gutterBottom>
-          Informations & Libellés
-        </Typography>
-        <Typography variant="subtitle1" gutterBottom>
-          Gérez les documents “Informations” et “Libellés” de votre service. Les données sont
-          enregistrées localement et isolées par centre sélectionné.
-        </Typography>
-        
-        <Card
-          sx={{
-            mt: 2,
-            borderRadius: 2,
-            border: "1px solid #e0e0e0",
-            p: 2,
-          }}
-        >
-          <CardContent
-            sx={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 2 }}
-          >
-            <Box>
-              <Typography variant="h6" sx={{ mb: 0.5 }}>
-                Accéder aux documents
+        {/* SECTION 3 : Paramétrage Talk */}
+        <Box sx={{ p: 3, bgcolor: "#fff", borderRadius: 2 }}>
+          <Typography variant="h5" gutterBottom>
+            Paramétrage Talk
+          </Typography>
+          <Typography variant="subtitle1" gutterBottom>
+            Configurez les préférences de votre service (horaires, routage, notifications…).
+          </Typography>
+
+          <Card sx={{ borderRadius: 2, border: "1px solid #e0e0e0", p: 2, mt: 1 }}>
+            <CardContent sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Typography variant="subtitle1" color="text.secondary">
+                  
+                  Accéder aux paramètres avancés de Talk pour ce centre.
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Ouvrir la page dédiée pour consulter et modifier les champs informationnels et les libellés.
-              </Typography>
-            </Box>
-            <Typography
-              variant="h6"
-              sx={{ color: "#48C8AF", fontWeight: "bold", whiteSpace: "nowrap", mr: 2 }}
-            >
-              {filledSections}/{totalSections}
-            </Typography>
-            <Button
-              variant="outlined"
-              startIcon={<IconEye size={18} />}
-              onClick={() => router.push(`/client/services/talk/${userProductId}/informationnel`)}
-              sx={{
-                borderColor: "#48C8AF",
-                color: "#48C8AF",
-                whiteSpace: "nowrap",
-                "&:hover": {
+              <Button
+                  variant="outlined"
+                  onClick={() => router.push(`/client/services/talk/${userProductId}/parametrage`)}
+                  sx={{
                   borderColor: "#48C8AF",
-                  backgroundColor: "rgba(72,200,175,0.08)",
-                },
-              }}
-            >
-              Ouvrir
-            </Button>
-          </CardContent>
-        </Card>
+                  color: "#48C8AF",
+                  "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
+                  }}
+              >
+                Ouvrir le paramétrage
+              </Button>
+            </CardContent>
+          </Card>
+        </Box>
       </Box>
-
-      {/* SECTION 3 : Paramétrage Talk */}
-      <Box sx={{ p: 3, bgcolor: "#fff", borderRadius: 2 }}>
-        <Typography variant="h5" gutterBottom>
-          Paramétrage Talk
-        </Typography>
-        <Typography variant="subtitle1" gutterBottom>
-          Configurez les préférences de votre service (horaires, routage, notifications…).
-        </Typography>
-
-        <Card sx={{ borderRadius: 2, border: "1px solid #e0e0e0", p: 2, mt: 1 }}>
-          <CardContent sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Typography variant="body2" color="text.secondary">
-                
-                Accéder aux paramètres avancés de Talk pour ce centre.
-            </Typography>
-            <Button
-                variant="outlined"
-                onClick={() => router.push(`/client/services/talk/${userProductId}/parametrage`)}
-                sx={{
-                borderColor: "#48C8AF",
-                color: "#48C8AF",
-                "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
-                }}
-            >
-              Ouvrir le paramétrage
-            </Button>
-          </CardContent>
-        </Card>
-      </Box>
-    </Box>
+    </ClientLayout>
   );
 }
