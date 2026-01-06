@@ -607,7 +607,7 @@ export default function StatsAppelPage({ params }: any) {
 
           <Button
             variant="outlined"
-            onClick={() => router.push("/client/services/talk")}
+            onClick={() => router.push(`/client/services/talk/${userProductId}`)}
             sx={{
               borderColor: "#48C8AF",
               color: "#48C8AF",
