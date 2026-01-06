@@ -402,18 +402,20 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
         <Typography variant="h4">Paramétrage Talk</Typography>
         <Box sx={{ display: "flex", gap: 1 }}>
-          <Button
-            variant="outlined"
-            startIcon={<IconChevronLeft size={18} />}
-            onClick={() => router.push(`/client/services/talk/${userProductId}`)}
-            sx={{
-              borderColor: "#48C8AF",
-              color: "#48C8AF",
-              "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
-            }}
-          >
-            Retour à Talk
-          </Button>
+          {userProductId && 
+            <Button
+              variant="outlined"
+              startIcon={<IconChevronLeft size={18} />}
+              onClick={() => router.push(`/client/services/talk/${userProductId}`)}
+              sx={{
+                borderColor: "#48C8AF",
+                color: "#48C8AF",
+                "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
+              }}
+            >
+              Retour à Talk
+            </Button>
+          }
           <Button
             variant="outlined"
             startIcon={<RestartAltIcon />}
