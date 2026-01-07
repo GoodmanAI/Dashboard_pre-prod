@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
               performed: exam.performed ?? true,
               typeExamenClient: exam.typeExamenClient || "",
               libelleClient: exam.libelleClient || "",
-              codeExamenClient: exam.codeExamenClient || exam.codeExamen
+              codeExamenClient: exam.codeExamenClient || ""
             };
           }
         });
