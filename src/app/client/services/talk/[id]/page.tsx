@@ -49,12 +49,12 @@ type PreviewPoint = { day: string; total: number };
 
 const intents: IntentConfig[] = [
   { value: "all",          sing_label: "Appel reçu",  label: "Appels reçus" },
-  { value: "prise de rdv", sing_label: "Rendez-vous", label: "Rendez-vous" },
-  { value: "urgence",      sing_label: "Urgence",     label: "Urgences" },
+  { value: "prise_rdv", sing_label: "Rendez-vous", label: "Rendez-vous" },
+  { value: "urgency",      sing_label: "Urgence",     label: "Urgences" },
 ];
 
 // --- Démo figée ---
-const DEMO_MODE = true; // passe à false si tu veux repasser en live
+const DEMO_MODE = false; // passe à false si tu veux repasser en live
 const DEMO_ANCHOR_ISO =
   process.env.NEXT_PUBLIC_DEMO_ANCHOR_ISO || "2025-03-01T12:00:00.000Z";
 const DEMO_DAYS = 35; // fenêtre de remap (30–45 ok)
@@ -185,15 +185,19 @@ export default function TalkPage({ params }: TalkPageProps) {
         const data: Call[] = await res.json();
 
         // stricte journée d'anchor (00:00–23:59)
-        const { start, end } = getAnchorDayBounds(DEMO_ANCHOR_ISO);
+        const { start, end } = getAnchorDayBounds(new Date().toISOString());
+
         const todaysCalls = data.filter((c) => {
           const d = new Date(c.createdAt);
           return d >= start && d <= end;
         });
 
-        const counts = intents.map((it) =>
-          todaysCalls.filter((c) => it.value === "all" || c.intent === it.value).length
-        );
+        const counts = intents.map((it) => { 
+          console.log(it);
+          return (
+            todaysCalls.filter((c: any) => it.value === "all" || c.stats.intents.includes(it.value)).length
+          );
+        });
 
         setCallsCountByIntent(counts);
       } catch (e) {
