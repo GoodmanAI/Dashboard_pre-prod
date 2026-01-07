@@ -57,6 +57,7 @@ export default function EditTypeExam({ params }: TalkPageProps){
     
     const handleSave = async () => {
       setSaving(true);
+      console.log(mapping);
       try {
         const response = await fetch(
           `/api/configuration/mapping/type_exam?userProductId=${userProductId}`,

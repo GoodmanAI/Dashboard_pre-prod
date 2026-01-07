@@ -20,6 +20,14 @@ import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 
 type Speaker = "Lyrae" | "User";
 
+const call_status: any = {
+  "no_slot": "pas de créneaux",
+  "success": "succès",
+  "not_performed": "pas effectué",
+  "canceled": "annulé",
+  "rescheduled": "modifié", 
+}
+
 interface CallSummary {
   id: number;
   userProductId: number;
@@ -38,6 +46,15 @@ interface CallSummary {
 interface CallListPageProps {
   params: { id: string }; // récupéré depuis la route Next.js
 }
+
+const formatCallTime = (timestamp: number) => {
+  const date = new Date(timestamp);
+
+  return date.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
 export default function CallListPage({ params }: CallListPageProps) {
   const [calls, setCalls] = useState<CallSummary[]>([]);
@@ -98,11 +115,10 @@ export default function CallListPage({ params }: CallListPageProps) {
         }
         {calls.length != 0 &&
         <>
-          {calls.map((call, index) => {
+          {calls.map((call: any, index) => {
             const firstStep = Object.values(call.steps)[0] as any | undefined;
             const secondStep = Object.values(call.steps)[2] as any | undefined;
 
-            console.log(secondStep)
             return (
               <Box key={call.id}>
                 <ListItem alignItems="flex-start">
@@ -116,7 +132,7 @@ export default function CallListPage({ params }: CallListPageProps) {
                         {call.stats.rdv_status && (
                           <Chip
                             size="small"
-                            label={call.stats.rdv_status}
+                            label={call_status[call.stats.rdv_status]}
                             color={
                               call.stats.rdv_status === "succès"
                                 ? "success"
@@ -126,6 +142,26 @@ export default function CallListPage({ params }: CallListPageProps) {
                             }
                           />
                         )}
+                        {call.stats.call_start_time && 
+                          <>
+                            <Typography
+                              variant="caption"
+                              sx={{ color: "text.secondary", whiteSpace: "nowrap" }}
+                            >
+                              {formatCallTime(call.stats.call_start_time)}
+                            </Typography>
+                          </>
+                        }
+                        {call.stats.call_start_time && 
+                          <>
+                            <Typography
+                              variant="caption"
+                              sx={{ color: "text.secondary", whiteSpace: "nowrap" }}
+                            >
+                              {call.stats.phone}
+                            </Typography>
+                          </>
+                        }
                       </Box>
                     }
                     secondary={

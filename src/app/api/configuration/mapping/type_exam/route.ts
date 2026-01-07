@@ -67,6 +67,10 @@ export async function POST(req: Request) {
     where: { userProductId: id },
   });
 
+  Object.entries(data).map(([code, row]: any) => {
+    console.log(code, row);
+  });
+
   // Créer de nouvelles entrées
   await prisma.examMapping.createMany({
     data: Object.entries(data).map(([code, row]: any) => ({
@@ -74,7 +78,7 @@ export async function POST(req: Request) {
       examCode: code,
       fr: row.fr, // Nom français
       diminutif: row.diminutif,
-      labelFr: row.labelFr ?? examCodeMap[row.fr] ?? row.fr, // Code ou fallback
+      labelFr: examCodeMap[row.fr], // Code ou fallback
     })),
   });
 

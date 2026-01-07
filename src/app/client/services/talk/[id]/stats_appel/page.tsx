@@ -93,19 +93,19 @@ function frenchWeekdayShort(idx: number) {
 const RESO_KEYS = ["rdv", "info", "modification", "annulation", "urgence"] as const;
 type ResoKey = (typeof RESO_KEYS)[number];
 
-function normalizeReso(call: Call): ResoKey | "autre" {
+function normalizeReso(call: any): ResoKey | "autre" {
   const s = (call.resolution ?? call.intent ?? "").toLowerCase().trim();
-  if (s.includes("rdv")) return "rdv";
-  if (s.includes("info")) return "info";
-  if (s.includes("modif")) return "modification";
-  if (s.includes("annul")) return "annulation";
-  if (s.includes("urg")) return "urgence";
+  if (call?.stats?.intents.includes("prise_rdv")) return "rdv";
+  if (call?.stats?.intents.includes("renseignements")) return "info";
+  if (call?.stats?.intents.includes("modification_rdv")) return "modification";
+  if (call?.stats?.intents.includes("annulation_rdv")) return "annulation";
+  if (call?.stats?.emergency == true) return "urgence";
   return "autre";
 }
 
-function sumDurationsSec(calls: Call[]): number {
-  return calls.reduce((acc, c) => {
-    const sec = (c.durationSeconds ?? c.durationSec ?? 0) as number;
+function sumDurationsSec(calls: any): number {
+  return calls.reduce((acc: any, c: any) => {
+    const sec = (c.stats.duration ?? c.stats.duration ?? 0) as number;
     return acc + (Number(sec) || 0);
   }, 0);
 }
@@ -247,10 +247,6 @@ export default function StatsAppelPage({ params }: any) {
   // map période -> daysAgo pour requête serveur
   const daysAgoForPeriod = (p: PeriodKey) => (p === "24h" ? 1 : p === "7j" ? 7 : 30);
 
-  useEffect(() => {
-    console.log(calls);
-  }, [calls]);
-
   // Fetch principal
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -278,31 +274,28 @@ export default function StatsAppelPage({ params }: any) {
         });
 
         const callsUrl = `/api/calls?userProductId=${userProductId}`;
+
          const callsRes = await fetch(callsUrl, {
           signal: controller.signal,
           cache: "no-store",
           headers: { "Cache-Control": "no-store" },
         });
 
-        setCalls(await callsRes.json());
+        const response = await callsRes.json();
 
-        const url = `/api/calls?${params.toString()}`;
+        const now = Date.now();
+        const maxAgeMs = daysAgoForPeriod(period) * 24 * 60 * 60 * 1000;
 
-        const res = await fetch(url, {
-          signal: controller.signal,
-          cache: "no-store",
-          headers: { "Cache-Control": "no-store" },
+        const filteredCalls = response.filter((call: any) => {
+          const callTime = new Date(call.createdAt).getTime();
+          return now - callTime <= maxAgeMs;
         });
 
-        if (!res.ok) {
-          return;
-        }
+        setCalls(filteredCalls);
 
-        const data: Call[] = await res.json();
         if (reqSeqRef.current !== seq) return;
 
-        setCalls(Array.isArray(data) ? data : []);
-         } catch (e) {
+      } catch (e) {
        if (!isAbortError(e)) {
       }
       } finally {
@@ -391,7 +384,7 @@ export default function StatsAppelPage({ params }: any) {
 
   const heuresPrisEnCharge = useMemo(() => {
     const totalSeconds = sumDurationsSec(calls);
-    return formatHoursFromSeconds(totalSeconds, 1);
+    return formatHoursFromSeconds(totalSeconds, 2);
   }, [calls]);
 
   /* ========== Camembert (intent) ========== */
@@ -405,6 +398,7 @@ export default function StatsAppelPage({ params }: any) {
       autre: 0,
     };
     for (const c of calls) buckets[normalizeReso(c)]++;
+    console.log(buckets);
     const arr = [
       { name: "RDV pris", value: buckets.rdv },
       { name: "Informations", value: buckets.info },
@@ -773,7 +767,7 @@ export default function StatsAppelPage({ params }: any) {
           </Paper>
         </Grid>
 
-        {/* Répartition par sous-centre — DROITE (camembert plein) */}
+        {/* Répartition par sous-centre — DROITE (camembert plein)
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2, height: 360 }}>
             <Typography variant="h6" fontWeight={700}>
@@ -807,7 +801,7 @@ export default function StatsAppelPage({ params }: any) {
               </Box>
             )}
           </Paper>
-        </Grid>
+        </Grid> */}
       </Grid>
     </Box>
   );
