@@ -140,6 +140,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ✅ Upsert TalkSettings
+    console.log(`where: { userProductId: ${userProductId} },`);
     const settings = await prisma.talkSettings.upsert({
       where: { userProductId: userProductId },
       update: {
