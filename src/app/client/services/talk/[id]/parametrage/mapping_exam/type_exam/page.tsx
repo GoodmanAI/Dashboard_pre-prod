@@ -13,10 +13,28 @@ interface TalkPageProps {
   };
 }
 
+const exams = [
+  "Echographie",
+  "Mammographie",
+  "Radio",
+  "IRM",
+  "Scanner"
+]
+
 export default function EditTypeExam({ params }: TalkPageProps){
     const userProductId = Number(params.id);
     const router = useRouter();
     const [mapping, setMapping] = useState<Record<string, { fr: string, diminutif: string }>>({});
+    const [saving, setSaving] = useState(false);
+    const [snack, setSnack] = useState<{
+      open: boolean;
+      message: string;
+      severity: "success" | "error";
+    }>({
+      open: false,
+      message: "",
+      severity: "success",
+    });
 
     useEffect(() => {
       const fetchData = async () => {
@@ -38,29 +56,52 @@ export default function EditTypeExam({ params }: TalkPageProps){
     }, [userProductId]);
     
     const handleSave = async () => {
-      await fetch(`/api/configuration/mapping/type_exam?userProductId=${userProductId}`, {
-        method: "POST",
-        body: JSON.stringify(mapping),
-        headers: { "Content-Type": "application/json" }
-      });
+      setSaving(true);
+      try {
+        const response = await fetch(
+          `/api/configuration/mapping/type_exam?userProductId=${userProductId}`,
+          {
+            method: "POST",
+            body: JSON.stringify(mapping),
+            headers: { "Content-Type": "application/json" },
+          }
+        );
 
-    }
+        if (!response.ok) throw new Error("Save failed");
+
+        setSnack({
+          open: true,
+          message: "Configuration enregistrée.",
+          severity: "success",
+        });
+      } catch (error) {
+        setSnack({
+          open: true,
+          message: "Erreur lors de la sauvegarde.",
+          severity: "error",
+        });
+      } finally {
+        setSaving(false);
+      }
+    };
+
 
     return (
         <main className="p-6">
             <Button
-            variant="contained"
-            startIcon={<ArrowBackIosIcon />}
-            onClick={() => { return router.back() }}
-            sx={{
-              backgroundColor: "#48C8AF",
-              "&:hover": { backgroundColor: "#3bb49d" },
-              marginBottom: "10px"
-            }}
-          >
-            Retour
-          </Button>
-          
+              variant="contained"
+              startIcon={<ArrowBackIosIcon />}
+              onClick={() => router.back()}
+              disabled={saving}
+              sx={{
+                backgroundColor: "#48C8AF",
+                "&:hover": { backgroundColor: "#3bb49d" },
+                marginBottom: "10px",
+              }}
+            >
+              Retour
+            </Button>
+
             <h1 className="text-xl font-bold mb-8 pl-4">
                 Correspondance des Examens
             </h1>
@@ -104,9 +145,9 @@ export default function EditTypeExam({ params }: TalkPageProps){
                     </tr>
                 </tbody> */}
                 <tbody>
-              {Object.entries(mapping).map(([code, item]: any) => (
+              {Object.entries(mapping).map(([code, item]: any, index) => (
                 <tr key={code}>
-                  <td style={{padding: "20px 10px", border: "1px solid black"}}>{code == 0 ? "Echographie" : code == 1 ? "Mammographie" : code == 2 ? "Radio" : code == 3 ? "IRM" : "Scanner"}</td>
+                  <td style={{padding: "20px 10px", border: "1px solid black"}}>{exams[index]}</td>
 
                   <td style={{padding: "20px 10px", border: "1px solid black"}}>
                     <input
@@ -147,7 +188,7 @@ export default function EditTypeExam({ params }: TalkPageProps){
               variant="contained"
               startIcon={<SaveIcon />}
               onClick={handleSave}
-            //   disabled={saving}
+              disabled={saving}
               sx={{
                 backgroundColor: "#48C8AF",
                 "&:hover": { backgroundColor: "#3bb49d" },
@@ -155,6 +196,19 @@ export default function EditTypeExam({ params }: TalkPageProps){
             >
               Enregistrer
             </Button>
+            
+            <Portal>
+              <Snackbar
+                anchorOrigin={{ vertical: "top", horizontal: "right" }}
+                open={snack.open}
+                autoHideDuration={3000}
+                onClose={() => setSnack((s) => ({ ...s, open: false }))}
+              >
+                <Alert severity={snack.severity}>
+                  {snack.message}
+                </Alert>
+              </Snackbar>
+            </Portal>
           </Stack>
         </main>
     )

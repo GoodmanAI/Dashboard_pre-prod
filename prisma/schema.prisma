@@ -259,6 +259,7 @@ model ExamMapping {
   id            Int    @id @default(autoincrement())
   userProductId Int
   examCode      String
+  fr            String
   labelFr       String
   diminutif     String
 
