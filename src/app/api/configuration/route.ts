@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
 
     // ✅ Upsert TalkSettings
     const settings = await prisma.talkSettings.upsert({
-      where: { userProductId },
+      where: { userProductId: userProductId },
       update: {
         voice,
         botName,

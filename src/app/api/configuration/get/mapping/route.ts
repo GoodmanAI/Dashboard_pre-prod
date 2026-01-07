@@ -40,18 +40,17 @@ export async function GET(req: NextRequest) {
 
     const examsMap: ExamMap = {};
 
-    console.log(settings);
-
     if (settings && settings.exams) {
       const examsFromSettings =
         typeof settings.exams === "string"
           ? JSON.parse(settings.exams)
           : settings.exams; // déjà un objet
 
-      // Si c'est un tableau
+          // Si c'est un tableau
       if (Array.isArray(examsFromSettings)) {
         examsFromSettings.forEach((exam: any) => {
           if (exam.codeExamen) {
+            console.log(exam);
             examsMap[exam.codeExamen] = {
               typeExamen: exam.typeExamen || "",
               codeExamen: exam.codeExamen,
@@ -85,6 +84,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    console.log(examsMap);
 
     // Charger Azure Blob
     const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
@@ -122,14 +122,11 @@ export async function GET(req: NextRequest) {
       rows = XLSX.utils.sheet_to_json(sheet);
     }
 
-    console.log(examsMap)
     rows.forEach((row: any) => {
       const code = row.codeExamen || row["codeExamen NEURACORP"];
-      console.log(code);
       if (!code) return;
 
       if (!examsMap[code]) {
-      console.log(examsMap[code])
         examsMap[code] = {
           typeExamen: row.typeExamen || "",
           codeExamen: code,
