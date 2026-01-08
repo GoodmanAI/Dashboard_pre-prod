@@ -35,9 +35,11 @@ export async function GET(req: Request) {
       "saturday",
     ];
 
-    const now = new Date();
+    const now = new Date(
+      new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" })
+    );
+    const currentTime = now.toTimeString().slice(0, 5);
     const currentDay: any = days[now.getDay()];
-    const currentTime = now.toTimeString().slice(0, 5); // "HH:MM"
 
     const today = weeklyHours[currentDay];
 
