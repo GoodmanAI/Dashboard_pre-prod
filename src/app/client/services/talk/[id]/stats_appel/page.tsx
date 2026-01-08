@@ -117,6 +117,7 @@ function formatHoursFromSeconds(totalSeconds: number, decimals = 1): string {
 
 // Durée "3min34"
 function secondsToMinLabel(totalSeconds: number) {
+  console.log("test", totalSeconds);
   const s = Math.max(0, Math.round(totalSeconds));
   const m = Math.floor(s / 60);
   const ss = s % 60;
@@ -398,7 +399,7 @@ export default function StatsAppelPage({ params }: any) {
       autre: 0,
     };
     for (const c of calls) buckets[normalizeReso(c)]++;
-    console.log(buckets);
+
     const arr = [
       { name: "RDV pris", value: buckets.rdv },
       { name: "Informations", value: buckets.info },
@@ -521,9 +522,10 @@ export default function StatsAppelPage({ params }: any) {
       urgence: { total: 0, n: 0 },
     };
     for (const c of calls) {
+      const call = c as any;
       const k = normalizeReso(c);
       if (k === "autre") continue;
-      const sec = (c.durationSeconds ?? c.durationSec ?? 0) as number;
+      const sec = (call.stats.duration ?? call.durationSec ?? 0) as number;
       acc[k].total += Number(sec) || 0;
       acc[k].n += 1;
     }
