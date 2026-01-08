@@ -223,10 +223,12 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playingKey, setPlayingKey] = useState<VoiceKey | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [loaded, setLoaded] = useState<boolean>(false);
 
   useEffect(() => {
-
+    
     async function fetchSettings() {
+      setLoaded(true);
       try {
         setLoading(true);
         const res = await fetch(`/api/configuration?userProductId=${userProductId}`);
@@ -248,7 +250,9 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       }
     }
     
-    fetchSettings();
+    if (loaded == false) {
+      fetchSettings();
+    }
   }, [userProductId, settings]);
 
   useEffect(() => {
