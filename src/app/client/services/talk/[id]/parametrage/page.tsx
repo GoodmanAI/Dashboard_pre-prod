@@ -136,48 +136,6 @@ const VOICE_DEMOS: Array<{
   },
 ];
 
-function useLocalSettingsStorage(selectedUserId?: number | null) {
-  const storageKey = useMemo(
-    () => `TALK_SETTINGS::${selectedUserId ?? "self"}`,
-    [selectedUserId]
-  );
-
-  const load = useCallback((): TalkSettings => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return DEFAULTS;
-      const parsed = JSON.parse(raw);
-      return {
-        ...DEFAULTS,
-        ...parsed,
-        examsAccepted: {
-          ...DEFAULTS.examsAccepted,
-          ...(parsed?.examsAccepted || {}),
-        },
-        examQuestions: {
-          ...DEFAULTS.examQuestions,
-          ...(parsed?.examQuestions || {}),
-        },
-      } as TalkSettings;
-    } catch {
-      return DEFAULTS;
-    }
-  }, [storageKey]);
-
-  const save = useCallback(
-    (val: TalkSettings) => {
-      localStorage.setItem(storageKey, JSON.stringify(val));
-    },
-    [storageKey]
-  );
-
-  const reset = useCallback(() => {
-    localStorage.setItem(storageKey, JSON.stringify(DEFAULTS));
-  }, [storageKey]);
-
-  return { storageKey, load, save, reset };
-}
-
 function QuestionsEditor({
   label,
   value,
@@ -251,8 +209,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   const { selectedUserId, selectedCentre } = useCentre();
   const userProductId = Number(params.id);
   
-  const { load, save, reset, storageKey } = useLocalSettingsStorage(selectedUserId);
-
   const [settings, setSettings] = useState<TalkSettings>(DEFAULTS);
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState<{
@@ -281,10 +237,10 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         }
 
         const data = await res.json();
-        // setSettings((prev) => ({
-        //   ...prev,
-        //   ...data, // Merge fetched settings into state
-        // }));
+        setSettings((prev) => ({
+          ...prev,
+          ...data,
+        }));
       } catch (error) {
         console.error("Error fetching settings:", error);
       } finally {
@@ -294,17 +250,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
     
     fetchSettings();
   }, [userProductId, settings]);
-
-  useEffect(() => {
-    const loaded = load();
-    setSettings(loaded);
-
-    if (loaded.address2) {
-      const [zip, ...cityParts] = loaded.address2.split(" ");
-      setZipCode(zip || "");
-      setCity(cityParts.join(" ") || "");
-    }
-  }, [load, storageKey]);
 
   useEffect(() => {
     return () => {
@@ -352,7 +297,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       } catch (error) {
         console.error("Error updating setting:", error);
       }
-      save(settings);
       setSnack({
         open: true,
         msg: "Paramètres enregistrés",
@@ -363,12 +307,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleReset = () => {
-    reset();
-    setSettings(load());
-    setSnack({ open: true, msg: "Paramètres réinitialisés.", sev: "success" });
   };
 
   const togglePlay = async (voice: VoiceKey) => {
@@ -416,18 +354,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               Retour à Talk
             </Button>
           }
-          <Button
-            variant="outlined"
-            startIcon={<RestartAltIcon />}
-            onClick={handleReset}
-            sx={{
-              borderColor: "#EF5350",
-              color: "#EF5350",
-              "&:hover": { backgroundColor: "rgba(239,83,80,0.08)" },
-            }}
-          >
-            Réinitialiser
-          </Button>
           <Button
             variant="contained"
             startIcon={<SaveIcon />}
@@ -836,18 +762,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           justifyContent: "flex-end",
         }}
       >
-        <Button
-          variant="outlined"
-          startIcon={<RestartAltIcon />}
-          onClick={handleReset}
-          sx={{
-            borderColor: "#EF5350",
-            color: "#EF5350",
-            "&:hover": { backgroundColor: "rgba(239,83,80,0.08)" },
-          }}
-        >
-          Réinitialiser
-        </Button>
         <Button
           variant="contained"
           startIcon={<SaveIcon />}
