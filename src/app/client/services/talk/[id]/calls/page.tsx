@@ -118,6 +118,7 @@ export default function CallListPage({ params }: CallListPageProps) {
           {calls.map((call: any, index) => {
             const firstStep = Object.values(call.steps)[0] as any | undefined;
             const secondStep = Object.values(call.steps)[2] as any | undefined;
+            console.log(call);
 
             return (
               <Box key={call.id}>
@@ -128,18 +129,20 @@ export default function CallListPage({ params }: CallListPageProps) {
                         <Typography variant="subtitle1" fontWeight={600}>
                           Appel #{call.id}
                         </Typography>
-
+                        {console.log(call.stats.rdv_status)}
                         {call.stats.rdv_status && (
                           <Chip
                             size="small"
                             label={call_status[call.stats.rdv_status]}
-                            color={
-                              call.stats.rdv_status === "succès"
-                                ? "success"
-                                : call.stats.rdv_status === "annulé"
-                                ? "error"
-                                : "default"
-                            }
+                            sx={{
+                              backgroundColor:
+                                call.stats.rdv_status === "success"
+                                  ? "green"
+                                  : call.stats.rdv_status === "no_slot"
+                                  ? "error.main"
+                                  : "grey.300",
+                              color: "white",
+                            }}
                           />
                         )}
                         {call.stats.call_start_time && 
@@ -158,7 +161,7 @@ export default function CallListPage({ params }: CallListPageProps) {
                               variant="caption"
                               sx={{ color: "text.secondary", whiteSpace: "nowrap" }}
                             >
-                              {call.stats.phone}
+                              {call.stats.phoneNumber}
                             </Typography>
                           </>
                         }
