@@ -50,7 +50,6 @@ export async function GET(req: NextRequest) {
       if (Array.isArray(examsFromSettings)) {
         examsFromSettings.forEach((exam: any) => {
           if (exam.codeExamen) {
-            console.log(exam);
             examsMap[exam.codeExamen] = {
               typeExamen: exam.typeExamen || "",
               codeExamen: exam.codeExamen,
@@ -78,13 +77,11 @@ export async function GET(req: NextRequest) {
             performed: exam.performed ?? true,
             typeExamenClient: exam.typeExamenClient || "",
             libelleClient: exam.libelleClient || "",
-            codeExamenClient: exam.codeExamenClient || code
+            codeExamenClient: exam.codeExamenClient || ""
           };
         });
       }
     }
-
-    console.log(examsMap);
 
     // Charger Azure Blob
     const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;

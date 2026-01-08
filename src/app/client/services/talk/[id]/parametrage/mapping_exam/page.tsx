@@ -185,7 +185,6 @@ export default function MappingExam({ params }: TalkPageProps) {
         const res = await fetch(`/api/configuration/get/mapping?userProductId=${userProductId}`);
         if (res.ok) {
           const json = await res.json();
-          console.log("json", json)
           const formatted = Array.isArray(json) ? json : Object.values(json);
           const withPerformed = formatted.map((row: any) => ({
             ...row,
