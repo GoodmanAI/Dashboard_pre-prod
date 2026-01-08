@@ -154,7 +154,7 @@ export default function SignIn() {
               fullWidth
               variant="outlined"
               label="Email"
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
