@@ -3,13 +3,23 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+// ------------------ UTILITAIRES ------------------
+const toMinutes = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+};
+
+// ------------------------------------------------
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const userProductId = parseInt(searchParams.get("userProductId") || "", 10);
 
     if (isNaN(userProductId)) {
-      return NextResponse.json({ error: "userProductId manquant" }, { status: 400 });
+      return NextResponse.json(
+        { error: "userProductId manquant" },
+        { status: 400 }
+      );
     }
 
     const settings = await prisma.talkInformationSettings.findUnique({
@@ -20,11 +30,11 @@ export async function GET(req: Request) {
     if (!weeklyHours) {
       return NextResponse.json({
         openNow: false,
-        message: "Aucun horaire défini"
+        message: "Aucun horaire défini",
       });
     }
 
-    // Liste des jours dans le bon ordre
+    // Jours JS : 0 = dimanche
     const days = [
       "sunday",
       "monday",
@@ -35,54 +45,59 @@ export async function GET(req: Request) {
       "saturday",
     ];
 
+    // ------------------ DATE / HEURE (PARIS) ------------------
     const now = new Date(
       new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" })
     );
-    const currentTime = now.toTimeString().slice(0, 5);
-    const currentDay: any = days[now.getDay()];
+
+    const currentDay = days[now.getDay()];
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
     const today = weeklyHours[currentDay];
 
-    // ---------- FONCTION D'AIDE -----------
-    const isBetween = (time: string, start: string, end: string) =>
-      time >= start && time <= end;
-
-    // ---------- 1. Vérifier si ouvert maintenant ----------
+    // ------------------ 1. OUVERT MAINTENANT ------------------
     if (today?.enabled && today.ranges?.length > 0) {
-      const activeRange = today.ranges.find((range: any) =>
-        isBetween(currentTime, range.start, range.end)
-      );
+      const activeRange = today.ranges.find((range: any) => {
+        const start = toMinutes(range.start);
+        const end = toMinutes(range.end);
+        return currentMinutes >= start && currentMinutes < end;
+      });
 
       if (activeRange) {
         return NextResponse.json({
           openNow: true,
           currentRange: activeRange,
-          message: "Centre actuellement ouvert"
+          message: "Centre actuellement ouvert",
         });
       }
     }
 
-    // ---------- 2. Sinon : chercher la prochaine plage ----------
-    const searchOrder = [
+    // ------------------ 2. PROCHAINE OUVERTURE AUJOURD’HUI ------------------
+    if (today?.enabled && today.ranges?.length > 0) {
+      const nextTodayRange = today.ranges.find(
+        (range: any) => currentMinutes < toMinutes(range.start)
+      );
+
+      if (nextTodayRange) {
+        return NextResponse.json({
+          openNow: false,
+          nextOpening: {
+            day: currentDay,
+            start: nextTodayRange.start,
+          },
+        });
+      }
+    }
+
+    // ------------------ 3. PROCHAINS JOURS ------------------
+    const nextDays = [
       ...days.slice(days.indexOf(currentDay) + 1),
-      ...days.slice(0, days.indexOf(currentDay) + 1)
+      ...days.slice(0, days.indexOf(currentDay)),
     ];
 
-    for (const day of searchOrder) {
+    for (const day of nextDays) {
       const d = weeklyHours[day];
       if (d?.enabled && d.ranges?.length > 0) {
-        // si c’est aujourd’hui, chercher une plage après l’heure actuelle
-        if (day === currentDay) {
-          const nextTodayRange = d.ranges.find((r: any) => r.start > currentTime);
-          if (nextTodayRange) {
-            return NextResponse.json({
-              openNow: false,
-              nextOpening: { day, start: nextTodayRange.start },
-            });
-          }
-        }
-
-        // sinon retour première plage du jour suivant
         return NextResponse.json({
           openNow: false,
           nextOpening: {
@@ -93,14 +108,16 @@ export async function GET(req: Request) {
       }
     }
 
-    // ---------- 3. Aucun horaire trouvé ----------
+    // ------------------ 4. AUCUNE OUVERTURE ------------------
     return NextResponse.json({
       openNow: false,
-      message: "Centre fermé toute la semaine"
+      message: "Centre fermé toute la semaine",
     });
-
   } catch (e) {
     console.error("Erreur route opening:", e);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Erreur serveur" },
+      { status: 500 }
+    );
   }
 }
