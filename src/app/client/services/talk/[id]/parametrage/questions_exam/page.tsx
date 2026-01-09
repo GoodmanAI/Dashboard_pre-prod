@@ -34,11 +34,17 @@ function parseStringArray(value?: string): string[] {
   if (!value || typeof value !== "string") return [];
 
   try {
-    // Remplace quotes simples → doubles quotes
+    // transforme ['a', 'b'] → ["a", "b"]
     const json = value
-      .replace(/'/g, '"')
-      .replace(/\n/g, "")
-      .trim();
+      .trim()
+      .replace(/^\[/, "[")
+      .replace(/\]$/, "]")
+      .replace(/,\s*'/g, ', "')
+      .replace(/'\s*,/g, '",')
+      .replace(/^\['/, '["')
+      .replace(/'\]$/, '"]')
+      .replace(/'\s*:/g, '":')
+      .replace(/:\s*'/g, ': "');
 
     const parsed = JSON.parse(json);
     return Array.isArray(parsed) ? parsed : [];

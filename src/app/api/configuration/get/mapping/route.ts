@@ -9,6 +9,19 @@ type ExamMap = Record<string, Exam>;
 
 export const runtime = "nodejs";
 
+function parseInterrogatoire(value: any): string[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string" || value.trim() === "") return [];
+
+  try {
+    // Parse un tableau JS stocké sous forme de string
+    return Function('"use strict"; return (' + value + ')')();
+  } catch (e) {
+    console.error("Interrogatoire invalide :", value);
+    return [];
+  }
+}
+
 async function streamToBuffer(readableStream?: NodeJS.ReadableStream | null) {
   if (!readableStream) return Buffer.alloc(0);
 
@@ -54,8 +67,8 @@ export async function GET(req: NextRequest) {
               typeExamen: exam.typeExamen || "",
               codeExamen: exam.codeExamen,
               libelle: exam.libelle || "",
-              Synonymes: exam.Synonymes || "[]",
-              Interrogatoire: exam.Interrogatoire || "[]",
+              Synonymes: parseInterrogatoire(exam.Synonymes),
+              Interrogatoire: parseInterrogatoire(exam.Interrogatoire),
               Commentaire: exam.Commentaire || "",
               performed: exam.performed ?? true,
               typeExamenClient: exam.typeExamenClient || "",
@@ -71,8 +84,8 @@ export async function GET(req: NextRequest) {
             typeExamen: exam.typeExamen || "",
             codeExamen: code,
             libelle: exam.libelle || "",
-            Synonymes: exam.Synonymes || "[]",
-            Interrogatoire: exam.Interrogatoire || "[]",
+            Synonymes: parseInterrogatoire(exam.Synonymes),
+            Interrogatoire: parseInterrogatoire(exam.Interrogatoire),
             Commentaire: exam.Commentaire || "",
             performed: exam.performed ?? true,
             typeExamenClient: exam.typeExamenClient || "",
@@ -128,10 +141,10 @@ export async function GET(req: NextRequest) {
           typeExamen: row.typeExamen || "",
           codeExamen: code,
           libelle: row.libelle || "",
-          Synonymes: row.Synonymes || "[]",
-          Interrogatoire: row.Interrogatoire || "[]",
+          Synonymes: row.Synonymes || [],
+          Interrogatoire: parseInterrogatoire(row.Interrogatoire),
           Commentaire: row.Commentaire || "",
-          performed: row.performed || true,
+          performed: row.performed ?? true,
           typeExamenClient: row.typeExamenClient || "",
           libelleClient: row.libelleClient || ""
         };
