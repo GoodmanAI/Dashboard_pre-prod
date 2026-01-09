@@ -51,15 +51,14 @@ function EditableTable({ data, setData }: EditableTableProps) {
   performed: "Attribué à Lyrae", // 👈 changement uniquement visuel
 };
 
-  const handleChange = (rowIndex: number, key: string, value: any) => {
-    setData((prev) => {
-      const updated = [...prev];
-      updated[rowIndex] = {
-        ...updated[rowIndex],
-        [key]: value,
-      };
-      return updated;
-    });
+  const handleChange = (codeExamen: string, key: string, value: any) => {
+    setData((prev) =>
+      prev.map((row) =>
+        row.codeExamen === codeExamen
+          ? { ...row, [key]: value }
+          : row
+      )
+    );
   };
 
   return (
@@ -111,18 +110,32 @@ function EditableTable({ data, setData }: EditableTableProps) {
                         type="checkbox"
                         checked={!!row[key]}
                         onChange={(e) =>
-                          handleChange(
-                            (currentPage - 1) * rowsPerPage + rowIndex,
-                            key,
-                            e.target.checked
-                          )
+                          handleChange(row.codeExamen, key, e.target.checked)
                         }
                       />
+                      // <input
+                      //   type="checkbox"
+                      //   checked={!!row[key]}
+                      //   onChange={(e) =>
+                      //     handleChange(
+                      //       (currentPage - 1) * rowsPerPage + rowIndex,
+                      //       key,
+                      //       e.target.checked
+                      //     )
+                      //   }
+                      // />
                     ) : isEditable ? (
                       <>
                       {/* {console.log("row", row)} */}
-
                       <input
+                        type="text"
+                        value={row[key] ?? ""}
+                        onChange={(e) =>
+                          handleChange(row.codeExamen, key, e.target.value)
+                        }
+                        style={{ width: "100%", boxSizing: "border-box", padding: "6px" }}
+                      />
+                      {/* <input
                         type="text"
                         value={row[key] ?? ""}
                         onChange={(e) =>
@@ -133,7 +146,7 @@ function EditableTable({ data, setData }: EditableTableProps) {
                           )
                         }
                         style={{ width: "100%", boxSizing: "border-box", padding: "6px" }}
-                      />
+                      /> */}
 
                       </>
                     ) : (
@@ -188,7 +201,11 @@ export default function MappingExam({ params }: TalkPageProps) {
           const formatted = Array.isArray(json) ? json : Object.values(json);
           const withPerformed = formatted.map((row: any) => ({
             ...row,
-            performed: row.performed === undefined ? true : row.performed
+            performed: row.performed === undefined ? true : row.performed,
+            codeExamenClient:
+              row.codeExamenClient === "NONE" || row.codeExamenClient === null
+                ? ""
+                : row.codeExamenClient,
           }));
         
           setData(withPerformed);
@@ -204,6 +221,9 @@ export default function MappingExam({ params }: TalkPageProps) {
     fetchData();
   }, [userProductId]);
 
+  useEffect(() => {
+    console.log(data);
+  }, [data])
   const handleSave = async () => {
     setSaving(true);
     try {
