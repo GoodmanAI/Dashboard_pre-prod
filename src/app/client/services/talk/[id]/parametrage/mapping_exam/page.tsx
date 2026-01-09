@@ -201,11 +201,7 @@ export default function MappingExam({ params }: TalkPageProps) {
           const formatted = Array.isArray(json) ? json : Object.values(json);
           const withPerformed = formatted.map((row: any) => ({
             ...row,
-            performed: row.performed === undefined ? true : row.performed,
-            codeExamenClient:
-              row.codeExamenClient === "NONE" || row.codeExamenClient === null
-                ? ""
-                : row.codeExamenClient,
+            performed: row.performed === undefined ? true : row.performed
           }));
         
           setData(withPerformed);

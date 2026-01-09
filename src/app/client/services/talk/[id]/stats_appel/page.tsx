@@ -401,6 +401,7 @@ export default function StatsAppelPage({ params }: any) {
     for (const c of calls) buckets[normalizeReso(c)]++;
 
     const arr = [
+      { name: "Prise de RDV", value: buckets.rdv },
       { name: "RDV pris", value: buckets.rdv },
       { name: "Informations", value: buckets.info },
       { name: "Modifications", value: buckets.modification },
