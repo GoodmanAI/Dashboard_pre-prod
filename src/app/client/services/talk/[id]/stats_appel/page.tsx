@@ -402,7 +402,7 @@ export default function StatsAppelPage({ params }: any) {
 
     const arr = [
       { name: "Prise de RDV", value: buckets.rdv },
-      { name: "RDV pris", value: buckets.rdv },
+      { name: "Intention de RDV", value: buckets.rdv },
       { name: "Informations", value: buckets.info },
       { name: "Modifications", value: buckets.modification },
       { name: "Annulations", value: buckets.annulation },

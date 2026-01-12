@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Box, Typography, CircularProgress, Alert } from "@mui/material";
+import { useRouter } from "next/navigation";
+import { Box, Typography, CircularProgress, Alert, Button } from "@mui/material";
+import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 
 type Speaker = "Lyrae" | "User";
 
@@ -10,6 +12,8 @@ export default function CallConversationPage({ params }: { params: { id: string;
   const [sorted, setSorted] = useState<Boolean>(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const router = useRouter();
 
   const userProductId = Number(params.id);
   const callId = Number(params.callId);
@@ -40,16 +44,24 @@ export default function CallConversationPage({ params }: { params: { id: string;
     if (steps.length > 0 && sorted === false) {
       setSorted(true);
       const filtered = steps.filter((line: any) => {
-        console.log(line.text.includes("WaitSound"));
-        return !line.text.includes("WaitSound")
+        return !line.text.includes("WaitSound");
       });
 
-      setSteps(filtered)
+      setSteps(filtered);
     }
   }, [steps]);
 
   return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
+      <Button
+        variant="contained"
+        startIcon={<ArrowBackIosIcon />}
+        onClick={() => router.back()}
+        sx={{ backgroundColor: "#48C8AF", mb: 2 }}
+      >
+        Retour
+      </Button>
+
       <Typography variant="h5" gutterBottom>
         Conversation
       </Typography>
@@ -68,7 +80,7 @@ export default function CallConversationPage({ params }: { params: { id: string;
 
       {steps.map((text: any, idx: any) => {
         const speaker: Speaker = idx % 2 === 0 ? "Lyrae" : "User";
-        
+
         return (
           <Box
             key={idx}
@@ -86,13 +98,7 @@ export default function CallConversationPage({ params }: { params: { id: string;
                 maxWidth: "75%",
               }}
             >
-              <Typography
-                variant="caption"
-                sx={{ fontWeight: 700, color: "text.secondary", mb: 0.5 }}
-              >
-              </Typography>
               <Typography variant="body2">
-                {console.log(text)}
                 {text.text}
               </Typography>
             </Box>
