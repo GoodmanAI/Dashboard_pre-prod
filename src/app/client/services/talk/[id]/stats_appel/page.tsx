@@ -90,12 +90,13 @@ function frenchWeekdayShort(idx: number) {
   return map[idx];
 }
 
-const RESO_KEYS = ["rdv", "info", "modification", "annulation", "urgence"] as const;
+const RESO_KEYS = ["rdv_intent", "rdv", "info", "modification", "annulation", "urgence"] as const;
 type ResoKey = (typeof RESO_KEYS)[number];
 
 function normalizeReso(call: any): ResoKey | "autre" {
   const s = (call.resolution ?? call.intent ?? "").toLowerCase().trim();
-  if (call?.stats?.intents.includes("prise_rdv")) return "rdv";
+  if (call?.stats?.rdv_booked != 0) return "rdv";
+  if (call?.stats?.intents.includes("prise_rdv")) return "rdv_intent";
   if (call?.stats?.intents.includes("renseignements")) return "info";
   if (call?.stats?.intents.includes("modification_rdv")) return "modification";
   if (call?.stats?.intents.includes("annulation_rdv")) return "annulation";
@@ -391,6 +392,7 @@ export default function StatsAppelPage({ params }: any) {
   /* ========== Camembert (intent) ========== */
   const pieData = useMemo(() => {
     const buckets: Record<ResoKey | "autre", number> = {
+      rdv_intent: 0,
       rdv: 0,
       info: 0,
       modification: 0,
@@ -402,7 +404,7 @@ export default function StatsAppelPage({ params }: any) {
 
     const arr = [
       { name: "Prise de RDV", value: buckets.rdv },
-      { name: "Intention de RDV", value: buckets.rdv },
+      { name: "Intention de RDV", value: buckets.rdv_intent },
       { name: "Informations", value: buckets.info },
       { name: "Modifications", value: buckets.modification },
       { name: "Annulations", value: buckets.annulation },
@@ -531,6 +533,7 @@ export default function StatsAppelPage({ params }: any) {
       acc[k].n += 1;
     }
     const label: Record<ResoKey, string> = {
+      rdv_intent: "Intention de RDV",
       rdv: "RDV",
       info: "Informations",
       modification: "Modifications",

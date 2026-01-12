@@ -54,6 +54,14 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    calls = calls.filter((c: any) => {
+      return (c.stats.duration ? (Number(c.stats.duration) > 15 ? true : false) : false);
+    });
+
+    calls = calls.filter((c: any) => {
+      return c.steps && c.steps.length > 1;
+    });
+
     return NextResponse.json(calls, { status: 200 });
   } catch (error) {
     console.error("Erreur fetching calls:", error);
