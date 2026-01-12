@@ -518,6 +518,7 @@ export default function StatsAppelPage({ params }: any) {
   /* ========== Durée moyenne par intention ========== */
   const avgByIntentData = useMemo(() => {
     const acc: Record<ResoKey, { total: number; n: number }> = {
+      rdv_intent: { total: 0, n: 0},
       rdv: { total: 0, n: 0 },
       info: { total: 0, n: 0 },
       modification: { total: 0, n: 0 },
