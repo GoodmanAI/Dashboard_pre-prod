@@ -14,6 +14,10 @@ import {
   Chip,
   ListItemButton,
   Pagination,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
@@ -75,6 +79,7 @@ export default function CallListPage({ params }: CallListPageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const router = useRouter();
   const userProductId = Number(params.id);
@@ -92,14 +97,22 @@ export default function CallListPage({ params }: CallListPageProps) {
       })
       .then((data: CallSummary[]) => {
         setCalls(data);
-        setPage(1); // reset pagination au chargement
+        setPage(1);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [userProductId]);
 
-  const totalPages = Math.ceil(calls.length / ITEMS_PER_PAGE);
-  const paginatedCalls = calls.slice(
+  const filteredCalls =
+    statusFilter === "all"
+      ? calls
+      : calls.filter(
+          (call) => call.stats.rdv_status === statusFilter
+        );
+
+  const totalPages = Math.ceil(filteredCalls.length / ITEMS_PER_PAGE);
+
+  const paginatedCalls = filteredCalls.slice(
     (page - 1) * ITEMS_PER_PAGE,
     page * ITEMS_PER_PAGE
   );
@@ -115,6 +128,28 @@ export default function CallListPage({ params }: CallListPageProps) {
         Retour
       </Button>
 
+      <FormControl sx={{ mb: 2, minWidth: 220, ml: 5 }}>
+        <InputLabel id="status-filter-label">
+          Filtrer par statut
+        </InputLabel>
+        <Select
+          labelId="status-filter-label"
+          value={statusFilter}
+          label="Filtrer par statut"
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
+        >
+          <MenuItem value="all">Tous</MenuItem>
+          <MenuItem value="success">Succès</MenuItem>
+          <MenuItem value="no_slot">Pas de créneaux</MenuItem>
+          <MenuItem value="not_performed">Pas effectué</MenuItem>
+          <MenuItem value="canceled">Annulé</MenuItem>
+          <MenuItem value="rescheduled">Modifié</MenuItem>
+        </Select>
+      </FormControl>
+
       {loading && (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
           <CircularProgress sx={{ color: "#48C8AF" }} />
@@ -123,9 +158,9 @@ export default function CallListPage({ params }: CallListPageProps) {
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      {!loading && !error && calls.length === 0 && (
+      {!loading && !error && filteredCalls.length === 0 && (
         <Alert severity="info">
-          Aucun appel trouvé pour ce UserProduct.
+          Aucun appel trouvé pour ce filtre.
         </Alert>
       )}
 

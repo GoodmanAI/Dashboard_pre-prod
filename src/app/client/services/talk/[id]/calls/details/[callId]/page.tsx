@@ -53,58 +53,64 @@ export default function CallConversationPage({ params }: { params: { id: string;
 
   return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-      <Button
-        variant="contained"
-        startIcon={<ArrowBackIosIcon />}
-        onClick={() => router.back()}
-        sx={{ backgroundColor: "#48C8AF", mb: 2 }}
+      <Box
+        sx={{
+          maxWidth: "800px",
+          margin: "0 auto",   // centre horizontalement
+        }}
       >
-        Retour
-      </Button>
+        <Button
+          variant="contained"
+          startIcon={<ArrowBackIosIcon />}
+          onClick={() => router.back()}
+          sx={{ backgroundColor: "#48C8AF", mb: 2 }}
+        >
+          Retour
+        </Button>
 
-      <Typography variant="h5" gutterBottom>
-        Conversation
-      </Typography>
+        <Typography variant="h5" gutterBottom>
+          Conversation
+        </Typography>
 
-      {loading && (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-          <CircularProgress sx={{ color: "#48C8AF" }} />
-        </Box>
-      )}
+        {loading && (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+            <CircularProgress sx={{ color: "#48C8AF" }} />
+          </Box>
+        )}
 
-      {error && <Alert severity="error">{error}</Alert>}
+        {error && <Alert severity="error">{error}</Alert>}
 
-      {!loading && !error && steps.length === 0 && (
-        <Alert severity="info">Aucune conversation trouvée pour cet appel.</Alert>
-      )}
+        {!loading && !error && steps.length === 0 && (
+          <Alert severity="info">Aucune conversation trouvée pour cet appel.</Alert>
+        )}
 
-      {steps.map((text: any, idx: any) => {
-        const speaker: Speaker = idx % 2 === 0 ? "Lyrae" : "User";
+        {steps.map((text: any, idx: any) => {
+          const speaker: Speaker = idx % 2 === 0 ? "Lyrae" : "User";
 
-        return (
-          <Box
-            key={idx}
-            sx={{
-              display: "flex",
-              justifyContent: speaker === "Lyrae" ? "flex-start" : "flex-end",
-              mb: 1,
-            }}
-          >
+          return (
             <Box
+              key={idx}
               sx={{
-                p: 1.25,
-                borderRadius: 2,
-                bgcolor: speaker === "Lyrae" ? "rgba(72,200,175,0.15)" : "#eee",
-                maxWidth: "75%",
+                display: "flex",
+                justifyContent: speaker === "Lyrae" ? "flex-start" : "flex-end",
+                mb: 1,
               }}
             >
-              <Typography variant="body2">
-                {text.text}
-              </Typography>
+              <Box
+                sx={{
+                  p: 1.25,
+                  borderRadius: 2,
+                  bgcolor: speaker === "Lyrae" ? "rgba(72,200,175,0.15)" : "#eee",
+                  maxWidth: "75%",
+                }}
+              >
+                <Typography variant="body2">{text.text}</Typography>
+              </Box>
             </Box>
-          </Box>
-        );
-      })}
+          );
+        })}
+      </Box>
     </Box>
+
   );
 }
