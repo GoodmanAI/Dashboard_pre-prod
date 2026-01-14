@@ -72,6 +72,18 @@ const formatCallTime = (timestamp: number) => {
   });
 };
 
+function formatDateFR(isoDate) {
+  const date = new Date(isoDate);
+  let formatted = new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric"
+  }).format(date);
+
+  // Majuscule au mois
+  return formatted.replace(/\b([a-zà-ÿ])/i, (m) => m.toUpperCase());
+}
+
 const ITEMS_PER_PAGE = 10;
 
 export default function CallListPage({ params }: CallListPageProps) {
@@ -175,7 +187,7 @@ export default function CallListPage({ params }: CallListPageProps) {
             }}
           >
 
-            {paginatedCalls.map((call, index) => {
+            {paginatedCalls.map((call: any, index) => {
               const firstStep = Object.values(call.steps)[0] as any | undefined;
               const secondStep = Object.values(call.steps)[2] as any | undefined;
 
@@ -215,7 +227,8 @@ export default function CallListPage({ params }: CallListPageProps) {
                             }}
                           >
                             <Typography variant="subtitle1" fontWeight={600}>
-                              Appel #{call.id}
+                              
+                              Appel du {formatDateFR(call.createdAt)} à {formatCallTime(call.stats.call_start_time) }
                             </Typography>
 
                             {call.stats.rdv_status && (
@@ -233,18 +246,6 @@ export default function CallListPage({ params }: CallListPageProps) {
                                   color: "white",
                                 }}
                               />
-                            )}
-
-                            {call.stats.call_start_time && (
-                              <Typography
-                                variant="caption"
-                                sx={{
-                                  color: "text.secondary",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {formatCallTime(call.stats.call_start_time)}
-                              </Typography>
                             )}
 
                             {call.stats.phoneNumber && (
