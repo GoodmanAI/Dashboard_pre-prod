@@ -293,6 +293,10 @@ export default function StatsAppelPage({ params }: any) {
           return now - callTime <= maxAgeMs;
         });
 
+        const redirect = filteredCalls.filter(
+          (c: any) => c?.stats?.end_reason === "transfer"
+        ).length;
+
         setCalls(filteredCalls);
 
         if (reqSeqRef.current !== seq) return;
@@ -416,64 +420,68 @@ export default function StatsAppelPage({ params }: any) {
 
   /* ========== Histogramme (stack vert + 15% rose) ========== */
   const histogramData = useMemo(() => {
-    const today = now();
+  const today = now();
 
-    // Helper pour transformer un tableau {name, value} -> {name, normal, redirect}
-    const withStack = (rows: Array<{ name: string; value: number }>) => {
-      return rows.map((row) => {
-        const isAvg = period === "30j";
-        const redirect = isAvg
-          ? Number((row.value * 0.15).toFixed(1))
-          : Math.round(row.value * 0.15);
-        const normalRaw = row.value - redirect;
-        const normal = isAvg
-          ? Number(normalRaw.toFixed(1))
-          : Math.max(0, normalRaw); // entier
-        return { name: row.name, normal, redirect };
-      });
-    };
+  // ====== Cas 30 jours : moyenne par jour de semaine ======
+  if (period === "30j") {
+    const countsByWk: Record<number, { total: number; redirect: number }> =
+      { 0:{total:0,redirect:0},1:{total:0,redirect:0},2:{total:0,redirect:0},
+        3:{total:0,redirect:0},4:{total:0,redirect:0},5:{total:0,redirect:0},
+        6:{total:0,redirect:0} };
 
-    if (period === "30j") {
-      // moyenne par jour de semaine (Lun → Dim)
-      const countsByWk: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
-      const occurrences: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+    const occurrences: Record<number, number> =
+      { 0:0,1:0,2:0,3:0,4:0,5:0,6:0 };
 
-      for (let i = 0; i < 30; i++) {
-        const d = minusDays(today, i);
-        occurrences[d.getDay()]++;
-      }
-      for (const c of calls) {
-        countsByWk[new Date(c.createdAt).getDay()]++;
-      }
-
-      const order = [1, 2, 3, 4, 5, 6, 0]; // Lun..Dim
-      const rows = order.map((dow) => {
-        const occ = Math.max(1, occurrences[dow] || 0);
-        const avg = (countsByWk[dow] || 0) / occ;
-        return { name: frenchWeekdayShort(dow), value: Number(avg.toFixed(1)) };
-      });
-
-      return withStack(rows);
-    }
-
-    // 7j / 24h : nombre d'appels des 7 derniers jours (dates)
-    const map: Record<string, number> = {};
-    for (let i = 6; i >= 0; i--) {
+    for (let i = 0; i < 30; i++) {
       const d = minusDays(today, i);
-      map[dayKey(d)] = 0;
+      occurrences[d.getDay()]++;
     }
+
     for (const c of calls) {
-      const k = dayKey(new Date(c.createdAt));
-      if (k in map) map[k] += 1;
+      const d = new Date(c.createdAt).getDay();
+      countsByWk[d].total++;
+      if ((c as any)?.stats?.end_reason === "transfer") {
+        countsByWk[d].redirect++;
+      }
     }
 
-    const rows = Object.entries(map).map(([k, v]) => ({
-      name: `${k.slice(8, 10)}/${k.slice(5, 7)}`,
-      value: v,
-    }));
+    const order = [1,2,3,4,5,6,0];
+    return order.map((dow) => {
+      const occ = Math.max(1, occurrences[dow] || 0);
+      const avgTotal = countsByWk[dow].total / occ;
+      const avgRedirect = countsByWk[dow].redirect / occ;
+      return {
+        name: frenchWeekdayShort(dow),
+        normal: Number((avgTotal - avgRedirect).toFixed(1)),
+        redirect: Number(avgRedirect.toFixed(1)),
+      };
+    });
+  }
 
-    return withStack(rows);
-  }, [period, calls]);
+  // ====== Cas 7j / 24h : par date ======
+  const map: Record<string, { total: number; redirect: number }> = {};
+
+  for (let i = 6; i >= 0; i--) {
+    const d = minusDays(today, i);
+    map[dayKey(d)] = { total: 0, redirect: 0 };
+  }
+
+  for (const c of calls) {
+    const k = dayKey(new Date(c.createdAt));
+    if (map[k]) {
+      map[k].total++;
+      if ((c as any)?.stats?.end_reason === "transfer") {
+        map[k].redirect++;
+      }
+    }
+  }
+
+  return Object.entries(map).map(([k, v]) => ({
+    name: `${k.slice(8, 10)}/${k.slice(5, 7)}`,
+    normal: v.total - v.redirect,
+    redirect: v.redirect,
+  }));
+}, [calls, period]);
 
   function HistogramTooltip({ active, payload, label }: any) {
     if (!active || !payload || !payload.length) return null;
