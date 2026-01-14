@@ -118,7 +118,7 @@ export default function CallListPage({ params }: CallListPageProps) {
   );
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
+    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh"}}>
       <Button
         variant="contained"
         startIcon={<ArrowBackIosIcon />}
@@ -128,7 +128,7 @@ export default function CallListPage({ params }: CallListPageProps) {
         Retour
       </Button>
 
-      <FormControl sx={{ mb: 2, minWidth: 220, ml: 5 }}>
+      <FormControl sx={{ mb: 2, minWidth: 220, ml: 5, overflow: "hidden" }}>
         <InputLabel id="status-filter-label">
           Filtrer par statut
         </InputLabel>
@@ -166,35 +166,52 @@ export default function CallListPage({ params }: CallListPageProps) {
 
       {!loading && paginatedCalls.length > 0 && (
         <>
-          <List sx={{ bgcolor: "white", borderRadius: 2 }}>
+          <List
+            sx={{
+              bgcolor: "white",
+              borderRadius: 2,
+              overflowX: "hidden",
+              maxWidth: "calc(100vw-1200px)" 
+            }}
+          >
+
             {paginatedCalls.map((call, index) => {
               const firstStep = Object.values(call.steps)[0] as any | undefined;
               const secondStep = Object.values(call.steps)[2] as any | undefined;
 
               return (
-                <Box key={call.id}>
-                  <ListItem disablePadding>
+                <Box key={call.id} sx={{maxWidth: "calc(100vw - 350px)"}}>
+                  <ListItem disablePadding sx={{ overflow: "hidden", maxWidth: "100%"}}>
                     <ListItemButton
-                      alignItems="flex-start"
                       onClick={() =>
                         router.push(
                           `/client/services/talk/${userProductId}/calls/details/${call.id}`
                         )
                       }
+                      alignItems="flex-start"
                       sx={{
+                        overflow: "hidden",
+                        minWidth: 0,
                         "&:hover": {
                           backgroundColor: "rgba(72,200,175,0.08)",
                         },
                       }}
                     >
                       <ListItemText
+                      sx={{
+                        maxWidth: "100%",
+                        overflow: "hidden",
+                        minWidth: 0,
+                      }}
                         primary={
                           <Box
                             sx={{
                               display: "flex",
                               gap: 1,
                               alignItems: "center",
-                              flexWrap: "wrap",
+                              flexWrap: "nowrap",
+                              overflow: "hidden",
+                              minWidth: 0,
                             }}
                           >
                             <Typography variant="subtitle1" fontWeight={600}>
@@ -207,10 +224,10 @@ export default function CallListPage({ params }: CallListPageProps) {
                                 label={call_status[call.stats.rdv_status]}
                                 sx={{
                                   backgroundColor:
-                                    call.stats.rdv_status === "succès"
+                                    call.stats.rdv_status === "success"
                                       ? "success.main"
                                       : call.stats.rdv_status ===
-                                        "pas de créneaux"
+                                        "no_slot"
                                       ? "error.main"
                                       : "grey.400",
                                   color: "white",
@@ -244,9 +261,16 @@ export default function CallListPage({ params }: CallListPageProps) {
                           </Box>
                         }
                         secondary={
-                          <Box sx={{ mt: 0.5 }}>
+                          <Box sx={{ mt: 0.5, overflow: "hidden" }}>
                             {firstStep && (
-                              <Typography variant="body2" noWrap>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
                                 <strong>{firstStep.text}</strong>
                                 {secondStep && (
                                   <>
