@@ -129,6 +129,13 @@ export default function CallListPage({ params }: CallListPageProps) {
     page * ITEMS_PER_PAGE
   );
 
+  const buildCurrentUrl = () => {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("status", statusFilter);
+    return `/client/services/talk/${userProductId}/calls?${params.toString()}`;
+  };
+
   return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh"}}>
       <Button
@@ -197,7 +204,9 @@ export default function CallListPage({ params }: CallListPageProps) {
                     <ListItemButton
                       onClick={() =>
                         router.push(
-                          `/client/services/talk/${userProductId}/calls/details/${call.id}`
+                          `/client/services/talk/${userProductId}/calls/details/${call.id}?from=${encodeURIComponent(
+                            buildCurrentUrl()
+                          )}`
                         )
                       }
                       alignItems="flex-start"

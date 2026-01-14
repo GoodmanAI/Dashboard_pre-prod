@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Box, Typography, CircularProgress, Alert, Button } from "@mui/material";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 
@@ -17,6 +17,9 @@ export default function CallConversationPage({ params }: { params: { id: string;
 
   const userProductId = Number(params.id);
   const callId = Number(params.callId);
+  const searchParams = useSearchParams();
+
+  const from = searchParams.get("from");
 
   useEffect(() => {
     if (!userProductId || !callId) return;
@@ -62,7 +65,13 @@ export default function CallConversationPage({ params }: { params: { id: string;
         <Button
           variant="contained"
           startIcon={<ArrowBackIosIcon />}
-          onClick={() => router.back()}
+          onClick={() => {
+            if (from) {
+              router.push(from);
+            } else {
+              router.back();
+            }
+          }}
           sx={{ backgroundColor: "#48C8AF", mb: 2 }}
         >
           Retour
