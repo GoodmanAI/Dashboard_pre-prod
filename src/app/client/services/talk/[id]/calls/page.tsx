@@ -72,7 +72,7 @@ const formatCallTime = (timestamp: number) => {
   });
 };
 
-function formatDateFR(isoDate) {
+function formatDateFR(isoDate: any) {
   const date = new Date(isoDate);
   let formatted = new Intl.DateTimeFormat("fr-FR", {
     day: "2-digit",
