@@ -64,6 +64,20 @@ export default function EditExamQuestions({ params }: PageProps) {
 
   const rowsPerPage = 20;
 
+  const handleDeleteQuestion = (code: string, index: number) => {
+    setExams((prev) => {
+      const updated = prev[code].Interrogatoire.filter((_, i) => i !== index);
+
+      return {
+        ...prev,
+        [code]: {
+          ...prev[code],
+          Interrogatoire: updated,
+        },
+      };
+    });
+  };
+
   // Chargement des exams
   useEffect(() => {
     const fetchExams = async () => {
@@ -208,20 +222,24 @@ export default function EditExamQuestions({ params }: PageProps) {
                   <TableCell>
                     <Stack spacing={1.5}>
                       {exam.Interrogatoire.map((q, idx) => (
-                        <TextField
-                          key={idx}
-                          fullWidth
-                          size="small"
-                          value={q}
-                          onChange={(e) =>
-                            handleChangeQuestion(
-                              code,
-                              idx,
-                              e.target.value
-                            )
-                          }
-                          placeholder={`Question ${idx + 1}`}
-                        />
+                        <Stack key={idx} direction="row" spacing={1} alignItems="center">
+                          <TextField
+                            fullWidth
+                            size="small"
+                            value={q}
+                            onChange={(e) =>
+                              handleChangeQuestion(code, idx, e.target.value)
+                            }
+                            placeholder={`Question ${idx + 1}`}
+                          />
+                          <Button
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteQuestion(code, idx)}
+                          >
+                            Supprimer
+                          </Button>
+                        </Stack>
                       ))}
 
                       <Button

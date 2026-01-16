@@ -34,7 +34,11 @@ export default function CallConversationPage({ params }: { params: { id: string;
       })
       .then((data: { steps: string[] }[]) => {
         if (data.length > 0) {
-          setSteps(data[0].steps ?? []);
+          const filtered = data[0].steps.filter((line: any) => {
+            console.log(line);
+            return !line.text.includes("WaitSound");
+          });
+          setSteps(filtered ?? []);
         } else {
           setSteps([]);
         }
@@ -42,17 +46,6 @@ export default function CallConversationPage({ params }: { params: { id: string;
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [userProductId, callId]);
-
-  useEffect(() => {
-    if (steps.length > 0 && sorted === false) {
-      setSorted(true);
-      const filtered = steps.filter((line: any) => {
-        return !line.text.includes("WaitSound");
-      });
-
-      setSteps(filtered);
-    }
-  }, [steps]);
 
   return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>

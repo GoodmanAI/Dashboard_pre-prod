@@ -108,6 +108,8 @@ export default function CallListPage({ params }: CallListPageProps) {
         return res.json();
       })
       .then((data: CallSummary[]) => {
+        data.map((d: any) => { if(d.stats.rdv_canceled != 0) { console.log("annulé"); console.log(d.stats) } })
+        // console.log(data.filter((d) => d.stats.rdv_status != null && d.stats.rdv_status != "success"));
         setCalls(data);
         setPage(1);
       })
@@ -118,8 +120,9 @@ export default function CallListPage({ params }: CallListPageProps) {
   const filteredCalls =
     statusFilter === "all"
       ? calls
-      : calls.filter(
-          (call) => call.stats.rdv_status === statusFilter
+      : statusFilter == "canceled" ? calls.filter((call: any) => call.stats.rdv_canceled != 0) : 
+      calls.filter(
+          (call: any) => call.stats.rdv_status === statusFilter
         );
 
   const totalPages = Math.ceil(filteredCalls.length / ITEMS_PER_PAGE);
@@ -240,21 +243,27 @@ export default function CallListPage({ params }: CallListPageProps) {
                               Appel du {formatDateFR(call.createdAt)} à {formatCallTime(call.stats.call_start_time) }
                             </Typography>
 
-                            {call.stats.rdv_status && (
-                              <Chip
-                                size="small"
-                                label={call_status[call.stats.rdv_status]}
-                                sx={{
-                                  backgroundColor:
-                                    call.stats.rdv_status === "success"
-                                      ? "success.main"
-                                      : call.stats.rdv_status ===
-                                        "no_slot"
-                                      ? "error.main"
-                                      : "grey.400",
-                                  color: "white",
-                                }}
-                              />
+                            {((call.stats.rdv_status != null || call.stats.rdv_canceled != 0 || call.stats.rdv_modified != 0)) && (
+                              <>
+                                <Chip
+                                  size="small"
+                                  label={
+                                    call.stats.rdv_status == "success" ? 
+                                      call_status[call.stats.rdv_status] : 
+                                      (call.stats.rdv_canceled > 0 ? "annulé" : (call.stats.rdv_modified > 0 ? "modifié" : "pas effectué"))
+                                    }
+                                  sx={{
+                                    backgroundColor:
+                                      call.stats.rdv_status === "success"
+                                        ? "success.main"
+                                        : call.stats.rdv_status ===
+                                          "no_slot"
+                                        ? "error.main"
+                                        : "grey.400",
+                                    color: "white",
+                                  }}
+                                />
+                              </>
                             )}
 
                             {call.stats.phoneNumber && (
