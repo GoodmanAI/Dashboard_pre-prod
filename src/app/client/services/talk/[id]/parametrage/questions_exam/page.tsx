@@ -16,6 +16,9 @@ import {
   TextField,
   Typography,
   Pagination,
+  Snackbar,
+  Portal,
+  Alert
 } from "@mui/material";
 import SaveIcon from "@mui/icons-material/Save";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
@@ -61,6 +64,16 @@ export default function EditExamQuestions({ params }: PageProps) {
   const [exams, setExams] = useState<Record<string, Exam>>({});
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [snack, setSnack] = useState<{
+    open: boolean;
+    message: string;
+    severity: "success" | "error";
+  }>({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
   const rowsPerPage = 20;
 
@@ -155,15 +168,35 @@ export default function EditExamQuestions({ params }: PageProps) {
   };
 
   const handleSave = async () => {
-    await fetch("/api/configuration/exam", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userProductId,
-        exams,
-      }),
-    });
+    setSaving(true);
+    try {
+      const res = await fetch("/api/configuration/exam", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userProductId,
+          exams,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Erreur sauvegarde");
+
+      setSnack({
+        open: true,
+        message: "Configuration enregistrée.",
+        severity: "success",
+      });
+    } catch (e) {
+      setSnack({
+        open: true,
+        message: "Erreur lors de la sauvegarde.",
+        severity: "error",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
+
 
   return (
     <main>
@@ -288,6 +321,7 @@ export default function EditExamQuestions({ params }: PageProps) {
             variant="contained"
             startIcon={<SaveIcon />}
             onClick={handleSave}
+            disabled={saving}
             sx={{
               backgroundColor: "#48C8AF",
               "&:hover": { backgroundColor: "#3bb49d" },
@@ -297,6 +331,16 @@ export default function EditExamQuestions({ params }: PageProps) {
           </Button>
         </Box>
       </Box>
+      <Portal>
+        <Snackbar
+          anchorOrigin={{ vertical: "top", horizontal: "right" }}
+          open={snack.open}
+          autoHideDuration={3000}
+          onClose={() => setSnack((s) => ({ ...s, open: false }))}
+        >
+          <Alert severity={snack.severity}>{snack.message}</Alert>
+        </Snackbar>
+      </Portal>
     </main>
   );
 }
