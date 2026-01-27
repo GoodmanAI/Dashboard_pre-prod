@@ -24,6 +24,7 @@ export interface ManagedUser {
   city?: string | null;
   postalCode?: string | null;
   country?: string | null;
+  userProducts: Array<any>
 }
 
 /**
