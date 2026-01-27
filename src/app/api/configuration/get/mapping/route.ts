@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from '@/lib/prisma';
 import { BlobServiceClient } from "@azure/storage-blob";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
@@ -33,7 +33,6 @@ async function streamToBuffer(readableStream?: NodeJS.ReadableStream | null) {
 }
 
 export async function GET(req: NextRequest) {
-  const prisma = new PrismaClient();
   const { searchParams } = new URL(req.url);
 
   const userProductId = searchParams.get("userProductId");

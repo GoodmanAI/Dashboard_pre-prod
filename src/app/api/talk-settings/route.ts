@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { PrismaClient, TalkSettings, User, Product } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
     const { userProductId, reconnaissance } = await request.json();
-    const prisma = new PrismaClient();
 
     if (!userProductId) {
         return NextResponse.json({ error: "Missing userProductId" }, { status: 400 });

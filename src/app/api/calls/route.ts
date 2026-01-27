@@ -1,10 +1,8 @@
 // app/api/calls/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = "force-dynamic";
-
-const prisma = new PrismaClient();
 
 interface CallListPageProps {
   params: { id: string }; // récupéré depuis la route Next.js

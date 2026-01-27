@@ -8,6 +8,8 @@ import React, {
   useEffect,
 } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter, usePathname } from "next/navigation";
+import { revalidatePath } from 'next/cache';
 
 /**
  * Représentation minimale d’un centre (utilisateur géré).
@@ -15,6 +17,7 @@ import { useSession } from "next-auth/react";
  */
 export interface ManagedUser {
   id: number;
+  userProductId: number;
   name?: string | null;
   email: string;
   address?: string | null;
@@ -43,6 +46,9 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
   const { status } = useSession();
   const [centres, setCentres] = useState<ManagedUser[]>([]);
   const [selectedCentre, setSelectedCentre] = useState<ManagedUser | null>(null);
+  let currentCentre = selectedCentre?.id ?? null;
+  const router = useRouter();
+  const pathname = usePathname();
 
   /**
    * Chargement initial des centres lorsque la session est authentifiée.
@@ -57,8 +63,10 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
     (async () => {
       try {
         const res = await fetch("/api/client", { cache: "no-store" });
+        
         const data = await res.json();
-
+        console.log("data", data)
+        currentCentre = data.id;
         if (cancelled) return;
 
         if (data?.centreRole === "ADMIN_USER" && Array.isArray(data?.managedUsers)) {
@@ -79,6 +87,17 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
             localStorage.setItem(STORAGE_KEY, String(initial.id));
           } else {
             localStorage.removeItem(STORAGE_KEY);
+          }
+        } else if (data.id == 7 || data.id == 8) {
+          if (data.id == 7) {
+            const res = await fetch("/api/users/8", { cache: "no-store" });
+
+            const otherCentre = await res.json();
+            setCentres([data, otherCentre]);
+          } else {
+            const res = await fetch("/api/users/7", { cache: "no-store" });
+            const otherCentre = await res.json();
+            setCentres([data, otherCentre]);
           }
         } else {
           setCentres([]);
@@ -124,14 +143,46 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
   /**
    * Change le centre actif et persiste l’ID en localStorage.
    */
-  const setSelectedCentreById = (id: number) => {
-    const centre = centres.find((c) => c.id === id) || null;
+  const setSelectedCentreById = async (id: number) => {
+    let centre: any = centres.find((c) => c.userProductId === id) || null;
+    if (!centre) {
+      centre = centres.find((c: any) => c.userProducts.find((e: any) => e.product.name.includes("Talk") )) || centres.find((c: any) => c.userProductId == id)
+    }
+
     setSelectedCentre(centre);
-    if (typeof window !== "undefined") {
-      if (centre) localStorage.setItem(STORAGE_KEY, String(centre.id));
-      else localStorage.removeItem(STORAGE_KEY);
+    
+    if (centre) localStorage.setItem(STORAGE_KEY, String(centre.id));
+    else localStorage.removeItem(STORAGE_KEY);
+    
+    const userProductId = centre.userProductId || centre.userProducts.find((e: any) => e.product.name.includes("Talk"))?.id;
+
+    console.log("searching for", currentCentre);
+    console.log("or searching for", selectedCentre?.userProductId);
+    console.log("redirect to", userProductId)
+    if (!centre || !pathname.includes("/talk/")) return;
+
+    let regex = new RegExp(`/${currentCentre}(?=/|$)`);
+    let newPath = "";
+
+    if (regex.test(pathname)) {
+      newPath = pathname.replace(regex, `/${userProductId}`);
+    } else {
+      let toFind  = selectedCentre?.userProductId;
+      regex = new RegExp(`/${toFind}(?=/|$)`);
+      newPath = pathname.replace(regex, `/${userProductId}`);
+    }
+
+    console.log("newPath", newPath);
+
+    if (newPath !== pathname) {
+      router.replace(newPath);
+      router.refresh();
+      revalidatePath('/centre');
     }
   };
+
+
+
 
   return (
     <CentreContext.Provider

@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from '@/lib/prisma';
 import { BlobServiceClient } from "@azure/storage-blob";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-
-const prisma = new PrismaClient();
 
 async function streamToBuffer(readableStream?: NodeJS.ReadableStream | null) {
   if (!readableStream) return Buffer.alloc(0);

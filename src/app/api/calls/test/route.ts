@@ -1,9 +1,8 @@
 // app/api/calls/insert_test/route.ts
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from '@/lib/prisma';
 
 export const GET = async () => {
-  const prisma = new PrismaClient();
 
   try {
     const data = {

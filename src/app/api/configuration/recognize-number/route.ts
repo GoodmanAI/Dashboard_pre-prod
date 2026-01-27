@@ -1,10 +1,8 @@
 // src/app/api/configuration/recognize-number/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient, TalkSettings, User, Product } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 
 export async function POST(req: NextRequest) {
-  const prisma = new PrismaClient();
-
   try {
     const body = await req.json();
     const { userProductId, reconnaissance } = body;

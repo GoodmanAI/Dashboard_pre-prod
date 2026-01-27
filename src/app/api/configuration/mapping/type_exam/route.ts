@@ -1,9 +1,7 @@
 // app/api/typeexam/route.ts
 
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 const defaultTypes = {
   US: { fr: "Echographie" },

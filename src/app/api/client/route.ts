@@ -91,6 +91,7 @@ export async function GET(request: NextRequest) {
 
       userProducts: {
         select: {
+          id: true,
           assignedAt: true,
           product: { select: { id: true, name: true, description: true } },
           explainDetails: {

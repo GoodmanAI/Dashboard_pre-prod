@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 // DELETE /api/user/:userId/number/:numberId
 export async function DELETE(req: Request, { params }: { params: { userId: string, numberId: string } }) {

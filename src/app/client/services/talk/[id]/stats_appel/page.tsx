@@ -118,7 +118,6 @@ function formatHoursFromSeconds(totalSeconds: number, decimals = 1): string {
 
 // Durée "3min34"
 function secondsToMinLabel(totalSeconds: number) {
-  console.log("test", totalSeconds);
   const s = Math.max(0, Math.round(totalSeconds));
   const m = Math.floor(s / 60);
   const ss = s % 60;
