@@ -47,6 +47,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
   const { status } = useSession();
   const [centres, setCentres] = useState<ManagedUser[]>([]);
   const [selectedCentre, setSelectedCentre] = useState<ManagedUser | null>(null);
+  console.log("selectedCetre BEFORE EVERYTHING", selectedCentre)
   let currentCentre = selectedCentre?.id ?? null;
   const router = useRouter();
   const pathname = usePathname();
