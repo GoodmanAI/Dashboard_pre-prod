@@ -48,7 +48,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
   const [centres, setCentres] = useState<ManagedUser[]>([]);
   const [selectedCentre, setSelectedCentre] = useState<ManagedUser | null>(null);
   console.log("selectedCetre BEFORE EVERYTHING", selectedCentre)
-  let currentCentre = selectedCentre?.id ?? null;
+  let currentCentre = (selectedCentre?.userProducts?.find((c) => c.product.name.includes("Talk"))?.id || selectedCentre?.id) ?? null;
   const router = useRouter();
   const pathname = usePathname();
 
