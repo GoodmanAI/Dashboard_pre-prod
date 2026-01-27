@@ -155,6 +155,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
     if (centre) localStorage.setItem(STORAGE_KEY, String(centre.id));
     else localStorage.removeItem(STORAGE_KEY);
     
+    console.log("CENTRE LOL", centre);
     const userProductId = centre.userProductId || centre.userProducts.find((e: any) => e.product.name.includes("Talk"))?.id;
 
     console.log("searching for", currentCentre);
@@ -168,6 +169,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
     if (regex.test(pathname)) {
       newPath = pathname.replace(regex, `/${userProductId}`);
     } else {
+      console.log("", centre);
       let toFind  = selectedCentre?.userProductId;
       regex = new RegExp(`/${toFind}(?=/|$)`);
       newPath = pathname.replace(regex, `/${userProductId}`);
