@@ -487,8 +487,8 @@ export default function StatsAppelPage({ params }: any) {
       { name: "Prise de RDV", value: buckets.rdv },
       { name: "Intention de RDV", value: buckets.rdv_intent },
       { name: "Informations", value: buckets.info },
-      { name: "Modifications", value: buckets.modification },
-      { name: "Annulations", value: buckets.annulation },
+      // { name: "Modifications", value: buckets.modification },
+      // { name: "Annulations", value: buckets.annulation },
       { name: "Urgences", value: buckets.urgence },
     ];
     const sum = arr.reduce((a, b) => a + b.value, 0);
