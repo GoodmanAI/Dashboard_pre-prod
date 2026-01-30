@@ -11,26 +11,30 @@ import fs from "fs/promises";
 import path from "path";
 
 const CreateUserSchema = z.object({
-  email: z.string().email("Invalid email format"),
+  email: z
+    .string()
+    .min(3, "Username must be at least 3 characters"),
+
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
-    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-    .regex(/[0-9]/, "Password must contain at least one number")
-    .regex(/[@$!%*?&]/, "Password must contain at least one special character"),
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter"),
+
   name: z.string().min(1, "Name is required"),
+
   products: z
     .array(
       z.object({
         productId: z.number(),
-        assignedAt: z.string().refine((date) => !isNaN(Date.parse(date)), {
-          message: "Invalid date format",
-        }),
+        assignedAt: z.string().refine(
+          (date) => !isNaN(Date.parse(date)),
+          { message: "Invalid date format" }
+        ),
       })
     )
     .optional(),
 });
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, password, name, products } = parseResult.data;
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = email;
 
     // Vérifier si un utilisateur avec cet email ou nom existe déjà
     const existingUser = await prisma.user.findFirst({

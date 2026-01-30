@@ -176,7 +176,7 @@ export default function CreateClientPage() {
             </Typography>
             <CustomTextField
               id="email"
-              type="email"
+              type="text"
               variant="outlined"
               fullWidth
               value={email}

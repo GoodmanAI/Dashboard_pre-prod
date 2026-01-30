@@ -19,7 +19,7 @@ import {
   Select,
   MenuItem,
 } from "@mui/material";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 
 type Speaker = "Lyrae" | "User";
@@ -92,9 +92,33 @@ export default function CallListPage({ params }: CallListPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
-
+  const searchParams = useSearchParams();
   const router = useRouter();
   const userProductId = Number(params.id);
+
+  useEffect(() => {
+    const pageFromUrl = Number(searchParams.get("page"));
+    const statusFromUrl = searchParams.get("status");
+
+    if (!isNaN(pageFromUrl) && pageFromUrl > 0) {
+      setPage(pageFromUrl);
+    }
+
+    if (statusFromUrl) {
+      setStatusFilter(statusFromUrl);
+    }
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("status", statusFilter);
+
+    router.replace(
+      `/client/services/talk/${userProductId}/calls?${params.toString()}`,
+      { scroll: false }
+    );
+  }, [page, statusFilter]);
 
   useEffect(() => {
     if (!userProductId || isNaN(userProductId)) return;

@@ -61,13 +61,20 @@ interface Call {
 }
 
 const PALETTE = {
-  cyan:  "#37D2D2",
-  green: "#37D253",
-  blue:  "#1976d2",
-  purple:"#6237D2",
-  pink:  "#D237C2",
-  grey:  "#838383"
+  cyan:   "#37D2D2",
+  green:  "#37D253",
+  blue:   "#1976D2",
+  purple: "#6237D2",
+  pink:   "#D237C2",
+  teal:   "#2FB9A6",
+  lime:   "#9AD237",
+  indigo: "#3F37D2",
+  violet: "#9A37D2",
+  coral:  "#D25A37",
+  amber:  "#D2A237",
+  grey:   "#838383",
 };
+
 
 // Couleurs du camembert (ordre cohérent avec tes souhaits initiaux)
 const PIE_COLORS = [
@@ -76,6 +83,12 @@ const PIE_COLORS = [
   PALETTE.blue,
   PALETTE.purple,
   PALETTE.pink,
+  PALETTE.teal,
+  PALETTE.lime,
+  PALETTE.indigo,
+  PALETTE.violet,
+  PALETTE.coral,
+  PALETTE.amber,
   PALETTE.grey,
 ];
 
@@ -98,8 +111,8 @@ function normalizeReso(call: any): ResoKey | "autre" {
   if (call?.stats?.rdv_booked != 0) return "rdv";
   if (call?.stats?.intents.includes("prise_rdv")) return "rdv_intent";
   if (call?.stats?.intents.includes("renseignements")) return "info";
-  if (call?.stats?.intents.includes("modification_rdv")) return "modification";
-  if (call?.stats?.intents.includes("annulation_rdv")) return "annulation";
+  if (call?.stats?.intents.includes("modification_rdv")) return "rdv";
+  if (call?.stats?.intents.includes("annulation_rdv")) return "rdv";
   if (call?.stats?.emergency == true) return "urgence";
   return "autre";
 }
@@ -391,6 +404,71 @@ export default function StatsAppelPage({ params }: any) {
     const totalSeconds = sumDurationsSec(calls);
     return formatHoursFromSeconds(totalSeconds, 2);
   }, [calls]);
+
+
+  /* ========== Camembert (transfer) ========== */
+  const TRANSFER_KEYS = [
+    "redirect",
+    "error",
+    "exam_type",
+    "exam_mult",
+    "exam_interv",
+    "emergency",
+    "doctor",
+    "admin",
+    "result",
+    "incident",
+    "identification",
+  ] as const;
+
+  type TransferKey = (typeof TRANSFER_KEYS)[number];
+
+  const TRANSFER_LABELS: Record<string, string> = {
+    redirect: "Redirection demandée",
+    error: "Erreur",
+    exam_type: "Type d’examen non pris en charge",
+    exam_mult: "Plusieurs examens demandés",
+    exam_interv: "Demande de radio interventionnelle",
+    emergency: "Urgence",
+    doctor: "Professionnel de santé",
+    admin: "Démarches administratives",
+    result: "Résultats d’examens",
+    incident: "Demande à traiter par un humain",
+    identification: "Problème d’identification",
+  };
+
+  const transferData = useMemo(() => {
+    const buckets: Record<TransferKey, number> = {
+      redirect: 0,
+      error: 0,
+      exam_type: 0,
+      exam_mult: 0,
+      exam_interv: 0,
+      emergency: 0,
+      doctor: 0,
+      admin: 0,
+      result: 0,
+      incident: 0,
+      identification: 0,
+    };
+
+    for (const c of calls) {
+      const reason = (c as any)?.stats?.transferReason as TransferKey | undefined;
+      if (reason && reason in buckets) {
+        buckets[reason]++;
+      }
+    }
+
+    const arr = TRANSFER_KEYS.map((key) => ({
+      key,
+      name: TRANSFER_LABELS[key],
+      value: buckets[key],
+    }));
+
+    const sum = arr.reduce((a, b) => a + b.value, 0);
+    return sum === 0 ? [{ name: "Aucune donnée", value: 1 }] : arr;
+  }, [calls]);
+
 
   /* ========== Camembert (intent) ========== */
   const pieData = useMemo(() => {
@@ -775,6 +853,51 @@ export default function StatsAppelPage({ params }: any) {
                     />
                     <Bar dataKey="avgMin" name="Durée moyenne" fill={PALETTE.blue} />
                   </BarChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2, height: 360 }}>
+            <Typography variant="h6" fontWeight={700}>
+              Raison du transfert
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Sur la période sélectionnée
+            </Typography>
+            {loading ? (
+              <ChartSkeleton />
+            ) : (
+              <Box sx={{ width: "100%", height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={transferData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={2}
+                    >
+                      {transferData.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                      <Legend
+                        layout="vertical"
+                        verticalAlign="middle"
+                        align="right"
+                        wrapperStyle={{
+                          maxHeight: 240,
+                          overflowY: "auto",
+                          paddingLeft: 8,
+                          fontSize: 12,
+                        }}
+                      />                    
+                    <ReTooltip />
+                  </PieChart>
                 </ResponsiveContainer>
               </Box>
             )}
