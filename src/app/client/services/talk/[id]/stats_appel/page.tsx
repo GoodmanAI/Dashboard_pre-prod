@@ -34,6 +34,7 @@ import {
   LocalHospital as IconUrgence,
   Info as IconInfo,
   AccessTime as IconHeures,
+  DeviceThermostat as IconThermostat
 } from "@mui/icons-material";
 import { useCentre } from "@/app/context/CentreContext";
 
@@ -115,6 +116,19 @@ function normalizeReso(call: any): ResoKey | "autre" {
   if (call?.stats?.intents.includes("annulation_rdv")) return "rdv";
   if (call?.stats?.emergency == true) return "urgence";
   return "autre";
+}
+
+function getIndice(calls: any[]): number {
+  const indice = calls.reduce((acc: any, c: any) => {
+    console.log(c.stats.error_logic);
+    if (c.stats.error_logic && c.stats.error_logic > 0){
+      console.log("ICI");
+      return acc + 1
+    } 
+    return acc;
+  }, 0);
+  
+  return Math.floor((1 - (indice / calls.length)) * 100);
 }
 
 function sumDurationsSec(calls: any): number {
@@ -399,6 +413,12 @@ export default function StatsAppelPage({ params }: any) {
   const nbRDV = useMemo(() => calls.filter((c) => normalizeReso(c) === "rdv").length, [calls]);
   const nbUrgence = useMemo(() => calls.filter((c) => normalizeReso(c) === "urgence").length, [calls]);
   const nbInfo = useMemo(() => calls.filter((c) => normalizeReso(c) === "info").length, [calls]);
+
+  const indicePerformance = useMemo(() => {
+    const indice = getIndice(calls);
+    console.log("INDICE FINAL", indice);
+    return indice;
+  }, [calls]);
 
   const heuresPrisEnCharge = useMemo(() => {
     const totalSeconds = sumDurationsSec(calls);
@@ -708,8 +728,8 @@ export default function StatsAppelPage({ params }: any) {
 
       {/* 5 tuiles */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        {[0,1,2,3,4].map((i) => (
-          <Grid item xs={12} sm={6} md={2.4} key={i}>
+        {[0,1,2,3,4,5].map((i) => (
+          <Grid item xs={12} sm={6} md={2} key={i}>
             {loading ? (
               <StatTileSkeleton />
             ) : i === 0 ? (
@@ -720,8 +740,10 @@ export default function StatsAppelPage({ params }: any) {
               <StatTile title="Urgences détectées" value={nbUrgence} icon={<IconUrgence />} />
             ) : i === 3 ? (
               <StatTile title="Informations" value={nbInfo} icon={<IconInfo />} />
-            ) : (
+            ) : i === 4 ? (
               <StatTile title="Heures prises en charge" value={heuresPrisEnCharge} icon={<IconHeures />} />
+            ) : (
+              <StatTile title="Indice de performance" value={indicePerformance + "%"} icon={<IconThermostat />} />
             )}
           </Grid>
         ))}
