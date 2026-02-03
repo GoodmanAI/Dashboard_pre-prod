@@ -112,8 +112,8 @@ function normalizeReso(call: any): ResoKey | "autre" {
   if (call?.stats?.rdv_booked != 0) return "rdv";
   if (call?.stats?.intents.includes("prise_rdv")) return "rdv_intent";
   if (call?.stats?.intents.includes("renseignements")) return "info";
-  if (call?.stats?.intents.includes("modification_rdv")) return "rdv";
-  if (call?.stats?.intents.includes("annulation_rdv")) return "rdv";
+  if (call?.stats?.intents.includes("modification_rdv")) return "modification";
+  if (call?.stats?.intents.includes("annulation_rdv")) return "annulation";
   if (call?.stats?.emergency == true) return "urgence";
   return "autre";
 }
@@ -507,8 +507,8 @@ export default function StatsAppelPage({ params }: any) {
       { name: "Prise de RDV", value: buckets.rdv },
       { name: "Intention de RDV", value: buckets.rdv_intent },
       { name: "Informations", value: buckets.info },
-      // { name: "Modifications", value: buckets.modification },
-      // { name: "Annulations", value: buckets.annulation },
+      { name: "Modifications", value: buckets.modification },
+      { name: "Annulations", value: buckets.annulation },
       { name: "Urgences", value: buckets.urgence },
     ];
     const sum = arr.reduce((a, b) => a + b.value, 0);
