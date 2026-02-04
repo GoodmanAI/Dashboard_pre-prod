@@ -24,9 +24,11 @@ import {
   ResponsiveContainer,
   CartesianGrid,
   PieChart,
-  Pie,
   Cell,
   Legend,
+  Pie,
+  PieProps,
+  Tooltip 
 } from "recharts";
 import {
   QueryStats as IconTotal,
@@ -41,6 +43,9 @@ import { useCentre } from "@/app/context/CentreContext";
 /* =========================================================
    Types & utils
 ========================================================= */
+
+const NEEDLE_BASE_RADIUS_PX = 5;
+const NEEDLE_COLOR = '#d0d000';
 
 type PeriodKey = "24h" | "7j" | "30j";
 
@@ -675,6 +680,77 @@ export default function StatsAppelPage({ params }: any) {
     );
   }
   
+  const Needle = ({ cx, cy, midAngle, innerRadius, outerRadius }: any) => {
+    const needleBaseCenterX = cx;
+    const needleBaseCenterY = cy;
+    const needleLength = innerRadius + (outerRadius - innerRadius) / 2;
+
+    return (
+      <g>
+        <circle
+          cx={needleBaseCenterX}
+          cy={needleBaseCenterY}
+          r={NEEDLE_BASE_RADIUS_PX}
+          fill={NEEDLE_COLOR}
+          stroke="none"
+        />
+        <path
+          d={`M${needleBaseCenterX},${needleBaseCenterY}l${needleLength},0`}
+          strokeWidth={2}
+          stroke={NEEDLE_COLOR}
+          fill={NEEDLE_COLOR}
+          style={{
+            transform: `rotate(-${midAngle}deg)`,
+            transformOrigin: `${needleBaseCenterX}px ${needleBaseCenterY}px`,
+          }}
+        />
+      </g>
+    );
+  };
+
+  const PerformanceGauge = ({ value }: { value: number }) => {
+    const data = [
+      { name: "Performance", value, fill: "#48C8AF" },
+      { name: "Reste", value: Math.max(0, 100 - value), fill: "#E0E0E0" },
+    ];
+
+    return (
+      <ResponsiveContainer width="100%" height={240}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            startAngle={180}
+            endAngle={0}
+            innerRadius="70%"
+            outerRadius="100%"
+            cx="50%"
+            cy="80%"
+            stroke="none"
+            isAnimationActive
+          >
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.fill} />
+            ))}
+          </Pie>
+
+          {/* Valeur centrale */}
+          <text
+            x="50%"
+            y="70%"
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={40}
+            fontWeight={700}
+            fill="#48C8AF"
+          >
+            {value}%
+          </text>
+        </PieChart>
+      </ResponsiveContainer>
+    );
+  };
+
 
   return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
@@ -728,8 +804,8 @@ export default function StatsAppelPage({ params }: any) {
 
       {/* 5 tuiles */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        {[0,1,2,3,4,5].map((i) => (
-          <Grid item xs={12} sm={6} md={2} key={i}>
+        {[0,1,2,3,4].map((i) => (
+          <Grid item xs={12} sm={6} md={2.4} key={i}>
             {loading ? (
               <StatTileSkeleton />
             ) : i === 0 ? (
@@ -740,10 +816,8 @@ export default function StatsAppelPage({ params }: any) {
               <StatTile title="Urgences détectées" value={nbUrgence} icon={<IconUrgence />} />
             ) : i === 3 ? (
               <StatTile title="Informations" value={nbInfo} icon={<IconInfo />} />
-            ) : i === 4 ? (
-              <StatTile title="Heures prises en charge" value={heuresPrisEnCharge} icon={<IconHeures />} />
             ) : (
-              <StatTile title="Indice de performance" value={indicePerformance + "%"} icon={<IconThermostat />} />
+              <StatTile title="Heures prises en charge" value={heuresPrisEnCharge} icon={<IconHeures />} />
             )}
           </Grid>
         ))}
@@ -751,35 +825,21 @@ export default function StatsAppelPage({ params }: any) {
 
       {/* 3 blocs : camembert / histogramme / activité horaire */}
       <Grid container spacing={2}>
+
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2, height: 360 }}>
             <Typography variant="h6" fontWeight={700}>
-              Répartition par type
+              Indice de Performance
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Sur la période sélectionnée
+              Correspond au pourcentage d'appel où l'ia à réussi a diriger le patient
             </Typography>
             {loading ? (
               <ChartSkeleton />
             ) : (
               <Box sx={{ width: "100%", height: 280 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
-                    >
-                      {pieData.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Legend verticalAlign="bottom" height={24} />
-                    <ReTooltip />
-                  </PieChart>
+                  <PerformanceGauge value={indicePerformance} />
                 </ResponsiveContainer>
               </Box>
             )}
@@ -848,40 +908,7 @@ export default function StatsAppelPage({ params }: any) {
 
       {/* 2 nouveaux composants (positions échangées) */}
       <Grid container spacing={2} sx={{ mt: 2 }}>
-        {/* Durée moyenne par intention — GAUCHE */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, height: 360 }}>
-            <Typography variant="h6" fontWeight={700}>
-              Durée moyenne par intention
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Moyenne sur la période sélectionnée ({period})
-            </Typography>
-            {loading ? (
-              <ChartSkeleton />
-            ) : (
-              <Box sx={{ width: "100%", height: 280 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={avgByIntentData} layout="vertical" margin={{ left: 32 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" />
-                    <YAxis type="category" dataKey="name" />
-                    <ReTooltip
-                      formatter={(_val: number, _name: string, payload: any) => {
-                        const secs = payload?.payload?.avgSec || 0;
-                        return [secondsToMinLabel(secs), "Durée moyenne"];
-                      }}
-                      labelFormatter={() => ""}
-                    />
-                    <Bar dataKey="avgMin" name="Durée moyenne" fill={PALETTE.blue} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
-            )}
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2, height: 360 }}>
             <Typography variant="h6" fontWeight={700}>
               Raison du transfert
@@ -926,6 +953,83 @@ export default function StatsAppelPage({ params }: any) {
           </Paper>
         </Grid>
 
+        {/* Durée moyenne par intention — GAUCHE */}
+        <Grid item xs={12} md={4}>
+          <Paper sx={{ p: 2, height: 360 }}>
+            <Typography variant="h6" fontWeight={700}>
+              Durée moyenne par intention
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Moyenne sur la période sélectionnée ({period})
+            </Typography>
+            {loading ? (
+              <ChartSkeleton />
+            ) : (
+              <Box sx={{ width: "100%", height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={avgByIntentData} layout="vertical" margin={{ left: 32 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis type="category" dataKey="name" />
+                    <ReTooltip
+                      formatter={(_val: number, _name: string, payload: any) => {
+                        const secs = payload?.payload?.avgSec || 0;
+                        return [secondsToMinLabel(secs), "Durée moyenne"];
+                      }}
+                      labelFormatter={() => ""}
+                    />
+                    <Bar dataKey="avgMin" name="Durée moyenne" fill={PALETTE.blue} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Paper sx={{ p: 2, height: 360 }}>
+            <Typography variant="h6" fontWeight={700}>
+              Raison du transfert
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Sur la période sélectionnée
+            </Typography>
+            {loading ? (
+              <ChartSkeleton />
+            ) : (
+              <Box sx={{ width: "100%", height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={transferData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={2}
+                    >
+                      {transferData.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                      <Legend
+                        layout="vertical"
+                        verticalAlign="middle"
+                        align="right"
+                        wrapperStyle={{
+                          maxHeight: 240,
+                          overflowY: "auto",
+                          paddingLeft: 8,
+                          fontSize: 12,
+                        }}
+                      />                    
+                    <ReTooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
         {/* Répartition par sous-centre — DROITE (camembert plein)
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2, height: 360 }}>
