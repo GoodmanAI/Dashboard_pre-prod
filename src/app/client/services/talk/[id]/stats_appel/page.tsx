@@ -708,9 +708,19 @@ export default function StatsAppelPage({ params }: any) {
     );
   };
 
+  function getPerformanceColor(value: number) {
+    if (value < 50) return "#E53935";   // rouge
+    if (value < 70) return "#FB8C00";   // orange
+    if (value < 85) return "#FDD835";   // jaune
+    return "#43A047";                   // vert
+  }
+
+
   const PerformanceGauge = ({ value }: { value: number }) => {
+    const color = getPerformanceColor(value);
+
     const data = [
-      { name: "Performance", value, fill: "#48C8AF" },
+      { name: "Performance", value, fill: color },
       { name: "Reste", value: Math.max(0, 100 - value), fill: "#E0E0E0" },
     ];
 
@@ -740,16 +750,29 @@ export default function StatsAppelPage({ params }: any) {
             y="70%"
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={40}
-            fontWeight={700}
-            fill="#48C8AF"
+            fontSize={42}
+            fontWeight={800}
+            fill={color}
           >
-            {value}%
+            {value}
+          </text>
+
+          {/* /100 plus discret */}
+          <text
+            x="50%"
+            y="82%"
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize={14}
+            fill="#888"
+          >
+            / 100
           </text>
         </PieChart>
       </ResponsiveContainer>
     );
   };
+
 
 
   return (
@@ -809,7 +832,7 @@ export default function StatsAppelPage({ params }: any) {
             {loading ? (
               <StatTileSkeleton />
             ) : i === 0 ? (
-              <StatTile title="Total d'appels" value={totalAppels} icon={<IconTotal />} />
+              <StatTile title="Total d&apos;appels" value={totalAppels} icon={<IconTotal />} />
             ) : i === 1 ? (
               <StatTile title="Prises de RDV" value={nbRDV} icon={<IconRDV />} />
             ) : i === 2 ? (
