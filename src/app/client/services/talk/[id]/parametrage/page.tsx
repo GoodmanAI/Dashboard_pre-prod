@@ -242,6 +242,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         setSettings((prev) => ({
           ...prev,
           ...data,
+          botName: data.botName ?? prev.botName,
         }));
       } catch (error) {
         console.error("Error fetching settings:", error);
@@ -253,7 +254,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
     if (loaded == false) {
       fetchSettings();
     }
-  }, [userProductId, settings]);
+  }, [userProductId]);
 
   useEffect(() => {
     return () => {
@@ -283,6 +284,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   };
   
   const handleSave = async () => {
+    console.log(settings);
     if (!settings.botName.trim()) {
       setSnack({ open: true, msg: "Le nom du chatbot est requis.", sev: "error" });
       return;
