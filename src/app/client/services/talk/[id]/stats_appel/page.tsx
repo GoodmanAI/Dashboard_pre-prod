@@ -855,7 +855,7 @@ export default function StatsAppelPage({ params }: any) {
               Indice de Performance
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Correspond au pourcentage d'appel où l'ia à réussi a diriger le patient
+              Correspond au pourcentage d&apos;appel où l&apos;ia à réussi a diriger le patient
             </Typography>
             {loading ? (
               <ChartSkeleton />
