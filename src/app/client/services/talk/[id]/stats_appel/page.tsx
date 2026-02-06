@@ -1008,51 +1008,6 @@ export default function StatsAppelPage({ params }: any) {
             )}
           </Paper>
         </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: 360 }}>
-            <Typography variant="h6" fontWeight={700}>
-              Raison du transfert
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Sur la période sélectionnée
-            </Typography>
-            {loading ? (
-              <ChartSkeleton />
-            ) : (
-              <Box sx={{ width: "100%", height: 280 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={transferData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
-                    >
-                      {transferData.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                      <Legend
-                        layout="vertical"
-                        verticalAlign="middle"
-                        align="right"
-                        wrapperStyle={{
-                          maxHeight: 240,
-                          overflowY: "auto",
-                          paddingLeft: 8,
-                          fontSize: 12,
-                        }}
-                      />                    
-                    <ReTooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Box>
-            )}
-          </Paper>
-        </Grid>
         {/* Répartition par sous-centre — DROITE (camembert plein)
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2, height: 360 }}>
