@@ -192,12 +192,36 @@ export default function TalkPage({ params }: TalkPageProps) {
           return d >= start && d <= end;
         });
 
-        const counts = intents.map((it) => { 
-          console.log(it);
-          return (
-            todaysCalls.filter((c: any) => it.value === "all" || c.stats.intents.includes(it.value)).length
-          );
+        const counts = intents.map((it) => {
+          if (it.value === "all") {
+            return todaysCalls.length;
+          }
+
+          if (it.value === "urgency") {
+            return todaysCalls.reduce((acc, c: any) => {
+              const emergency = c.stats?.emergency;
+              
+              console.log(
+                todaysCalls.map(c => c.stats?.emergency)
+              );
+              
+              const isEmergency =
+                emergency === true ||
+                emergency === "true" ||
+                emergency === 1 ||
+                (Array.isArray(emergency) && emergency.length > 0) ||
+                (typeof emergency === "object" && emergency !== null);
+
+              return acc + (isEmergency ? 1 : 0);
+            }, 0);
+          }
+
+          // autres intentions (ex: prise_rdv)
+          return todaysCalls.filter(
+            (c: any) => c.stats?.intents?.includes(it.value)
+          ).length;
         });
+
 
         setCallsCountByIntent(counts);
       } catch (e) {
