@@ -109,13 +109,12 @@ function frenchWeekdayShort(idx: number) {
   return map[idx];
 }
 
-const RESO_KEYS = ["rdv_intent", "rdv", "info", "modification", "annulation", "urgence"] as const;
+const RESO_KEYS = ["rdv", "info", "modification", "annulation", "urgence"] as const;
 type ResoKey = (typeof RESO_KEYS)[number];
 
 function normalizeReso(call: any): ResoKey | "autre" {
   const s = (call.resolution ?? call.intent ?? "").toLowerCase().trim();
   if (call?.stats?.rdv_booked != 0) return "rdv";
-  if (call?.stats?.intents.includes("prise_rdv")) return "rdv_intent";
   if (call?.stats?.intents.includes("renseignements")) return "info";
   if (call?.stats?.intents.includes("modification_rdv")) return "modification";
   if (call?.stats?.intents.includes("annulation_rdv")) return "annulation";
@@ -498,7 +497,6 @@ export default function StatsAppelPage({ params }: any) {
   /* ========== Camembert (intent) ========== */
   const pieData = useMemo(() => {
     const buckets: Record<ResoKey | "autre", number> = {
-      rdv_intent: 0,
       rdv: 0,
       info: 0,
       modification: 0,
@@ -510,7 +508,6 @@ export default function StatsAppelPage({ params }: any) {
 
     const arr = [
       { name: "Prise de RDV", value: buckets.rdv },
-      { name: "Intention de RDV", value: buckets.rdv_intent },
       { name: "Informations", value: buckets.info },
       { name: "Modifications", value: buckets.modification },
       { name: "Annulations", value: buckets.annulation },
@@ -628,7 +625,6 @@ export default function StatsAppelPage({ params }: any) {
   /* ========== Durée moyenne par intention ========== */
   const avgByIntentData = useMemo(() => {
     const acc: Record<ResoKey, { total: number; n: number }> = {
-      rdv_intent: { total: 0, n: 0},
       rdv: { total: 0, n: 0 },
       info: { total: 0, n: 0 },
       modification: { total: 0, n: 0 },
@@ -644,7 +640,6 @@ export default function StatsAppelPage({ params }: any) {
       acc[k].n += 1;
     }
     const label: Record<ResoKey, string> = {
-      rdv_intent: "Intention de RDV",
       rdv: "RDV",
       info: "Informations",
       modification: "Modifications",
@@ -1003,6 +998,41 @@ export default function StatsAppelPage({ params }: any) {
                     />
                     <Bar dataKey="avgMin" name="Durée moyenne" fill={PALETTE.blue} />
                   </BarChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Paper sx={{ p: 2, height: 360 }}>
+            <Typography variant="h6" fontWeight={700}>
+              Répartition par type
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Sur la période sélectionnée
+            </Typography>
+            {loading ? (
+              <ChartSkeleton />
+            ) : (
+              <Box sx={{ width: "100%", height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={2}
+                    >
+                      {pieData.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Legend verticalAlign="bottom" height={24} />
+                    <ReTooltip />
+                  </PieChart>
                 </ResponsiveContainer>
               </Box>
             )}
