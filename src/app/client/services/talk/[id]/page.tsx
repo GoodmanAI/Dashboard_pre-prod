@@ -201,10 +201,6 @@ export default function TalkPage({ params }: TalkPageProps) {
             return todaysCalls.reduce((acc, c: any) => {
               const emergency = c.stats?.emergency;
               
-              console.log(
-                todaysCalls.map(c => c.stats?.emergency)
-              );
-              
               const isEmergency =
                 emergency === true ||
                 emergency === "true" ||
