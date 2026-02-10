@@ -88,7 +88,7 @@ const ITEMS_PER_PAGE = 10;
 
 export default function CallListPage({ params }: CallListPageProps) {
   const [calls, setCalls] = useState<CallSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -126,20 +126,21 @@ export default function CallListPage({ params }: CallListPageProps) {
     setLoading(true);
     setError(null);
 
-    fetch(`/api/calls?userProductId=${userProductId}`)
+    fetch(
+      `/api/calls?userProductId=${userProductId}&page=${page}&limit=${ITEMS_PER_PAGE}&status=${statusFilter}`
+    )
       .then((res) => {
         if (!res.ok) throw new Error("Erreur lors du fetch des appels");
         return res.json();
       })
-      .then((data: CallSummary[]) => {
-        data.map((d: any) => { if(d.stats.rdv_canceled != 0) { console.log("annulé"); console.log(d.stats) } })
-        // console.log(data.filter((d) => d.stats.rdv_status != null && d.stats.rdv_status != "success"));
+      .then(({ data, total }) => {
         setCalls(data);
-        setPage(1);
+        setTotal(total);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [userProductId]);
+  }, [userProductId, page, statusFilter]);
+
 
   const filteredCalls =
     statusFilter === "all"
@@ -149,7 +150,7 @@ export default function CallListPage({ params }: CallListPageProps) {
           (call: any) => call.stats.rdv_status === statusFilter
         );
 
-  const totalPages = Math.ceil(filteredCalls.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
   const paginatedCalls = filteredCalls.slice(
     (page - 1) * ITEMS_PER_PAGE,
@@ -204,13 +205,13 @@ export default function CallListPage({ params }: CallListPageProps) {
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      {!loading && !error && filteredCalls.length === 0 && (
+      {!loading && !error && calls.length === 0 && (
         <Alert severity="info">
           Aucun appel trouvé pour ce filtre.
         </Alert>
       )}
 
-      {!loading && paginatedCalls.length > 0 && (
+      {!loading && calls.length > 0 && (
         <>
           <List
             sx={{
@@ -221,7 +222,7 @@ export default function CallListPage({ params }: CallListPageProps) {
             }}
           >
 
-            {paginatedCalls.map((call: any, index) => {
+            {calls.map((call: any, index) => {
               const firstStep = Object.values(call.steps)[0] as any | undefined;
               const secondStep = Object.values(call.steps)[2] as any | undefined;
 
@@ -342,6 +343,7 @@ export default function CallListPage({ params }: CallListPageProps) {
                 page={page}
                 onChange={(_, value) => setPage(value)}
                 color="primary"
+                disabled={loading}
               />
             </Box>
           )}
