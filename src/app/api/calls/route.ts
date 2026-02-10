@@ -15,6 +15,9 @@ export async function GET(request: NextRequest) {
     const limitParam = searchParams.get("limit");
     const statusParam = searchParams.get("status");
 
+    // ==========================
+    // VALIDATION
+    // ==========================
     if (!userProductIdParam) {
       return NextResponse.json(
         { error: "Paramètre userProductId manquant." },
@@ -31,7 +34,7 @@ export async function GET(request: NextRequest) {
     }
 
     // ==========================
-    // CAS 1 : récupération d’un seul call (inchangé)
+    // CAS 1 : UN SEUL CALL
     // ==========================
     if (callIdParam) {
       const callId = Number(callIdParam);
@@ -43,7 +46,10 @@ export async function GET(request: NextRequest) {
       }
 
       const call = await prisma.callConversation.findFirst({
-        where: { id: callId, userProductId },
+        where: {
+          id: callId,
+          userProductId,
+        },
       });
 
       if (!call) {
@@ -57,7 +63,7 @@ export async function GET(request: NextRequest) {
     }
 
     // ==========================
-    // CAS 2 : liste des calls
+    // CAS 2 : LISTE DES CALLS
     // ==========================
 
     const isPaginated = pageParam !== null || limitParam !== null;
@@ -66,25 +72,45 @@ export async function GET(request: NextRequest) {
     const limit = Number(limitParam) || 20;
     const skip = (page - 1) * limit;
 
+    /**
+     * Construction du WHERE
+     * On combine les conditions JSON avec AND
+     */
     const whereClause: any = {
       userProductId,
-      stats: {
-        path: ["duration"],
-        gt: 15,
-      },
+      AND: [
+        // duration > 15
+        {
+          stats: {
+            path: ["duration"],
+            gt: 15,
+          },
+        },
+      ],
     };
 
+    // Filtre par statut
     if (statusParam && statusParam !== "all") {
-      whereClause.stats = {
-        ...(statusParam === "canceled"
-          ? { rdv_canceled: { gt: 0 } }
-          : { rdv_status: statusParam }),
-      };
+      if (statusParam === "canceled") {
+        whereClause.AND.push({
+          stats: {
+            path: ["rdv_canceled"],
+            gt: 0,
+          },
+        });
+      } else {
+        whereClause.AND.push({
+          stats: {
+            path: ["rdv_status"],
+            equals: statusParam,
+          },
+        });
+      }
     }
 
-    // --------------------------
+    // ==========================
     // PAGINÉ
-    // --------------------------
+    // ==========================
     if (isPaginated) {
       const [calls, total] = await Promise.all([
         prisma.callConversation.findMany({
@@ -98,12 +124,9 @@ export async function GET(request: NextRequest) {
         }),
       ]);
 
+      // Filtre steps.length > 1 (impossible côté Prisma)
       const filteredCalls = calls.filter((c: any) => {
-        return (
-          (c.stats?.duration ? Number(c.stats.duration) > 15 : false) &&
-          c.steps &&
-          c.steps.length > 1
-        );
+        return Array.isArray(c.steps) && c.steps.length > 1;
       });
 
       return NextResponse.json(
@@ -117,20 +140,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // --------------------------
-    // NON PAGINÉ (legacy)
-    // --------------------------
+    // ==========================
+    // NON PAGINÉ (LEGACY)
+    // ==========================
     let calls = await prisma.callConversation.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
     });
 
     calls = calls.filter((c: any) => {
-      return (
-        (c.stats?.duration ? Number(c.stats.duration) > 15 : false) &&
-        c.steps &&
-        c.steps.length > 1
-      );
+      return Array.isArray(c.steps) && c.steps.length > 1;
     });
 
     return NextResponse.json(calls, { status: 200 });
