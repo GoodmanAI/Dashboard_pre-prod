@@ -6,12 +6,9 @@ import {
   Grid,
   Paper,
   Typography,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Button,
   Skeleton,
+  Popover
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -27,8 +24,6 @@ import {
   Cell,
   Legend,
   Pie,
-  PieProps,
-  Tooltip 
 } from "recharts";
 import {
   QueryStats as IconTotal,
@@ -36,9 +31,10 @@ import {
   LocalHospital as IconUrgence,
   Info as IconInfo,
   AccessTime as IconHeures,
-  DeviceThermostat as IconThermostat
 } from "@mui/icons-material";
 import { useCentre } from "@/app/context/CentreContext";
+import { subDays, startOfDay } from "date-fns";
+import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 
 /* =========================================================
    Types & utils
@@ -46,8 +42,6 @@ import { useCentre } from "@/app/context/CentreContext";
 
 const NEEDLE_BASE_RADIUS_PX = 5;
 const NEEDLE_COLOR = '#d0d000';
-
-type PeriodKey = "24h" | "7j" | "30j";
 
 interface Call {
   id: number;
@@ -60,10 +54,10 @@ interface Call {
   birthdate?: string | null;
   createdAt: string; // ISO
   steps: string[];
-  durationSeconds?: number | null; // certains jeux de données
-  durationSec?: number | null;     // d'autres jeux de données
+  durationSeconds?: number | null;
+  durationSec?: number | null;
   handled?: boolean | null;
-  resolution?: string | null; // "rdv","info","modification","annulation","urgence"
+  resolution?: string | null;
 }
 
 const PALETTE = {
@@ -81,8 +75,6 @@ const PALETTE = {
   grey:   "#838383",
 };
 
-
-// Couleurs du camembert (ordre cohérent avec tes souhaits initiaux)
 const PIE_COLORS = [
   PALETTE.cyan,
   PALETTE.green,
@@ -102,11 +94,7 @@ const now = () => new Date();
 const minusDays = (d: Date, days: number) => new Date(d.getTime() - days * 24 * 3600 * 1000);
 
 function dayKey(d: Date) {
-  return d.toISOString().slice(0, 10); // YYYY-MM-DD
-}
-function frenchWeekdayShort(idx: number) {
-  const map = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
-  return map[idx];
+  return d.toISOString().slice(0, 10);
 }
 
 const RESO_KEYS = ["rdv", "info", "modification", "annulation", "urgence"] as const;
@@ -124,9 +112,7 @@ function normalizeReso(call: any): ResoKey | "autre" {
 
 function getIndice(calls: any[]): number {
   const indice = calls.reduce((acc: any, c: any) => {
-    console.log(c.stats.error_logic);
     if (c.stats.error_logic && c.stats.error_logic > 0){
-      console.log("ICI");
       return acc + 1
     } 
     return acc;
@@ -147,7 +133,6 @@ function formatHoursFromSeconds(totalSeconds: number, decimals = 1): string {
   return `${hrs.toFixed(decimals)} h`;
 }
 
-// Durée "3min34"
 function secondsToMinLabel(totalSeconds: number) {
   const s = Math.max(0, Math.round(totalSeconds));
   const m = Math.floor(s / 60);
@@ -156,7 +141,7 @@ function secondsToMinLabel(totalSeconds: number) {
 }
 
 /* =========================================================
-   UI bits (Skeleton helpers)
+   UI components
 ========================================================= */
 
 function StatTile({
@@ -234,17 +219,18 @@ function ChartSkeleton() {
 }
 
 /* =========================================================
-   Page
+   Page principale
 ========================================================= */
 
 export default function StatsAppelPage({ params }: any) {
   const userProductId = Number(params.id);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const open = Boolean(anchorEl);
 
   const { data: session, status } = useSession();
   const router = useRouter();
   const { centres, selectedUserId } = useCentre();
 
-  const [period, setPeriod] = useState<PeriodKey>("7j");
   const [calls, setCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -252,7 +238,15 @@ export default function StatsAppelPage({ params }: any) {
   const [centresCounts, setCentresCounts] = useState<Array<{ id: number; name: string; count: number }>>([]);
   const [loadingCentres, setLoadingCentres] = useState(false);
 
-  // ancre stable pour le remap DEMO côté API
+  // Date range state - CORRIGÉ : déplacé avant les useEffect
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const today = startOfDay(new Date());
+    return {
+      from: subDays(today, 6),
+      to: today,
+    };
+  });
+
   const anchorRef = useRef<string | null>(null);
   const reqSeqRef = useRef(0);
 
@@ -268,16 +262,19 @@ export default function StatsAppelPage({ params }: any) {
     }
   }, [status, router]);
 
-  // ID effectif : si l’utilisateur gère des centres, on attend un selectedUserId,
-  // sinon on utilise l’ID de session.
   const effectiveUserId = useMemo(() => {
     if (centres.length > 0) return selectedUserId ?? null;
     const sid = session?.user?.id as number | undefined;
     return sid && Number.isFinite(Number(sid)) ? Number(sid) : null;
   }, [centres.length, selectedUserId, session?.user?.id]);
 
-  // map période -> daysAgo pour requête serveur
-  const daysAgoForPeriod = (p: PeriodKey) => (p === "24h" ? 1 : p === "7j" ? 7 : 30);
+  const daysAgoForRange = useMemo(() => {
+    const diff =
+      (dateRange.to.getTime() - dateRange.from.getTime()) /
+      (1000 * 60 * 60 * 24);
+
+    return Math.max(1, Math.ceil(diff));
+  }, [dateRange]);
 
   // Fetch principal
   useEffect(() => {
@@ -297,7 +294,7 @@ export default function StatsAppelPage({ params }: any) {
         setLoading(true);
 
         const params = new URLSearchParams({
-          daysAgo: String(daysAgoForPeriod(period)),
+          daysAgo: String(daysAgoForRange),
           demo: "1",
           demoDays: "35",
           anchor: anchorRef.current as string,
@@ -305,9 +302,9 @@ export default function StatsAppelPage({ params }: any) {
           demoPreserveDow: "1",
         });
 
-        const callsUrl = `/api/calls?userProductId=${userProductId}`;
+        const callsUrl = `/api/calls?${params.toString()}&userProductId=${userProductId}`;
 
-         const callsRes = await fetch(callsUrl, {
+        const callsRes = await fetch(callsUrl, {
           signal: controller.signal,
           cache: "no-store",
           headers: { "Cache-Control": "no-store" },
@@ -315,102 +312,99 @@ export default function StatsAppelPage({ params }: any) {
 
         const response = await callsRes.json();
 
-        const now = Date.now();
-        const maxAgeMs = daysAgoForPeriod(period) * 24 * 60 * 60 * 1000;
-
         const filteredCalls = response.filter((call: any) => {
           const callTime = new Date(call.createdAt).getTime();
-          return now - callTime <= maxAgeMs;
+          console.log("zizi", dateRange.from.getTime(), dateRange.to.getTime(), callTime);
+          return (
+            callTime >= dateRange.from.getTime() &&
+            callTime <= dateRange.to.getTime()
+          );
         });
-
-        const redirect = filteredCalls.filter(
-          (c: any) => c?.stats?.end_reason === "transfer"
-        ).length;
 
         setCalls(filteredCalls);
 
         if (reqSeqRef.current !== seq) return;
 
       } catch (e) {
-       if (!isAbortError(e)) {
-      }
+        if (!isAbortError(e)) {
+          console.error("Erreur lors du fetch des appels:", e);
+        }
       } finally {
         if (reqSeqRef.current === seq) setLoading(false);
       }
     })();
 
     return () => controller.abort();
-  }, [status, centres.length, effectiveUserId, period]);
+  }, [status, centres.length, effectiveUserId, dateRange, userProductId, daysAgoForRange]);
 
   // Fetch sous-centres (ADMIN)
   useEffect(() => {
-  if (status !== "authenticated") return;
+    if (status !== "authenticated") return;
 
-  // Pas de sous-centres => on vide et on sort
-  if (centres.length === 0) {
-    setCentresCounts([]);
-    return;
-  }
+    if (centres.length === 0) {
+      setCentresCounts([]);
+      return;
+    }
 
-  const controller = new AbortController();
-  let aborted = false;
+    const controller = new AbortController();
+    let aborted = false;
 
-  (async () => {
-    try {
-      setLoadingCentres(true);
+    (async () => {
+      try {
+        setLoadingCentres(true);
 
-      const daysAgo = daysAgoForPeriod(period);
+        const daysAgo = daysAgoForRange;
 
-      const results = await Promise.all(
-        (centres as any[]).map(async (c: any) => {
-          const id = Number(c?.id);
-          if (!Number.isFinite(id)) {
-            return { id: -1, name: "Centre inconnu", count: 0 };
-          }
+        const results = await Promise.all(
+          (centres as any[]).map(async (c: any) => {
+            const id = Number(c?.id);
+            if (!Number.isFinite(id)) {
+              return { id: -1, name: "Centre inconnu", count: 0 };
+            }
 
-          const name =
-            c?.name ?? c?.label ?? c?.title ?? c?.user?.name ?? `Centre ${id}`;
+            const name =
+              c?.name ?? c?.label ?? c?.title ?? c?.user?.name ?? `Centre ${id}`;
 
-          const params = new URLSearchParams({
-            daysAgo: String(daysAgo),
-            demo: "1",
-            demoDays: "35",
-            anchor: anchorRef.current as string,
-            asUserId: String(id),
-            demoPreserveDow: "1",
-          });
-
-          try {
-            const res = await fetch(`/api/calls?${params.toString()}`, {
-              signal: controller.signal,
-              cache: "no-store",
-              headers: { "Cache-Control": "no-store" },
+            const params = new URLSearchParams({
+              daysAgo: String(daysAgo),
+              demo: "1",
+              demoDays: "35",
+              anchor: anchorRef.current as string,
+              asUserId: String(id),
+              demoPreserveDow: "1",
             });
 
-            if (!res.ok) return { id, name, count: 0 };
+            try {
+              const res = await fetch(`/api/calls?${params.toString()}`, {
+                signal: controller.signal,
+                cache: "no-store",
+                headers: { "Cache-Control": "no-store" },
+              });
 
-            const list: Call[] = await res.json();
-            return { id, name, count: Array.isArray(list) ? list.length : 0 };
-          } catch (e) {
-            if (isAbortError(e)) return { id, name, count: 0 };
-            return { id, name, count: 0 };
-          }
-        })
-      );
+              if (!res.ok) return { id, name, count: 0 };
 
-      if (!aborted) {
-        setCentresCounts(results.filter((r) => r.id !== -1));
+              const list: Call[] = await res.json();
+              return { id, name, count: Array.isArray(list) ? list.length : 0 };
+            } catch (e) {
+              if (isAbortError(e)) return { id, name, count: 0 };
+              return { id, name, count: 0 };
+            }
+          })
+        );
+
+        if (!aborted) {
+          setCentresCounts(results.filter((r) => r.id !== -1));
+        }
+      } finally {
+        if (!aborted) setLoadingCentres(false);
       }
-    } finally {
-      if (!aborted) setLoadingCentres(false);
-    }
-  })();
+    })();
 
-  return () => {
-    aborted = true;
-    controller.abort();
-  };
-}, [status, centres, period, selectedUserId, effectiveUserId]);
+    return () => {
+      aborted = true;
+      controller.abort();
+    };
+  }, [status, centres, dateRange, daysAgoForRange]);
 
   /* ========== Stats tuiles ========== */
   const totalAppels = calls.length;
@@ -419,16 +413,14 @@ export default function StatsAppelPage({ params }: any) {
   const nbInfo = useMemo(() => calls.filter((c) => normalizeReso(c) === "info").length, [calls]);
 
   const indicePerformance = useMemo(() => {
-    const indice = getIndice(calls);
-    console.log("INDICE FINAL", indice);
-    return indice;
+    if (calls.length === 0) return 0;
+    return getIndice(calls);
   }, [calls]);
 
   const heuresPrisEnCharge = useMemo(() => {
     const totalSeconds = sumDurationsSec(calls);
     return formatHoursFromSeconds(totalSeconds, 2);
   }, [calls]);
-
 
   /* ========== Camembert (transfer) ========== */
   const TRANSFER_KEYS = [
@@ -450,15 +442,15 @@ export default function StatsAppelPage({ params }: any) {
   const TRANSFER_LABELS: Record<string, string> = {
     redirect: "Redirection demandée",
     error: "Erreur",
-    exam_type: "Type d’examen non pris en charge",
+    exam_type: "Type d'examen non pris en charge",
     exam_mult: "Plusieurs examens demandés",
     exam_interv: "Demande de radio interventionnelle",
     emergency: "Urgence",
     doctor: "Professionnel de santé",
     admin: "Démarches administratives",
-    result: "Résultats d’examens",
+    result: "Résultats d'examens",
     incident: "Demande à traiter par un humain",
-    identification: "Problème d’identification",
+    identification: "Problème d'identification",
   };
 
   const transferData = useMemo(() => {
@@ -493,7 +485,6 @@ export default function StatsAppelPage({ params }: any) {
     return sum === 0 ? [{ name: "Aucune donnée", value: 1 }] : arr;
   }, [calls]);
 
-
   /* ========== Camembert (intent) ========== */
   const pieData = useMemo(() => {
     const buckets: Record<ResoKey | "autre", number> = {
@@ -517,70 +508,32 @@ export default function StatsAppelPage({ params }: any) {
     return sum === 0 ? [{ name: "Aucune donnée", value: 1 }] : arr;
   }, [calls]);
 
-  /* ========== Histogramme (stack vert + 15% rose) ========== */
+  /* ========== Histogramme ========== */
   const histogramData = useMemo(() => {
-  const today = now();
+    const today = now();
+    const map: Record<string, { total: number; redirect: number }> = {};
 
-  // ====== Cas 30 jours : moyenne par jour de semaine ======
-  if (period === "30j") {
-    const countsByWk: Record<number, { total: number; redirect: number }> =
-      { 0:{total:0,redirect:0},1:{total:0,redirect:0},2:{total:0,redirect:0},
-        3:{total:0,redirect:0},4:{total:0,redirect:0},5:{total:0,redirect:0},
-        6:{total:0,redirect:0} };
-
-    const occurrences: Record<number, number> =
-      { 0:0,1:0,2:0,3:0,4:0,5:0,6:0 };
-
-    for (let i = 0; i < 30; i++) {
+    for (let i = 6; i >= 0; i--) {
       const d = minusDays(today, i);
-      occurrences[d.getDay()]++;
+      map[dayKey(d)] = { total: 0, redirect: 0 };
     }
 
     for (const c of calls) {
-      const d = new Date(c.createdAt).getDay();
-      countsByWk[d].total++;
-      if ((c as any)?.stats?.end_reason === "transfer") {
-        countsByWk[d].redirect++;
+      const k = dayKey(new Date(c.createdAt));
+      if (map[k]) {
+        map[k].total++;
+        if ((c as any)?.stats?.end_reason === "transfer") {
+          map[k].redirect++;
+        }
       }
     }
 
-    const order = [1,2,3,4,5,6,0];
-    return order.map((dow) => {
-      const occ = Math.max(1, occurrences[dow] || 0);
-      const avgTotal = countsByWk[dow].total / occ;
-      const avgRedirect = countsByWk[dow].redirect / occ;
-      return {
-        name: frenchWeekdayShort(dow),
-        normal: Number((avgTotal - avgRedirect).toFixed(1)),
-        redirect: Number(avgRedirect.toFixed(1)),
-      };
-    });
-  }
-
-  // ====== Cas 7j / 24h : par date ======
-  const map: Record<string, { total: number; redirect: number }> = {};
-
-  for (let i = 6; i >= 0; i--) {
-    const d = minusDays(today, i);
-    map[dayKey(d)] = { total: 0, redirect: 0 };
-  }
-
-  for (const c of calls) {
-    const k = dayKey(new Date(c.createdAt));
-    if (map[k]) {
-      map[k].total++;
-      if ((c as any)?.stats?.end_reason === "transfer") {
-        map[k].redirect++;
-      }
-    }
-  }
-
-  return Object.entries(map).map(([k, v]) => ({
-    name: `${k.slice(8, 10)}/${k.slice(5, 7)}`,
-    normal: v.total - v.redirect,
-    redirect: v.redirect,
-  }));
-}, [calls, period]);
+    return Object.entries(map).map(([k, v]) => ({
+      name: `${k.slice(8, 10)}/${k.slice(5, 7)}`,
+      normal: v.total - v.redirect,
+      redirect: v.redirect,
+    }));
+  }, [calls]);
 
   function HistogramTooltip({ active, payload, label }: any) {
     if (!active || !payload || !payload.length) return null;
@@ -603,24 +556,28 @@ export default function StatsAppelPage({ params }: any) {
     );
   }
 
+  const nbDays = useMemo(() => {
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const diff =
+      (dateRange.to.getTime() - dateRange.from.getTime()) / msPerDay;
+
+    return Math.max(1, Math.ceil(diff) + 1);
+  }, [dateRange]);
+
   /* ========== Activité horaire ========== */
   const hourlyActivity = useMemo(() => {
     const counts = Array.from({ length: 24 }, () => 0);
-    const denom = period === "24h" ? 1 : period === "7j" ? 7 : 30;
-    for (const c of calls) counts[new Date(c.createdAt).getHours()]++;
+
+    for (const c of calls) {
+      const hour = new Date(c.createdAt).getHours();
+      counts[hour]++;
+    }
+
     return counts.map((cnt, h) => ({
       hour: `${String(h).padStart(2, "0")}h`,
-      value: Number((cnt / denom).toFixed(2)),
+      value: Number((cnt / nbDays).toFixed(2)),
     }));
-  }, [calls, period]);
-
-  /* ========== Données camembert sous-centres ========== */
-  const centresPieData = useMemo(() => {
-    if (!centresCounts.length) return [{ name: "Aucune donnée", value: 1 }];
-    const rows = centresCounts.map((c) => ({ name: c.name, value: c.count }));
-    const sum = rows.reduce((a, b) => a + b.value, 0);
-    return sum === 0 ? [{ name: "Aucune donnée", value: 1 }] : rows;
-  }, [centresCounts]);
+  }, [calls, nbDays]);
 
   /* ========== Durée moyenne par intention ========== */
   const avgByIntentData = useMemo(() => {
@@ -652,64 +609,23 @@ export default function StatsAppelPage({ params }: any) {
         const avgSec = n ? total / n : 0;
         return {
           name: label[k],
-          avgMin: Number((avgSec / 60).toFixed(1)), // pour la barre
-          avgSec,                                   // pour tooltip "3min34"
+          avgMin: Number((avgSec / 60).toFixed(1)),
+          avgSec,
         };
       })
       .filter((r) => r.avgSec > 0);
   }, [calls]);
 
   const isAbortError = (e: unknown) =>
-  !!e && typeof e === "object" && (e as any).name === "AbortError";
+    !!e && typeof e === "object" && (e as any).name === "AbortError";
 
-  /* ========== UI ========== */
-
-  // Cas “attente de sélection” (ADMIN_USER)
-  if (status === "authenticated" && centres.length > 0 && !effectiveUserId) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Sélectionnez un centre pour afficher les statistiques.
-        </Typography>
-      </Box>
-    );
-  }
-  
-  const Needle = ({ cx, cy, midAngle, innerRadius, outerRadius }: any) => {
-    const needleBaseCenterX = cx;
-    const needleBaseCenterY = cy;
-    const needleLength = innerRadius + (outerRadius - innerRadius) / 2;
-
-    return (
-      <g>
-        <circle
-          cx={needleBaseCenterX}
-          cy={needleBaseCenterY}
-          r={NEEDLE_BASE_RADIUS_PX}
-          fill={NEEDLE_COLOR}
-          stroke="none"
-        />
-        <path
-          d={`M${needleBaseCenterX},${needleBaseCenterY}l${needleLength},0`}
-          strokeWidth={2}
-          stroke={NEEDLE_COLOR}
-          fill={NEEDLE_COLOR}
-          style={{
-            transform: `rotate(-${midAngle}deg)`,
-            transformOrigin: `${needleBaseCenterX}px ${needleBaseCenterY}px`,
-          }}
-        />
-      </g>
-    );
-  };
-
+  /* ========== Performance Gauge ========== */
   function getPerformanceColor(value: number) {
-    if (value < 50) return "#E53935";   // rouge
-    if (value < 70) return "#FB8C00";   // orange
-    if (value < 85) return "#FDD835";   // jaune
-    return "#43A047";                   // vert
+    if (value < 50) return "#E53935";
+    if (value < 70) return "#FB8C00";
+    if (value < 85) return "#FDD835";
+    return "#43A047";
   }
-
 
   const PerformanceGauge = ({ value }: { value: number }) => {
     const color = getPerformanceColor(value);
@@ -739,7 +655,6 @@ export default function StatsAppelPage({ params }: any) {
             ))}
           </Pie>
 
-          {/* Valeur centrale */}
           <text
             x="50%"
             y="70%"
@@ -752,7 +667,6 @@ export default function StatsAppelPage({ params }: any) {
             {value}
           </text>
 
-          {/* /100 plus discret */}
           <text
             x="50%"
             y="82%"
@@ -768,7 +682,17 @@ export default function StatsAppelPage({ params }: any) {
     );
   };
 
+  /* ========== UI ========== */
 
+  if (status === "authenticated" && centres.length > 0 && !effectiveUserId) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Sélectionnez un centre pour afficher les statistiques.
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
@@ -785,25 +709,49 @@ export default function StatsAppelPage({ params }: any) {
       >
         <Box>
           <Typography variant="h4" fontWeight={800}>
-            Statistiques d’appels
+            Statistiques d&apos;appels
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Analyse multi-périodes (24h, 7j, 30j)
+            Analyse personnalisable par période
           </Typography>
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Période</InputLabel>
-            <Select
-              label="Période"
-              value={period}
-              onChange={(e) => setPeriod(e.target.value as PeriodKey)}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Button
+              variant="outlined"
+              onClick={(e) => setAnchorEl(e.currentTarget)}
+              sx={{
+                borderColor: "#48C8AF",
+                color: "#48C8AF",
+                textTransform: "none",
+                fontWeight: 600,
+              }}
             >
-              <MenuItem value="24h">Dernières 24h</MenuItem>
-              <MenuItem value="7j">7 derniers jours</MenuItem>
-              <MenuItem value="30j">30 derniers jours</MenuItem>
-            </Select>
-          </FormControl>
+              Du {dateRange.from.toLocaleDateString()} au{" "}
+              {dateRange.to.toLocaleDateString()}
+            </Button>
+
+            <Popover
+              open={open}
+              anchorEl={anchorEl}
+              onClose={() => setAnchorEl(null)}
+              anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+            >
+              <Box sx={{ p: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Sélectionner une période
+                </Typography>
+
+                <DateRangePicker
+                  value={dateRange}
+                  onChange={(range) => {
+                    setDateRange(range);
+                    setAnchorEl(null); // ferme après sélection
+                  }}
+                />
+              </Box>
+            </Popover>
+          </Box>
 
           <Button
             variant="outlined"
@@ -841,16 +789,15 @@ export default function StatsAppelPage({ params }: any) {
         ))}
       </Grid>
 
-      {/* 3 blocs : camembert / histogramme / activité horaire */}
+      {/* 3 blocs : Performance / Histogramme / Activité horaire */}
       <Grid container spacing={2}>
-
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2, height: 360 }}>
             <Typography variant="h6" fontWeight={700}>
               Indice de Performance
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Correspond au pourcentage d&apos;appel où l&apos;ia à réussi a diriger le patient
+              Correspond au pourcentage d&apos;appel où l&apos;IA a réussi à diriger le patient
             </Typography>
             {loading ? (
               <ChartSkeleton />
@@ -870,9 +817,7 @@ export default function StatsAppelPage({ params }: any) {
               Histogramme
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              {period === "30j"
-                ? "Moyenne par jour de la semaine (30 jours)"
-                : "Nombres d'appels des 7 derniers jours"}
+              Nombres d&apos;appels des 7 derniers jours
             </Typography>
             {loading ? (
               <ChartSkeleton />
@@ -884,7 +829,6 @@ export default function StatsAppelPage({ params }: any) {
                     <XAxis dataKey="name" />
                     <YAxis allowDecimals />
                     <ReTooltip content={<HistogramTooltip />} />
-                    {/* Base + 15% redirections */}
                     <Bar dataKey="normal"   stackId="calls"  fill={PALETTE.cyan} />
                     <Bar dataKey="redirect" stackId="calls" fill={PALETTE.pink} />
                   </BarChart>
@@ -900,7 +844,7 @@ export default function StatsAppelPage({ params }: any) {
               Activité quotidienne
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Moyenne d&apos;appels par heure ({period})
+              Moyenne d&apos;appels par heure
             </Typography>
             {loading ? (
               <ChartSkeleton />
@@ -924,7 +868,7 @@ export default function StatsAppelPage({ params }: any) {
         </Grid>
       </Grid>
 
-      {/* 2 nouveaux composants (positions échangées) */}
+      {/* 3 blocs supplémentaires */}
       <Grid container spacing={2} sx={{ mt: 2 }}>
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2, height: 360 }}>
@@ -952,17 +896,17 @@ export default function StatsAppelPage({ params }: any) {
                         <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                       ))}
                     </Pie>
-                      <Legend
-                        layout="vertical"
-                        verticalAlign="middle"
-                        align="right"
-                        wrapperStyle={{
-                          maxHeight: 240,
-                          overflowY: "auto",
-                          paddingLeft: 8,
-                          fontSize: 12,
-                        }}
-                      />                    
+                    <Legend
+                      layout="vertical"
+                      verticalAlign="middle"
+                      align="right"
+                      wrapperStyle={{
+                        maxHeight: 240,
+                        overflowY: "auto",
+                        paddingLeft: 8,
+                        fontSize: 12,
+                      }}
+                    />                    
                     <ReTooltip />
                   </PieChart>
                 </ResponsiveContainer>
@@ -971,14 +915,13 @@ export default function StatsAppelPage({ params }: any) {
           </Paper>
         </Grid>
 
-        {/* Durée moyenne par intention — GAUCHE */}
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2, height: 360 }}>
             <Typography variant="h6" fontWeight={700}>
               Durée moyenne par intention
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Moyenne sur la période sélectionnée ({period})
+              Moyenne sur la période sélectionnée
             </Typography>
             {loading ? (
               <ChartSkeleton />
@@ -1038,41 +981,6 @@ export default function StatsAppelPage({ params }: any) {
             )}
           </Paper>
         </Grid>
-        {/* Répartition par sous-centre — DROITE (camembert plein)
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, height: 360 }}>
-            <Typography variant="h6" fontWeight={700}>
-              Répartition par sous-centre
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Agrégation dynamique ({period})
-              {loadingCentres ? " — chargement…" : ""}
-            </Typography>
-            {loadingCentres || loading ? (
-              <ChartSkeleton />
-            ) : (
-              <Box sx={{ width: "100%", height: 280 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={centresPieData}
-                      dataKey="value"
-                      nameKey="name"
-                      outerRadius={100}
-                      paddingAngle={2}
-                    >
-                      {centresPieData.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Legend verticalAlign="bottom" height={24} />
-                    <ReTooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </Box>
-            )}
-          </Paper>
-        </Grid> */}
       </Grid>
     </Box>
   );
