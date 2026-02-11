@@ -314,7 +314,6 @@ export default function StatsAppelPage({ params }: any) {
 
         const filteredCalls = response.filter((call: any) => {
           const callTime = new Date(call.createdAt).getTime();
-          console.log("zizi", dateRange.from.getTime(), dateRange.to.getTime(), callTime);
           return (
             callTime >= dateRange.from.getTime() &&
             callTime <= dateRange.to.getTime()

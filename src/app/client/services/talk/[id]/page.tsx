@@ -193,6 +193,9 @@ export default function TalkPage({ params }: TalkPageProps) {
         });
 
         const counts = intents.map((it) => {
+          console.log("todays", todaysCalls);
+
+
           if (it.value === "all") {
             return todaysCalls.length;
           }
@@ -213,9 +216,10 @@ export default function TalkPage({ params }: TalkPageProps) {
           }
 
           // autres intentions (ex: prise_rdv)
-          return todaysCalls.filter(
-            (c: any) => c.stats?.intents?.includes(it.value)
-          ).length;
+          return todaysCalls.reduce((acc, c: any) => {
+            console.log(c.stats);
+            return c.stats?.rdv_booked != 0 ? acc + 1 : acc;
+          }, 0);
         });
 
 
