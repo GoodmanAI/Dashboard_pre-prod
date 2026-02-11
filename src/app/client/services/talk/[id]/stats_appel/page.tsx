@@ -246,7 +246,7 @@ export default function StatsAppelPage({ params }: any) {
       to: today,
     };
   });
-
+  const [dateRangeDraft, setDateRangeDraft] = useState<DateRange>(dateRange);
   const anchorRef = useRef<string | null>(null);
   const reqSeqRef = useRef(0);
 
@@ -742,12 +742,22 @@ export default function StatsAppelPage({ params }: any) {
                 </Typography>
 
                 <DateRangePicker
-                  value={dateRange}
+                  value={dateRangeDraft}
                   onChange={(range) => {
-                    setDateRange(range);
-                    setAnchorEl(null); // ferme après sélection
+                    setDateRangeDraft(range);
                   }}
                 />
+              </Box>
+              <Box sx={{ mt: 2, mb:2, mr: 2, display: "flex", justifyContent: "flex-end" }}>
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    setDateRange(dateRangeDraft); // ✅ déclenche le useEffect
+                    setAnchorEl(null);            // ferme
+                  }}
+                >
+                  Appliquer
+                </Button>
               </Box>
             </Popover>
           </Box>
