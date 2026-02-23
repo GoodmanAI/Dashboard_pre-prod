@@ -214,6 +214,9 @@ model TalkSettings {
   exams Json @default("[]")
   examInstructions Json? @default("{}")
 
+  multiExamMapping Json? @default("{}")
+  options           Json?
+
   specificNotes  String?
   reconnaissance Boolean  @default(false)
 
