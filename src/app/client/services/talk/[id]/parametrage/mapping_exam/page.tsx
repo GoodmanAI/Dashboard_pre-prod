@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import SaveIcon from "@mui/icons-material/Save";
 import SettingsIcon from "@mui/icons-material/Settings";
+import InsertLinkIcon from '@mui/icons-material/InsertLink';
 import { Stack, Button, Snackbar, Alert, Portal, TextField } from "@mui/material";
 import { useRouter } from "next/navigation";
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
@@ -34,22 +35,22 @@ function EditableTable({ data, setData }: EditableTableProps) {
   const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
 
   const visibleKeys = [
-    "typeExamen",
-    "codeExamen",
     "libelle",
     "codeExamenClient",
     "libelleClient",
-    "performed", // <-- New column
+    "typeExamenClient",
+    "performed",
+    "horaire"
   ];
 
   const columnLabels: Record<string, string> = {
-  typeExamen: "Type examen",
-  codeExamen: "Code examen",
-  libelle: "Libellé",
-  codeExamenClient: "Code examen client",
-  libelleClient: "Libellé client",
-  performed: "Attribué à Lyrae", // 👈 changement uniquement visuel
-};
+    libelle: "Libellé",
+    codeExamenClient: "Code examen client",
+    libelleClient: "Libellé client",
+    typeExamenClient: "Type examen client",
+    performed: "Attribué à Lyrae",
+    horaire: "Créneau horaire"
+  };
 
   const handleChange = (codeExamen: string, key: string, value: any) => {
     setData((prev) =>
@@ -104,15 +105,56 @@ function EditableTable({ data, setData }: EditableTableProps) {
 
                 return (
                   <td key={key} style={{ border: "1px solid #ccc", padding: "8px" }}>
-                    {/* NEW: checkbox for "performed" */}
-                    {key === "performed" ? (
-                      <input
-                        type="checkbox"
-                        checked={!!row[key]}
-                        onChange={(e) =>
-                          handleChange(row.codeExamen, key, e.target.checked)
-                        }
-                      />
+                    {key === "horaire" ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <input
+                          type="checkbox"
+                          checked={!!row.horaire?.enabled}
+                          onChange={(e) =>
+                            handleChange(row.codeExamen, "horaire", {
+                              ...row.horaire,
+                              enabled: e.target.checked
+                            })
+                          }
+                        />
+
+                        {row.horaire?.enabled && (
+                          <>
+                            <select
+                              value={row.horaire?.position || "below"}
+                              onChange={(e) =>
+                                handleChange(row.codeExamen, "horaire", {
+                                  ...row.horaire,
+                                  position: e.target.value
+                                })
+                              }
+                            >
+                              <option value="below">En dessous</option>
+                              <option value="above">Au dessus</option>
+                            </select>
+
+                            <input
+                              type="time"
+                              value={row.horaire?.time || ""}
+                              onChange={(e) =>
+                                handleChange(row.codeExamen, "horaire", {
+                                  ...row.horaire,
+                                  time: e.target.value
+                                })
+                              }
+                            />
+                          </>
+                        )}
+                      </div>
+                    ) :
+                      key === "performed" ? (
+                        <input
+                          type="checkbox"
+                          checked={!!row[key]}
+                          onChange={(e) =>
+                            handleChange(row.codeExamen, key, e.target.checked)
+                          }
+                        />
                       // <input
                       //   type="checkbox"
                       //   checked={!!row[key]}
@@ -199,12 +241,18 @@ export default function MappingExam({ params }: TalkPageProps) {
         if (res.ok) {
           const json = await res.json();
           const formatted = Array.isArray(json) ? json : Object.values(json);
-          const withPerformed = formatted.map((row: any) => ({
+          const withDefaults = formatted.map((row: any) => ({
             ...row,
-            performed: row.performed === undefined ? true : row.performed
+            typeExamenClient: row.typeExamenClient ?? "",
+            performed: row.performed ?? true,
+            horaire: row.horaire ?? {
+              enabled: false,
+              position: "below",
+              time: ""
+            }
           }));
-        
-          setData(withPerformed);
+
+          setData(withDefaults);
         } else if (res.status === 404) {
           const fallbackRes = await fetch("/api/data/exams");
           const fallbackJson = await fallbackRes.json();
@@ -257,7 +305,19 @@ export default function MappingExam({ params }: TalkPageProps) {
         <>
           <EditableTable data={data} setData={setData} />
 
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ position: "sticky", bottom: 0 }}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ position: "sticky", bottom: 10 }}>
+            <Button
+              variant="contained"
+              startIcon={<InsertLinkIcon />}
+              onClick={() =>
+                router.push(`/client/services/talk/${userProductId}/parametrage/mapping_exam/double_exam`)
+              }
+              disabled={saving}
+              sx={{ backgroundColor: "#48C8AF" }}
+            >
+              Gestion Doubles Examens
+            </Button>
+
             <Button
               variant="contained"
               startIcon={<SettingsIcon />}

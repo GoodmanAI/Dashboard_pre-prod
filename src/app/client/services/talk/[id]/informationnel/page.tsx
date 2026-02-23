@@ -19,12 +19,12 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SaveIcon from "@mui/icons-material/Save";
 
-const emptyDay: DayHours = { enabled: false, ranges: [] };
+// const emptyDay: DayHours = { enabled: false, ranges: [] };
 
-type DayHours = {
-  enabled: boolean;
-  ranges: { start: string; end: string }[];
-};
+// type DayHours = {
+//   enabled: boolean;
+//   ranges: { start: string; end: string }[];
+// };
 
 type FormState = {
   // Informations générales
@@ -43,15 +43,15 @@ type FormState = {
   publicTransport: string;
 
   // Horaires & disponibilité
-  weeklyHours: {
-    monday: DayHours;
-    tuesday: DayHours;
-    wednesday: DayHours;
-    thursday: DayHours;
-    friday: DayHours;
-    saturday: DayHours;
-    sunday: DayHours;
-  };
+  // weeklyHours: {
+  //   monday: DayHours;
+  //   tuesday: DayHours;
+  //   wednesday: DayHours;
+  //   thursday: DayHours;
+  //   friday: DayHours;
+  //   saturday: DayHours;
+  //   sunday: DayHours;
+  // };
 
   // Contacts
   secretariatPhone: string;
@@ -123,16 +123,6 @@ const initialState: FormState = {
   patientParking: "",
   publicTransport: "",
 
-  weeklyHours: {
-    monday: { ...emptyDay },
-    tuesday: { ...emptyDay },
-    wednesday: { ...emptyDay },
-    thursday: { ...emptyDay },
-    friday: { ...emptyDay },
-    saturday: { ...emptyDay },
-    sunday: { ...emptyDay },
-  },
-
   secretariatPhone: "",
   responsibleContact: "",
   infoEmail: "",
@@ -187,89 +177,89 @@ interface TalkPageProps {
     };
 }
 
-function DayHoursField({
-  day,
-  data,
-  onChange,
-}: {
-  day: string;
-  data: DayHours;
-  onChange: (update: DayHours) => void;
-}) {
-  return (
-    <Box sx={{ border: "1px solid #ddd", p: 2, borderRadius: 1 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="subtitle1" sx={{ textTransform: "capitalize" }}>
-          {day}
-        </Typography>
+// function DayHoursField({
+//   day,
+//   data,
+//   onChange,
+// }: {
+//   day: string;
+//   data: DayHours;
+//   onChange: (update: DayHours) => void;
+// }) {
+//   return (
+//     <Box sx={{ border: "1px solid #ddd", p: 2, borderRadius: 1 }}>
+//       <Stack direction="row" justifyContent="space-between" alignItems="center">
+//         <Typography variant="subtitle1" sx={{ textTransform: "capitalize" }}>
+//           {day}
+//         </Typography>
 
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() =>
-            onChange({ ...data, enabled: !data.enabled })
-          }
-        >
-          {data.enabled ? "Ouvert" : "Fermé"}
-        </Button>
-      </Stack>
+//         <Button
+//           variant="outlined"
+//           size="small"
+//           onClick={() =>
+//             onChange({ ...data, enabled: !data.enabled })
+//           }
+//         >
+//           {data.enabled ? "Ouvert" : "Fermé"}
+//         </Button>
+//       </Stack>
 
-      {data.enabled && (
-        <Stack spacing={1} mt={2}>
-          {data.ranges.map((r, idx) => (
-            <Stack direction="row" spacing={2} key={idx}>
-              <TextField
-                label="Début"
-                type="time"
-                value={r.start}
-                onChange={(e) => {
-                  const newRanges = [...data.ranges];
-                  newRanges[idx].start = e.target.value;
-                  onChange({ ...data, ranges: newRanges });
-                }}
-                InputLabelProps={{ shrink: true }}
-              />
-              <TextField
-                label="Fin"
-                type="time"
-                value={r.end}
-                onChange={(e) => {
-                  const newRanges = [...data.ranges];
-                  newRanges[idx].end = e.target.value;
-                  onChange({ ...data, ranges: newRanges });
-                }}
-                InputLabelProps={{ shrink: true }}
-              />
+//       {data.enabled && (
+//         <Stack spacing={1} mt={2}>
+//           {data.ranges.map((r, idx) => (
+//             <Stack direction="row" spacing={2} key={idx}>
+//               <TextField
+//                 label="Début"
+//                 type="time"
+//                 value={r.start}
+//                 onChange={(e) => {
+//                   const newRanges = [...data.ranges];
+//                   newRanges[idx].start = e.target.value;
+//                   onChange({ ...data, ranges: newRanges });
+//                 }}
+//                 InputLabelProps={{ shrink: true }}
+//               />
+//               <TextField
+//                 label="Fin"
+//                 type="time"
+//                 value={r.end}
+//                 onChange={(e) => {
+//                   const newRanges = [...data.ranges];
+//                   newRanges[idx].end = e.target.value;
+//                   onChange({ ...data, ranges: newRanges });
+//                 }}
+//                 InputLabelProps={{ shrink: true }}
+//               />
 
-              <Button
-                color="error"
-                onClick={() => {
-                  const newRanges = data.ranges.filter((_, i) => i !== idx);
-                  onChange({ ...data, ranges: newRanges });
-                }}
-              >
-                Supprimer
-              </Button>
-            </Stack>
-          ))}
+//               <Button
+//                 color="error"
+//                 onClick={() => {
+//                   const newRanges = data.ranges.filter((_, i) => i !== idx);
+//                   onChange({ ...data, ranges: newRanges });
+//                 }}
+//               >
+//                 Supprimer
+//               </Button>
+//             </Stack>
+//           ))}
 
-          <Button
-            variant="contained"
-            size="small"
-            onClick={() =>
-              onChange({
-                ...data,
-                ranges: [...data.ranges, { start: "", end: "" }],
-              })
-            }
-          >
-            Ajouter une plage horaire
-          </Button>
-        </Stack>
-      )}
-    </Box>
-  );
-}
+//           <Button
+//             variant="contained"
+//             size="small"
+//             onClick={() =>
+//               onChange({
+//                 ...data,
+//                 ranges: [...data.ranges, { start: "", end: "" }],
+//               })
+//             }
+//           >
+//             Ajouter une plage horaire
+//           </Button>
+//         </Stack>
+//       )}
+//     </Box>
+//   );
+// }
 
 export default function DashboardTalkForm({ params }: TalkPageProps) {
   const [form, setForm] = useState<FormState>(initialState);
@@ -301,7 +291,7 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
     const handleSave = async () => {
       setSaving(true);
       try {
-        const { weeklyHours, ...restWithoutWeeklyHours } = form;
+        const { ...restWithoutWeeklyHours } = form;
 
         const resInfo = await fetch("/api/configuration/informationnel", {
           method: "POST",
@@ -315,20 +305,6 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
         if (!resInfo.ok) {
           const errData = await resInfo.json().catch(() => null);
           throw new Error(errData?.error || `Erreur informationnel: ${resInfo.status}`);
-        }
-
-        const resHours = await fetch(`/api/configuration/informationnel/horaires?userProductId=${userProductId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userProductId,
-            weeklyHours: form.weeklyHours,
-          }),
-        });
-
-        if (!resHours.ok) {
-          const errData = await resHours.json().catch(() => null);
-          throw new Error(errData?.error || `Erreur horaires: ${resHours.status}`);
         }
 
         setSnack({
@@ -396,25 +372,6 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
   //     });
   //   }
   // };
-
-  useEffect(() => {
-  async function loadWeeklyHours() {
-    const res = await fetch(`/api/configuration/informationnel/horaires?userProductId=${userProductId}`);
-    const json = await res.json();
-
-    if (json.success && json.data.weeklyHours) {
-      setForm((prev) => ({
-        ...prev,
-        weeklyHours: { 
-          ...prev.weeklyHours, 
-          ...json.data.weeklyHours 
-        }
-      }));
-    }
-  }
-
-  loadWeeklyHours();
-}, [userProductId]);
 
   return (
     <Box sx={{ my: 6, px: 2 }}>
@@ -555,7 +512,7 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
         </Accordion>
 
         {/* Horaires & disponibilité */}
-        <Accordion>
+        {/* <Accordion>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6">Horaires & disponibilité</Typography>
           </AccordionSummary>
@@ -588,7 +545,7 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
               )}
             </Grid>
           </AccordionDetails>
-        </Accordion>
+        </Accordion> */}
 
         {/* Contacts */}
         <Accordion>

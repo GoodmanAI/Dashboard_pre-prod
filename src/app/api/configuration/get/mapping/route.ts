@@ -61,6 +61,10 @@ export async function GET(req: NextRequest) {
           // Si c'est un tableau
       if (Array.isArray(examsFromSettings)) {
         examsFromSettings.forEach((exam: any) => {
+          if (exam.libelle == "Scanner des sinus de la face") {
+            console.log(exam);
+          } 
+
           if (exam.codeExamen) {
             examsMap[exam.codeExamen] = {
               typeExamen: exam.typeExamen || "",
@@ -72,7 +76,8 @@ export async function GET(req: NextRequest) {
               performed: exam.performed ?? true,
               typeExamenClient: exam.typeExamenClient || "",
               libelleClient: exam.libelleClient || "",
-              codeExamenClient: exam.codeExamenClient || ""
+              codeExamenClient: exam.codeExamenClient || "",
+              horaireMapping: exam.horaire ?? null
             };
           }
         });
@@ -89,7 +94,8 @@ export async function GET(req: NextRequest) {
             performed: exam.performed ?? true,
             typeExamenClient: exam.typeExamenClient || "",
             libelleClient: exam.libelleClient || "",
-            codeExamenClient: exam.codeExamenClient || ""
+            codeExamenClient: exam.codeExamenClient || "",
+              horaireMapping: exam.horaire ?? null
           };
         });
       }
@@ -134,7 +140,7 @@ export async function GET(req: NextRequest) {
     rows.forEach((row: any) => {
       const code = row.codeExamen || row["codeExamen NEURACORP"];
       if (!code) return;
-
+    
       if (!examsMap[code]) {
         examsMap[code] = {
           typeExamen: row.typeExamen || "",
@@ -145,7 +151,8 @@ export async function GET(req: NextRequest) {
           Commentaire: row.Commentaire || "",
           performed: row.performed ?? true,
           typeExamenClient: row.typeExamenClient || "",
-          libelleClient: row.libelleClient || ""
+          libelleClient: row.libelleClient || "",
+          horaireMapping: null
         };
       }
     });

@@ -38,18 +38,40 @@ import { useCentre } from "@/app/context/CentreContext";
 type ExamKey = "radiographie" | "irm" | "echographie" | "scanner" | "mammo";
 type VoiceKey = "femme" | "homme" | "neutre";
 
+type DayHours = {
+  enabled: boolean;
+  ranges: { start: string; end: string }[];
+};
+
+const emptyDay: DayHours = { enabled: false, ranges: [] };
+
+type PlanningAction = {
+  type: "fin_appel" | "redirection";
+  message?: string;
+  phone?: string;
+};
+
+
 type TalkSettings = {
   voice: VoiceKey;
   botName: string;
   welcomeMsg: string;
   emergencyOutOfHours: string;
   callMode: "decroche" | "debordement";
-  fullPlanningNotes: Record<ExamKey, string>;
+  fullPlanningNotes: Record<ExamKey, PlanningAction>;
   examsAccepted: Record<ExamKey, boolean>;
   examQuestions: Record<ExamKey, string[]>;
   specificNotes: string;
   reconnaissance: boolean;
-
+  weeklyHours: {
+    monday: DayHours;
+    tuesday: DayHours;
+    wednesday: DayHours;
+    thursday: DayHours;
+    friday: DayHours;
+    saturday: DayHours;
+    sunday: DayHours;
+  };
   centerName?: string;
   address?: string;
   address2?: string;
@@ -58,6 +80,11 @@ type TalkSettings = {
   centerPhone?: string;
   centerWebsite?: string;
   centerMail?: string;
+  options: {
+    motif: boolean;
+    questions: boolean;
+    menstruations: boolean;
+  };
 };
 
 const DEFAULTS: TalkSettings = {
@@ -70,11 +97,11 @@ const DEFAULTS: TalkSettings = {
   callMode: "decroche",
 
   fullPlanningNotes: {
-    radiographie: "Rappeler le lendemain matin",
-    irm: "",
-    echographie: "",
-    scanner: "Consulter radiologie-ville.fr pour les créneaux mis à jour",
-    mammo: "",
+    radiographie: { type: "fin_appel", message: "" },
+    irm: { type: "fin_appel", message: "" },
+    echographie: { type: "fin_appel", message: "" },
+    scanner: { type: "fin_appel", message: "" },
+    mammo: { type: "fin_appel", message: "" },
   },
 
   examsAccepted: {
@@ -93,6 +120,16 @@ const DEFAULTS: TalkSettings = {
     mammo: [],
   },
 
+  weeklyHours: {
+    monday: { ...emptyDay },
+    tuesday: { ...emptyDay },
+    wednesday: { ...emptyDay },
+    thursday: { ...emptyDay },
+    friday: { ...emptyDay },
+    saturday: { ...emptyDay },
+    sunday: { ...emptyDay },
+  },
+
   specificNotes:
     "Accès parking limité : privilégier le parking P2 (entrée rue des Fleurs).",
   reconnaissance: false,
@@ -101,10 +138,14 @@ const DEFAULTS: TalkSettings = {
   address: "",
   address2: "",
 
-  // 🆕 NOUVEAUX CHAMPS
   centerPhone: "",
   centerWebsite: "",
   centerMail: "",
+  options: {
+    motif: true,
+    questions: true,
+    menstruations: false,
+  },
 };
 
 /**
@@ -136,72 +177,156 @@ const VOICE_DEMOS: Array<{
   },
 ];
 
-function QuestionsEditor({
-  label,
-  value,
-  onChange,
-  max = 3,
-}: {
-  label: string;
-  value: string[];
-  onChange: (next: string[]) => void;
-  max?: number;
-}) {
-  const canAdd = value.length < max;
+// function QuestionsEditor({
+//   label,
+//   value,
+//   onChange,
+//   max = 3,
+// }: {
+//   label: string;
+//   value: string[];
+//   onChange: (next: string[]) => void;
+//   max?: number;
+// }) {
+//   const canAdd = value.length < max;
 
-  return (
-    <Box>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-        <Typography variant="subtitle2">{label}</Typography>
-        <Chip label={`${value.length}/${max}`} size="small" />
-        <Box sx={{ flex: 1 }} />
-        <Button
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={() => canAdd && onChange([...value, ""])}
-          disabled={!canAdd}
-          sx={{ textTransform: "none" }}
-        >
-          Ajouter une question
-        </Button>
-      </Stack>
+//   return (
+//     <Box>
+//       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+//         <Typography variant="subtitle2">{label}</Typography>
+//         <Chip label={`${value.length}/${max}`} size="small" />
+//         <Box sx={{ flex: 1 }} />
+//         <Button
+//           size="small"
+//           startIcon={<AddIcon />}
+//           onClick={() => canAdd && onChange([...value, ""])}
+//           disabled={!canAdd}
+//           sx={{ textTransform: "none" }}
+//         >
+//           Ajouter une question
+//         </Button>
+//       </Stack>
 
-      <Stack spacing={1}>
-        {value.length === 0 && (
-          <Typography variant="body2" color="text.secondary">
-            Aucune question — vous pouvez en ajouter (1 à {max}).
-          </Typography>
-        )}
-        {value.map((q, idx) => (
-          <Stack key={idx} direction="row" spacing={1}>
-            <TextField
-              size="small"
-              fullWidth
-              value={q}
-              onChange={(e) => {
-                const next = [...value];
-                next[idx] = e.target.value;
-                onChange(next);
-              }}
-              placeholder={`Question ${idx + 1}`}
-            />
-            <IconButton
-              aria-label="remove"
-              onClick={() => onChange(value.filter((_, i) => i !== idx))}
-            >
-              <DeleteIcon />
-            </IconButton>
-          </Stack>
-        ))}
-      </Stack>
-    </Box>
-  );
-}
+//       <Stack spacing={1}>
+//         {value.length === 0 && (
+//           <Typography variant="body2" color="text.secondary">
+//             Aucune question — vous pouvez en ajouter (1 à {max}).
+//           </Typography>
+//         )}
+//         {value.map((q, idx) => (
+//           <Stack key={idx} direction="row" spacing={1}>
+//             <TextField
+//               size="small"
+//               fullWidth
+//               value={q}
+//               onChange={(e) => {
+//                 const next = [...value];
+//                 next[idx] = e.target.value;
+//                 onChange(next);
+//               }}
+//               placeholder={`Question ${idx + 1}`}
+//             />
+//             <IconButton
+//               aria-label="remove"
+//               onClick={() => onChange(value.filter((_, i) => i !== idx))}
+//             >
+//               <DeleteIcon />
+//             </IconButton>
+//           </Stack>
+//         ))}
+//       </Stack>
+//     </Box>
+//   );
+// }
 
 interface TalkPageProps {
     params: {
         id: string; // captured from the URL
     };
+}
+
+function DayHoursField({
+  day,
+  data,
+  onChange,
+}: {
+  day: string;
+  data: DayHours;
+  onChange: (update: DayHours) => void;
+}) {
+  return (
+    <Box sx={{ border: "1px solid #ddd", p: 2, borderRadius: 1 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Typography variant="subtitle1" sx={{ textTransform: "capitalize" }}>
+          {day}
+        </Typography>
+
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() =>
+            onChange({ ...data, enabled: !data.enabled })
+          }
+        >
+          {data.enabled ? "Ouvert" : "Fermé"}
+        </Button>
+      </Stack>
+
+      {data.enabled && (
+        <Stack spacing={1} mt={2}>
+          {data.ranges.map((r, idx) => (
+            <Stack direction="row" spacing={2} key={idx}>
+              <TextField
+                label="Début"
+                type="time"
+                value={r.start}
+                onChange={(e) => {
+                  const newRanges = [...data.ranges];
+                  newRanges[idx].start = e.target.value;
+                  onChange({ ...data, ranges: newRanges });
+                }}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                label="Fin"
+                type="time"
+                value={r.end}
+                onChange={(e) => {
+                  const newRanges = [...data.ranges];
+                  newRanges[idx].end = e.target.value;
+                  onChange({ ...data, ranges: newRanges });
+                }}
+                InputLabelProps={{ shrink: true }}
+              />
+
+              <Button
+                color="error"
+                onClick={() => {
+                  const newRanges = data.ranges.filter((_, i) => i !== idx);
+                  onChange({ ...data, ranges: newRanges });
+                }}
+              >
+                Supprimer
+              </Button>
+            </Stack>
+          ))}
+
+          <Button
+            variant="contained"
+            size="small"
+            onClick={() =>
+              onChange({
+                ...data,
+                ranges: [...data.ranges, { start: "", end: "" }],
+              })
+            }
+          >
+            Ajouter une plage horaire
+          </Button>
+        </Stack>
+      )}
+    </Box>
+  );
 }
 
 export default function ParametrageTalkPage({ params }: TalkPageProps) {
@@ -241,8 +366,17 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         const data = await res.json();
         setSettings((prev) => ({
           ...prev,
-          ...data,
-          botName: data.botName ?? prev.botName,
+          fullPlanningNotes: Object.fromEntries(
+            Object.entries(data.fullPlanningNotes || {}).map(([key, value]) => {
+              if (typeof value === "string") {
+                return [
+                  key,
+                  { type: "fin_appel", message: value }
+                ];
+              }
+              return [key, value];
+            })
+          ) as Record<ExamKey, PlanningAction>,
         }));
       } catch (error) {
         console.error("Error fetching settings:", error);
@@ -266,6 +400,27 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    async function loadWeeklyHours() {
+      const res = await fetch(
+        `/api/configuration/informationnel/horaires?userProductId=${userProductId}`
+      );
+      const json = await res.json();
+
+      if (json.success && json.data.weeklyHours) {
+        setSettings((prev) => ({
+          ...prev,
+          weeklyHours: {
+            ...prev.weeklyHours,
+            ...json.data.weeklyHours,
+          },
+        }));
+      }
+    }
+
+    loadWeeklyHours();
+  }, [userProductId]);
 
   const update = <K extends keyof TalkSettings>(key: K, val: TalkSettings[K]) =>
     setSettings((s) => ({ ...s, [key]: val }));
@@ -303,6 +458,23 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       } catch (error) {
         console.error("Error updating setting:", error);
       }
+
+      try {
+        await fetch(
+          `/api/configuration/informationnel/horaires?userProductId=${userProductId}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userProductId,
+              weeklyHours: settings.weeklyHours,
+            }),
+          }
+        );
+      } catch (error) {
+        console.error("Error updating setting:", error);
+      }
+
       setSnack({
         open: true,
         msg: "Paramètres enregistrés",
@@ -461,13 +633,13 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               </Stack>
             </Box>
 
-            <TextField
+            {/* <TextField
               fullWidth
               label="Nom du chatbot"
               value={settings.botName}
               onChange={(e) => update("botName", e.target.value)}
               InputLabelProps={{ shrink: true }}
-            />
+            /> */}
 
             <TextField
               label="Message d’accueil personnalisé"
@@ -479,7 +651,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               InputLabelProps={{ shrink: true }}
             />
 
-            <TextField
+            {/* <TextField
               label="Consigne à donner au patient si urgence détectée en heure non ouvrable. "
               value={settings.emergencyOutOfHours}
               onChange={(e) => update("emergencyOutOfHours", e.target.value)}
@@ -488,7 +660,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               minRows={2}
               helperText="Affichée / énoncée lorsque l’IA détecte une urgence en dehors des heures d’ouverture."
               InputLabelProps={{ shrink: true }}
-            />
+            /> */}
 
             <TextField
               fullWidth
@@ -560,7 +732,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
             />
 
 
-            <Box>
+            {/* <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Mode d’appel
               </Typography>
@@ -590,7 +762,45 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                   </>
                 }
               </Stack>
-            </Box>
+            </Box> */}
+          </Stack>
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="h6">Horaires & disponibilité</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Stack spacing={2}>
+            {Object.entries(settings.weeklyHours).map(([day, data]) => {
+              const mapping: any = {
+                monday: "lundi",
+                tuesday: "mardi",
+                wednesday: "mercredi",
+                thursday: "jeudi",
+                friday: "vendredi",
+                saturday: "samedi",
+                sunday: "dimanche",
+              };
+
+              return (
+                <DayHoursField
+                  key={day}
+                  day={mapping[day]}
+                  data={data}
+                  onChange={(updated) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      weeklyHours: {
+                        ...prev.weeklyHours,
+                        [day]: updated,
+                      },
+                    }))
+                  }
+                />
+              );
+            })}
           </Stack>
         </AccordionDetails>
       </Accordion>
@@ -606,36 +816,100 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
             Définissez une consigne par examen lorsque le planning est complet.
           </Typography>
 
-          <Stack spacing={2}>
-            {([
-              ["radiographie", "Radiographie"],
-              ["irm", "IRM"],
-              ["echographie", "Échographie"],
-              ["scanner", "Scanner"],
-              ["mammo", "Mammographie"],
-            ] as [ExamKey, string][]).map(([key, label]) => (
-              <Box key={key}>
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                  {label}
-                </Typography>
+          <Stack spacing={3}>
+  {([
+    ["radiographie", "Radiographie"],
+    ["irm", "IRM"],
+    ["echographie", "Échographie"],
+    ["scanner", "Scanner"],
+    ["mammo", "Mammographie"],
+  ] as [ExamKey, string][]).map(([key, label]) => {
 
-                <TextField
-                  fullWidth
-                  size="small"
-                  multiline
-                  minRows={2}
-                  placeholder={`Consigne pour ${label}`}
-                  value={settings.fullPlanningNotes[key]}
-                  onChange={(e) =>
-                    update("fullPlanningNotes", {
-                      ...settings.fullPlanningNotes,
-                      [key]: e.target.value,
-                    })
-                  }
-                />
-              </Box>
-            ))}
-          </Stack>
+    const current = settings.fullPlanningNotes[key];
+
+    return (
+      <Box key={key}>
+        <Typography variant="subtitle1" sx={{ mb: 1 }}>
+          {label}
+        </Typography>
+
+        {/* Choix du comportement */}
+        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+          <FormControlLabel
+            control={
+              <Radio
+                checked={current.type === "fin_appel"}
+                onChange={() =>
+                  update("fullPlanningNotes", {
+                    ...settings.fullPlanningNotes,
+                    [key]: { type: "fin_appel", message: "" },
+                  })
+                }
+              />
+            }
+            label="Fin d’appel"
+          />
+
+          <FormControlLabel
+            control={
+              <Radio
+                checked={current.type === "redirection"}
+                onChange={() =>
+                  update("fullPlanningNotes", {
+                    ...settings.fullPlanningNotes,
+                    [key]: { type: "redirection", phone: "" },
+                  })
+                }
+              />
+            }
+            label="Redirection"
+          />
+        </Stack>
+
+        {/* Champ conditionnel */}
+        {current.type === "fin_appel" && (
+          <TextField
+            fullWidth
+            size="small"
+            multiline
+            minRows={2}
+            label="Message de fin d’appel"
+            value={current.message || ""}
+            onChange={(e) =>
+              update("fullPlanningNotes", {
+                ...settings.fullPlanningNotes,
+                [key]: {
+                  ...current,
+                  message: e.target.value,
+                },
+              })
+            }
+          />
+        )}
+
+        {current.type === "redirection" && (
+          <TextField
+            fullWidth
+            size="small"
+            label="Numéro de redirection"
+            placeholder="01 23 45 67 89"
+            value={current.phone || ""}
+            onChange={(e) =>
+              update("fullPlanningNotes", {
+                ...settings.fullPlanningNotes,
+                [key]: {
+                  ...current,
+                  phone: e.target.value,
+                },
+              })
+            }
+          />
+        )}
+      </Box>
+    );
+  })}
+</Stack>
+
         </AccordionDetails>
       </Accordion>
 
@@ -674,8 +948,95 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         </AccordionDetails>
       </Accordion>
 
-      {/* Consignes spécifiques */}
+      {/* Options */}
       <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="h6">Options</Typography>
+        </AccordionSummary>
+
+        <AccordionDetails>
+          <Stack spacing={3}>
+
+            {/* MOTIF */}
+            <Box>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Box>
+                  <Typography variant="subtitle1">Motif</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Demande le motif écrit sur l’ordonnance. 
+                    Il sera noté dans le champ commentaire Xplore.
+                  </Typography>
+                </Box>
+
+                <Switch
+                  checked={settings.options.motif}
+                  onChange={(e) =>
+                    update("options", {
+                      ...settings.options,
+                      motif: e.target.checked,
+                    })
+                  }
+                />
+              </Stack>
+            </Box>
+
+            <Divider />
+
+            {/* QUESTIONS */}
+            <Box>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Box>
+                  <Typography variant="subtitle1">Questions</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Pose les questions en fin de prise de rendez-vous 
+                    pour aider à la préparation de l’examen.
+                    Les réponses seront inscrites dans le champ commentaire Xplore.
+                  </Typography>
+                </Box>
+
+                <Switch
+                  checked={settings.options.questions}
+                  onChange={(e) =>
+                    update("options", {
+                      ...settings.options,
+                      questions: e.target.checked,
+                    })
+                  }
+                />
+              </Stack>
+            </Box>
+
+            <Divider />
+
+            {/* MENSTRUATIONS */}
+            <Box>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Box>
+                  <Typography variant="subtitle1">Menstruations (Mammographie)</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Lors des mammographies, demande les dernières menstruations 
+                    afin d’adapter le créneau d’examen à une période moins douloureuse.
+                  </Typography>
+                </Box>
+
+                <Switch
+                  checked={settings.options.menstruations}
+                  onChange={(e) =>
+                    update("options", {
+                      ...settings.options,
+                      menstruations: e.target.checked,
+                    })
+                  }
+                />
+              </Stack>
+            </Box>
+
+          </Stack>
+        </AccordionDetails>
+      </Accordion>
+
+      {/* Consignes spécifiques */}
+      {/* <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="h6">Consignes d’accessibilité et de logistique</Typography>
         </AccordionSummary>
@@ -689,10 +1050,10 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
             onChange={(e) => update("specificNotes", e.target.value)}
           />
         </AccordionDetails>
-      </Accordion>
+      </Accordion> */}
 
       {/* Reconnaissance du numéro de téléphone */}
-      <Accordion>
+      {/* <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="h6">Reconnaissance Automatique</Typography>
         </AccordionSummary>
@@ -706,7 +1067,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
             ON
           </AccordionDetails>
         }
-      </Accordion>
+      </Accordion> */}
 
       {/* Reconnaissance du numéro de téléphone */}
       <Accordion>

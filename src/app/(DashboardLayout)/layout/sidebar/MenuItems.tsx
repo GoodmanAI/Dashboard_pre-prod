@@ -5,7 +5,8 @@ import {
   IconPhone,
   IconLifebuoy,
   IconQuestionMark,
-  IconAdjustmentsAlt
+  IconAdjustmentsAlt,
+  IconSettings
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -60,6 +61,12 @@ const Menuitems: SidebarItem[] = [
     title: "Mapping des examens",
     icon: IconFilePencil,
     href: "/client/services/talk/{TALK_ID}/parametrage/mapping_exam",
+  },
+  {
+    id: uniqueId(),
+    title: "Paramètres généraux",
+    icon: IconSettings,
+    href: "/client/services/talk/{TALK_ID}/parametrage",
   },
   {
     id: uniqueId(),

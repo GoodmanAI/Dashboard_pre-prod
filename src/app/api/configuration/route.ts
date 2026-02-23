@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
       Scanner: "CT",
     };
 
+    console.log(mappings);
     const mappedExamMappings = mappings.map((m: any) => ({
       ...m,
       labelFr: examCodeMap[m.fr] ?? m.fr,
@@ -53,19 +54,84 @@ export async function GET(req: NextRequest) {
       questions: {},
     };
 
+    console.log(settings);
+
+    const doubleExamCodeMap: Record<string, string> = {
+      radio: "RX",
+      echographie: "US",
+      mammographie: "MG",
+      scanner: "CT",
+      irm: "MR",
+    };
+
+    const allDoubleCombos: string[] = [
+      "RX+US",
+      "RX+MG",
+      "RX+CT",
+      "RX+MR",
+
+      "US+MG",
+      "US+CT",
+      "US+MR",
+
+      "MG+CT",
+      "MG+MR",
+
+      "CT+MR",
+    ];
+
+    const rawMultiExam = (settings.multiExamMapping ?? {}) as Record<
+      string,
+      { enabled?: boolean; mode?: string }
+    >;
+
+    const convertedFromDb: Record<
+      string,
+      { enabled: boolean; mode: string }
+    > = {};
+
+    Object.entries(rawMultiExam).forEach(([key, value]) => {
+      const [examA, examB] = key.split("_");
+
+      const codeA = doubleExamCodeMap[examA];
+      const codeB = doubleExamCodeMap[examB];
+
+      if (!codeA || !codeB) return;
+
+      const finalKey = `${codeA}+${codeB}`;
+
+      convertedFromDb[finalKey] = {
+        enabled: value.enabled ?? false,
+        mode: value.mode ?? "single",
+      };
+    });
+
+    const formattedMultiExam: Record<
+      string,
+      { enabled: boolean; mode: string }
+    > = {};
+
+    
+    allDoubleCombos.forEach((combo) => {
+      formattedMultiExam[combo] = {
+        enabled: convertedFromDb[combo]?.enabled ?? false,
+        mode: convertedFromDb[combo]?.mode ?? "single",
+      };
+    });
+
     // 4️⃣ Réponse finale
     return NextResponse.json(
       {
         voice: settings.voice,
-        botName: settings.botName,
+        // botName: settings.botName,
         welcomeMsg: settings.welcomeMsg,
-        emergencyOutOfHours: settings.emergencyOutOfHours,
-        callMode: settings.callMode,
+        // emergencyOutOfHours: settings.emergencyOutOfHours,
+        // callMode: settings.callMode,
         fullPlanningNotes: settings.fullPlanningNotes,
         examsAccepted: settings.examsAccepted,
         examQuestions: settings.examQuestions,
-        specificNotes: settings.specificNotes,
-        reconnaissance: settings.reconnaissance,
+        // specificNotes: settings.specificNotes,
+        // reconnaissance: settings.reconnaissance,
 
         centerName: settings.centerName,
         address: settings.address,
@@ -80,6 +146,8 @@ export async function GET(req: NextRequest) {
           mappedExamMappings.length > 0
             ? mappedExamMappings
             : defaultTypes,
+        
+        doubleBookingConfig: formattedMultiExam,
       },
       { status: 200 }
     );
@@ -116,10 +184,10 @@ export async function POST(req: NextRequest) {
       address,
       address2,
 
-      // 🆕 NOUVEAUX CHAMPS
       centerPhone,
       centerWebsite,
       centerMail,
+      options,
     } = body;
 
     // ✅ Validations minimales
@@ -133,6 +201,13 @@ export async function POST(req: NextRequest) {
     if (typeof reconnaissance !== "boolean") {
       return NextResponse.json(
         { error: "reconnaissance must be a boolean" },
+        { status: 400 }
+      );
+    }
+
+    if (options && typeof options !== "object") {
+      return NextResponse.json(
+        { error: "options must be an object" },
         { status: 400 }
       );
     }
@@ -157,10 +232,10 @@ export async function POST(req: NextRequest) {
         address,
         address2,
 
-        // 🆕 NOUVEAUX CHAMPS
         centerPhone,
         centerWebsite,
         centerMail,
+        options
       },
       create: {
         userProductId,
@@ -179,10 +254,10 @@ export async function POST(req: NextRequest) {
         address,
         address2,
 
-        // 🆕 NOUVEAUX CHAMPS
         centerPhone,
         centerWebsite,
         centerMail,
+        options
       },
     });
 
