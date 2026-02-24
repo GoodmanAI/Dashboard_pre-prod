@@ -364,8 +364,10 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         }
 
         const data = await res.json();
+        console.log("data ahah", data);
         setSettings((prev) => ({
           ...prev,
+          ...data, // ⬅️ injecte TOUTES les données récupérées
           fullPlanningNotes: Object.fromEntries(
             Object.entries(data.fullPlanningNotes || {}).map(([key, value]) => {
               if (typeof value === "string") {
@@ -378,6 +380,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
             })
           ) as Record<ExamKey, PlanningAction>,
         }));
+
       } catch (error) {
         console.error("Error fetching settings:", error);
       } finally {
