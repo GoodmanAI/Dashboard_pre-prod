@@ -42,7 +42,6 @@ export async function GET(req: NextRequest) {
       Scanner: "CT",
     };
 
-    console.log(mappings);
     const mappedExamMappings = mappings.map((m: any) => ({
       ...m,
       labelFr: examCodeMap[m.fr] ?? m.fr,
@@ -148,6 +147,7 @@ export async function GET(req: NextRequest) {
             : defaultTypes,
         
         doubleBookingConfig: formattedMultiExam,
+        options: settings.options,
       },
       { status: 200 }
     );

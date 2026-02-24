@@ -364,7 +364,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         }
 
         const data = await res.json();
-        console.log("data ahah", data);
         setSettings((prev) => ({
           ...prev,
           ...data, // ⬅️ injecte TOUTES les données récupérées
