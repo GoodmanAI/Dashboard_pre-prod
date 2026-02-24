@@ -775,7 +775,13 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           <Typography variant="h6">Horaires & disponibilité</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <Stack spacing={2}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 2,
+            }}
+          >
             {Object.entries(settings.weeklyHours).map(([day, data]) => {
               const mapping: any = {
                 monday: "lundi",
@@ -804,7 +810,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                 />
               );
             })}
-          </Stack>
+          </Box>
         </AccordionDetails>
       </Accordion>
 
