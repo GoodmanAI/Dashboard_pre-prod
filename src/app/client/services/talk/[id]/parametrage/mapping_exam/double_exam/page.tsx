@@ -26,14 +26,14 @@ const doubleExams = [
   { key: "echographie_radio", label: "Echographie + Radio" },
   { key: "echographie_irm", label: "Echographie + IRM" },
   { key: "echographie_scanner", label: "Echographie + Scanner" },
-
+  { key: "echographie_echographie", label: "Echographie + Echographie" },
   { key: "mammographie_radio", label: "Mammographie + Radio" },
   { key: "mammographie_irm", label: "Mammographie + IRM" },
   { key: "mammographie_scanner", label: "Mammographie + Scanner" },
-
+  { key: "mammographie_echomammaire", label: "Mammographie + Echographie Mammaire" },
+  { key: "radio_radio", label: "Radio + Radio" }, 
   { key: "radio_irm", label: "Radio + IRM" },
   { key: "radio_scanner", label: "Radio + Scanner" },
-
   { key: "irm_scanner", label: "IRM + Scanner" },
 ];
 
