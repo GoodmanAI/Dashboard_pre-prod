@@ -61,21 +61,22 @@ export async function GET(req: NextRequest) {
       mammographie: "MG",
       scanner: "CT",
       irm: "MR",
+      echomammaire: "USMAM",
     };
 
     const allDoubleCombos: string[] = [
+      "RX+RX",
+      "US+US",
       "RX+US",
-      "RX+MG",
-      "RX+CT",
-      "RX+MR",
-
       "US+MG",
+      "RX+MG",
+      "MG+USMAM",
       "US+CT",
-      "US+MR",
-
+      "RX+CT",
       "MG+CT",
+      "US+MR",
+      "RX+MR",
       "MG+MR",
-
       "CT+MR",
     ];
 
@@ -83,6 +84,19 @@ export async function GET(req: NextRequest) {
       string,
       { enabled?: boolean; mode?: string }
     >;
+
+    /**
+     * 🔹 Création d'une map de référence
+     * clé = version triée alphabétiquement
+     * valeur = format officiel défini dans allDoubleCombos
+     */
+    const comboReference = new Map<string, string>();
+
+    allDoubleCombos.forEach((combo) => {
+      const [a, b] = combo.split("+");
+      const normalized = [a, b].sort().join("+");
+      comboReference.set(normalized, combo);
+    });
 
     const convertedFromDb: Record<
       string,
@@ -97,7 +111,12 @@ export async function GET(req: NextRequest) {
 
       if (!codeA || !codeB) return;
 
-      const finalKey = `${codeA}+${codeB}`;
+      // 🔹 Normalisation dans les deux sens
+      const normalized = [codeA, codeB].sort().join("+");
+
+      const finalKey = comboReference.get(normalized);
+
+      if (!finalKey) return; // combo non autorisé
 
       convertedFromDb[finalKey] = {
         enabled: value.enabled ?? false,
@@ -105,18 +124,21 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    console.log("convertedFromDb", convertedFromDb);
+
     const formattedMultiExam: Record<
       string,
       { enabled: boolean; mode: string }
     > = {};
 
-    
     allDoubleCombos.forEach((combo) => {
       formattedMultiExam[combo] = {
         enabled: convertedFromDb[combo]?.enabled ?? false,
         mode: convertedFromDb[combo]?.mode ?? "single",
       };
     });
+
+    console.log(formattedMultiExam);
 
     // 4️⃣ Réponse finale
     return NextResponse.json(

@@ -203,7 +203,7 @@ function EditableTable({ data, setData }: EditableTableProps) {
       </table>
 
       {/* Pagination */}
-      <div style={{ marginTop: "10px", display: "flex", justifyContent: "center", gap: "10px" }}>
+      <div style={{ marginTop: "10px", display: "flex", justifyContent: "center", gap: "10px", marginBottom: "20px" }}>
         <button
           onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
           disabled={currentPage === 1}
