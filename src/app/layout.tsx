@@ -82,7 +82,7 @@ export default function RootLayout({
                   onSidebarClose={() => setMobileSidebarOpen(false)}
                 />
                 {/* En-tête et zone de contenu métier. */}
-                <PageWrapper className="page-wrapper">
+                <PageWrapper className="page-wrapper" style={{ overflowX: "hidden"}}>
                   <Header toggleMobileSidebar={() => setMobileSidebarOpen(true)} />
                   {/* Zone d’injection des pages (routes enfants). */}
                     <Box sx={{

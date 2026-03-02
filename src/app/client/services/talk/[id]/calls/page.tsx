@@ -164,7 +164,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
+    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh", overflowX: "hidden", }}>
       <Button
         variant="contained"
         startIcon={<ArrowBackIosIcon />}
