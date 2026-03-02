@@ -97,7 +97,7 @@ export default function CallListPage({ params }: CallListPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedCall, setSelectedCall] = useState<CallSummary | null>(null);
+  const [selectedCall, setSelectedCall] = useState<any | null>(null);
 
   const searchParams = useSearchParams();
   const router = useRouter();
