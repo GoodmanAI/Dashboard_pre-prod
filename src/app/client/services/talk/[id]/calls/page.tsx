@@ -148,6 +148,7 @@ export default function CallListPage({ params }: CallListPageProps) {
         return res.json();
       })
       .then(({ data, total }) => {
+        console.log("calls", data);
         setCalls(data);
         setTotal(total);
       })
@@ -225,6 +226,10 @@ export default function CallListPage({ params }: CallListPageProps) {
                               Appel du {formatDateFR(call.createdAt)}{" "}
                               {call.stats.call_start_time &&
                                 `à ${formatCallTime(call.stats.call_start_time)}`}
+                            </Typography>
+                            
+                            <Typography fontSize={14} color="text.secondary">
+                              {call.stats.phoneNumber}
                             </Typography>
 
                             {call.stats.rdv_status && (
