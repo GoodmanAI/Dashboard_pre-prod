@@ -10,14 +10,10 @@ export async function GET(request: NextRequest) {
 
     const userProductIdParam = searchParams.get("userProductId");
     const callIdParam = searchParams.get("call");
-
     const pageParam = searchParams.get("page");
     const limitParam = searchParams.get("limit");
     const statusParam = searchParams.get("status");
 
-    // ==========================
-    // VALIDATION
-    // ==========================
     if (!userProductIdParam) {
       return NextResponse.json(
         { error: "Paramètre userProductId manquant." },
@@ -38,6 +34,7 @@ export async function GET(request: NextRequest) {
     // ==========================
     if (callIdParam) {
       const callId = Number(callIdParam);
+
       if (!Number.isFinite(callId)) {
         return NextResponse.json(
           { error: "Paramètre call invalide." },
@@ -46,10 +43,7 @@ export async function GET(request: NextRequest) {
       }
 
       const call = await prisma.callConversation.findFirst({
-        where: {
-          id: callId,
-          userProductId,
-        },
+        where: { id: callId, userProductId },
       });
 
       if (!call) {
@@ -63,23 +57,16 @@ export async function GET(request: NextRequest) {
     }
 
     // ==========================
-    // CAS 2 : LISTE DES CALLS
+    // LISTE DES CALLS
     // ==========================
 
-    const isPaginated = pageParam !== null || limitParam !== null;
-
     const page = Number(pageParam) || 1;
-    const limit = Number(limitParam) || 20;
+    const limit = Number(limitParam) || 10;
     const skip = (page - 1) * limit;
 
-    /**
-     * Construction du WHERE
-     * On combine les conditions JSON avec AND
-     */
     const whereClause: any = {
       userProductId,
       AND: [
-        // duration > 15
         {
           stats: {
             path: ["duration"],
@@ -108,51 +95,32 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ==========================
-    // PAGINÉ
-    // ==========================
-    if (isPaginated) {
-      const [calls, total] = await Promise.all([
-        prisma.callConversation.findMany({
-          where: whereClause,
-          orderBy: { createdAt: "desc" },
-          skip,
-          take: limit,
-        }),
-        prisma.callConversation.count({
-          where: whereClause,
-        }),
-      ]);
-
-      // Filtre steps.length > 1 (impossible côté Prisma)
-      const filteredCalls = calls.filter((c: any) => {
-        return Array.isArray(c.steps) && c.steps.length > 1;
-      });
-
-      return NextResponse.json(
-        {
-          data: filteredCalls,
-          total,
-          page,
-          limit,
-        },
-        { status: 200 }
-      );
-    }
-
-    // ==========================
-    // NON PAGINÉ (LEGACY)
-    // ==========================
+    // 1️⃣ On récupère tout ce qui correspond aux filtres DB
     let calls = await prisma.callConversation.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
     });
 
+    // 2️⃣ Filtre steps.length > 1
     calls = calls.filter((c: any) => {
       return Array.isArray(c.steps) && c.steps.length > 1;
     });
 
-    return NextResponse.json(calls, { status: 200 });
+    // 3️⃣ Total réel
+    const total = calls.length;
+
+    // 4️⃣ Pagination propre
+    const paginatedCalls = calls.slice(skip, skip + limit);
+
+    return NextResponse.json(
+      {
+        data: paginatedCalls,
+        total,
+        page,
+        limit,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Erreur fetching calls:", error);
     return NextResponse.json(

@@ -3,11 +3,12 @@ export const dynamic = "force-dynamic";
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+// import { PrismaClient } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
-const prisma = new PrismaClient();
+// const prisma = new PrismaClient();
 
 export default async function TalkLayout({
   children,

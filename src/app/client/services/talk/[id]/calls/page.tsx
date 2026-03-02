@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 import { useRouter, useSearchParams } from "next/navigation";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
+import { Drawer } from "@mui/material";
 
 type Speaker = "Lyrae" | "User";
 
@@ -40,11 +41,11 @@ interface CallSummary {
   stats: {
     intents: string[];
     rdv_status:
-      | "succès"
-      | "pas de créneaux"
-      | "pas effectué"
-      | "annulé"
-      | "modifié"
+      | "success"
+      | "no_slot"
+      | "not_performed"
+      | "canceled"
+      | "rescheduled"
       | null;
     patient_status: "connu" | "nouveau" | "third_party" | null;
     end_reason:
@@ -57,14 +58,20 @@ interface CallSummary {
     exam_code: string | null;
     call_start_time?: number;
     phoneNumber?: string;
+    rdv_canceled?: number;
+    rdv_modified?: number;
   };
+  createdAt: string;
 }
 
 interface CallListPageProps {
   params: { id: string };
 }
 
-const formatCallTime = (timestamp: number) => {
+const ITEMS_PER_PAGE = 10;
+
+const formatCallTime = (timestamp?: number) => {
+  if (!timestamp) return "";
   const date = new Date(timestamp);
   return date.toLocaleTimeString("fr-FR", {
     hour: "2-digit",
@@ -72,30 +79,35 @@ const formatCallTime = (timestamp: number) => {
   });
 };
 
-function formatDateFR(isoDate: any) {
-  const date = new Date(isoDate);
+function formatDateFR(dateValue: string) {
+  const date = new Date(dateValue);
   let formatted = new Intl.DateTimeFormat("fr-FR", {
     day: "2-digit",
     month: "long",
-    year: "numeric"
+    year: "numeric",
   }).format(date);
 
-  // Majuscule au mois
   return formatted.replace(/\b([a-zà-ÿ])/i, (m) => m.toUpperCase());
 }
 
-const ITEMS_PER_PAGE = 10;
-
 export default function CallListPage({ params }: CallListPageProps) {
   const [calls, setCalls] = useState<CallSummary[]>([]);
-  const [total, setTotal] = useState(0);  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedCall, setSelectedCall] = useState<CallSummary | null>(null);
+
   const searchParams = useSearchParams();
   const router = useRouter();
   const userProductId = Number(params.id);
 
+  useEffect(() => {
+    console.log("selectedCall", selectedCall);
+  }, [selectedCall]);
+
+  // Sync URL => state
   useEffect(() => {
     const pageFromUrl = Number(searchParams.get("page"));
     const statusFromUrl = searchParams.get("status");
@@ -109,6 +121,7 @@ export default function CallListPage({ params }: CallListPageProps) {
     }
   }, []);
 
+  // Sync state => URL
   useEffect(() => {
     const params = new URLSearchParams();
     params.set("page", String(page));
@@ -120,6 +133,7 @@ export default function CallListPage({ params }: CallListPageProps) {
     );
   }, [page, statusFilter]);
 
+  // Fetch data
   useEffect(() => {
     if (!userProductId || isNaN(userProductId)) return;
 
@@ -141,31 +155,15 @@ export default function CallListPage({ params }: CallListPageProps) {
       .finally(() => setLoading(false));
   }, [userProductId, page, statusFilter]);
 
-
-  const filteredCalls =
-    statusFilter === "all"
-      ? calls
-      : statusFilter == "canceled" ? calls.filter((call: any) => call.stats.rdv_canceled != 0) : 
-      calls.filter(
-          (call: any) => call.stats.rdv_status === statusFilter
-        );
-
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
-  const paginatedCalls = filteredCalls.slice(
-    (page - 1) * ITEMS_PER_PAGE,
-    page * ITEMS_PER_PAGE
-  );
+  const filteredSteps = selectedCall?.steps?.filter(
+    (line: any) => !line.text.includes("WaitSound")
+  ) ?? [];
 
-  const buildCurrentUrl = () => {
-    const params = new URLSearchParams();
-    params.set("page", String(page));
-    params.set("status", statusFilter);
-    return `/client/services/talk/${userProductId}/calls?${params.toString()}`;
-  };
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh"}}>
+    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
       <Button
         variant="contained"
         startIcon={<ArrowBackIosIcon />}
@@ -175,12 +173,9 @@ export default function CallListPage({ params }: CallListPageProps) {
         Retour
       </Button>
 
-      <FormControl sx={{ mb: 2, minWidth: 220, ml: 5, overflow: "hidden" }}>
-        <InputLabel id="status-filter-label">
-          Filtrer par statut
-        </InputLabel>
+      <FormControl sx={{ mb: 2, minWidth: 220, ml: 5 }}>
+        <InputLabel>Filtrer par statut</InputLabel>
         <Select
-          labelId="status-filter-label"
           value={statusFilter}
           label="Filtrer par statut"
           onChange={(e) => {
@@ -206,131 +201,71 @@ export default function CallListPage({ params }: CallListPageProps) {
       {error && <Alert severity="error">{error}</Alert>}
 
       {!loading && !error && calls.length === 0 && (
-        <Alert severity="info">
-          Aucun appel trouvé pour ce filtre.
-        </Alert>
+        <Alert severity="info">Aucun appel trouvé pour ce filtre.</Alert>
       )}
 
       {!loading && calls.length > 0 && (
         <>
-          <List
-            sx={{
-              bgcolor: "white",
-              borderRadius: 2,
-              overflowX: "hidden",
-              maxWidth: "calc(100vw-1200px)" 
-            }}
-          >
-
-            {calls.map((call: any, index) => {
-              const firstStep = Object.values(call.steps)[0] as any | undefined;
-              const secondStep = Object.values(call.steps)[2] as any | undefined;
+          <List sx={{ bgcolor: "white", borderRadius: 2 }}>
+            {calls.map((call, index) => {
+              const stepsArray = Object.values(call.steps || {});
+              const firstStep = stepsArray[0];
+              const secondStep = stepsArray[2];
 
               return (
-                <Box key={call.id} sx={{maxWidth: "calc(100vw - 350px)"}}>
-                  <ListItem disablePadding sx={{ overflow: "hidden", maxWidth: "100%"}}>
+                <Box key={call.id}>
+                  <ListItem disablePadding>
                     <ListItemButton
-                      onClick={() =>
-                        router.push(
-                          `/client/services/talk/${userProductId}/calls/details/${call.id}?from=${encodeURIComponent(
-                            buildCurrentUrl()
-                          )}`
-                        )
-                      }
-                      alignItems="flex-start"
-                      sx={{
-                        overflow: "hidden",
-                        minWidth: 0,
-                        "&:hover": {
-                          backgroundColor: "rgba(72,200,175,0.08)",
-                        },
-                      }}
+                      onClick={() => setSelectedCall(call)}
                     >
                       <ListItemText
-                      sx={{
-                        maxWidth: "100%",
-                        overflow: "hidden",
-                        minWidth: 0,
-                      }}
                         primary={
-                          <Box
-                            sx={{
-                              display: "flex",
-                              gap: 1,
-                              alignItems: "center",
-                              flexWrap: "nowrap",
-                              overflow: "hidden",
-                              minWidth: 0,
-                            }}
-                          >
-                            <Typography variant="subtitle1" fontWeight={600}>
-                              
-                              Appel du {formatDateFR(call.createdAt)} à {formatCallTime(call.stats.call_start_time) }
+                          <Box display="flex" gap={1} alignItems="center">
+                            <Typography fontWeight={600}>
+                              Appel du {formatDateFR(call.createdAt)}{" "}
+                              {call.stats.call_start_time &&
+                                `à ${formatCallTime(call.stats.call_start_time)}`}
                             </Typography>
 
-                            {((call.stats.rdv_status != null || call.stats.rdv_canceled != 0 || call.stats.rdv_modified != 0)) && (
-                              <>
-                                <Chip
-                                  size="small"
-                                  label={
-                                    call.stats.rdv_status == "success" ? 
-                                      call_status[call.stats.rdv_status] : 
-                                      (call.stats.rdv_canceled > 0 ? "annulé" : (call.stats.rdv_modified > 0 ? "modifié" : "pas effectué"))
-                                    }
-                                  sx={{
-                                    backgroundColor:
-                                      call.stats.rdv_status === "success"
-                                        ? "success.main"
-                                        : call.stats.rdv_status ===
-                                          "no_slot"
-                                        ? "error.main"
-                                        : "grey.400",
-                                    color: "white",
-                                  }}
-                                />
-                              </>
-                            )}
-
-                            {call.stats.phoneNumber && (
-                              <Typography
-                                variant="caption"
-                                sx={{
-                                  color: "text.secondary",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {call.stats.phoneNumber}
-                              </Typography>
+                            {call.stats.rdv_status && (
+                              <Chip
+                                size="small"
+                                label={
+                                  call.stats.rdv_canceled && call.stats.rdv_canceled > 0
+                                    ? "annulé"
+                                    : call.stats.rdv_modified && call.stats.rdv_modified > 0
+                                    ? "modifié"
+                                    : call_status[call.stats.rdv_status]
+                                }
+                                color={
+                                  call.stats.rdv_status === "success"
+                                    ? "success"
+                                    : call.stats.rdv_status === "no_slot"
+                                    ? "error"
+                                    : "default"
+                                }
+                              />
                             )}
                           </Box>
                         }
                         secondary={
-                          <Box sx={{ mt: 0.5, overflow: "hidden" }}>
-                            {firstStep && (
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                }}
-                              >
-                                <strong>{firstStep.text}</strong>
-                                {secondStep && (
-                                  <>
-                                    {" — "}
-                                    <strong>{secondStep.text}</strong>
-                                  </>
-                                )}
-                              </Typography>
-                            )}
-                          </Box>
+                          firstStep && (
+                            <Typography variant="body2" noWrap>
+                              <strong>{firstStep.text}</strong>
+                              {secondStep && (
+                                <>
+                                  {" — "}
+                                  <strong>{secondStep.text}</strong>
+                                </>
+                              )}
+                            </Typography>
+                          )
                         }
                       />
                     </ListItemButton>
                   </ListItem>
 
-                  {index < paginatedCalls.length - 1 && <Divider />}
+                  {index < calls.length - 1 && <Divider />}
                 </Box>
               );
             })}
@@ -342,11 +277,59 @@ export default function CallListPage({ params }: CallListPageProps) {
                 count={totalPages}
                 page={page}
                 onChange={(_, value) => setPage(value)}
-                color="primary"
                 disabled={loading}
               />
             </Box>
           )}
+
+          <Drawer
+            anchor="right"
+            open={!!selectedCall}
+            onClose={() => setSelectedCall(null)}
+            PaperProps={{
+              sx: {
+                width: { xs: "100%", sm: 500 },
+                p: 3,
+                bgcolor: "#F8F8F8",
+              },
+            }}
+          >
+            <Typography variant="h6" gutterBottom>
+              Conversation
+            </Typography>
+
+            {filteredSteps.map((text: any, idx: number) => {
+              const speaker: Speaker = idx % 2 === 0 ? "Lyrae" : "User";
+
+              return (
+                <Box
+                  key={idx}
+                  sx={{
+                    display: "flex",
+                    justifyContent:
+                      speaker === "Lyrae" ? "flex-start" : "flex-end",
+                    mb: 1,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      p: 1.25,
+                      borderRadius: 2,
+                      bgcolor:
+                        speaker === "Lyrae"
+                          ? "rgba(72,200,175,0.15)"
+                          : "#eee",
+                      maxWidth: "75%",
+                    }}
+                  >
+                    <Typography variant="body2">
+                      {text.text}
+                    </Typography>
+                  </Box>
+                </Box>
+              );
+            })}
+          </Drawer>
         </>
       )}
     </Box>

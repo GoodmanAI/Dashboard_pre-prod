@@ -1,6 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaClient } from "@prisma/client";
+// import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
 /**
@@ -8,7 +9,7 @@ import bcrypt from "bcryptjs";
  * Remarque : dans une application Next.js en mode serveur, veillez à mutualiser l’instance
  * (pattern singleton) si vous rencontrez des problèmes de connexions multiples en dev.
  */
-const prisma = new PrismaClient();
+// const prisma = new PrismaClient();
 
 /**
  * Configuration NextAuth centralisée.

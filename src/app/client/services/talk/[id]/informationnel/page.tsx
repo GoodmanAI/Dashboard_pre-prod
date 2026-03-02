@@ -1005,7 +1005,8 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
           px: 2,
           mt: 2,
           borderTop: "1px solid #eee",
-          justifyContent: "flex-end"
+          justifyContent: "flex-end",
+          zIndex: 99
         }}
       >
         <Button

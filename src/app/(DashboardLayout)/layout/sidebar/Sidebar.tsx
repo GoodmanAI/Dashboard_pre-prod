@@ -47,7 +47,7 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
   }, [userId]);
 
   useEffect(() => {
-    if (products) {
+    if (products && Array.isArray(products)) {
       products.forEach((product: any) => {
         if (product.name === "LyraeTalk") {
           setTalkId(product.id);
@@ -96,7 +96,9 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
               </Box>
 
               {/* Navigation latérale */}
-              <SidebarItems />
+              {(products.length > 0) &&
+                <SidebarItems />
+              }
             </Sidebar>
           </Box>
         </Drawer>
