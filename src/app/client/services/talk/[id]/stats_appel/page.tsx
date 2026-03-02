@@ -302,7 +302,7 @@ export default function StatsAppelPage({ params }: any) {
           demoPreserveDow: "1",
         });
 
-        const callsUrl = `/api/calls?${params.toString()}&userProductId=${userProductId}`;
+        const callsUrl = `/api/calls?${params.toString()}&userProductId=${userProductId}&mode=all`;
 
         const callsRes = await fetch(callsUrl, {
           signal: controller.signal,
@@ -312,12 +312,33 @@ export default function StatsAppelPage({ params }: any) {
 
         const response = await callsRes.json();
 
+        // === NORMALISATION DES BORNES ===
+        const nowDate = new Date();
+
+        // Date minimum → toujours 00:00
+        const fromDate = new Date(dateRange.from);
+        fromDate.setHours(0, 0, 0, 0);
+
+        // Date maximum
+        const toDate = new Date(dateRange.to);
+
+        // Si la date max est aujourd’hui → heure actuelle
+        const isToday =
+          toDate.toDateString() === nowDate.toDateString();
+
+        if (isToday) {
+          toDate.setTime(nowDate.getTime());
+        } else {
+          // Sinon → fin de journée
+          toDate.setHours(23, 59, 59, 999);
+        }
+
+        const fromTime = fromDate.getTime();
+        const toTime = toDate.getTime();
+
         const filteredCalls = response.filter((call: any) => {
           const callTime = new Date(call.createdAt).getTime();
-          return (
-            callTime >= dateRange.from.getTime() &&
-            callTime <= dateRange.to.getTime()
-          );
+          return callTime >= fromTime && callTime <= toTime;
         });
 
         setCalls(filteredCalls);
@@ -374,7 +395,7 @@ export default function StatsAppelPage({ params }: any) {
             });
 
             try {
-              const res = await fetch(`/api/calls?${params.toString()}`, {
+              const res = await fetch(`/api/calls?${params.toString()}&mode=all`, {
                 signal: controller.signal,
                 cache: "no-store",
                 headers: { "Cache-Control": "no-store" },

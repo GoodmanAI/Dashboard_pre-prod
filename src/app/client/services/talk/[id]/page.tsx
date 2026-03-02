@@ -177,12 +177,14 @@ export default function TalkPage({ params }: TalkPageProps) {
         // centre sélectionné
         if (selectedUserId) params.set("asUserId", String(selectedUserId));
 
-        const res = await fetch(`/api/calls?userProductId=${userProductId}`, {
+        const res = await fetch(`/api/calls?userProductId=${userProductId}&mode=all`, {
           signal: controller.signal,
           cache: "no-store",
         });
+
         if (!res.ok) throw new Error("Erreur récupération appels");
         const data: Call[] = await res.json();
+        console.log("calls", data);
 
         // stricte journée d'anchor (00:00–23:59)
         const { start, end } = getAnchorDayBounds(new Date().toISOString());
@@ -255,7 +257,7 @@ export default function TalkPage({ params }: TalkPageProps) {
         }
         if (selectedUserId) params.set("asUserId", String(selectedUserId));
 
-        const res = await fetch(`/api/calls?userProductId=${userProductId}`, {
+        const res = await fetch(`/api/calls?userProductId=${userProductId}&mode=all`, {
           signal: controller.signal,
           cache: "no-store",
         });

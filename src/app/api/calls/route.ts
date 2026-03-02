@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
 
+    const mode = searchParams.get("mode");
     const userProductIdParam = searchParams.get("userProductId");
     const callIdParam = searchParams.get("call");
     const pageParam = searchParams.get("page");
@@ -60,10 +61,6 @@ export async function GET(request: NextRequest) {
     // LISTE DES CALLS
     // ==========================
 
-    const page = Number(pageParam) || 1;
-    const limit = Number(limitParam) || 10;
-    const skip = (page - 1) * limit;
-
     const whereClause: any = {
       userProductId,
       AND: [
@@ -76,7 +73,7 @@ export async function GET(request: NextRequest) {
       ],
     };
 
-    // Filtre par statut
+    // Filtre statut
     if (statusParam && statusParam !== "all") {
       if (statusParam === "canceled") {
         whereClause.AND.push({
@@ -95,21 +92,32 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 1️⃣ On récupère tout ce qui correspond aux filtres DB
+    // 🔹 Une seule requête DB
     let calls = await prisma.callConversation.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
     });
 
-    // 2️⃣ Filtre steps.length > 1
+    // 🔹 Filtre JS obligatoire
     calls = calls.filter((c: any) => {
       return Array.isArray(c.steps) && c.steps.length > 1;
     });
 
-    // 3️⃣ Total réel
-    const total = calls.length;
+    // ==========================
+    // MODE ALL → pas de pagination
+    // ==========================
+    if (mode === "all") {
+      return NextResponse.json(calls, { status: 200 });
+    }
 
-    // 4️⃣ Pagination propre
+    // ==========================
+    // MODE PAGINÉ
+    // ==========================
+    const page = Number(pageParam) || 1;
+    const limit = Number(limitParam) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = calls.length;
     const paginatedCalls = calls.slice(skip, skip + limit);
 
     return NextResponse.json(
