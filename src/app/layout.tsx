@@ -91,7 +91,7 @@ export default function RootLayout({
                       }}
                     >
                       {children}
-                      </Box>
+                    </Box>
                 </PageWrapper>
               </MainWrapper>
             </CentreProvider>

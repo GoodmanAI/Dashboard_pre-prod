@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
 
     const mode = searchParams.get("mode");
+    const examType = searchParams.get("examType");
     const userProductIdParam = searchParams.get("userProductId");
     const callIdParam = searchParams.get("call");
     const pageParam = searchParams.get("page");
@@ -120,15 +121,33 @@ export async function GET(request: NextRequest) {
     const total = calls.length;
     const paginatedCalls = calls.slice(skip, skip + limit);
 
-    return NextResponse.json(
-      {
-        data: paginatedCalls,
-        total,
-        page,
-        limit,
-      },
-      { status: 200 }
-    );
+    if (examType) {
+      const scannersCalls = calls.filter((call: any) => {
+        return call.stats?.exam_type_id.includes("CT");
+      });
+
+      const examPaginatedCalls = scannersCalls.slice(skip, skip + limit);
+
+      console.log("scannerPaginated", scannersCalls.length);
+      return NextResponse.json(
+        {
+          data: examPaginatedCalls,
+          total: scannersCalls.length,
+          page,
+          limit
+        }
+      );
+    } else {
+      return NextResponse.json(
+        {
+          data: paginatedCalls,
+          total,
+          page,
+          limit,
+        },
+        { status: 200 }
+      );
+    }
   } catch (error) {
     console.error("Erreur fetching calls:", error);
     return NextResponse.json(
