@@ -123,12 +123,13 @@ export async function GET(request: NextRequest) {
 
     if (examType) {
       const scannersCalls = calls.filter((call: any) => {
-        return call.stats?.exam_type_id.includes("CT");
+        if(call.stats?.exam_type_id === null) return false;
+        return call.stats?.exam_type_id?.includes("CT");
       });
 
+      console.log(scannersCalls.length, "calls de type scanner");
       const examPaginatedCalls = scannersCalls.slice(skip, skip + limit);
 
-      console.log("scannerPaginated", scannersCalls.length);
       return NextResponse.json(
         {
           data: examPaginatedCalls,

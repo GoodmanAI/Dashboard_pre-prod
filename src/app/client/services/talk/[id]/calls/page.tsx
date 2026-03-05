@@ -27,13 +27,62 @@ import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 
 type Speaker = "Lyrae" | "User";
 
+const states: any = { identification_birthdate: "- Etape Identification", identification_firstname: "- Etape Identification", identification_lastname: "- Etape Identification", identification_confirm: "- Etape Identification", identification_birthdate_light: "- Etape Identification", identification_firstname_light: "- Etape Identification", identification_lastname_light: "- Etape Identification", identification_confirm_light: "- Etape Identification", get_intent: "- Etape Intention", confirm_intent: "- Etape Intention", get_phone: "- Etape Téléphone", confirm_phone: "- Etape Téléphone", confirm_identity_rdv: "- Etape Identification", exam_type: "- Etape Intention Examen", confirm_exam: "- Etape Intention Examen", exam_questions: "- Etape Questions", define_mammo: "- Etape définir Mammo", irm_injection_flow: "- Etape injection IRM", scanner_injection_flow: "- Etape injection scanner", multi_exam_confirm: "- Etape multi-examens", multi_exam_get_region: "- Etape multi-examens", multi_exam_one_not_accepted: "- Etape multi-examens", multi_exam_validate: "- Etape multi-examens", get_motif: "- Etape motif", get_dispo: "- Etape Créneaux", get_dispo_double: "- Etape Créneaux", get_period: "- Etape période Mammo", get_period_double: "- Etape période Mammo", slot: "- Etape Créneaux", slot_double: "- Etape Créneaux", validate_exam: "- Etape validation RDV", validate_double_exam: "- Etape validation RDV", consultation: "- Etape Consultation", cancel_fetch: "- Etape Annulation", cancel_confirm: "- Etape Annulation", modify_fetch: "- Etape Modification", modify_confirm: "- Etape Modification", no_slot_modify_proposal: "- Etape Créneau" }
+
+const ITEMS_PER_PAGE = 10;
+
+const transferReason: any = {
+  exam_type: "- Type d'examen non géré",
+  redirect: "- Demande de redirection",
+  incident: "- Nécessite intervention humaine",
+  emergency: "- Urgence médicale",
+  multi_exam_not_accepted: "- Examens multiples non gérés",
+  multi_examen_double_us: "- Double échographie non gérée",
+  error_logic: "- Erreur système",
+  admin: "- Démarche administrative",
+  exam_interv: "- Examen interventionnel",
+  patient_not_found: "- Patient non trouvé",
+  error_identification: "- Erreur d'identification",
+  create_rdv_failed: "- Échec de création de RDV",
+};
+
+function getCallChip(call: any) {
+  let label = "";
+  let color: "success" | "error" | "warning" | "default" = "default";
+
+  if (call.stats.rdv_canceled > 0) {
+    label = "Annulé";
+  } else if (call.stats.rdv_modified > 0) {
+    label = "Modifié";
+  } else if (call.stats.end_reason === "transfer") {
+    label =
+      "Redirection " +
+      (transferReason[call.stats.transferReason] || "");
+    color = "warning";
+  } else if (
+    call.stats.rdv_booked === 0 &&
+    call.stats.rdv_canceled === 0 &&
+    call.stats.rdv_modified === 0 &&
+    call.stats.end_reason !== "transfer"
+  ) {
+    label = "Raccroché";
+  } else {
+    label = call_status[call.stats.rdv_status];
+  }
+
+  if (call.stats.rdv_status === "success") color = "success";
+  if (call.stats.rdv_status === "no_slot") color = "error";
+
+  return { label, color };
+}
+
 const call_status: any = {
   no_slot: "Pas de créneaux",
   success: "Succès",
   not_performed: "Pas effectué",
   canceled: "Annulé",
   rescheduled: "Modifié",
-  full_planning_end: "Planning complet"
+  full_planning_end: "Planning complet",
 };
 
 interface CallSummary {
@@ -48,63 +97,6 @@ interface CallSummary {
 interface CallListPageProps {
   params: { id: string };
 }
-
-const transferReason: any = {
-  exam_type: "- Type d'examen non géré",
-  redirect: "- Demande de redirection",
-  incident: "- Nécessite intervention humaine",
-  emergency: "- Urgence médicale",
-  multi_exam_not_accepted: "- Examens multiples non gérés",
-  multi_examen_double_us: "- Double échographie non gérée",
-  error_logic: "- Erreur système",
-  admin: "- Démarche administrative",
-  exam_interv: "- Examen interventionnel",
-  patient_not_found: " - Patient non trouvé",
-  error_identification : "- Erreur d'identification",
-  create_rdv_failed: "- Échec de création de RDV",
-};
-
-const states: any = {
-  identification_birthdate: "- Etape Identification",
-  identification_firstname: "- Etape Identification",
-  identification_lastname: "- Etape Identification",
-  identification_confirm: "- Etape Identification",
-  identification_birthdate_light: "- Etape Identification",
-  identification_firstname_light: "- Etape Identification",
-  identification_lastname_light: "- Etape Identification",
-  identification_confirm_light: "- Etape Identification",
-  get_intent: "- Etape Intention",
-  confirm_intent: "- Etape Intention",
-  get_phone: "- Etape Téléphone",
-  confirm_phone: "- Etape Téléphone",
-  confirm_identity_rdv: "- Etape Identification",
-  exam_type: "- Etape Intention Examen",
-  confirm_exam: "- Etape Intention Examen",
-  exam_questions: "- Etape Questions",
-  define_mammo: "- Etape définir Mammo",
-  irm_injection_flow: "- Etape injection IRM",
-  scanner_injection_flow: "- Etape injection scanner",
-  multi_exam_confirm: "- Etape multi-examens",
-  multi_exam_get_region: "- Etape multi-examens",
-  multi_exam_one_not_accepted: "- Etape multi-examens",
-  multi_exam_validate: "- Etape multi-examens",
-  get_motif: "- Etape motif",
-  get_dispo: "- Etape Créneaux",
-  get_dispo_double: "- Etape Créneaux",
-  get_period: "- Etape période Mammo",
-  get_period_double: "- Etape période Mammo",
-  slot: "- Etape Créneaux",
-  slot_double: "- Etape Créneaux",
-  validate_exam: "- Etape validation RDV",
-  validate_double_exam: "- Etape validation RDV",
-  consultation: "- Etape Consultation",
-  cancel_fetch: "- Etape Annulation",
-  cancel_confirm: "- Etape Annulation",
-  modify_fetch: "- Etape Modification",
-  modify_confirm: "- Etape Modification",
-  no_slot_modify_proposal: "- Etape Créneau"
-}
-const ITEMS_PER_PAGE = 10;
 
 const formatCallTime = (timestamp?: number) => {
   if (!timestamp) return "";
@@ -127,41 +119,43 @@ function formatDateFR(dateValue: string) {
 }
 
 export default function CallListPage({ params }: CallListPageProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const userProductId = Number(params.id);
+
   const [calls, setCalls] = useState<CallSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedCall, setSelectedCall] = useState<any | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [tab, setTab] = useState("all");
 
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const userProductId = Number(params.id);
+  const [selectedCall, setSelectedCall] = useState<any | null>(null);
 
-  // Sync URL => state
+  // -------------------------
+  // URL → state
+  // -------------------------
+
   useEffect(() => {
     const pageFromUrl = Number(searchParams.get("page"));
     const statusFromUrl = searchParams.get("status");
     const tabFromUrl = searchParams.get("tab");
 
-    if (!isNaN(pageFromUrl) && pageFromUrl > 0) {
-      setPage(pageFromUrl);
-    }
-
-    if (statusFromUrl) {
-      setStatusFilter(statusFromUrl);
-    }
-
-    if (tabFromUrl) {
-      setTab(tabFromUrl);
-    }
+    if (!isNaN(pageFromUrl) && pageFromUrl > 0) setPage(pageFromUrl);
+    if (statusFromUrl) setStatusFilter(statusFromUrl);
+    if (tabFromUrl) setTab(tabFromUrl);
   }, []);
 
-  // Sync state => URL
+  // -------------------------
+  // state → URL
+  // -------------------------
+
   useEffect(() => {
     const paramsUrl = new URLSearchParams();
+
     paramsUrl.set("page", String(page));
     paramsUrl.set("status", statusFilter);
     paramsUrl.set("tab", tab);
@@ -172,49 +166,54 @@ export default function CallListPage({ params }: CallListPageProps) {
     );
   }, [page, statusFilter, tab]);
 
-  // Fetch data seulement si onglet "all"
+  // -------------------------
+  // FETCH
+  // -------------------------
+
   useEffect(() => {
-    if (tab == "all") {
-      if (!userProductId || isNaN(userProductId)) return;
-  
-      setLoading(true);
-      setError(null);
-  
-      fetch(
-        `/api/calls?userProductId=${userProductId}&page=${page}&limit=${ITEMS_PER_PAGE}&status=${statusFilter}`
-      )
-        .then((res) => {
-          if (!res.ok) throw new Error("Erreur lors du fetch des appels");
-          return res.json();
-        })
-        .then(({ data, total }) => {
-          console.log("calls", data);
-          setCalls(data);
-          setTotal(total);
-        })
-        .catch((err) => setError(err.message))
-        .finally(() => setLoading(false));
-    } else {
-      if (!userProductId || isNaN(userProductId)) return;
+    if (!userProductId || isNaN(userProductId)) return;
 
-      setLoading(true);
-      setError(null);
+    const controller = new AbortController();
 
-      fetch(
-        `/api/calls?userProductId=${userProductId}&page=${page}&limit=${ITEMS_PER_PAGE}&status=${statusFilter}&examType=scanner`
-      )
-        .then((res) => {
-          if (!res.ok) throw new Error("Erreur lors du fetch des appels");
-          return res.json();
-        })
-        .then(({ data, total }) => {
-          setCalls(data);
-          setTotal(total);
-        })
-        .catch((err) => setError(err.message))
-        .finally(() => setLoading(false));
+    const fetchCalls = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        setCalls([]);
 
-    }
+        const params = new URLSearchParams({
+          userProductId: String(userProductId),
+          page: String(page),
+          limit: String(ITEMS_PER_PAGE),
+          status: statusFilter,
+        });
+
+        if (tab === "scanners") {
+          params.append("examType", "scanner");
+        }
+
+        const res = await fetch(`/api/calls?${params}`, {
+          signal: controller.signal,
+        });
+
+        if (!res.ok) throw new Error("Erreur lors du fetch des appels");
+
+        const { data, total } = await res.json();
+
+        setCalls(data);
+        setTotal(total);
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          setError(err.message);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCalls();
+
+    return () => controller.abort();
   }, [userProductId, page, statusFilter, tab]);
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
@@ -236,10 +235,11 @@ export default function CallListPage({ params }: CallListPageProps) {
       </Button>
 
       {/* TABS */}
+
       <Tabs
         value={tab}
-        onChange={(_, newValue) => {
-          setTab(newValue);
+        onChange={(_, v) => {
+          setTab(v);
           setPage(1);
         }}
         sx={{ mb: 3 }}
@@ -248,302 +248,128 @@ export default function CallListPage({ params }: CallListPageProps) {
         <Tab value="scanners" label="Scanners" />
       </Tabs>
 
-      {/* ===================== */}
-      {/* ONGLET TOUS LES APPELS */}
-      {/* ===================== */}
+      {/* FILTER */}
 
-      {tab === "all" && (
+      <FormControl sx={{ mb: 2, minWidth: 220 }}>
+        <InputLabel>Filtrer par statut</InputLabel>
+        <Select
+          value={statusFilter}
+          label="Filtrer par statut"
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
+        >
+          <MenuItem value="all">Tous</MenuItem>
+          <MenuItem value="success">Succès</MenuItem>
+          <MenuItem value="no_slot">Pas de créneaux</MenuItem>
+          <MenuItem value="not_performed">Pas effectué</MenuItem>
+          <MenuItem value="canceled">Annulé</MenuItem>
+          <MenuItem value="rescheduled">Modifié</MenuItem>
+        </Select>
+      </FormControl>
+
+      {loading && (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+          <CircularProgress sx={{ color: "#48C8AF" }} />
+        </Box>
+      )}
+
+      {error && <Alert severity="error">{error}</Alert>}
+
+      {!loading && calls.length === 0 && (
+        <Alert severity="info">Aucun appel trouvé.</Alert>
+      )}
+
+      {!loading && calls.length > 0 && (
         <>
-          <FormControl sx={{ mb: 2, minWidth: 220 }}>
-            <InputLabel>Filtrer par statut</InputLabel>
-            <Select
-              value={statusFilter}
-              label="Filtrer par statut"
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <MenuItem value="all">Tous</MenuItem>
-              <MenuItem value="success">Succès</MenuItem>
-              <MenuItem value="no_slot">Pas de créneaux</MenuItem>
-              <MenuItem value="not_performed">Pas effectué</MenuItem>
-              <MenuItem value="canceled">Annulé</MenuItem>
-              <MenuItem value="rescheduled">Modifié</MenuItem>
-            </Select>
-          </FormControl>
+          <List sx={{ bgcolor: "white", borderRadius: 2 }}>
+            {calls.map((call, index) => {
+              const stepsArray = Object.values(call.steps || {});
+              const firstStep: any = stepsArray[0];
+              const secondStep: any = stepsArray[2];
 
-          {loading && (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-              <CircularProgress sx={{ color: "#48C8AF" }} />
-            </Box>
-          )}
+              return (
+                <Box key={call.id}>
+                  <ListItem disablePadding>
+                    <ListItemButton onClick={() => setSelectedCall(call)}>
+                      <ListItemText
+                        primary={
+                          <Box display="flex" gap={1} alignItems="center" sx={{ width: "100%" }}>
+                            {(() => {
+                              const chip = getCallChip(call);
 
-          {error && <Alert severity="error">{error}</Alert>}
-
-          {!loading && calls.length === 0 && (
-            <Alert severity="info">
-              Aucun appel trouvé pour ce filtre.
-            </Alert>
-          )}
-
-          {!loading && calls.length > 0 && (
-            <>
-              <List sx={{ bgcolor: "white", borderRadius: 2 }}>
-                {calls.map((call, index) => {
-                  const stepsArray = Object.values(call.steps || {});
-                  const firstStep: any = stepsArray[0];
-                  const secondStep: any = stepsArray[2];
-
-                  return (
-                    <Box key={call.id}>
-                      <ListItem disablePadding>
-                        <ListItemButton
-                          onClick={() => setSelectedCall(call)}
-                        >
-                          <ListItemText
-                            primary={
-                              <Box display="flex" gap={1} alignItems="center" style={{ width: "100%" }}>
+                              return (
                                 <Chip
-                                    size="small"
-                                    label={
-                                      call.stats.rdv_canceled > 0
-                                        ? "Annulé"
-                                        : call.stats.rdv_modified > 0
-                                        ? "Modifié"
-                                        : call.stats.end_reason == "transfer" 
-                                        ? "Redirection" + ` ${transferReason[call.stats.transferReason] || ""}`
-                                        : call.stats.rdv_booked == 0 && call.stats.rdv_canceled == 0 && call.stats.rdv_modified == 0 && call.stats.end_reason != "transfer" 
-                                        ? "Raccroché"
-                                        : call_status[
-                                            call.stats.rdv_status
-                                          ]
-                                    }
-                                    color={
-                                      call.stats.rdv_status === "success"
-                                        ? "success"
-                                        : call.stats.rdv_status === "no_slot"
-                                        ? "error"
-                                        : call.stats.end_reason == "transfer"
-                                        ? "warning"
-                                        : "default"
-                                    }
-                                  />
-                                <Typography fontWeight={600}>
-                                  Appel du {formatDateFR(call.createdAt)}{" "}
-                                  {call.stats.call_start_time &&
-                                    `à ${formatCallTime(
-                                      call.stats.call_start_time
-                                    )}`}
-                                </Typography>
+                                  size="small"
+                                  label={chip.label}
+                                  color={chip.color}
+                                />
+                              );
+                            })()}
 
-                                <Typography
-                                  fontSize={14}
-                                  color="text.secondary"
-                                  style={{ fontWeight: "bold", flex: 1 }}
-                                >
-                                  {call.stats.phoneNumber}
-                                </Typography>
+                            <Typography fontWeight={600}>
+                              Appel du {formatDateFR(call.createdAt)}{" "}
+                              {call.stats.call_start_time &&
+                                `à ${formatCallTime(call.stats.call_start_time)}`}
+                            </Typography>
 
-                                  <Typography
-                                    fontSize={14}
-                                    style={{ textDecoration: "underline", float: "right" }}
-                                    color="text.primary">
-                                      Dernier état: { states[call.stats.last_state] || "N/A" }
-                                  </Typography>
-                              </Box>
-                            }
-                            secondary={
-                              firstStep && (
-                                <Typography
-                                  variant="body2"
-                                  noWrap
-                                  style={{ marginTop: 10}}
-                                >
-                                  <strong>{" — "} {firstStep.text}</strong>
-                                  {secondStep && (
-                                    <p style={{ display: "block" }}>
-                                      {" — "}
-                                      <strong>{secondStep.text}</strong>
-                                    </p>
-                                  )}
-                                </Typography>
-                              )
-                            }
-                          />
-                        </ListItemButton>
-                      </ListItem>
-                      {index < calls.length - 1 && <Divider />}
-                    </Box>
-                  );
-                })}
-              </List>
+                            <Typography
+                              fontSize={14}
+                              color="text.secondary"
+                              sx={{ fontWeight: "bold", flex: 1 }}
+                            >
+                              {call.stats.phoneNumber}
+                            </Typography>
 
-              {totalPages > 1 && (
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "center",
-                    mt: 3,
-                  }}
-                >
-                  <Pagination
-                    count={totalPages}
-                    page={page}
-                    onChange={(_, value) => setPage(value)}
-                    disabled={loading}
-                  />
+                            <Typography
+                              fontSize={14}
+                              sx={{ textDecoration: "underline" }}
+                            >
+                              Dernier état: {states[call.stats.last_state] || "N/A"}
+                            </Typography>
+                          </Box>
+                        }
+                        secondary={
+                          firstStep && (
+                            <Typography variant="body2" noWrap>
+                              <strong>{firstStep.text}</strong>
+                              {secondStep && (
+                                <span> — {secondStep.text}</span>
+                              )}
+                            </Typography>
+                          )
+                        }
+                      />
+                    </ListItemButton>
+                  </ListItem>
+
+                  {index < calls.length - 1 && <Divider />}
                 </Box>
-              )}
-            </>
+              );
+            })}
+          </List>
+
+          {totalPages > 1 && (
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+              <Pagination
+                count={totalPages}
+                page={page}
+                onChange={(_, v) => setPage(v)}
+              />
+            </Box>
           )}
         </>
       )}
 
-      {/* ===================== */}
-      {/* ONGLET SCANNERS */}
-      {/* ===================== */}
+      {/* DRAWER */}
 
-      {tab === "scanners" && (
-        <Box
-          sx={{
-            bgcolor: "white",
-            borderRadius: 2,
-            p: 4,
-          }}
-        >
-          <Typography variant="h6" gutterBottom>
-            Scanners
-          </Typography>
-
-          {loading && (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-              <CircularProgress sx={{ color: "#48C8AF" }} />
-            </Box>
-          )}
-
-          {error && <Alert severity="error">{error}</Alert>}
-
-          {!loading && calls.length === 0 && (
-            <Alert severity="info">
-              Aucun appel trouvé pour ce filtre.
-            </Alert>
-          )}
-
-          {!loading && calls.length > 0 && (
-            <>
-              <List sx={{ bgcolor: "white", borderRadius: 2 }}>
-                {calls.map((call, index) => {
-                  const stepsArray = Object.values(call.steps || {});
-                  const firstStep: any = stepsArray[0];
-                  const secondStep: any = stepsArray[2];
-
-                  return (
-                    <Box key={call.id}>
-                      <ListItem disablePadding>
-                        <ListItemButton
-                          onClick={() => setSelectedCall(call)}
-                        >
-                          <ListItemText
-                            primary={
-                              <Box display="flex" gap={1} alignItems="center">
-                                <Typography fontWeight={600}>
-                                  Appel du {formatDateFR(call.createdAt)}{" "}
-                                  {call.stats.call_start_time &&
-                                    `à ${formatCallTime(
-                                      call.stats.call_start_time
-                                    )}`}
-                                </Typography>
-
-                                <Typography
-                                  fontSize={14}
-                                  color="text.secondary"
-                                >
-                                  {call.stats.phoneNumber}
-                                </Typography>
-
-                                {call.stats.rdv_status && (
-                                  <Chip
-                                    size="small"
-                                    label={
-                                      call.stats.rdv_canceled > 0
-                                        ? "annulé"
-                                        : call.stats.rdv_modified > 0
-                                        ? "modifié"
-                                        : call_status[
-                                            call.stats.rdv_status
-                                          ]
-                                    }
-                                    color={
-                                      call.stats.rdv_status === "success"
-                                        ? "success"
-                                        : call.stats.rdv_status === "no_slot"
-                                        ? "error"
-                                        : "default"
-                                    }
-                                  />
-                                )}
-                              </Box>
-                            }
-                            secondary={
-                              firstStep && (
-                                <Typography
-                                  variant="body2"
-                                  noWrap
-                                  style={{ display: "block"}}
-                                >
-                                  <strong>{firstStep.text}</strong>
-                                  {secondStep && (
-                                    <p>
-                                      {" — "}
-                                      <strong>{secondStep.text}</strong>
-                                    </p>
-                                  )}
-                                </Typography>
-                              )
-                            }
-                          />
-                        </ListItemButton>
-                        <Button color="error">X</Button>
-                      </ListItem>
-                      {index < calls.length - 1 && <Divider />}
-                    </Box>
-                  );
-                })}
-              </List>
-
-              {totalPages > 1 && (
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "center",
-                    mt: 3,
-                  }}
-                >
-                  <Pagination
-                    count={totalPages}
-                    page={page}
-                    onChange={(_, value) => setPage(value)}
-                    disabled={loading}
-                  />
-                </Box>
-              )}
-            </>
-          )}
-        </Box>
-      )}
-
-      {/* DRAWER CONVERSATION */}
       <Drawer
         anchor="right"
         open={!!selectedCall}
         onClose={() => setSelectedCall(null)}
         PaperProps={{
-          sx: {
-            width: { xs: "100%", sm: 500 },
-            p: 3,
-            bgcolor: "#F8F8F8",
-          },
+          sx: { width: { xs: "100%", sm: 500 }, p: 3 },
         }}
       >
         <Typography variant="h6" gutterBottom>
@@ -551,8 +377,7 @@ export default function CallListPage({ params }: CallListPageProps) {
         </Typography>
 
         {filteredSteps.map((text: any, idx: number) => {
-          const speaker: Speaker =
-            idx % 2 === 0 ? "Lyrae" : "User";
+          const speaker: Speaker = idx % 2 === 0 ? "Lyrae" : "User";
 
           return (
             <Box
@@ -560,9 +385,7 @@ export default function CallListPage({ params }: CallListPageProps) {
               sx={{
                 display: "flex",
                 justifyContent:
-                  speaker === "Lyrae"
-                    ? "flex-start"
-                    : "flex-end",
+                  speaker === "Lyrae" ? "flex-start" : "flex-end",
                 mb: 1,
               }}
             >
