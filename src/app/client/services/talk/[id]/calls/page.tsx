@@ -181,7 +181,6 @@ export default function CallListPage({ params }: CallListPageProps) {
 
         const { data, total } = await res.json();
 
-        console.log("calls", data);
         setCalls(data);
         setTotal(total);
         const initialCheckbox: Record<number, boolean> = {};

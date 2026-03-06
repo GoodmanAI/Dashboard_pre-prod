@@ -5,7 +5,8 @@ export async function PATCH(req: Request, { params }: any) {
   const id = Number(params.id);
   const { treated } = await req.json();
 
-  const call = await prisma.call.update({
+  console.log("id", id);
+  const call = await prisma.callConversation.update({
     where: { id },
     data: {
       treated,

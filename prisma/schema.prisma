@@ -192,7 +192,7 @@ model Call {
   birthdate DateTime?
   createdAt DateTime  @default(now())
   steps     Json      @default("[]")
-  treated   Boolean  @default(false)
+
   user      User  @relation("CallForUser", fields: [userId], references: [id], onDelete: Cascade)
   createdBy User? @relation("CallCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 }
@@ -275,6 +275,7 @@ model CallConversation {
   id            Int      @id @default(autoincrement())
   userProductId Int
   centerId      Int
+  treated       Boolean  @default(false)
   steps         Json     @default("{}")
   stats         Json     @default("{}")
   createdAt     DateTime @default(now())
