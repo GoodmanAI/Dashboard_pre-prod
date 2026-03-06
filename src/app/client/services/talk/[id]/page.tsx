@@ -220,7 +220,7 @@ export default function TalkPage({ params }: TalkPageProps) {
           // autres intentions (ex: prise_rdv)
           return todaysCalls.reduce((acc, c: any) => {
             console.log(c.stats);
-            return c.stats?.rdv_booked != 0 ? acc + 1 : acc;
+            return c.stats?.rdv_booked != 0 ? acc + c.stats?.rdv_booked : acc;
           }, 0);
         });
 

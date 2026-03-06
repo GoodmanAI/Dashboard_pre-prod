@@ -428,7 +428,12 @@ export default function StatsAppelPage({ params }: any) {
 
   /* ========== Stats tuiles ========== */
   const totalAppels = calls.length;
-  const nbRDV = useMemo(() => calls.filter((c) => normalizeReso(c) === "rdv").length, [calls]);
+  const nbRDV = useMemo(() => {
+    return calls.reduce((acc, c: any) => {
+      const n = Number(c?.stats?.rdv_booked ?? 0);
+      return acc + (Number.isFinite(n) ? n : 0);
+    }, 0);
+  }, [calls]);
   const nbUrgence = useMemo(() => calls.filter((c) => normalizeReso(c) === "urgence").length, [calls]);
   const nbInfo = useMemo(() => calls.filter((c) => normalizeReso(c) === "info").length, [calls]);
 
