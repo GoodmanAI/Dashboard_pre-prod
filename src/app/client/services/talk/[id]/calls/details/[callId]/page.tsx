@@ -19,7 +19,7 @@ export default function CallConversationPage({ params }: { params: { id: string;
   const callId = Number(params.callId);
   const searchParams = useSearchParams();
 
-  const from = searchParams.get("from");
+  const from: any = searchParams?.get("from");
 
   useEffect(() => {
     if (!userProductId || !callId) return;
