@@ -215,7 +215,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
     fetch("/api/socket");
 
-    const socket = io();
+    const socket = io({path: "/api/socket"});
     socket.on("call-treated", ({ callId, treated }) => {
       setCheckboxState((prev) => ({
         ...prev,
