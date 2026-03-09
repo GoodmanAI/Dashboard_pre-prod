@@ -60,8 +60,8 @@ export default function RootLayout({
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   /** Détection des pages d’authentification pour retirer le chrome global. */
-  const pathname = usePathname();
-  const isAuthPage = pathname.startsWith("/authentication");
+  const pathname: any = usePathname();
+  const isAuthPage = pathname?.startsWith("/authentication");
 
   return (
     <html lang="fr" className={myFont.variable}>

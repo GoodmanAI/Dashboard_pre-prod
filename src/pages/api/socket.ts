@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
 import type { NextApiRequest, NextApiResponse } from "next";
-import { setIO } from "@/lib/socket";
+import { getIO } from "@/lib/socket";
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
@@ -12,7 +12,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
     (res.socket as any).server.io = io;
 
-    setIO(io);
+    getIO();
 
     io.on("connection", (socket) => {
       console.log("client connecté", socket.id);
