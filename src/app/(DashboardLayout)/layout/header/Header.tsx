@@ -110,7 +110,7 @@
      */
     const generateBreadcrumb = () => {
       const segments = pathname?.split("/").filter(Boolean);
-      if (segments[0] === "client") segments[0] = "Home";
+      if (segments && segments[0] === "client") segments[0] = "Home";
       return []; // TODO: implémenter un vrai breadcrumb si requis
     };
 
