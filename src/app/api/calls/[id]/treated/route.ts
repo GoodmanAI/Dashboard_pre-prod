@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getIO } from "@/lib/socket";
 
 export async function PATCH(req: Request, { params }: any) {
   const id = Number(params.id);
@@ -7,8 +8,8 @@ export async function PATCH(req: Request, { params }: any) {
 
   console.log("id", id);
 
-  const io = res.socket.server.io;
-
+  const io = getIO();
+  
   io.emit("call-treated", {
     callId: id,
     treated: treated

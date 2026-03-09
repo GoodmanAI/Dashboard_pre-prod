@@ -5,9 +5,7 @@ let io: Server | null = null;
 export function initSocket(server: any) {
   if (!io) {
     io = new Server(server, {
-      cors: {
-        origin: "*",
-      },
+      cors: { origin: "*" },
     });
 
     io.on("connection", (socket) => {
@@ -19,6 +17,9 @@ export function initSocket(server: any) {
 }
 
 export function getIO() {
-  if (!io) throw new Error("Socket.io non initialisé");
+  if (!io) {
+    throw new Error("Socket.io non initialisé");
+  }
+
   return io;
 }
