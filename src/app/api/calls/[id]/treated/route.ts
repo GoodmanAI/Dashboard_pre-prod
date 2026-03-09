@@ -6,6 +6,14 @@ export async function PATCH(req: Request, { params }: any) {
   const { treated } = await req.json();
 
   console.log("id", id);
+
+  const io = res.socket.server.io;
+
+  io.emit("call-treated", {
+    callId: id,
+    treated: treated
+  });
+
   const call = await prisma.callConversation.update({
     where: { id },
     data: {

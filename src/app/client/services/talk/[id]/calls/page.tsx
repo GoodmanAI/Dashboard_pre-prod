@@ -25,6 +25,7 @@ import {
 } from "@mui/material";
 import { useRouter, useSearchParams } from "next/navigation";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
+import { io } from "socket.io-client";
 
 type Speaker = "Lyrae" | "User";
 
@@ -55,6 +56,8 @@ const call_status: any = {
   rescheduled: "Modifié",
   full_planning_end: "Planning complet",
 };
+
+
 
 function getCallChip(call: any) {
   let label = "";
@@ -207,6 +210,28 @@ export default function CallListPage({ params }: CallListPageProps) {
     return () => controller.abort();
 
   }, [userProductId, page, statusFilter, tab]);
+
+  useEffect(() => {
+
+    fetch("/api/socket");
+
+    const socket = io();
+    socket.on("call-treated", ({ callId, treated }) => {
+      setCheckboxState((prev) => ({
+        ...prev,
+        [callId]: treated
+      }));
+      setCalls((prev) =>
+        prev.map((c) =>
+          c.id === callId ? { ...c, treated } : c
+        )
+      );
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
