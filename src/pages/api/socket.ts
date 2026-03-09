@@ -1,20 +1,32 @@
-import { Server } from "socket.io";
+import { Server as IOServer } from "socket.io";
 import type { NextApiRequest, NextApiResponse } from "next";
-import { setIO } from "@/lib/socket";
+import type { Server as HTTPServer } from "http";
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+type NextApiResponseServerIO = NextApiResponse & {
+  socket: {
+    server: HTTPServer & {
+      io?: IOServer;
+    };
+  };
+};
 
-  if (!(res.socket as any).server.io) {
+export default function handler(
+  req: NextApiRequest,
+  res: NextApiResponseServerIO
+) {
+
+  if (!res.socket.server.io) {
 
     console.log("Initialisation Socket.io");
 
-    const io = new Server((res.socket as any).server, {
-      path: "/api/socket"
+    const io = new IOServer(res.socket.server, {
+      path: "/api/socket",
+      cors: { origin: "*" }
     });
 
-    (res.socket as any).server.io = io;
+    res.socket.server.io = io;
 
-    setIO(io);
+    globalThis.io = io;
 
     io.on("connection", (socket) => {
       console.log("client connecté", socket.id);

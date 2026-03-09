@@ -1,9 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { getIO } from "@/lib/socket";
 
 export async function PATCH(req: Request, { params }: any) {
-
   const id = Number(params.id);
   const { treated } = await req.json();
 
@@ -12,14 +10,14 @@ export async function PATCH(req: Request, { params }: any) {
     data: { treated },
   });
 
-  try {
-    const io = getIO();
+  const io: any = globalThis.io;
 
+  if (io) {
     io.emit("call-treated", {
       callId: id,
-      treated
+      treated,
     });
-  } catch {
+  } else {
     console.log("Socket non initialisé");
   }
 

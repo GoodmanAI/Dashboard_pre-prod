@@ -212,26 +212,33 @@ export default function CallListPage({ params }: CallListPageProps) {
   }, [userProductId, page, statusFilter, tab]);
 
   useEffect(() => {
-  const init = async () => {
-    await fetch("/api/socket");
-    const socket = io({
-      path: "/api/socket"
-    });
-    socket.on("call-treated", ({ callId, treated }) => {
-      setCheckboxState((prev) => ({
-        ...prev,
-        [callId]: treated
-      }));
-      setCalls((prev) =>
-        prev.map((c) =>
-          c.id === callId ? { ...c, treated } : c
-        )
-      );
-    });
-  };
-  init();
+    const init = async () => {
+      await fetch("/api/socket"); // initialise le serveur
 
-}, []);
+      const socket = io({
+        path: "/api/socket",
+      });
+
+      socket.on("connect", () => {
+        console.log("socket connecté", socket.id);
+      });
+
+      socket.on("call-treated", ({ callId, treated }) => {
+        setCheckboxState((prev) => ({
+          ...prev,
+          [callId]: treated,
+        }));
+
+        setCalls((prev) =>
+          prev.map((c) =>
+            c.id === callId ? { ...c, treated } : c
+          )
+        );
+      });
+    };
+
+    init();
+  }, []);
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
