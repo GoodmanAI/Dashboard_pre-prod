@@ -49,7 +49,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
   const [selectedCentre, setSelectedCentre] = useState<ManagedUser | null>(null);
   let currentCentre = (selectedCentre?.userProducts?.find((c) => c.product.name.includes("Talk"))?.id || selectedCentre?.id) ?? null;
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname: any = usePathname();
 
   /**
    * Chargement initial des centres lorsque la session est authentifiée.
@@ -161,7 +161,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
     console.log("searching for", currentCentre);
     console.log("or searching for", selectedCentre?.userProductId);
     console.log("redirect to", userProductId)
-    if (!centre || !pathname.includes("/talk/")) return;
+    if (!centre || !pathname?.includes("/talk/")) return;
 
     let regex = new RegExp(`/${currentCentre}(?=/|$)`);
     let newPath = "";
