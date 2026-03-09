@@ -33,7 +33,7 @@ type SidebarItemsProps = {
  */
 const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
   const pathname = usePathname();
-  const pathDirect = pathname;
+  const pathDirect: any = pathname;
   const { data: session } = useSession();
   const userId = session?.user.id;
   const [products, setProducts] = useState([]);
