@@ -12,12 +12,16 @@ export async function PATCH(req: Request, { params }: any) {
     data: { treated },
   });
 
-  const io = getIO();
+  try {
+    const io = getIO();
 
-  io.emit("call-treated", {
-    callId: id,
-    treated
-  });
+    io.emit("call-treated", {
+      callId: id,
+      treated
+    });
+  } catch {
+    console.log("Socket non initialisé");
+  }
 
   return NextResponse.json(call);
 }

@@ -212,10 +212,11 @@ export default function CallListPage({ params }: CallListPageProps) {
   }, [userProductId, page, statusFilter, tab]);
 
   useEffect(() => {
-
-    fetch("/api/socket");
-
-    const socket = io({path: "/api/socket"});
+  const init = async () => {
+    await fetch("/api/socket");
+    const socket = io({
+      path: "/api/socket"
+    });
     socket.on("call-treated", ({ callId, treated }) => {
       setCheckboxState((prev) => ({
         ...prev,
@@ -227,11 +228,10 @@ export default function CallListPage({ params }: CallListPageProps) {
         )
       );
     });
+  };
+  init();
 
-    return () => {
-      socket.disconnect();
-    };
-  }, []);
+}, []);
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
