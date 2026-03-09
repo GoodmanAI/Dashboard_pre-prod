@@ -1,16 +1,24 @@
+import { NextResponse } from "next/server";
 import { Server } from "socket.io";
 
-export default function handler(req: any, res: any) {
-  if (!res.socket.server.io) {
+export async function GET(req: any) {
 
-    const io = new Server(res.socket.server);
+  if (!(global as any).io) {
 
-    res.socket.server.io = io;
+    console.log("Initialisation socket.io");
+
+    const io = new Server({
+      path: "/api/socket"
+    });
+
+    (global as any).io = io;
 
     io.on("connection", (socket) => {
-      console.log("socket connecté", socket.id);
+      console.log("client connecté", socket.id);
     });
+
   }
 
-  res.end();
+  return NextResponse.json({ ok: true });
+
 }
