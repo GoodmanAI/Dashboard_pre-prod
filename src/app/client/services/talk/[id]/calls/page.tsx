@@ -133,9 +133,9 @@ export default function CallListPage({ params }: CallListPageProps) {
   
   // URL → state
   useEffect(() => {
-    const pageFromUrl = Number(searchParams.get("page"));
-    const statusFromUrl = searchParams.get("status");
-    const tabFromUrl = searchParams.get("tab");
+    const pageFromUrl: any = Number(searchParams?.get("page"));
+    const statusFromUrl: any = searchParams?.get("status");
+    const tabFromUrl: any = searchParams?.get("tab");
 
     if (!isNaN(pageFromUrl) && pageFromUrl > 0) setPage(pageFromUrl);
     if (statusFromUrl) setStatusFilter(statusFromUrl);
