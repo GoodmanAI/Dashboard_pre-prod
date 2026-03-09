@@ -16,6 +16,10 @@ export function initSocket(server: any) {
   return io;
 }
 
+export function setIO(server: Server) {
+  io = server;
+}
+
 export function getIO() {
   if (!io) {
     throw new Error("Socket.io non initialisé");

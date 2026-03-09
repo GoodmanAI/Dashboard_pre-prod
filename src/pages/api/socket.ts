@@ -1,16 +1,26 @@
-import { NextResponse } from "next/server";
-import { initSocket } from "@/lib/socket";
+import { Server } from "socket.io";
+import type { NextApiRequest, NextApiResponse } from "next";
+import { setIO } from "@/lib/socket";
 
-export default async function GET() {
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
-  // @ts-ignore
-  const server = global.server;
+  if (!(res.socket as any).server.io) {
 
-  if (!server) {
-    throw new Error("HTTP server non disponible");
+    console.log("Initialisation Socket.io");
+
+    const io = new Server((res.socket as any).server, {
+      path: "/api/socket"
+    });
+
+    (res.socket as any).server.io = io;
+
+    setIO(io);
+
+    io.on("connection", (socket) => {
+      console.log("client connecté", socket.id);
+    });
+
   }
 
-  initSocket(server);
-
-  return NextResponse.json({ status: "ok" });
+  res.end();
 }
