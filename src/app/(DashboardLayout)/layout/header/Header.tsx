@@ -109,7 +109,7 @@
      * Remplacer par une implémentation métier dès que nécessaire.
      */
     const generateBreadcrumb = () => {
-      const segments = pathname.split("/").filter(Boolean);
+      const segments = pathname?.split("/").filter(Boolean);
       if (segments[0] === "client") segments[0] = "Home";
       return []; // TODO: implémenter un vrai breadcrumb si requis
     };
