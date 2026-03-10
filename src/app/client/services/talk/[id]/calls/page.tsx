@@ -51,37 +51,83 @@ const transferReason: any = {
 const call_status: any = {
   no_slot: "Pas de créneaux",
   success: "Succès",
-  not_performed: "Pas effectué",
+  not_performed: "Examen non pris en charge",
   canceled: "Annulé",
   rescheduled: "Modifié",
   full_planning_end: "Planning complet",
 };
 
+import { pink } from "@mui/material/colors";
 
+function getCallChips(call: any) {
+  const stats = call.stats;
 
-function getCallChip(call: any) {
-  let label = "";
-  let color: "success" | "error" | "warning" | "default" = "default";
+  const chips: {
+    label: string;
+    muiColor?: "success" | "error" | "warning" | "default";
+    customColor?: string;
+  }[] = [];
 
-  if (call.stats.rdv_canceled > 0) label = "Annulé";
-  else if (call.stats.rdv_modified > 0) label = "Modifié";
-  else if (call.stats.end_reason === "transfer") {
-    label = "Redirection " + (transferReason[call.stats.transferReason] || "");
-    color = "warning";
-  } else if (
-    call.stats.rdv_booked === 0 &&
-    call.stats.rdv_canceled === 0 &&
-    call.stats.rdv_modified === 0 &&
-    call.stats.end_reason !== "transfer"
-  ) label = "Raccroché";
-  else label = call_status[call.stats.rdv_status];
+  // Urgences
+  if (stats.transferReason === "emergency") {
+    chips.push({
+      label: "Appel d'urgence",
+      customColor: "#d264ee",
+    });
+  }
 
-  if (call.stats.rdv_status === "success") color = "success";
-  if (call.stats.rdv_status === "no_slot") color = "error";
+  // Module info
+  if (stats.intents.includes("renseignements")) {
+    chips.push({
+      label: "Renseignements",
+      customColor: "#4a8560",
+    });
+  }
 
-  return { label, color };
+  if (stats.rdv_canceled > 0) {
+    chips.push({
+      label: "Annulé",
+      customColor: pink[500],
+    });
+  }
+
+  if (stats.rdv_modified > 0) {
+    chips.push({
+      label: "Modifié",
+    });
+  }
+
+  if (stats.end_reason === "transfer") {
+    chips.push({
+      label: `Redirection ${transferReason[stats.transferReason] || ""}`,
+      muiColor: "warning",
+    });
+  }
+
+  if (
+    stats.rdv_booked === 0 &&
+    stats.rdv_canceled === 0 &&
+    stats.rdv_modified === 0
+  ) {
+    chips.push({
+      label: "Raccroché",
+    });
+  }
+
+  if (stats.rdv_status) {
+    chips.push({
+      label: call_status[stats.rdv_status] || "Inconnu",
+      muiColor:
+        stats.rdv_status === "success"
+          ? "success"
+          : stats.rdv_status === "no_slot"
+          ? "error"
+          : "default",
+    });
+  }
+
+  return chips;
 }
-
 interface CallSummary {
   id: number;
   userProductId: number;
@@ -184,6 +230,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
         const { data, total } = await res.json();
 
+        console.log("data", data);
         setCalls(data);
         setTotal(total);
         const initialCheckbox: Record<number, boolean> = {};
@@ -322,7 +369,7 @@ export default function CallListPage({ params }: CallListPageProps) {
           <MenuItem value="all">Tous</MenuItem>
           <MenuItem value="success">Succès</MenuItem>
           <MenuItem value="no_slot">Pas de créneaux</MenuItem>
-          <MenuItem value="not_performed">Pas effectué</MenuItem>
+          <MenuItem value="not_performed">Examen non pris en charge</MenuItem>
           <MenuItem value="canceled">Annulé</MenuItem>
           <MenuItem value="rescheduled">Modifié</MenuItem>
         </Select>
@@ -391,13 +438,6 @@ export default function CallListPage({ params }: CallListPageProps) {
                       <ListItemText
                         primary={
                           <Box display="flex" gap={1} alignItems="center" sx={{ width: "100%" }}>
-                            {(() => {
-                              const chip = getCallChip(call);
-                              return (
-                                <Chip size="small" label={chip.label} color={chip.color} />
-                              );
-                            })()}
-
                             <Typography fontWeight={600}>
                               Appel du {formatDateFR(call.createdAt)}{" "}
                               {call.stats.call_start_time &&
@@ -407,14 +447,36 @@ export default function CallListPage({ params }: CallListPageProps) {
                             <Typography
                               fontSize={14}
                               color="text.secondary"
-                              sx={{ fontWeight: "bold", flex: 1 }}
+                              sx={{ fontWeight: "bold" }}
                             >
                               {call.stats.phoneNumber}
                             </Typography>
 
+                            {(() => {
+                              const chips = getCallChips(call);
+
+                              return chips.map((chip, i) => (
+                                <Chip
+                                  key={i}
+                                  size="small"
+                                  label={chip.label}
+                                  color={chip.customColor ? undefined : chip.muiColor}
+                                  sx={
+                                    chip.customColor
+                                      ? {
+                                          backgroundColor: chip.customColor,
+                                          color: "white",
+                                          fontWeight: 600,
+                                        }
+                                      : undefined
+                                  }
+                                />
+                              ));
+                            })()}
+
                             <Typography
                               fontSize={14}
-                              sx={{ textDecoration: "underline" }}
+                              sx={{ textDecoration: "underline", marginLeft: "auto" }}
                             >
                               Dernier état: {states[call.stats.last_state] || "N/A"}
                             </Typography>

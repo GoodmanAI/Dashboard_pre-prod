@@ -76,7 +76,22 @@ export async function GET(request: NextRequest) {
 
     // Filtre statut
     if (statusParam && statusParam !== "all") {
-      if (statusParam === "canceled") {
+      if (statusParam === "not_performed") {
+        console.log("HIHIHIHIHIHI");
+        whereClause.AND.push({
+          stats: {
+            path: ["transferReason"],
+            equals: "exam_type"
+          }
+        });
+      } else if (statusParam === "rescheduled") { 
+        whereClause.AND.push({
+          stats: {
+            path: ["rdv_modified"],
+            gt: 0,
+          },
+        });
+      } else if (statusParam === "canceled") {
         whereClause.AND.push({
           stats: {
             path: ["rdv_canceled"],
