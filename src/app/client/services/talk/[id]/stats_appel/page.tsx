@@ -1052,7 +1052,7 @@ export default function StatsAppelPage({ params }: any) {
         </Grid>
       </Grid>
 
-      <Grid container spacing={2} sx={{ mt: 2 }}>
+      {/* <Grid container spacing={2} sx={{ mt: 2 }}>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2, height: 360 }}>
             <Typography variant="h6" fontWeight={700}>
@@ -1105,7 +1105,7 @@ export default function StatsAppelPage({ params }: any) {
           </Paper>
         </Grid>
 
-      </Grid>
+      </Grid> */}
     </Box>
   );
 }
