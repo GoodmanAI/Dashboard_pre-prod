@@ -605,15 +605,15 @@ export default function StatsAppelPage({ params }: any) {
   const TRANSFER_LABELS: Record<string, string> = {
     redirect: "Redirection demandée",
     error: "Erreur",
-    exam_type: "Type d'examen non pris en charge",
+    exam_type: "Type d\'examen non pris en charge",
     exam_mult: "Plusieurs examens demandés",
     exam_interv: "Demande de radio interventionnelle",
     emergency: "Urgence",
     doctor: "Professionnel de santé",
     admin: "Démarches administratives",
-    result: "Résultats d'examens",
+    result: "Résultats d\'examens",
     incident: "Demande à traiter par un humain",
-    identification: "Problème d'identification",
+    identification: "Problème d\'identification",
   };
 
   const transferData = useMemo(() => {
