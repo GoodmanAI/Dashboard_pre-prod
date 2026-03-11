@@ -1215,7 +1215,7 @@ export default function StatsAppelPage({ params }: any) {
             </Typography>
 
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Filtrer par type d'examen
+              Filtrer par type d&apos;examen
             </Typography>
 
             <Box sx={{ mb: 2 }}>
