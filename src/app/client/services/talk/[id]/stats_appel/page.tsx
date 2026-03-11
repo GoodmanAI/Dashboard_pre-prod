@@ -90,6 +90,14 @@ const PIE_COLORS = [
   PALETTE.grey,
 ];
 
+const EXAM_LABELS: Record<string, string> = {
+  RX: "Radiographie",
+  CT: "Scanner",
+  MR: "IRM",
+  US: "Échographie",
+  MG: "Mammographie",
+};
+
 const now = () => new Date();
 const minusDays = (d: Date, days: number) => new Date(d.getTime() - days * 24 * 3600 * 1000);
 
@@ -445,6 +453,32 @@ export default function StatsAppelPage({ params }: any) {
   const heuresPrisEnCharge = useMemo(() => {
     const totalSeconds = sumDurationsSec(calls);
     return formatHoursFromSeconds(totalSeconds, 2);
+  }, [calls]);
+
+  const examPieData = useMemo(() => {
+    const buckets: Record<string, number> = {};
+
+    for (const c of calls as any[]) {
+      const exam = c?.stats?.exam_type_id;
+      const rdv = Number(c?.stats?.rdv_booked ?? 0);
+
+      if (!exam || rdv === 0) continue;
+
+      const label = EXAM_LABELS[exam] ?? exam;
+
+      if (!buckets[label]) buckets[label] = 0;
+
+      buckets[label] += rdv;
+    }
+
+    const arr = Object.entries(buckets).map(([name, value]) => ({
+      name,
+      value,
+    }));
+
+    const sum = arr.reduce((a, b) => a + b.value, 0);
+
+    return sum === 0 ? [{ name: "Aucune donnée", value: 1 }] : arr;
   }, [calls]);
 
   /* ========== Camembert (transfer) ========== */
@@ -1016,6 +1050,61 @@ export default function StatsAppelPage({ params }: any) {
             )}
           </Paper>
         </Grid>
+      </Grid>
+
+      <Grid container spacing={2} sx={{ mt: 2 }}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2, height: 360 }}>
+            <Typography variant="h6" fontWeight={700}>
+              Répartition des examens
+            </Typography>
+
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Pour les prises de rendez-vous
+            </Typography>
+
+            {loading ? (
+              <ChartSkeleton />
+            ) : (
+              <Box sx={{ width: "100%", height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={examPieData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={2}
+                    >
+                      {examPieData.map((_, i) => (
+                        <Cell
+                          key={i}
+                          fill={PIE_COLORS[i % PIE_COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+
+                    <Legend
+                      layout="vertical"
+                      verticalAlign="middle"
+                      align="right"
+                      wrapperStyle={{
+                        maxHeight: 240,
+                        overflowY: "auto",
+                        paddingLeft: 8,
+                        fontSize: 12,
+                      }}
+                    />
+
+                    <ReTooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
       </Grid>
     </Box>
   );

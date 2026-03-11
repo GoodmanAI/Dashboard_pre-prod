@@ -364,6 +364,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         }
 
         const data = await res.json();
+        console.log("settings", data);
         setSettings((prev) => ({
           ...prev,
           ...data, // ⬅️ injecte TOUTES les données récupérées
@@ -977,7 +978,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                 </Box>
 
                 <Switch
-                  checked={settings.options.motif}
+                  checked={settings.options?.motif || false}
                   onChange={(e) =>
                     update("options", {
                       ...settings.options,
@@ -1003,7 +1004,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                 </Box>
 
                 <Switch
-                  checked={settings.options.questions}
+                  checked={settings.options?.questions || false}
                   onChange={(e) =>
                     update("options", {
                       ...settings.options,
@@ -1028,7 +1029,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                 </Box>
 
                 <Switch
-                  checked={settings.options.menstruations}
+                  checked={settings.options?.menstruations || false}
                   onChange={(e) =>
                     update("options", {
                       ...settings.options,

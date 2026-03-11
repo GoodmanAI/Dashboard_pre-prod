@@ -107,7 +107,8 @@ function getCallChips(call: any) {
   if (
     stats.rdv_booked === 0 &&
     stats.rdv_canceled === 0 &&
-    stats.rdv_modified === 0
+    stats.rdv_modified === 0 &&
+    stats.end_reason !== "transfer"
   ) {
     chips.push({
       label: "Raccroché",
