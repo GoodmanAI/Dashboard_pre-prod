@@ -28,7 +28,8 @@ export async function GET(req: Request) {
   const mappings = await prisma.examMapping.findMany({
     where: { userProductId: id }
   });
-
+  
+  console.log(mappings);
   if (mappings.length === 0) {
     // Renvoi valeurs par défaut
     return NextResponse.json(defaultTypes);

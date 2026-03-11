@@ -8,7 +8,9 @@ import {
   Typography,
   Button,
   Skeleton,
-  Popover
+  Popover,
+  Select,
+  MenuItem
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -234,11 +236,11 @@ export default function StatsAppelPage({ params }: any) {
   const userProductId = Number(params.id);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const open = Boolean(anchorEl);
-
+  const [mapping, setMapping]: any = useState(null);
   const { data: session, status } = useSession();
   const router = useRouter();
   const { centres, selectedUserId } = useCentre();
-
+  const [selectedExamCode, setSelectedExamCode] = useState<string | "all">("all");
   const [calls, setCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -365,6 +367,20 @@ export default function StatsAppelPage({ params }: any) {
     return () => controller.abort();
   }, [status, centres.length, effectiveUserId, dateRange, userProductId, daysAgoForRange]);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await fetch("/api/configuration/mapping/type_exam?userProductId=" + userProductId);
+        const data = await response.json();
+        setMapping(data);
+      } catch (err) {
+        if (!isAbortError(err)) {
+          console.error("Erreur lors du fetch des appels:", err);
+        }
+      }
+    })();
+  }, []);
+  
   // Fetch sous-centres (ADMIN)
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -455,16 +471,41 @@ export default function StatsAppelPage({ params }: any) {
     return formatHoursFromSeconds(totalSeconds, 2);
   }, [calls]);
 
+ 
+  // 3ème ligne
+  const examLabelMap = useMemo(() => {
+    if (!mapping) return {};
+
+    const map: Record<string, string> = {};
+
+    for (const e of mapping) {
+      if (e.id) map[String(e.id)] = e.fr;
+      if (e.diminutif) map[e.diminutif] = e.fr;
+      if (e.examCode) map[e.examCode] = e.fr;
+      if (e.labelFr) map[e.labelFr] = e.fr;
+    }
+
+    return map;
+  }, [mapping]);
+
   const examPieData = useMemo(() => {
     const buckets: Record<string, number> = {};
 
+    console.log(calls.filter((e: any) => e.stats.rdv_status == "success"));
     for (const c of calls as any[]) {
-      const exam = c?.stats?.exam_type_id;
+      const rawExam = c?.stats?.exam_type_id;
       const rdv = Number(c?.stats?.rdv_booked ?? 0);
 
-      if (!exam || rdv === 0) continue;
+      if (!rawExam || rdv === 0) continue;
 
-      const label = EXAM_LABELS[exam] ?? exam;
+      // normaliser en tableau
+      const exams = Array.isArray(rawExam) ? rawExam : [rawExam];
+      // console.log("rawExam", rawExam, "exams", exams);
+      // console.log("examLabelMap", examLabelMap);
+      // mapper chaque examen
+      const label = exams
+        .map((code: string) => examLabelMap[code] ?? code)
+        .join(" ");
 
       if (!buckets[label]) buckets[label] = 0;
 
@@ -479,7 +520,70 @@ export default function StatsAppelPage({ params }: any) {
     const sum = arr.reduce((a, b) => a + b.value, 0);
 
     return sum === 0 ? [{ name: "Aucune donnée", value: 1 }] : arr;
-  }, [calls]);
+  }, [calls, examLabelMap]);
+
+  const examCodes = useMemo(() => {
+    const map = new Map<string, { label: string; examCode: string }>();
+
+    for (const c of calls as any[]) {
+      const code = c?.stats?.exam_type_id;
+      if (!code) continue;
+
+      const codes = Array.isArray(code) ? code : [code];
+
+      codes.forEach((e) => {
+        const element = mapping?.find((m: any) => m.diminutif == e);
+        if (element && !map.has(element.diminutif)) {
+          map.set(element.diminutif, {
+            label: element.fr,
+            examCode: element.diminutif,
+          });
+        }
+      });
+    }
+
+    return Array.from(map.values()).sort((a, b) =>
+      a.label.localeCompare(b.label)
+    );
+  }, [calls, mapping]);
+
+  const examCodePieData = useMemo(() => {
+    const buckets: Record<string, number> = {};
+
+    for (const c of calls as any[]) {
+      const examType = c?.stats?.exam_type_id;
+      const examCode = c?.stats?.exam_code;
+      const rdv = Number(c?.stats?.rdv_booked ?? 0);
+
+      if (!examType || !examCode || rdv === 0) continue;
+
+      const examTypes = Array.isArray(examType) ? examType : [examType];
+      const examCodes = Array.isArray(examCode) ? examCode : [examCode];
+
+      // filtre sur le select
+      if (
+        selectedExamCode !== "all" &&
+        !examTypes.includes(selectedExamCode)
+      ) {
+        continue;
+      }
+
+      // compter les exam_code
+      for (const code of examCodes) {
+        if (!buckets[code]) buckets[code] = 0;
+        buckets[code] += 1;
+      }
+    }
+
+    const arr = Object.entries(buckets).map(([name, value]) => ({
+      name,
+      value,
+    }));
+
+    const sum = arr.reduce((a, b) => a + b.value, 0);
+
+    return sum === 0 ? [{ name: "Aucune donnée", value: 1 }] : arr;
+  }, [calls, selectedExamCode]);
 
   /* ========== Camembert (transfer) ========== */
   const TRANSFER_KEYS = [
@@ -1052,7 +1156,7 @@ export default function StatsAppelPage({ params }: any) {
         </Grid>
       </Grid>
 
-      {/* <Grid container spacing={2} sx={{ mt: 2 }}>
+      <Grid container spacing={2} sx={{ mt: 2 }}>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2, height: 360 }}>
             <Typography variant="h6" fontWeight={700}>
@@ -1104,8 +1208,70 @@ export default function StatsAppelPage({ params }: any) {
             )}
           </Paper>
         </Grid>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2, height: 360 }}>
+            <Typography variant="h6" fontWeight={700}>
+              Répartition par code examen
+            </Typography>
 
-      </Grid> */}
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Filtrer par type d'examen
+            </Typography>
+
+            <Box sx={{ mb: 2 }}>
+              <Select
+                size="small"
+                value={selectedExamCode}
+                onChange={(e) => setSelectedExamCode(e.target.value)}
+                sx={{ minWidth: 180 }}
+              >
+                <MenuItem value="all">Tous les examens</MenuItem>
+                {examCodes.map(({ examCode, label }) => (
+                  <MenuItem key={examCode} value={examCode}>
+                    {label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </Box>
+
+            {loading ? (
+              <ChartSkeleton />
+            ) : (
+              <Box sx={{ width: "100%", height: 240 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={examCodePieData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={2}
+                    >
+                      {examCodePieData.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+
+                    <Legend
+                      layout="vertical"
+                      verticalAlign="middle"
+                      align="right"
+                      wrapperStyle={{
+                        maxHeight: 200,
+                        overflowY: "auto",
+                        fontSize: 12,
+                        width: 200
+                      }}
+                    />
+                    <ReTooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
     </Box>
   );
 }
