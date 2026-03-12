@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Box,
   Typography,
@@ -21,11 +21,14 @@ import {
   Drawer,
   Tabs,
   Tab,
-  Checkbox
+  Checkbox,
+  Popover
 } from "@mui/material";
 import { useRouter, useSearchParams } from "next/navigation";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import { io } from "socket.io-client";
+import { subDays, startOfDay } from "date-fns";
+import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 
 type Speaker = "Lyrae" | "User";
 
@@ -177,7 +180,19 @@ export default function CallListPage({ params }: CallListPageProps) {
 
   const [selectedCall, setSelectedCall] = useState<any | null>(null);
   const [checkboxState, setCheckboxState] = useState<Record<number, boolean>>({});
-  
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const open = Boolean(anchorEl);
+
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const today = startOfDay(new Date());
+    return {
+      from: subDays(today, 6),
+      to: today,
+    };
+  });
+
+  const [dateRangeDraft, setDateRangeDraft] = useState<DateRange>(dateRange);
+
   // URL → state
   useEffect(() => {
     const pageFromUrl: any = Number(searchParams?.get("page"));
@@ -221,6 +236,8 @@ export default function CallListPage({ params }: CallListPageProps) {
           page: String(page),
           limit: String(ITEMS_PER_PAGE),
           status: statusFilter,
+          from: dateRange.from.toISOString(),
+          to: dateRange.to.toISOString(),
         });
 
         if (tab === "scanners") params.append("examType", "scanner");
@@ -256,7 +273,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
     return () => controller.abort();
 
-  }, [userProductId, page, statusFilter, tab]);
+  }, [userProductId, page, statusFilter, tab, dateRange]);
 
   useEffect(() => {
     const init = async () => {
@@ -343,6 +360,54 @@ export default function CallListPage({ params }: CallListPageProps) {
       >
         Retour
       </Button>
+
+      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+
+        <Button
+          variant="outlined"
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+          sx={{
+            borderColor: "#48C8AF",
+            color: "#48C8AF",
+            textTransform: "none",
+            fontWeight: 600,
+          }}
+        >
+          Du {dateRange.from.toLocaleDateString()} au {dateRange.to.toLocaleDateString()}
+        </Button>
+
+        <Popover
+          open={open}
+          anchorEl={anchorEl}
+          onClose={() => setAnchorEl(null)}
+          anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        >
+          <Box sx={{ p: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Sélectionner une période
+            </Typography>
+
+            <DateRangePicker
+              value={dateRangeDraft}
+              onChange={(range) => setDateRangeDraft(range)}
+            />
+          </Box>
+
+          <Box sx={{ mt: 2, mb: 2, mr: 2, display: "flex", justifyContent: "flex-end" }}>
+            <Button
+              variant="contained"
+              onClick={() => {
+                setDateRange(dateRangeDraft);
+                setAnchorEl(null);
+                setPage(1);
+              }}
+            >
+              Appliquer
+            </Button>
+          </Box>
+        </Popover>
+
+      </Box>
 
       <Tabs
         value={tab}

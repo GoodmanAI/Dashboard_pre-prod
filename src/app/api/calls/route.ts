@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
     const pageParam = searchParams.get("page");
     const limitParam = searchParams.get("limit");
     const statusParam = searchParams.get("status");
+    const fromParam = searchParams.get("from");
+    const toParam = searchParams.get("to");
 
     if (!userProductIdParam) {
       return NextResponse.json(
@@ -74,6 +76,23 @@ export async function GET(request: NextRequest) {
       ],
     };
 
+    // ==========================
+    // Filtre date
+    // ==========================
+    if (fromParam || toParam) {
+      const dateFilter: any = {};
+
+      if (fromParam) {
+        dateFilter.gte = new Date(fromParam);
+      }
+
+      if (toParam) {
+        dateFilter.lte = new Date(toParam);
+      }
+
+      whereClause.createdAt = dateFilter;
+    }
+  
     // Filtre statut
     if (statusParam && statusParam !== "all") {
       if (statusParam === "not_performed") {
@@ -108,6 +127,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    
     // 🔹 Une seule requête DB
     let calls = await prisma.callConversation.findMany({
       where: whereClause,
