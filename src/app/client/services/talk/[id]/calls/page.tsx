@@ -231,13 +231,17 @@ export default function CallListPage({ params }: CallListPageProps) {
         setError(null);
         setCalls([]);
 
+        console.log("dateRange", dateRange.from, dateRange.to)
+        const toDate = new Date(dateRange.to);
+        toDate.setHours(23, 59, 59, 999);
+
         const params = new URLSearchParams({
           userProductId: String(userProductId),
           page: String(page),
           limit: String(ITEMS_PER_PAGE),
           status: statusFilter,
           from: dateRange.from.toISOString(),
-          to: dateRange.to.toISOString(),
+          to: toDate.toISOString(),
         });
 
         if (tab === "scanners") params.append("examType", "scanner");
