@@ -471,7 +471,41 @@ export default function StatsAppelPage({ params }: any) {
     return formatHoursFromSeconds(totalSeconds, 2);
   }, [calls]);
 
- 
+  // 2ème ligne 
+  const annulation = useMemo(() => {
+    return calls.reduce((acc, c: any) => {
+      const n = Number(c?.stats?.rdv_canceled ?? 0);
+      return acc + (Number.isFinite(n) ? n : 0);
+    }, 0);
+  }, [calls]);
+
+  const modification = useMemo(() => {
+    return calls.reduce((acc, c: any) => {
+      const n = Number(c?.stats?.rdv_modified ?? 0);
+      return acc + (Number.isFinite(n) ? n : 0);
+    }, 0);
+  }, [calls]);
+
+  const notPerformed = useMemo(() => {
+    return calls.reduce((acc, c: any) => {
+      console.log(c.stats.transferReason);
+      const n = Number(c?.stats?.transferReason == "exam_type" ? 1 : 0);
+      return acc + (Number.isFinite(n) ? n : 0);
+    }, 0);
+  }, [calls]);
+
+  const radioInter = useMemo(() => {
+    return calls.reduce((acc, c: any) => {
+      const n = Number(c.stats?.transferReason == "exam_interv" ? 1 : 0);
+      return acc + (Number.isFinite(n) ? n : 0);
+    }, 0);
+  }, [calls]);
+
+  const confirmRDV = useMemo(() => {
+    // TODO : à remplacer par une vraie logique de confirmation de RDV
+    return 0;
+  }, [calls]);
+
   // 3ème ligne
   const examLabelMap = useMemo(() => {
     if (!mapping) return {};
@@ -957,6 +991,26 @@ export default function StatsAppelPage({ params }: any) {
               <StatTile title="Informations" value={nbInfo} icon={<IconInfo />} />
             ) : (
               <StatTile title="Heures prises en charge" value={heuresPrisEnCharge} icon={<IconHeures />} />
+            )}
+          </Grid>
+        ))}
+      </Grid>
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        {[0,1,2,3,4].map((i) => (
+          <Grid item xs={12} sm={6} md={2.4} key={i}>
+            {loading ? (
+              <StatTileSkeleton />
+            ) : i === 0 ? (
+              <StatTile title="Annulation" value={annulation} icon={<IconTotal />} />
+            ) : i === 1 ? (
+              <StatTile title="Modification" value={modification} icon={<IconRDV />} />
+            ) : i === 2 ? (
+              <StatTile title="Examen non pris en charge" value={notPerformed} icon={<IconUrgence />} />
+            ) : i === 3 ? (
+              <StatTile title="Demande de radio interventionnel" value={radioInter} icon={<IconInfo />} />
+            ) : 
+            (
+              <StatTile title="Confirmation RDV" value={confirmRDV == 0 ? "-" : confirmRDV} icon={<IconHeures />} />
             )}
           </Grid>
         ))}

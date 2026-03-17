@@ -9,6 +9,7 @@ import {
   CardContent,
   Grid,
   Skeleton,
+  Link
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -48,9 +49,9 @@ interface IntentConfig {
 type PreviewPoint = { day: string; total: number };
 
 const intents: IntentConfig[] = [
-  { value: "all",          sing_label: "Appel reçu",  label: "Appels reçus" },
-  { value: "prise_rdv", sing_label: "Rendez-vous", label: "Rendez-vous" },
-  { value: "urgency",      sing_label: "Urgence",     label: "Urgences" },
+  { value: "all", sing_label: "Appel reçu", label: "Appels reçus" },
+  { value: "prise_rdv", sing_label: "Indice", label: "Indice de performance" },
+  { value: "urgency", sing_label: "Urgence", label: "Urgences" },
 ];
 
 // --- Démo figée ---
@@ -71,6 +72,19 @@ function getAnchorDayBounds(anchorIso: string) {
   const end = new Date(anchor);
   end.setHours(23, 59, 59, 999);
   return { start, end };
+}
+
+function getIndice(calls: any[]): number {
+  if (!calls.length) return 0;
+
+  const errors = calls.reduce((acc: number, c: any) => {
+    if (c?.stats?.error_logic && c.stats.error_logic > 0) {
+      return acc + 1;
+    }
+    return acc;
+  }, 0);
+
+  return Math.floor((1 - errors / calls.length) * 100);
 }
 
 /* ===== Skeleton helpers ===== */
@@ -195,8 +209,6 @@ export default function TalkPage({ params }: TalkPageProps) {
         });
 
         const counts = intents.map((it) => {
-          console.log("todays", todaysCalls);
-
 
           if (it.value === "all") {
             return todaysCalls.length;
@@ -205,7 +217,7 @@ export default function TalkPage({ params }: TalkPageProps) {
           if (it.value === "urgency") {
             return todaysCalls.reduce((acc, c: any) => {
               const emergency = c.stats?.emergency;
-              
+
               const isEmergency =
                 emergency === true ||
                 emergency === "true" ||
@@ -217,11 +229,11 @@ export default function TalkPage({ params }: TalkPageProps) {
             }, 0);
           }
 
-          // autres intentions (ex: prise_rdv)
-          return todaysCalls.reduce((acc, c: any) => {
-            console.log(c.stats);
-            return c.stats?.rdv_booked != 0 ? acc + c.stats?.rdv_booked : acc;
-          }, 0);
+          if (it.value === "prise_rdv") {
+            return getIndice(todaysCalls);
+          }
+
+          return 0;
         });
 
 
@@ -348,15 +360,19 @@ export default function TalkPage({ params }: TalkPageProps) {
                           sx={{
                             pt: 2,
                             m: 1,
+                            flex: 1,
                             display: "flex",
                             justifyContent: "center",
                             alignItems: "center",
                             flexDirection: "column",
-                            width: "150px",
                           }}
                         >
                           <Typography variant="h5" sx={{ mb: 0 }}>
-                            {callsCountByIntent[index] ?? 0}
+                            {
+                              it.value === "prise_rdv"
+                              ? `${callsCountByIntent[index] ?? 0}%`
+                              : callsCountByIntent[index] ?? 0
+                            }
                           </Typography>
                           <Typography variant="subtitle1" sx={{ mb: 4 }}>
                             {(callsCountByIntent[index] ?? 0) > 1 ? it.label : it.sing_label}
@@ -367,21 +383,31 @@ export default function TalkPage({ params }: TalkPageProps) {
                   </Box>
 
                   <Box sx={{ mt: "auto", pt: 2 }}>
-                    <Button
-                      variant="outlined"
-                      startIcon={<IconEye size={18} />}
+                    <Link
+                      href={`/client/services/talk/${userProductId}/calls`}
                       onClick={() => router.push(`/client/services/talk/${userProductId}/calls`)}
+                      underline="none"
                       sx={{
-                        borderColor: "#48C8AF",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        border: "1px solid #48C8AF",
+                        borderRadius: "4px",
+                        padding: "6px 16px",
+                        fontSize: "0.875rem",
+                        fontWeight: 500,
+                        cursor: "pointer",
                         color: "#48C8AF",
                         "&:hover": {
                           borderColor: "#48C8AF",
                           backgroundColor: "rgba(72,200,175,0.08)",
+                          textDecoration: "none",
                         },
                       }}
                     >
+                      <IconEye size={18} />
                       Voir la liste des appels
-                    </Button>
+                    </Link>
                   </Box>
                 </CardContent>
               </Card>

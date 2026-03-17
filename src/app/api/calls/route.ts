@@ -96,7 +96,6 @@ export async function GET(request: NextRequest) {
     // Filtre statut
     if (statusParam && statusParam !== "all") {
       if (statusParam === "not_performed") {
-        console.log("HIHIHIHIHIHI");
         whereClause.AND.push({
           stats: {
             path: ["transferReason"],
