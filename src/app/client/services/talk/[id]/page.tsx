@@ -49,8 +49,9 @@ interface IntentConfig {
 type PreviewPoint = { day: string; total: number };
 
 const intents: IntentConfig[] = [
-  { value: "all", sing_label: "Appel reçu", label: "Appels reçus" },
-  { value: "prise_rdv", sing_label: "Indice", label: "Indice de performance" },
+  { value: "pourcentage", sing_label: "Indice", label: "Indice de performance" },
+  { value: "rdv_pris", sing_label: "Prise de RDV", label: "Prises de RDV" },
+  // { value: "all", sing_label: "Appel reçu", label: "Appels reçus" },
   { value: "urgency", sing_label: "Urgence", label: "Urgences" },
 ];
 
@@ -229,11 +230,15 @@ export default function TalkPage({ params }: TalkPageProps) {
             }, 0);
           }
 
-          if (it.value === "prise_rdv") {
+          if (it.value === "pourcentage") {
             return getIndice(todaysCalls);
           }
 
-          return 0;
+          return todaysCalls.reduce((acc, c: any) => {
+            console.log(c.stats);
+            return c.stats?.rdv_booked != 0 ? acc + c.stats?.rdv_booked : acc;
+          }, 0);
+
         });
 
 
@@ -369,7 +374,7 @@ export default function TalkPage({ params }: TalkPageProps) {
                         >
                           <Typography variant="h5" sx={{ mb: 0 }}>
                             {
-                              it.value === "prise_rdv"
+                              it.value === "pourcentage"
                               ? `${callsCountByIntent[index] ?? 0}%`
                               : callsCountByIntent[index] ?? 0
                             }
