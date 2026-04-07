@@ -100,6 +100,16 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
             const otherCentre = await res.json();
             setCentres([data, otherCentre]);
           }
+        } else if (data.id == 12 ||data.id == 13) {
+          if (data.id == 12) {
+            const res = await fetch("/api/users/13", { cache: "no-store" });
+            const otherCentre = await res.json();
+            setCentres([data, otherCentre]);
+          } else {
+            const res = await fetch("/api/users/12", { cache: "no-store" });
+            const otherCentre = await res.json();
+            setCentres([data, otherCentre]);
+          }
         } else {
           setCentres([]);
           setSelectedCentre(null);
