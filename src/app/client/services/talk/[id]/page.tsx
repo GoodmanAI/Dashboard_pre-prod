@@ -205,6 +205,10 @@ export default function TalkPage({ params }: TalkPageProps) {
         const { start, end } = getAnchorDayBounds(new Date().toISOString());
 
         const todaysCalls = data.filter((c) => {
+          console.log(new Date(c.createdAt));
+          console.log("start", start);
+          console.log("end", end);
+
           const d = new Date(c.createdAt);
           return d >= start && d <= end;
         });
