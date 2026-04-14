@@ -512,11 +512,13 @@ export default function StatsAppelPage({ params }: any) {
 
     const map: Record<string, string> = {};
 
-    for (const e of mapping) {
-      if (e.id) map[String(e.id)] = e.fr;
-      if (e.diminutif) map[e.diminutif] = e.fr;
-      if (e.examCode) map[e.examCode] = e.fr;
-      if (e.labelFr) map[e.labelFr] = e.fr;
+    if (Array.isArray(mapping)) {
+      for (const e of mapping) {
+        if (e.id) map[String(e.id)] = e.fr;
+        if (e.diminutif) map[e.diminutif] = e.fr;
+        if (e.examCode) map[e.examCode] = e.fr;
+        if (e.labelFr) map[e.labelFr] = e.fr;
+      }
     }
 
     return map;
