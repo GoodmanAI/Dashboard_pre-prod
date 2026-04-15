@@ -50,6 +50,8 @@ export async function GET(req: NextRequest) {
       where: { userProductId: Number(userProductId) },
     });
 
+    console.log("Settings loaded for userProductId", userProductId, settings ? "✅" : "❌");
+    console.log(settings);
     const examsMap: ExamMap = {};
 
     if (settings && settings.exams) {
@@ -77,7 +79,8 @@ export async function GET(req: NextRequest) {
               typeExamenClient: exam.typeExamenClient || "",
               libelleClient: exam.libelleClient || "",
               codeExamenClient: exam.codeExamenClient || "",
-              horaireMapping: exam.horaire ?? null
+              horaireMapping: exam.horaire ?? null,
+              codeExamenClientInject: exam.codeExamenClientInject ?? null
             };
           }
         });
@@ -95,7 +98,8 @@ export async function GET(req: NextRequest) {
             typeExamenClient: exam.typeExamenClient || "",
             libelleClient: exam.libelleClient || "",
             codeExamenClient: exam.codeExamenClient || "",
-              horaireMapping: exam.horaire ?? null
+              horaireMapping: exam.horaire ?? null,
+              codeExamenClientInject: exam.codeExamenClientInject ?? null
           };
         });
       }
@@ -152,7 +156,8 @@ export async function GET(req: NextRequest) {
           performed: row.performed ?? true,
           typeExamenClient: row.typeExamenClient || "",
           libelleClient: row.libelleClient || "",
-          horaireMapping: null
+          horaireMapping: null,
+          codeExamenClientInject: null
         };
       }
     });

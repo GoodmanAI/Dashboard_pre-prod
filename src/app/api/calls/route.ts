@@ -158,10 +158,10 @@ export async function GET(request: NextRequest) {
     if (examType) {
       const scannersCalls = calls.filter((call: any) => {
         if(call.stats?.exam_type_id === null) return false;
-        return call.stats?.exam_type_id?.includes("CT");
+        return call.stats?.exam_type_id?.includes("CT") || call.stats?.exam_type_id?.includes("MR");
       });
 
-      console.log(scannersCalls.length, "calls de type scanner");
+      console.log(scannersCalls.length, "calls de type scanner/IRM");
       const examPaginatedCalls = scannersCalls.slice(skip, skip + limit);
 
       return NextResponse.json(

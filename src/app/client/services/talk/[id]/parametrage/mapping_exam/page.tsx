@@ -40,6 +40,7 @@ function EditableTable({ data, setData }: EditableTableProps) {
     "libelleClient",
     "typeExamenClient",
     "performed",
+    "codeExamenClientInject",
     "horaire"
   ];
 
@@ -49,6 +50,7 @@ function EditableTable({ data, setData }: EditableTableProps) {
     libelleClient: "Libellé client",
     typeExamenClient: "Type examen client",
     performed: "Attribué à Lyrae",
+    codeExamenClientInject: "Code examen avec injection",
     horaire: "Créneau horaire"
   };
 
@@ -166,6 +168,31 @@ function EditableTable({ data, setData }: EditableTableProps) {
                       //     )
                       //   }
                       // />
+                    ) : key === "codeExamenClientInject" ? (
+                      (() => {
+                        const isInjectable = row.typeExamen === "CT" || row.typeExamen === "MR";
+                        return (
+                          <input
+                            type="text"
+                            value={row.codeExamenClientInject ?? ""}
+                            disabled={!isInjectable}
+                            onChange={(e) =>
+                              handleChange(
+                                row.codeExamen,
+                                "codeExamenClientInject",
+                                e.target.value === "" ? null : e.target.value
+                              )
+                            }
+                            style={{
+                              width: "100%",
+                              boxSizing: "border-box",
+                              border: "1px solid gray",
+                              padding: "6px",
+                              backgroundColor: isInjectable ? "white" : "#f0f0f0"
+                            }}
+                          />
+                        );
+                      })()
                     ) : isEditable ? (
                       <>
                       {/* {console.log("row", row)} */}
@@ -241,10 +268,12 @@ export default function MappingExam({ params }: TalkPageProps) {
         if (res.ok) {
           const json = await res.json();
           const formatted = Array.isArray(json) ? json : Object.values(json);
+          console.log("formatted", formatted);
           const withDefaults = formatted.map((row: any) => ({
             ...row,
             typeExamenClient: row.typeExamenClient ?? "",
             performed: row.performed ?? true,
+            codeExamenClientInject: row.codeExamenClientInject ?? null,
             horaire: row.horaire ?? {
               enabled: false,
               position: "below",

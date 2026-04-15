@@ -422,7 +422,7 @@ export default function CallListPage({ params }: CallListPageProps) {
         sx={{ mb: 3 }}
       >
         <Tab value="all" label="Tous les appels" />
-        <Tab value="scanners" label="Scanners" />
+        <Tab value="scanners" label="Scanners & IRM" />
       </Tabs>
 
       <FormControl sx={{ mb: 2, minWidth: 220 }}>
