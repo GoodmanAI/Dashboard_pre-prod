@@ -476,7 +476,7 @@ export default function CallListPage({ params }: CallListPageProps) {
         </FormControl>
 
         <FormControl sx={{ minWidth: 220 }}>
-          <InputLabel>Filtrer par type d'examen</InputLabel>
+          <InputLabel>Filtrer par type d&#39;examen</InputLabel>
           <Select
             value={examTypeFilter}
             label="Filtrer par type d&#39;examen"
