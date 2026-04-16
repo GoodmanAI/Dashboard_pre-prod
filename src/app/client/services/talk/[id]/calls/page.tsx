@@ -479,7 +479,7 @@ export default function CallListPage({ params }: CallListPageProps) {
           <InputLabel>Filtrer par type d'examen</InputLabel>
           <Select
             value={examTypeFilter}
-            label="Filtrer par type d'examen"
+            label="Filtrer par type d&#39;examen"
             onChange={(e) => {
               setExamTypeFilter(e.target.value);
               setPage(1);
@@ -529,7 +529,6 @@ export default function CallListPage({ params }: CallListPageProps) {
           <List sx={{ bgcolor: "white", borderRadius: 2 }}>
 
             {calls.map((call, index) => {
-              console.log("calls", calls);
               const stepsArray = Object.values(call.steps || {});
               const firstStep: any = stepsArray[0];
               const secondStep: any = stepsArray[2];
