@@ -568,6 +568,7 @@ export default function StatsAppelPage({ params }: any) {
       const codes = Array.isArray(code) ? code : [code];
 
       codes.forEach((e) => {
+        console.log("mapping", mapping);
         const element = mapping?.find((m: any) => m.diminutif == e);
         if (element && !map.has(element.diminutif)) {
           map.set(element.diminutif, {

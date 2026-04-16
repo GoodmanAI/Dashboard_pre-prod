@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Box,
   Typography,
@@ -176,12 +176,25 @@ export default function CallListPage({ params }: CallListPageProps) {
 
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [examTypeFilter, setExamTypeFilter] = useState("all");
   const [tab, setTab] = useState("all");
 
   const [selectedCall, setSelectedCall] = useState<any | null>(null);
   const [checkboxState, setCheckboxState] = useState<Record<number, boolean>>({});
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const open = Boolean(anchorEl);
+
+  const [mapping, setMapping] = useState<any[]>([]);
+
+  const examLabelMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (Array.isArray(mapping)) {
+      for (const e of mapping) {
+        if (e.diminutif) map[e.diminutif] = e.fr;
+      }
+    }
+    return map;
+  }, [mapping]);
 
   const [dateRange, setDateRange] = useState<DateRange>(() => {
     const today = startOfDay(new Date());
@@ -197,12 +210,27 @@ export default function CallListPage({ params }: CallListPageProps) {
   useEffect(() => {
     const pageFromUrl: any = Number(searchParams?.get("page"));
     const statusFromUrl: any = searchParams?.get("status");
+    const examTypeFromUrl: any = searchParams?.get("examType");
     const tabFromUrl: any = searchParams?.get("tab");
 
     if (!isNaN(pageFromUrl) && pageFromUrl > 0) setPage(pageFromUrl);
     if (statusFromUrl) setStatusFilter(statusFromUrl);
+    if (examTypeFromUrl) setExamTypeFilter(examTypeFromUrl);
     if (tabFromUrl) setTab(tabFromUrl);
   }, []);
+
+  // Fetch mapping types d'examen
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`/api/configuration/mapping/type_exam?userProductId=${userProductId}`);
+        const data = await res.json();
+        setMapping(data);
+      } catch (err) {
+        console.error("Erreur fetch mapping type_exam:", err);
+      }
+    })();
+  }, [userProductId]);
 
   // state → URL
   useEffect(() => {
@@ -210,11 +238,12 @@ export default function CallListPage({ params }: CallListPageProps) {
 
     paramsUrl.set("page", String(page));
     paramsUrl.set("status", statusFilter);
+    paramsUrl.set("examType", examTypeFilter);
     paramsUrl.set("tab", tab);
 
     router.replace(`/client/services/talk/${userProductId}/calls?${paramsUrl.toString()}`, { scroll: false });
 
-  }, [page, statusFilter, tab]);
+  }, [page, statusFilter, examTypeFilter, tab]);
 
   // FETCH
   useEffect(() => {
@@ -240,6 +269,7 @@ export default function CallListPage({ params }: CallListPageProps) {
           page: String(page),
           limit: String(ITEMS_PER_PAGE),
           status: statusFilter,
+          examTypeId: examTypeFilter,
           from: dateRange.from.toISOString(),
           to: toDate.toISOString(),
         });
@@ -277,7 +307,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
     return () => controller.abort();
 
-  }, [userProductId, page, statusFilter, tab, dateRange]);
+  }, [userProductId, page, statusFilter, examTypeFilter, tab, dateRange]);
 
   useEffect(() => {
     const init = async () => {
@@ -425,24 +455,45 @@ export default function CallListPage({ params }: CallListPageProps) {
         <Tab value="scanners" label="Scanners & IRM" />
       </Tabs>
 
-      <FormControl sx={{ mb: 2, minWidth: 220 }}>
-        <InputLabel>Filtrer par statut</InputLabel>
-        <Select
-          value={statusFilter}
-          label="Filtrer par statut"
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setPage(1);
-          }}
-        >
-          <MenuItem value="all">Tous</MenuItem>
-          <MenuItem value="success">Succès</MenuItem>
-          <MenuItem value="no_slot">Pas de créneaux</MenuItem>
-          <MenuItem value="not_performed">Examen non pris en charge</MenuItem>
-          <MenuItem value="canceled">Annulé</MenuItem>
-          <MenuItem value="rescheduled">Modifié</MenuItem>
-        </Select>
-      </FormControl>
+      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+        <FormControl sx={{ minWidth: 220 }}>
+          <InputLabel>Filtrer par statut</InputLabel>
+          <Select
+            value={statusFilter}
+            label="Filtrer par statut"
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <MenuItem value="all">Tous</MenuItem>
+            <MenuItem value="success">Succès</MenuItem>
+            <MenuItem value="no_slot">Pas de créneaux</MenuItem>
+            <MenuItem value="not_performed">Examen non pris en charge</MenuItem>
+            <MenuItem value="canceled">Annulé</MenuItem>
+            <MenuItem value="rescheduled">Modifié</MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl sx={{ minWidth: 220 }}>
+          <InputLabel>Filtrer par type d'examen</InputLabel>
+          <Select
+            value={examTypeFilter}
+            label="Filtrer par type d'examen"
+            onChange={(e) => {
+              setExamTypeFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <MenuItem value="all">Tous</MenuItem>
+            {Object.entries(examLabelMap).map(([code, label]) => (
+              <MenuItem key={code} value={code}>
+                {label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
 
       {loading && (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
@@ -478,7 +529,7 @@ export default function CallListPage({ params }: CallListPageProps) {
           <List sx={{ bgcolor: "white", borderRadius: 2 }}>
 
             {calls.map((call, index) => {
-
+              console.log("calls", calls);
               const stepsArray = Object.values(call.steps || {});
               const firstStep: any = stepsArray[0];
               const secondStep: any = stepsArray[2];

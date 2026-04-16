@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
 
     const mode = searchParams.get("mode");
     const examType = searchParams.get("examType");
+    const examTypeId = searchParams.get("examTypeId");
     const userProductIdParam = searchParams.get("userProductId");
     const callIdParam = searchParams.get("call");
     const pageParam = searchParams.get("page");
@@ -151,6 +152,16 @@ export async function GET(request: NextRequest) {
     const page = Number(pageParam) || 1;
     const limit = Number(limitParam) || 10;
     const skip = (page - 1) * limit;
+
+    // Filtre par exam_type_id spécifique
+    if (examTypeId && examTypeId !== "all") {
+      calls = calls.filter((call: any) => {
+        const id = call.stats?.exam_type_id;
+        if (!id) return false;
+        if (Array.isArray(id)) return id.includes(examTypeId);
+        return id === examTypeId;
+      });
+    }
 
     const total = calls.length;
     const paginatedCalls = calls.slice(skip, skip + limit);
