@@ -138,9 +138,11 @@ function sumDurationsSec(calls: any): number {
   }, 0);
 }
 
-function formatHoursFromSeconds(totalSeconds: number, decimals = 1): string {
-  const hrs = totalSeconds / 3600;
-  return `${hrs.toFixed(decimals)} h`;
+function formatHoursFromSeconds(totalSeconds: number): string {
+  const totalMinutes = Math.round(totalSeconds / 60);
+  const hrs = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  return `${hrs}h${String(mins).padStart(2, "0")}`;
 }
 
 function secondsToMinLabel(totalSeconds: number) {
@@ -468,7 +470,7 @@ export default function StatsAppelPage({ params }: any) {
 
   const heuresPrisEnCharge = useMemo(() => {
     const totalSeconds = sumDurationsSec(calls);
-    return formatHoursFromSeconds(totalSeconds, 2);
+    return formatHoursFromSeconds(totalSeconds);
   }, [calls]);
 
   // 2ème ligne 
