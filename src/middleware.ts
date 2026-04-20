@@ -22,8 +22,12 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL('/client', req.url));
     }
 
-    // Pour les routes /client, seul le client est autorisé
-    if (pathname.startsWith('/client') && token.role !== 'CLIENT') {
+    // Pour les routes /client : CLIENT et ADMIN (pour la vue multi-centres) sont autorisés
+    if (
+      pathname.startsWith('/client') &&
+      token.role !== 'CLIENT' &&
+      token.role !== 'ADMIN'
+    ) {
       return NextResponse.redirect(new URL('/admin', req.url));
     }
   }

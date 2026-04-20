@@ -44,7 +44,7 @@ const STORAGE_KEY = "lyrae_selected_centre_id";
 const CentreContext = createContext<CentreContextType | undefined>(undefined);
 
 export const CentreProvider = ({ children }: { children: ReactNode }) => {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const [centres, setCentres] = useState<ManagedUser[]>([]);
   const [selectedCentre, setSelectedCentre] = useState<ManagedUser | null>(null);
   let currentCentre = (selectedCentre?.userProducts?.find((c) => c.product.name.includes("Talk"))?.id || selectedCentre?.id) ?? null;
@@ -63,8 +63,33 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
 
     (async () => {
       try {
+        // ADMIN (rôle applicatif) : accès à tous les centres via /api/admin/centres
+        if (session?.user?.role === "ADMIN") {
+          const resAll = await fetch("/api/admin/centres", { cache: "no-store" });
+          if (cancelled) return;
+
+          if (resAll.ok) {
+            const list: ManagedUser[] = await resAll.json();
+            setCentres(list);
+
+            const raw =
+              (typeof window !== "undefined" && localStorage.getItem(STORAGE_KEY)) || "";
+            const storedId = Number(raw);
+            const fallback = list[0] ?? null;
+            const initial = list.find((u) => u.id === storedId) || fallback;
+
+            setSelectedCentre(initial || null);
+            if (initial) {
+              localStorage.setItem(STORAGE_KEY, String(initial.id));
+            } else {
+              localStorage.removeItem(STORAGE_KEY);
+            }
+            return;
+          }
+        }
+
         const res = await fetch("/api/client", { cache: "no-store" });
-        
+
         const data = await res.json();
         console.log("data", data)
         currentCentre = data.id;
@@ -127,7 +152,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, [status]);
+  }, [status, session?.user?.role]);
 
   /**
    * Si la liste des centres change et que le centre sélectionné actuel
@@ -171,7 +196,19 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
     console.log("searching for", currentCentre);
     console.log("or searching for", selectedCentre?.userProductId);
     console.log("redirect to", userProductId)
-    if (!centre || !pathname?.includes("/talk/")) return;
+    if (!centre) return;
+
+    // Si l'utilisateur n'est pas sur une page /talk/, on le redirige vers la page
+    // d'appels du centre fraîchement sélectionné (utile notamment pour les ADMIN
+    // qui arrivent depuis /admin ou /client sans contexte produit).
+    if (!pathname?.includes("/talk/")) {
+      if (userProductId) {
+        const target = `/client/services/talk/${userProductId}/calls`;
+        router.push(target);
+        router.refresh();
+      }
+      return;
+    }
 
     let regex = new RegExp(`/${currentCentre}(?=/|$)`);
     let newPath = "";
