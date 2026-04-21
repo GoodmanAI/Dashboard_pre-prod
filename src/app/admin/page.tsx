@@ -57,6 +57,7 @@ const AdminPage = () => {
   const handleManageClients = () => router.push("/admin/manage-clients");
   const handleCreateProduct = () => router.push("/admin/create-product");
   const handleViewReports = () => router.push("/admin/reports");
+  const handleViewCalls = () => router.push("/admin/calls");
 
   /* -----------------------------------------------------------
    * Rendu principal : aperçu + grille de tuiles d’accès rapide
@@ -150,6 +151,27 @@ const AdminPage = () => {
               >
                 <Typography variant="h6" fontWeight="bold">
                   Voir les rapports
+                </Typography>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <Card
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: 150,
+                  backgroundColor: "#48C8AF",
+                  color: "#fff",
+                  cursor: "pointer",
+                  transition: "0.3s",
+                  "&:hover": { backgroundColor: "#3BA992" },
+                }}
+                onClick={handleViewCalls}
+              >
+                <Typography variant="h6" fontWeight="bold">
+                  Voir les appels
                 </Typography>
               </Card>
             </Grid>
