@@ -43,7 +43,7 @@ const transferReason: any = {
   emergency: "- Urgence médicale",
   multi_exam_not_accepted: "- Examens multiples non gérés",
   multi_examen_double_us: "- Double échographie non gérée",
-  error_logic: "- Erreur système",
+  error_logic: "- Erreur incompréhension",
   admin: "- Démarche administrative",
   exam_interv: "- Examen interventionnel",
   patient_not_found: "- Patient non trouvé",
@@ -51,9 +51,24 @@ const transferReason: any = {
   create_rdv_failed: "- Échec de création de RDV",
 };
 
+const transferColor: Record<string, string> = {
+  exam_type: "#4899B5",
+  redirect: "#4899B5",
+  incident: "#4899B5",
+  emergency: "#4899B5",
+  multi_exam_not_accepted: "#4899B5",
+  multi_examen_double_us: "#4899B5",
+  error_logic: "#f97316",
+  admin: "#4899B5",
+  exam_interv: "#4899B5",
+  patient_not_found: "#4899B5",
+  error_identification: "#4899B5",
+  create_rdv_failed: "#4899B5",
+};
+
 const call_status: any = {
   no_slot: "Pas de créneaux",
-  success: "Succès",
+  success: "Rendez-vous",
   not_performed: "Examen non pris en charge",
   canceled: "Annulé",
   rescheduled: "Modifié",
@@ -62,13 +77,15 @@ const call_status: any = {
 
 import { pink } from "@mui/material/colors";
 
-function getCallChips(call: any) {
+function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
   const stats = call.stats;
 
   const chips: {
     label: string;
     muiColor?: "success" | "error" | "warning" | "default";
     customColor?: string;
+    textColor?: string;
+    variant?: "filled" | "outlined";
   }[] = [];
 
   // Urgences
@@ -101,9 +118,10 @@ function getCallChips(call: any) {
   }
 
   if (stats.end_reason === "transfer") {
+    const color = transferColor[stats.transferReason] ?? "#fdba74";
     chips.push({
-      label: `Redirection ${transferReason[stats.transferReason] || ""}`,
-      muiColor: "warning",
+      label: `Redirection ${transferReason[stats.transferReason] || ""}`.trim(),
+      customColor: color,
     });
   }
 
@@ -119,15 +137,25 @@ function getCallChips(call: any) {
   }
 
   if (stats.rdv_status) {
-    chips.push({
-      label: call_status[stats.rdv_status] || "Inconnu",
-      muiColor:
-        stats.rdv_status === "success"
-          ? "success"
-          : stats.rdv_status === "no_slot"
-          ? "error"
-          : "default",
-    });
+    const label = call_status[stats.rdv_status] || "Inconnu";
+    if (stats.rdv_status === "success") {
+      chips.push({ label, customColor: "#4ade80" });
+      const rawExamId = stats.exam_type_id;
+      const examId = Array.isArray(rawExamId) ? rawExamId[0] : rawExamId;
+      if (examId) {
+        chips.push({
+          label: examLabelMap[examId] || String(examId),
+          customColor: "#059669",
+          variant: "outlined",
+        });
+      }
+    } else if (stats.rdv_status === "full_planning_end") {
+      chips.push({ label, customColor: "#D4BFC7", textColor: "#1f2937" });
+    } else if (stats.rdv_status === "no_slot") {
+      chips.push({ label, muiColor: "error" });
+    } else {
+      chips.push({ label, muiColor: "default" });
+    }
   }
 
   return chips;
@@ -467,11 +495,12 @@ export default function CallListPage({ params }: CallListPageProps) {
             }}
           >
             <MenuItem value="all">Tous</MenuItem>
-            <MenuItem value="success">Succès</MenuItem>
-            <MenuItem value="no_slot">Pas de créneaux</MenuItem>
-            <MenuItem value="not_performed">Examen non pris en charge</MenuItem>
+            <MenuItem value="success">Rendez-vous</MenuItem>
             <MenuItem value="canceled">Annulé</MenuItem>
             <MenuItem value="rescheduled">Modifié</MenuItem>
+            <MenuItem value="full_planning_end">Planning complet</MenuItem>
+            <MenuItem value="hung_up">Raccroché</MenuItem>
+            <MenuItem value="transfer:all">Toutes les redirections</MenuItem>
           </Select>
         </FormControl>
 
@@ -572,21 +601,29 @@ export default function CallListPage({ params }: CallListPageProps) {
                             </Typography>
 
                             {(() => {
-                              const chips = getCallChips(call);
+                              const chips = getCallChips(call, examLabelMap);
 
                               return chips.map((chip, i) => (
                                 <Chip
                                   key={i}
                                   size="small"
+                                  variant={chip.variant ?? "filled"}
                                   label={chip.label}
                                   color={chip.customColor ? undefined : chip.muiColor}
                                   sx={
                                     chip.customColor
-                                      ? {
-                                          backgroundColor: chip.customColor,
-                                          color: "white",
-                                          fontWeight: 600,
-                                        }
+                                      ? chip.variant === "outlined"
+                                        ? {
+                                            borderColor: chip.customColor,
+                                            color: chip.customColor,
+                                            backgroundColor: "transparent",
+                                            fontWeight: 600,
+                                          }
+                                        : {
+                                            backgroundColor: chip.customColor,
+                                            color: chip.textColor ?? "white",
+                                            fontWeight: 600,
+                                          }
                                       : undefined
                                   }
                                 />
