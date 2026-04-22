@@ -498,7 +498,8 @@ export default function CallListPage({ params }: CallListPageProps) {
             <MenuItem value="success">Rendez-vous</MenuItem>
             <MenuItem value="canceled">Annulé</MenuItem>
             <MenuItem value="rescheduled">Modifié</MenuItem>
-            <MenuItem value="full_planning_end">Planning complet</MenuItem>
+            <MenuItem value="no_slot_api_retrieve">Planning complet</MenuItem>
+            <MenuItem value="not_performed">Examen non pris en charge</MenuItem>
             <MenuItem value="hung_up">Raccroché</MenuItem>
             <MenuItem value="transfer:all">Toutes les redirections</MenuItem>
           </Select>

@@ -33,6 +33,11 @@ import {
   LocalHospital as IconUrgence,
   Info as IconInfo,
   AccessTime as IconHeures,
+  EditCalendar as IconAnnulMod,
+  Block as IconExamNotHandled,
+  EventBusy as IconPlanningFull,
+  Biotech as IconRadioInterv,
+  TaskAlt as IconConfirmRDV,
 } from "@mui/icons-material";
 import { useCentre } from "@/app/context/CentreContext";
 import { subDays, startOfDay } from "date-fns";
@@ -196,6 +201,54 @@ function StatTile({
         <Typography variant="h5" fontWeight={700} noWrap>
           {value}
         </Typography>
+      </Box>
+    </Paper>
+  );
+}
+
+function StatTileDouble({
+  items,
+  icon,
+}: {
+  items: { title: string; value: string | number }[];
+  icon: React.ReactNode;
+}) {
+  return (
+    <Paper
+      sx={{
+        p: 2,
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        height: 96,
+      }}
+      elevation={1}
+    >
+      <Box
+        sx={{
+          width: 48,
+          height: 48,
+          borderRadius: "10px",
+          display: "grid",
+          placeItems: "center",
+          bgcolor: "rgba(72,200,175,0.15)",
+          color: "#2a6f64",
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </Box>
+      <Box sx={{ display: "flex", gap: 3, minWidth: 0, flex: 1 }}>
+        {items.map((item, idx) => (
+          <Box key={idx} sx={{ minWidth: 0 }}>
+            <Typography variant="body2" color="text.secondary" noWrap>
+              {item.title}
+            </Typography>
+            <Typography variant="h5" fontWeight={700} noWrap>
+              {item.value}
+            </Typography>
+          </Box>
+        ))}
       </Box>
     </Paper>
   );
@@ -499,6 +552,13 @@ export default function StatsAppelPage({ params }: any) {
   const radioInter = useMemo(() => {
     return calls.reduce((acc, c: any) => {
       const n = Number(c.stats?.transferReason == "exam_interv" ? 1 : 0);
+      return acc + (Number.isFinite(n) ? n : 0);
+    }, 0);
+  }, [calls]);
+
+  const noSlotApi = useMemo(() => {
+    return calls.reduce((acc, c: any) => {
+      const n = Number(c?.stats?.no_slot_api_retrieve ? 1 : 0);
       return acc + (Number.isFinite(n) ? n : 0);
     }, 0);
   }, [calls]);
@@ -1001,21 +1061,26 @@ export default function StatsAppelPage({ params }: any) {
         ))}
       </Grid>
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        {[0,1,2,3,4].map((i) => (
+        {[0, 1, 2, 3, 4].map((i) => (
           <Grid item xs={12} sm={6} md={2.4} key={i}>
             {loading ? (
               <StatTileSkeleton />
             ) : i === 0 ? (
-              <StatTile title="Annulation" value={annulation} icon={<IconTotal />} />
+              <StatTileDouble
+                items={[
+                  { title: "Annulation", value: annulation },
+                  { title: "Modification", value: modification },
+                ]}
+                icon={<IconAnnulMod />}
+              />
             ) : i === 1 ? (
-              <StatTile title="Modification" value={modification} icon={<IconRDV />} />
+              <StatTile title="Examen non pris en charge" value={notPerformed == 0 ? "-" : notPerformed} icon={<IconExamNotHandled />} />
             ) : i === 2 ? (
-              <StatTile title="Examen non pris en charge" value={notPerformed} icon={<IconUrgence />} />
+              <StatTile title="Planning complet" value={noSlotApi == 0 ? "-" : noSlotApi} icon={<IconPlanningFull />} />
             ) : i === 3 ? (
-              <StatTile title="Demande de radio interventionnel" value={radioInter} icon={<IconInfo />} />
-            ) : 
-            (
-              <StatTile title="Confirmation RDV" value={confirmRDV == 0 ? "-" : confirmRDV} icon={<IconHeures />} />
+              <StatTile title="Demande de radio interventionnel" value={radioInter == 0 ? "-" : radioInter} icon={<IconRadioInterv />} />
+            ) : (
+              <StatTile title="Confirmation RDV" value={confirmRDV == 0 ? "-" : confirmRDV} icon={<IconConfirmRDV />} />
             )}
           </Grid>
         ))}

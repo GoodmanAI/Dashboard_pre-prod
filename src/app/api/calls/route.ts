@@ -107,6 +107,10 @@ export async function GET(request: NextRequest) {
             stats: { path: ["transferReason"], equals: reason },
           });
         }
+      } else if (statusParam === "not_performed") {
+        whereClause.AND.push({
+          stats: { path: ["transferReason"], equals: "exam_type" },
+        });
       } else if (statusParam === "hung_up") {
         whereClause.AND.push({
           AND: [
@@ -164,6 +168,10 @@ export async function GET(request: NextRequest) {
           Array.isArray(s.intents) && s.intents.includes("renseignements");
         return !hasRdvStatus && !hasRenseignements;
       });
+    }
+
+    if (statusParam === "no_slot_api_retrieve") {
+      calls = calls.filter((c: any) => !!c?.stats?.no_slot_api_retrieve);
     }
 
     // ==========================
