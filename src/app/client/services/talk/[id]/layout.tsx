@@ -3,12 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import { prisma } from "@/lib/prisma";
-// import { PrismaClient } from "@prisma/client";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-
-// const prisma = new PrismaClient();
 
 export default async function TalkLayout({
   children,
@@ -17,30 +12,17 @@ export default async function TalkLayout({
   children: React.ReactNode;
   params: { id: string };
 }) {
+  // Défense en profondeur : le middleware gère déjà l'auth sur /client/*,
+  // mais on re-vérifie ici côté server component au cas où.
   const session = await getServerSession(authOptions);
-
   if (!session?.user?.id) {
-    redirect("/login3");
+    redirect("/authentication/signin");
   }
 
   const userProductId = Number(params.id);
   if (Number.isNaN(userProductId)) {
-    redirect("/login");
+    redirect("/authentication/signin");
   }
 
-  const cookieStore = cookies();
-  const activeUserId = Number(cookieStore.get("activeUserId")?.value);
-
-  const effectiveUserId = activeUserId || session.user.id;
-
-  const userProduct = await prisma.userProduct.findFirst({
-    where: {
-      id: userProductId,
-      userId: effectiveUserId,
-      removedAt: null,
-    },
-  });
-
-  // ✅ TOUJOURS retourner children
   return <>{children}</>;
 }

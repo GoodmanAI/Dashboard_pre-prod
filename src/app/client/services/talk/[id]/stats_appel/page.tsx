@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useTalkBasePath } from "@/utils/talkRoutes";
 import {
   BarChart,
   Bar,
@@ -289,6 +290,7 @@ function ChartSkeleton() {
 
 export default function StatsAppelPage({ params }: any) {
   const userProductId = Number(params.id);
+  const basePath = useTalkBasePath(userProductId);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const open = Boolean(anchorEl);
   const [mapping, setMapping]: any = useState(null);
@@ -1027,7 +1029,7 @@ export default function StatsAppelPage({ params }: any) {
 
           <Button
             variant="outlined"
-            onClick={() => router.push(`/client/services/talk/${userProductId}`)}
+            onClick={() => router.push(`${basePath}`)}
             sx={{
               borderColor: "#48C8AF",
               color: "#48C8AF",

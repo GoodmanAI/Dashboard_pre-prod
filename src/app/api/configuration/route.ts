@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
+import { requireAuth, requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-helpers";
 
 /**
  * GET /api/configuration?userProductId=XX
  */
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireAuthOrApiKey(req, "BOT_API_KEY");
+    if (auth.error) return auth.error;
+
     const { searchParams } = new URL(req.url);
     const userProductId = Number(searchParams.get("userProductId"));
 
@@ -14,6 +18,11 @@ export async function GET(req: NextRequest) {
         { error: "Missing or invalid userProductId" },
         { status: 400 }
       );
+    }
+
+    if (!auth.bot) {
+      const ownershipErr = await assertUserProductOwnership(auth.session, userProductId);
+      if (ownershipErr) return ownershipErr;
     }
 
     // 1️⃣ Récupérer les TalkSettings
@@ -187,6 +196,10 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth.error) return auth.error;
+    const { session } = auth;
+
     const body = await req.json();
 
     const {
@@ -219,6 +232,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const ownershipErr = await assertUserProductOwnership(session, userProductId);
+    if (ownershipErr) return ownershipErr;
 
     if (typeof reconnaissance !== "boolean") {
       return NextResponse.json(

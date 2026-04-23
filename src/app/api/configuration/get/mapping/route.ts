@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { BlobServiceClient } from "@azure/storage-blob";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
+import { requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-helpers";
 
 type Exam = Record<string, any>;
 type ExamMap = Record<string, Exam>;
@@ -33,6 +34,9 @@ async function streamToBuffer(readableStream?: NodeJS.ReadableStream | null) {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuthOrApiKey(req, "BOT_API_KEY");
+  if (auth.error) return auth.error;
+
   const { searchParams } = new URL(req.url);
 
   const userProductId = searchParams.get("userProductId");
@@ -43,6 +47,16 @@ export async function GET(req: NextRequest) {
       { error: "Missing userProductId parameter" },
       { status: 400 }
     );
+  }
+
+  // Bot : pas de check d'ownership (il appelle pour le centre qu'il gère).
+  // User : on vérifie qu'il a accès au UserProduct demandé.
+  if (!auth.bot) {
+    const ownershipErr = await assertUserProductOwnership(
+      auth.session,
+      Number(userProductId)
+    );
+    if (ownershipErr) return ownershipErr;
   }
 
   try {

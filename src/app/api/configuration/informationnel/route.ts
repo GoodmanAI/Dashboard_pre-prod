@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
+import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAuth();
+    if (auth.error) return auth.error;
+    const { session } = auth;
+
     const body = await req.json();
     const { userProductId, ...formData } = body;
 
@@ -12,6 +17,9 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    const ownershipErr = await assertUserProductOwnership(session, userProductId);
+    if (ownershipErr) return ownershipErr;
 
     const userProduct = await prisma.userProduct.findUnique({
       where: { id: userProductId },
@@ -57,6 +65,10 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
+    const auth = await requireAuth();
+    if (auth.error) return auth.error;
+    const { session } = auth;
+
     const { searchParams } = new URL(req.url);
     const userProductIdParam = searchParams.get("userProductId");
 
@@ -67,6 +79,9 @@ export async function GET(req: Request) {
         { status: 400 }
       );
     }
+
+    const ownershipErr = await assertUserProductOwnership(session, userProductId);
+    if (ownershipErr) return ownershipErr;
 
     const userProduct = await prisma.userProduct.findUnique({
       where: { id: userProductId },

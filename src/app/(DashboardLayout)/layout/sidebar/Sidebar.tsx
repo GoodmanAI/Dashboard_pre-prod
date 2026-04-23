@@ -91,12 +91,18 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
                   src="/images/logos/neuracorp_logo.png"
                   alt="Logo Neuracorp"
                   sx={{ width: "210px", height: "auto", cursor: "pointer" }}
-                  onClick={() => router.push(`/client/services/talk/${talkId}`)}
+                  onClick={() =>
+                    router.push(
+                      session?.user.role === "ADMIN"
+                        ? "/admin"
+                        : `/client/services/talk/${talkId}`
+                    )
+                  }
                 />
               </Box>
 
               {/* Navigation latérale */}
-              {(products.length > 0) &&
+              {(session?.user.role === "ADMIN" || products.length > 0) &&
                 <SidebarItems />
               }
             </Sidebar>

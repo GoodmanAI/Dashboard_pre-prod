@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
+import { requireAuth, requireAdmin } from "@/lib/auth-helpers";
 
 // DELETE /api/user/:userId/number/:numberId
 export async function DELETE(req: Request, { params }: { params: { userId: string, numberId: string } }) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.error;
+  const adminErr = requireAdmin(auth.session);
+  if (adminErr) return adminErr;
+
   const userId = Number(params.userId);
   const numberId = Number(params.numberId);
 

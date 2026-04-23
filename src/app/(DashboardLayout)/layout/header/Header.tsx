@@ -170,15 +170,21 @@
                     "& .MuiSelect-icon": { color: "#48C8AF", fontSize: 18 },
                   }}
                 >
-                {centres.map((c: any) => (
-                  <MuiMenuItem
-                    key={c.userProductId?.toString() || c.userProducts.find((e: any) => e.product.name.includes("Talk")).id}
-                    value={c.userProductId?.toString() || c.userProducts.find((e: any) => e.product.name.includes("Talk")).id}
-                    sx={{ fontWeight: 500, fontSize: "0.85rem" }}
-                  >
-                    {c.name ?? c.email}
-                  </MuiMenuItem>
-                ))}
+                {centres.map((c: any) => {
+                  const upid =
+                    c.userProductId ??
+                    c.userProducts?.find((e: any) => e.product.name.includes("Talk"))?.id;
+                  const label = c.name ?? c.email;
+                  return (
+                    <MuiMenuItem
+                      key={upid}
+                      value={upid}
+                      sx={{ fontWeight: 500, fontSize: "0.85rem" }}
+                    >
+                      {session?.user?.role === "ADMIN" ? `${label} · ID: ${upid}` : label}
+                    </MuiMenuItem>
+                  );
+                })}
                 </Select>
                 </>
               )}

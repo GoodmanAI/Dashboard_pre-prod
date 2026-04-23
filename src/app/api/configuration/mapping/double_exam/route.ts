@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma"; // adapte le chemin si besoin
+import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 
 // =========================
 // GET
 // =========================
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth.error) return auth.error;
+    const { session } = auth;
+
     const { searchParams } = new URL(req.url);
     const userProductId = Number(searchParams.get("userProductId"));
 
@@ -15,6 +20,9 @@ export async function GET(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const ownershipErr = await assertUserProductOwnership(session, userProductId);
+    if (ownershipErr) return ownershipErr;
 
     const talkSettings = await prisma.talkSettings.findUnique({
       where: { userProductId },
@@ -38,6 +46,10 @@ export async function GET(req: NextRequest) {
 // =========================
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth.error) return auth.error;
+    const { session } = auth;
+
     const { searchParams } = new URL(req.url);
     const userProductId = Number(searchParams.get("userProductId"));
 
@@ -47,6 +59,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const ownershipErr = await assertUserProductOwnership(session, userProductId);
+    if (ownershipErr) return ownershipErr;
 
     const body = await req.json();
 
