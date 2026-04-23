@@ -34,6 +34,7 @@ import VolumeUpIcon from "@mui/icons-material/VolumeUp";
 import { useRouter } from "next/navigation";
 import { IconChevronLeft } from "@tabler/icons-react";
 import { useCentre } from "@/app/context/CentreContext";
+import { useTalkBasePath } from "@/utils/talkRoutes";
 
 type ExamKey = "radiographie" | "irm" | "echographie" | "scanner" | "mammo";
 type VoiceKey = "femme" | "homme" | "neutre";
@@ -333,6 +334,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   const router = useRouter();
   const { selectedUserId, selectedCentre } = useCentre();
   const userProductId = Number(params.id);
+  const basePath = useTalkBasePath(userProductId);
   
   const [settings, setSettings] = useState<TalkSettings>(DEFAULTS);
   const [saving, setSaving] = useState(false);
@@ -525,7 +527,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
             <Button
               variant="outlined"
               startIcon={<IconChevronLeft size={18} />}
-              onClick={() => router.push(`/client/services/talk/${userProductId}`)}
+              onClick={() => router.push(`${basePath}`)}
               sx={{
                 borderColor: "#48C8AF",
                 color: "#48C8AF",
@@ -1087,7 +1089,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           <AccordionDetails>
             <Button
               variant="outlined"
-              onClick={() => router.push(`/client/services/talk/${userProductId}/parametrage/mapping_exam`)}
+              onClick={() => router.push(`${basePath}/parametrage/mapping_exam`)}
               sx={{
                 borderColor: "#48C8AF",
                 color: "#48C8AF",
@@ -1109,7 +1111,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           <AccordionDetails>
             <Button
               variant="outlined"
-              onClick={() => router.push(`/client/services/talk/${userProductId}/parametrage/questions_exam`)}
+              onClick={() => router.push(`${basePath}/parametrage/questions_exam`)}
               sx={{
                 borderColor: "#48C8AF",
                 color: "#48C8AF",

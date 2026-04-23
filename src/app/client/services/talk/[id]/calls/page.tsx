@@ -25,6 +25,7 @@ import {
   Popover
 } from "@mui/material";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTalkBasePath } from "@/utils/talkRoutes";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import { io } from "socket.io-client";
 import { subDays, startOfDay } from "date-fns";
@@ -196,6 +197,7 @@ export default function CallListPage({ params }: CallListPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const userProductId = Number(params.id);
+  const basePath = useTalkBasePath(userProductId);
 
   const [calls, setCalls] = useState<CallSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -269,7 +271,7 @@ export default function CallListPage({ params }: CallListPageProps) {
     paramsUrl.set("examType", examTypeFilter);
     paramsUrl.set("tab", tab);
 
-    router.replace(`/client/services/talk/${userProductId}/calls?${paramsUrl.toString()}`, { scroll: false });
+    router.replace(`${basePath}/calls?${paramsUrl.toString()}`, { scroll: false });
 
   }, [page, statusFilter, examTypeFilter, tab]);
 

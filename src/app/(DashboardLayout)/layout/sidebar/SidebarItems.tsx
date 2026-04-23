@@ -4,9 +4,10 @@ import React, { useState, useEffect } from "react";
 import { Box, List } from "@mui/material";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Menuitems from "./MenuItems";
+import Menuitems, { AdminMenuitems } from "./MenuItems";
 import NavItem from "./NavItem";
 import NavGroup from "./NavGroup";
+import { useCentre } from "@/app/context/CentreContext";
 
 /** Modèle minimal d’un item de menu latéral. */
 type SideNavItem = {
@@ -36,11 +37,11 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
   const pathDirect: any = pathname;
   const { data: session } = useSession();
   const userId = session?.user.id;
+  const { selectedCentre } = useCentre();
   const [products, setProducts] = useState([]);
 
   useEffect(() => {
     const load = async () => {
-      console.log(userId)
       if (!userId) return;
       const res = await fetch(`/api/users/${userId}/products`);
       const data = await res.json();
@@ -49,25 +50,38 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
 
     load();
   }, [userId]);
+
+  const isAdmin = session?.user.role === "ADMIN";
+
   /**
-   * Filtrage du menu selon le rôle :
-   * - Pour les ADMIN, on masque le groupe "Services" ainsi que tous les items LYRAE.
-   * - Pour les autres rôles, on conserve l’intégralité du menu.
+   * Résout le href d'un item contenant `{TALK_ID}` selon le rôle :
+   * - ADMIN : préfixe `/admin/clients/{userProductId}` (centre courant du contexte).
+   * - CLIENT : préfixe `/client/services/talk/{talkProductId}` (produit LyraeTalk).
+   * Retourne `null` si on ne peut pas résoudre (item à masquer).
    */
-  const filteredMenuItems = Menuitems.filter((item: SideNavItem) => {
-    if (session?.user.role === "ADMIN") {
-      if (item.navlabel && item.subheader === "Services") return false;
-      if (item.title?.toUpperCase().includes("LYRAE")) return false;
-    } else {
-      if (products.length) {
-        if (item.href && item.href.includes("{TALK_ID}")) {
-          const talk: any = products.find((el: any) => el.name == "LyraeTalk");
-          if (!talk) return false;
-          const talkId = talk.id;
-          item.href = item.href.replace("{TALK_ID}", talkId);
-        }
-      }
+  const resolveTalkHref = (rawHref: string): string | null => {
+    if (isAdmin) {
+      const id = selectedCentre?.userProductId;
+      if (!id) return null;
+      return rawHref
+        .replace("/client/services/talk/", "/admin/clients/")
+        .replace("{TALK_ID}", String(id));
     }
+    const talk: any = products.find((el: any) => el.name === "LyraeTalk");
+    if (!talk) return null;
+    return rawHref.replace("{TALK_ID}", String(talk.id));
+  };
+
+  /**
+   * Choix du menu selon le rôle :
+   * - ADMIN : `AdminMenuitems` (Admin + Client + Assistance).
+   * - CLIENT (ou autre) : `Menuitems` classique.
+   */
+  const sourceMenu: SideNavItem[] = isAdmin ? AdminMenuitems : Menuitems;
+
+  const filteredMenuItems = sourceMenu.filter((item: SideNavItem) => {
+    // Items LYRAE (démos produits) : masqués pour tous les rôles par défaut.
+    if (item.title?.toUpperCase().includes("LYRAE")) return false;
     return true;
   });
 
@@ -75,16 +89,20 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
    * Résolution de la destination des liens dépendants du rôle :
    * - "Dashboard" → /admin ou /client
    * - "Support" → /admin/ticket ou /client/ticket
+   * - Items `{TALK_ID}` → résolus via `resolveTalkHref`
    * - Autres → href statique tel que défini dans MenuItems
    */
-  const getDynamicHref = (item: SideNavItem): string | undefined => {
+  const getDynamicHref = (item: SideNavItem): string | null | undefined => {
     if (!session) return item.href;
 
     if (item.title === "Dashboard") {
-      return session.user.role === "ADMIN" ? "/admin" : "/client";
+      return isAdmin ? "/admin" : "/client";
     }
     if (item.title === "Support") {
-      return session.user.role === "ADMIN" ? "/admin/ticket" : "/client/ticket";
+      return isAdmin ? "/admin/ticket" : "/client/ticket";
+    }
+    if (item.href?.includes("{TALK_ID}")) {
+      return resolveTalkHref(item.href);
     }
     return item.href;
   };
@@ -93,13 +111,14 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
     <Box sx={{ px: 3 }}>
       <List sx={{ pt: 0 }} className="sidebarNav" component="div">
         {filteredMenuItems.map((item: SideNavItem) => {
-          const href = getDynamicHref(item);
-          const updatedItem = { ...item, href };
-
           // En-tête de section (ex: "Home", "Services")
           if (item.subheader) {
             return <NavGroup item={item} key={item.subheader} />;
           }
+
+          const href = getDynamicHref(item);
+          if (href === null) return null;
+          const updatedItem = { ...item, href: href ?? undefined };
 
           // Élément de navigation cliquable
           return (

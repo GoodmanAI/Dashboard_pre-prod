@@ -7,7 +7,9 @@ import {
   IconQuestionMark,
   IconAdjustmentsAlt,
   IconSettings,
-  IconChartInfographic
+  IconChartInfographic,
+  IconDashboard,
+  IconBolt,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -120,6 +122,74 @@ const Menuitems: SidebarItem[] = [
     title: "Support",
     icon: IconLifebuoy,
     href: "/client/ticket",
+  },
+];
+
+/**
+ * Menu dédié aux ADMIN : 2 catégories (Admin / Client).
+ * - Section "Admin" : pages globales admin (overview, actions).
+ * - Section "Client" : pages relatives au centre sélectionné (les `{TALK_ID}` sont résolus
+ *   en URL `/admin/clients/{userProductId}/...` par `SidebarItems`).
+ */
+export const AdminMenuitems: SidebarItem[] = [
+  { navlabel: true, subheader: "Admin" },
+  {
+    id: uniqueId(),
+    title: "Overview",
+    icon: IconDashboard,
+    href: "/admin/overview",
+  },
+  {
+    id: uniqueId(),
+    title: "Actions",
+    icon: IconBolt,
+    href: "/admin/actions",
+  },
+
+  { navlabel: true, subheader: "Client" },
+  {
+    id: uniqueId(),
+    title: "Mapping des examens",
+    icon: IconFilePencil,
+    href: "/client/services/talk/{TALK_ID}/parametrage/mapping_exam",
+  },
+  {
+    id: uniqueId(),
+    title: "Paramètres généraux",
+    icon: IconSettings,
+    href: "/client/services/talk/{TALK_ID}/parametrage",
+  },
+  {
+    id: uniqueId(),
+    title: "Module informationnel",
+    icon: IconQuestionMark,
+    href: "/client/services/talk/{TALK_ID}/informationnel",
+  },
+  {
+    id: uniqueId(),
+    title: "Questions par examen",
+    icon: IconAdjustmentsAlt,
+    href: "/client/services/talk/{TALK_ID}/parametrage/questions_exam",
+  },
+  {
+    id: uniqueId(),
+    title: "Liste des appels",
+    icon: IconPhone,
+    href: "/client/services/talk/{TALK_ID}/calls",
+  },
+  {
+    id: uniqueId(),
+    title: "Statistiques d'appels",
+    icon: IconChartInfographic,
+    href: "/client/services/talk/{TALK_ID}/stats_appel",
+  },
+
+  { navlabel: true, subheader: "Assistance" },
+  {
+    id: uniqueId(),
+    title: "Support",
+    icon: IconLifebuoy,
+    href: "/admin/ticket",
   },
 ];
 

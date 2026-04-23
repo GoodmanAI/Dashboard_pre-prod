@@ -15,6 +15,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { IconEye, IconChartBar } from "@tabler/icons-react";
 import { useCentre } from "@/app/context/CentreContext";
+import { useTalkBasePath } from "@/utils/talkRoutes";
 
 // Recharts (aperçu histogramme)
 import {
@@ -129,6 +130,7 @@ export default function TalkPage({ params }: TalkPageProps) {
   const router = useRouter();
   const { selectedUserId, selectedCentre } = useCentre();
   const userProductId = Number(params.id);
+  const basePath = useTalkBasePath(userProductId);
 
   // Compteurs par intention
   const [callsCountByIntent, setCallsCountByIntent] = useState<number[]>([]);
@@ -393,8 +395,8 @@ export default function TalkPage({ params }: TalkPageProps) {
 
                   <Box sx={{ mt: "auto", pt: 2 }}>
                     <Link
-                      href={`/client/services/talk/${userProductId}/calls`}
-                      onClick={() => router.push(`/client/services/talk/${userProductId}/calls`)}
+                      href={`${basePath}/calls`}
+                      onClick={() => router.push(`${basePath}/calls`)}
                       underline="none"
                       sx={{
                         display: "inline-flex",
@@ -458,7 +460,7 @@ export default function TalkPage({ params }: TalkPageProps) {
                 <Button
                   variant="outlined"
                   startIcon={<IconChartBar size={18} />}
-                  onClick={() => router.push(`/client/services/talk/${userProductId}/stats_appel`)}
+                  onClick={() => router.push(`${basePath}/stats_appel`)}
                   sx={{
                     borderColor: "#48C8AF",
                     color: "#48C8AF",
@@ -509,7 +511,7 @@ export default function TalkPage({ params }: TalkPageProps) {
               <Button
                 variant="outlined"
                 startIcon={<IconEye size={18} />}
-                onClick={() => router.push(`/client/services/talk/${userProductId}/informationnel`)}
+                onClick={() => router.push(`${basePath}/informationnel`)}
                 sx={{
                   borderColor: "#48C8AF",
                   color: "#48C8AF",
@@ -543,7 +545,7 @@ export default function TalkPage({ params }: TalkPageProps) {
               </Typography>
               <Button
                   variant="outlined"
-                  onClick={() => router.push(`/client/services/talk/${userProductId}/parametrage`)}
+                  onClick={() => router.push(`${basePath}/parametrage`)}
                   sx={{
                   borderColor: "#48C8AF",
                   color: "#48C8AF",

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { BlobServiceClient } from "@azure/storage-blob";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
+import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 
 async function streamToBuffer(readableStream?: NodeJS.ReadableStream | null) {
   if (!readableStream) return Buffer.alloc(0);
@@ -16,6 +17,10 @@ async function streamToBuffer(readableStream?: NodeJS.ReadableStream | null) {
 
 
 export async function GET(req: Request) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.error;
+  const { session } = auth;
+
   const { searchParams } = new URL(req.url);
   const userProductId = Number(searchParams.get("userProductId"));
 
@@ -25,6 +30,9 @@ export async function GET(req: Request) {
       { status: 400 }
     );
   }
+
+  const ownershipErr = await assertUserProductOwnership(session, userProductId);
+  if (ownershipErr) return ownershipErr;
 
   const settings = await prisma.talkSettings.findUnique({
     where: { userProductId },
@@ -124,7 +132,18 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.error;
+  const { session } = auth;
+
   const { userProductId, exams } = await req.json();
+
+  if (!userProductId || !Number.isFinite(Number(userProductId))) {
+    return NextResponse.json({ error: "Invalid userProductId" }, { status: 400 });
+  }
+
+  const ownershipErr = await assertUserProductOwnership(session, Number(userProductId));
+  if (ownershipErr) return ownershipErr;
 
   await prisma.talkSettings.update({
     where: { userProductId },

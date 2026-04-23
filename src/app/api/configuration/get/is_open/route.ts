@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
+import { requireApiKey } from "@/lib/auth-helpers";
 
 // ------------------ UTILITAIRES ------------------
 const toMinutes = (t: string) => {
@@ -10,6 +11,9 @@ const toMinutes = (t: string) => {
 // ------------------------------------------------
 export async function GET(req: Request) {
   try {
+    const keyErr = requireApiKey(req, "BOT_API_KEY");
+    if (keyErr) return keyErr;
+
     const { searchParams } = new URL(req.url);
     const userProductId = parseInt(searchParams.get("userProductId") || "", 10);
 

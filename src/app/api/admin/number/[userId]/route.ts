@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
+import { requireAuth, requireAdmin } from "@/lib/auth-helpers";
 
 export async function POST(req: Request, { params }: { params: { userId: string } }) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.error;
+  const adminErr = requireAdmin(auth.session);
+  if (adminErr) return adminErr;
+
   const userId = Number(params.userId);
   const { number } = await req.json();
 
@@ -44,6 +50,11 @@ export async function POST(req: Request, { params }: { params: { userId: string 
 }
 
 export async function GET(req: Request, { params }: { params: { userId: string } }) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.error;
+  const adminErr = requireAdmin(auth.session);
+  if (adminErr) return adminErr;
+
   const userId = Number(params.userId);
 
   const user = await prisma.user.findUnique({
