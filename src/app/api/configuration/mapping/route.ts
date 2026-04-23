@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma'
+import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth.error) return auth.error;
+    const { session } = auth;
+
     const body = await req.json();
     const { userProductId, data } = body;
 
     if (!userProductId || !Array.isArray(data)) {
       return NextResponse.json({ error: "userProductId and data are required" }, { status: 400 });
     }
+
+    const ownershipErr = await assertUserProductOwnership(session, Number(userProductId));
+    if (ownershipErr) return ownershipErr;
 
     const existing = await prisma.talkSettings.findUnique({
       where: { userProductId: Number(userProductId) },
@@ -43,6 +51,10 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: Request) {
   try {
+    const auth = await requireAuth();
+    if (auth.error) return auth.error;
+    const { session } = auth;
+
     const { searchParams } = new URL(req.url);
     const userProductId = searchParams.get("userProductId");
 
@@ -52,6 +64,9 @@ export async function GET(req: Request) {
         { status: 400 }
       );
     }
+
+    const ownershipErr = await assertUserProductOwnership(session, Number(userProductId));
+    if (ownershipErr) return ownershipErr;
 
     const settings = await prisma.talkSettings.findUnique({
       where: { userProductId: Number(userProductId) },

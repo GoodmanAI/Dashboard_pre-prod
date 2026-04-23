@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma'
+import { requireApiKey } from "@/lib/auth-helpers";
 
 export async function POST(req: NextRequest) {
   try {
+    const keyErr = requireApiKey(req, "BOT_API_KEY");
+    if (keyErr) return keyErr;
+
     const { userProductId, codeExamenClient } = await req.json();
 
     if (!userProductId || !codeExamenClient) {

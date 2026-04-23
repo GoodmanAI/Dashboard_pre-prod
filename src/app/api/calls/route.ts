@@ -1,11 +1,16 @@
 // app/api/calls/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth.error) return auth.error;
+    const { session } = auth;
+
     const { searchParams } = request.nextUrl;
 
     const mode = searchParams.get("mode");
@@ -33,6 +38,9 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const ownershipErr = await assertUserProductOwnership(session, userProductId);
+    if (ownershipErr) return ownershipErr;
 
     // ==========================
     // CAS 1 : UN SEUL CALL

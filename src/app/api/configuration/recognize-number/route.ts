@@ -1,9 +1,14 @@
 // src/app/api/configuration/recognize-number/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
+import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth.error) return auth.error;
+    const { session } = auth;
+
     const body = await req.json();
     const { userProductId, reconnaissance } = body;
 
@@ -14,6 +19,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const ownershipErr = await assertUserProductOwnership(session, userProductId);
+    if (ownershipErr) return ownershipErr;
 
     if (typeof reconnaissance !== "boolean") {
       return NextResponse.json(

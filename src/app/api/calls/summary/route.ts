@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
 import { Prisma } from "@prisma/client";
+import { requireApiKey } from "@/lib/auth-helpers";
 
 type Speaker = "Lyrae" | "User";
 
@@ -11,6 +12,9 @@ interface Step {
 
 export async function POST(req: NextRequest) {
   try {
+    const keyErr = requireApiKey(req, "BOT_API_KEY");
+    if (keyErr) return keyErr;
+
     const data = await req.json();
 
     const { userProductId, centerId, steps, stats } = data;

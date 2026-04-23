@@ -2,6 +2,7 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
+import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 
 const defaultTypes = {
   US: { fr: "Echographie" },
@@ -13,6 +14,10 @@ const defaultTypes = {
 
 
 export async function GET(req: Request) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.error;
+  const { session } = auth;
+
   const url = new URL(req.url);
   const userProductId = url.searchParams.get("userProductId");
 
@@ -24,6 +29,9 @@ export async function GET(req: Request) {
   }
 
   const id = Number(userProductId);
+
+  const ownershipErr = await assertUserProductOwnership(session, id);
+  if (ownershipErr) return ownershipErr;
 
   const mappings = await prisma.examMapping.findMany({
     where: { userProductId: id }
@@ -39,6 +47,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireAuth();
+  if (auth.error) return auth.error;
+  const { session } = auth;
+
   const url = new URL(req.url);
   const userProductId = url.searchParams.get("userProductId");
 
@@ -50,6 +62,10 @@ export async function POST(req: Request) {
   }
 
   const id = Number(userProductId);
+
+  const ownershipErr = await assertUserProductOwnership(session, id);
+  if (ownershipErr) return ownershipErr;
+
   const data = await req.json();
 
   // Mapping FR -> Code pour labelFr si pas fourni

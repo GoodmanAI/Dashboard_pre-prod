@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/utils/prisma'
+import { requireAuth, assertUserAccess } from "@/lib/auth-helpers"
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
+    const auth = await requireAuth();
+    if (auth.error) return auth.error;
+    const { session } = auth;
+
     const userId = parseInt(params.userId, 10)
     if (isNaN(userId)) {
       return NextResponse.json(
@@ -13,6 +18,9 @@ export async function GET(
         { status: 400 }
       )
     }
+
+    const accessErr = await assertUserAccess(session, userId);
+    if (accessErr) return accessErr;
 
     // Vérification existence user (optionnel mais recommandé)
     const userExists = await prisma.user.findUnique({
