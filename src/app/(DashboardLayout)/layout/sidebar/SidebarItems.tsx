@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Box, List } from "@mui/material";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -33,9 +33,22 @@ type SidebarItemsProps = {
  */
 const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
   const pathname = usePathname();
-  const pathDirect = pathname;
+  const pathDirect: any = pathname;
   const { data: session } = useSession();
+  const userId = session?.user.id;
+  const [products, setProducts] = useState([]);
 
+  useEffect(() => {
+    const load = async () => {
+      console.log(userId)
+      if (!userId) return;
+      const res = await fetch(`/api/users/${userId}/products`);
+      const data = await res.json();
+      setProducts(data);
+    };
+
+    load();
+  }, [userId]);
   /**
    * Filtrage du menu selon le rôle :
    * - Pour les ADMIN, on masque le groupe "Services" ainsi que tous les items LYRAE.
@@ -44,7 +57,16 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
   const filteredMenuItems = Menuitems.filter((item: SideNavItem) => {
     if (session?.user.role === "ADMIN") {
       if (item.navlabel && item.subheader === "Services") return false;
-      if (item.title && item.title.toUpperCase().includes("LYRAE")) return false;
+      if (item.title?.toUpperCase().includes("LYRAE")) return false;
+    } else {
+      if (products.length) {
+        if (item.href && item.href.includes("{TALK_ID}")) {
+          const talk: any = products.find((el: any) => el.name == "LyraeTalk");
+          if (!talk) return false;
+          const talkId = talk.id;
+          item.href = item.href.replace("{TALK_ID}", talkId);
+        }
+      }
     }
     return true;
   });

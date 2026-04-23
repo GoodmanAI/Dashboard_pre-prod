@@ -14,7 +14,13 @@ import {
   Grid,
   Paper,
   Chip,
+  TextField,
+  Button,
+  Alert,
+  IconButton,
+  InputAdornment,
 } from '@mui/material'
+import { Visibility, VisibilityOff } from '@mui/icons-material'
 
 /**
  * Représentation minimale d’un produit rattaché à un centre.
@@ -72,6 +78,16 @@ const ProfilePage = () => {
   const [clientData, setClientData] = useState<ClientData | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [passwordLoading, setPasswordLoading] = useState(false)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null)
+
   /* -------------------------------------------------------------------------- */
   /*                           Redirection si déconnecté                         */
   /* -------------------------------------------------------------------------- */
@@ -120,6 +136,42 @@ const ProfilePage = () => {
         Aucune donnée client trouvée.
       </Typography>
     )
+  }
+
+  const handleChangePassword = async () => {
+    setPasswordError(null)
+    setPasswordSuccess(null)
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Veuillez remplir tous les champs.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Les nouveaux mots de passe ne correspondent pas.')
+      return
+    }
+
+    setPasswordLoading(true)
+    try {
+      const res = await fetch('/api/client/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setPasswordError(data.error || 'Une erreur est survenue.')
+      } else {
+        setPasswordSuccess(data.message || 'Mot de passe modifié avec succès.')
+        setCurrentPassword('')
+        setNewPassword('')
+        setConfirmPassword('')
+      }
+    } catch {
+      setPasswordError('Une erreur est survenue.')
+    } finally {
+      setPasswordLoading(false)
+    }
   }
 
   const { name, email, role, centreRole, managedUsers } = clientData
@@ -207,10 +259,86 @@ const ProfilePage = () => {
 
           <Divider sx={{ my: 3 }} />
 
-          <Typography color="text.primary">
-            Pour toute demande de modification de vos informations de compte,
-            veuillez contacter notre support : <strong>support@neuracorp.ai</strong>
-          </Typography>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Changer le mot de passe
+            </Typography>
+
+            {passwordError && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setPasswordError(null)}>
+                {passwordError}
+              </Alert>
+            )}
+            {passwordSuccess && (
+              <Alert severity="success" sx={{ mb: 2 }} onClose={() => setPasswordSuccess(null)}>
+                {passwordSuccess}
+              </Alert>
+            )}
+
+            <TextField
+              label="Mot de passe actuel"
+              type={showCurrentPassword ? 'text' : 'password'}
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              fullWidth
+              size="small"
+              sx={{ mb: 2 }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setShowCurrentPassword(!showCurrentPassword)}>
+                      {showCurrentPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              label="Nouveau mot de passe"
+              type={showNewPassword ? 'text' : 'password'}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              fullWidth
+              size="small"
+              sx={{ mb: 2 }}
+              helperText="Min. 8 caractères, 1 majuscule, 1 minuscule, 1 chiffre, 1 caractère spécial"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setShowNewPassword(!showNewPassword)}>
+                      {showNewPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              label="Confirmer le nouveau mot de passe"
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              fullWidth
+              size="small"
+              sx={{ mb: 2 }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                      {showConfirmPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Button
+              variant="contained"
+              onClick={handleChangePassword}
+              disabled={passwordLoading}
+              sx={{ backgroundColor: '#48C8AF', '&:hover': { backgroundColor: '#3ab89d' } }}
+            >
+              {passwordLoading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Modifier le mot de passe'}
+            </Button>
+          </Paper>
         </Grid>
       </Grid>
     </Box>

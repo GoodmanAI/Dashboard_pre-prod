@@ -1,111 +1,239 @@
+// app/api/calls/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
 export const dynamic = "force-dynamic";
 
-import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/utils/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { subDays } from "date-fns";
-
-/**
- * GET /api/calls
- * ---------------------------------------------------------------------------
- * Récupère la liste des appels d’un utilisateur (centre) avec filtres optionnels.
- *
- * Authentification
- * - Requiert une session NextAuth valide.
- * - Supporte l’“impersonation” via ?asUserId= lorsque l’utilisateur courant
- *   possède le rôle de centre ADMIN_USER et gère le centre ciblé.
- *
- * Paramètres de requête (query)
- * - intent?: string            → filtre exact (insensible à la casse) sur l’intention.
- * - daysAgo?: number | "all"   → si nombre, restreint aux appels créés depuis N jours ;
- *                                si "all" ou absent, pas de filtre temporel.
- * - asUserId?: number          → identifiant d’un centre géré (utilisable uniquement par un ADMIN_USER
- *                                qui est le manager du centre ciblé).
- *
- * Codes de réponse
- * - 200: liste des appels.
- * - 400: paramètre de requête invalide.
- * - 403: accès refusé (non connecté ou non autorisé pour asUserId).
- * - 500: erreur serveur inattendue.
- *
- * Remarques d’implémentation
- * - Le filtre “intent” est appliqué en mode insensible à la casse côté Prisma.
- * - Le filtre temporel s’appuie sur createdAt >= now - daysAgo.
- */
 export async function GET(request: NextRequest) {
   try {
-    // Vérifie la présence d’une session utilisateur
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const { searchParams } = request.nextUrl;
+
+    const mode = searchParams.get("mode");
+    const examType = searchParams.get("examType");
+    const examTypeId = searchParams.get("examTypeId");
+    const userProductIdParam = searchParams.get("userProductId");
+    const callIdParam = searchParams.get("call");
+    const pageParam = searchParams.get("page");
+    const limitParam = searchParams.get("limit");
+    const statusParam = searchParams.get("status");
+    const fromParam = searchParams.get("from");
+    const toParam = searchParams.get("to");
+
+    if (!userProductIdParam) {
       return NextResponse.json(
-        { error: "Access denied. Seuls les utilisateurs connectés peuvent accéder à leurs appels" },
-        { status: 403 }
+        { error: "Paramètre userProductId manquant." },
+        { status: 400 }
       );
     }
 
-    const { searchParams } = request.nextUrl;
-    const intent = searchParams.get("intent") ?? undefined;
-
-    // Parse du filtre temporel (daysAgo)
-    const daysAgoParam = searchParams.get("daysAgo");
-    const parsed = daysAgoParam && daysAgoParam !== "all" ? Number(daysAgoParam) : undefined;
-    const daysAgo = Number.isFinite(parsed as number) ? (parsed as number) : undefined;
-
-    // Résolution de l’utilisateur effectif (impersonation pour ADMIN_USER)
-    const asUserIdParam = searchParams.get("asUserId");
-    let effectiveUserId = session.user.id;
-
-    if (asUserIdParam) {
-      const asUserId = Number(asUserIdParam);
-      if (!Number.isFinite(asUserId)) {
-        return NextResponse.json({ error: "Paramètre asUserId invalide." }, { status: 400 });
-      }
-
-      // Sécurité : n’autoriser l’accès à un autre user que si ADMIN_USER + centre géré
-      if (asUserId !== session.user.id) {
-        const current = await prisma.user.findUnique({
-          where: { id: session.user.id },
-          select: { centreRole: true },
-        });
-
-        if (current?.centreRole !== "ADMIN_USER") {
-          return NextResponse.json({ error: "Action non autorisée." }, { status: 403 });
-        }
-
-        const managed = await prisma.user.findFirst({
-          where: { id: asUserId, managerId: session.user.id },
-          select: { id: true },
-        });
-
-        if (!managed) {
-          return NextResponse.json({ error: "Centre non géré par cet administrateur." }, { status: 403 });
-        }
-
-        effectiveUserId = asUserId;
-      }
+    const userProductId = Number(userProductIdParam);
+    if (!Number.isFinite(userProductId)) {
+      return NextResponse.json(
+        { error: "Paramètre userProductId invalide." },
+        { status: 400 }
+      );
     }
 
-    // Construction du filtre Prisma
-    const where: any = {
-      userId: effectiveUserId,
-      ...(intent && { intent: { equals: intent, mode: "insensitive" } }),
+    // ==========================
+    // CAS 1 : UN SEUL CALL
+    // ==========================
+    if (callIdParam) {
+      const callId = Number(callIdParam);
+
+      if (!Number.isFinite(callId)) {
+        return NextResponse.json(
+          { error: "Paramètre call invalide." },
+          { status: 400 }
+        );
+      }
+
+      const call = await prisma.callConversation.findFirst({
+        where: { id: callId, userProductId },
+      });
+
+      if (!call) {
+        return NextResponse.json(
+          { error: "Aucun appel trouvé." },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json([call], { status: 200 });
+    }
+
+    // ==========================
+    // LISTE DES CALLS
+    // ==========================
+
+    const whereClause: any = {
+      userProductId,
+      AND: [
+        {
+          stats: {
+            path: ["duration"],
+            gt: 15,
+          },
+        },
+      ],
     };
 
-    if (daysAgo !== undefined) {
-      where.createdAt = { gte: subDays(new Date(), daysAgo) };
+    // ==========================
+    // Filtre date
+    // ==========================
+    if (fromParam || toParam) {
+      const dateFilter: any = {};
+
+      if (fromParam) {
+        dateFilter.gte = new Date(fromParam);
+      }
+
+      if (toParam) {
+        dateFilter.lte = new Date(toParam);
+      }
+
+      whereClause.createdAt = dateFilter;
+    }
+  
+    // Filtre statut
+    if (statusParam && statusParam !== "all") {
+      if (statusParam.startsWith("transfer:")) {
+        const reason = statusParam.slice("transfer:".length);
+        if (reason === "all") {
+          whereClause.AND.push({
+            stats: { path: ["end_reason"], equals: "transfer" },
+          });
+        } else {
+          whereClause.AND.push({
+            stats: { path: ["transferReason"], equals: reason },
+          });
+        }
+      } else if (statusParam === "not_performed") {
+        whereClause.AND.push({
+          stats: { path: ["transferReason"], equals: "exam_type" },
+        });
+      } else if (statusParam === "hung_up") {
+        whereClause.AND.push({
+          AND: [
+            { stats: { path: ["rdv_booked"], equals: 0 } },
+            { stats: { path: ["rdv_canceled"], equals: 0 } },
+            { stats: { path: ["rdv_modified"], equals: 0 } },
+            {
+              NOT: {
+                stats: { path: ["end_reason"], equals: "transfer" },
+              },
+            },
+          ],
+        });
+      } else if (statusParam === "rescheduled") {
+        whereClause.AND.push({
+          stats: {
+            path: ["rdv_modified"],
+            gt: 0,
+          },
+        });
+      } else if (statusParam === "canceled") {
+        whereClause.AND.push({
+          stats: {
+            path: ["rdv_canceled"],
+            gt: 0,
+          },
+        });
+      } else {
+        whereClause.AND.push({
+          stats: {
+            path: ["rdv_status"],
+            equals: statusParam,
+          },
+        });
+      }
     }
 
-    // Requête et tri décroissant par date de création
-    const calls = await prisma.call.findMany({
-      where,
+    
+    // 🔹 Une seule requête DB
+    let calls = await prisma.callConversation.findMany({
+      where: whereClause,
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(calls, { status: 200 });
+    // 🔹 Filtre JS obligatoire
+    calls = calls.filter((c: any) => {
+      return Array.isArray(c.steps) && c.steps.length > 1;
+    });
+
+    if (statusParam === "hung_up") {
+      calls = calls.filter((c: any) => {
+        const s = c.stats || {};
+        const hasRdvStatus = !!s.rdv_status;
+        const hasRenseignements =
+          Array.isArray(s.intents) && s.intents.includes("renseignements");
+        return !hasRdvStatus && !hasRenseignements;
+      });
+    }
+
+    if (statusParam === "no_slot_api_retrieve") {
+      calls = calls.filter((c: any) => !!c?.stats?.no_slot_api_retrieve);
+    }
+
+    // ==========================
+    // MODE ALL → pas de pagination
+    // ==========================
+    if (mode === "all") {
+      return NextResponse.json(calls, { status: 200 });
+    }
+
+    // ==========================
+    // MODE PAGINÉ
+    // ==========================
+    const page = Number(pageParam) || 1;
+    const limit = Number(limitParam) || 10;
+    const skip = (page - 1) * limit;
+
+    // Filtre par exam_type_id spécifique
+    if (examTypeId && examTypeId !== "all") {
+      calls = calls.filter((call: any) => {
+        const id = call.stats?.exam_type_id;
+        if (!id) return false;
+        if (Array.isArray(id)) return id.includes(examTypeId);
+        return id === examTypeId;
+      });
+    }
+
+    const total = calls.length;
+    const paginatedCalls = calls.slice(skip, skip + limit);
+
+    if (examType) {
+      const scannersCalls = calls.filter((call: any) => {
+        if(call.stats?.exam_type_id === null) return false;
+        return call.stats?.exam_type_id?.includes("CT") || call.stats?.exam_type_id?.includes("MR");
+      });
+
+      console.log(scannersCalls.length, "calls de type scanner/IRM");
+      const examPaginatedCalls = scannersCalls.slice(skip, skip + limit);
+
+      return NextResponse.json(
+        {
+          data: examPaginatedCalls,
+          total: scannersCalls.length,
+          page,
+          limit
+        }
+      );
+    } else {
+      return NextResponse.json(
+        {
+          data: paginatedCalls,
+          total,
+          page,
+          limit,
+        },
+        { status: 200 }
+      );
+    }
   } catch (error) {
-    // Journalisation serveur pour diagnostic ; message générique côté client
-    console.error("Error fetching calls:", error);
-    return NextResponse.json({ error: "Une erreur est survenue." }, { status: 500 });
+    console.error("Erreur fetching calls:", error);
+    return NextResponse.json(
+      { error: "Une erreur est survenue." },
+      { status: 500 }
+    );
   }
 }

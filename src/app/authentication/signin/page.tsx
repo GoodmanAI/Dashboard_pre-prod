@@ -37,15 +37,8 @@ export default function SignIn() {
   /*  - Évite d’afficher le formulaire si une session valide existe.            */
   /*  - Oriente vers l’espace adapté selon le rôle.                             */
   /* -------------------------------------------------------------------------- */
-  useEffect(() => {
-    if (session?.user?.role) {
-      if (session.user.role === "ADMIN") {
-        router.push("/admin");
-      } else if (session.user.role === "CLIENT") {
-        router.push("/client");
-      }
-    }
-  }, [session, router]);
+  const [products, setProducts] = useState([]);
+  const [talkId, setTalkId] = useState([]);
 
   /* -------------------------------------------------------------------------- */
   /*                           Soumission du formulaire                          */
@@ -69,21 +62,31 @@ export default function SignIn() {
       return;
     }
 
-    // On laisse NextAuth finaliser la session avant d’inspecter le rôle.
-    setTimeout(async () => {
-      const s = await getSession();
-      let redirectUrl = "/authentication/signin";
-      if (s?.user?.role === "ADMIN") redirectUrl = "/admin";
-      else if (s?.user?.role === "CLIENT") redirectUrl = "/client";
+    // on attend que NextAuth mette à jour la session
+    const session = await getSession();
+    
+    const userId = session?.user.id;
+    const res = await fetch(`/api/users/${userId}/products`);
 
-      router.push(redirectUrl);
-      setLoading(false);
-    }, 1000);
+    const data = await res.json();
+    
+    const product: any = await data.find((product: any) => {
+      if (product.name === "LyraeTalk") {
+        return true;
+      }
+    });
 
-    // Rafraîchit l’app pour que les layouts/menus reflètent immédiatement l’état connecté.
-    setTimeout(() => {
-      router.refresh();
-    }, 1500);
+    if (session?.user?.role === "ADMIN") {
+      router.push("/admin");
+    } else {
+      if (product && product.id) {
+        router.push(`/client/services/talk/${product.id}`);
+      } else {
+        router.push(`/client/services/talk/`);
+      }
+    }
+
+    router.refresh();
   };
 
   /* -------------------------------------------------------------------------- */
@@ -151,7 +154,7 @@ export default function SignIn() {
               fullWidth
               variant="outlined"
               label="Email"
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}

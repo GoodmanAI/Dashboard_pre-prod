@@ -1,0 +1,561 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  Box,
+  Typography,
+  Button,
+  Card,
+  CardContent,
+  Grid,
+  Skeleton,
+  Link
+} from "@mui/material";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { IconEye, IconChartBar } from "@tabler/icons-react";
+import { useCentre } from "@/app/context/CentreContext";
+
+// Recharts (aperçu histogramme)
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
+import ClientLayout from "./ClientLayout";
+
+interface Call {
+  id: number;
+  caller: string;
+  called: string;
+  intent: string;
+  firstname: string | null;
+  lastname: string | null;
+  birthdate: string | null;
+  createdAt: string;
+  steps: string[];
+}
+
+interface IntentConfig {
+  value: string;
+  sing_label: string;
+  label: string;
+}
+
+type PreviewPoint = { day: string; total: number };
+
+const intents: IntentConfig[] = [
+  { value: "pourcentage", sing_label: "Indice", label: "Indice de performance" },
+  { value: "rdv_pris", sing_label: "Prise de RDV", label: "Prises de RDV" },
+  // { value: "all", sing_label: "Appel reçu", label: "Appels reçus" },
+  { value: "urgency", sing_label: "Urgence", label: "Urgences" },
+];
+
+// --- Démo figée ---
+const DEMO_MODE = false; // passe à false si tu veux repasser en live
+const DEMO_ANCHOR_ISO =
+  process.env.NEXT_PUBLIC_DEMO_ANCHOR_ISO || "2025-03-01T12:00:00.000Z";
+const DEMO_DAYS = 35; // fenêtre de remap (30–45 ok)
+
+// Aide à reconnaître les aborts (évite "Uncaught (in promise) AbortError")
+const isAbortError = (e: unknown) =>
+  !!e && typeof e === "object" && (e as any).name === "AbortError";
+
+// Bornes (00:00–23:59) du "jour démo" basé sur l'anchor
+function getAnchorDayBounds(anchorIso: string) {
+  const anchor = new Date(anchorIso);
+  const start = new Date(anchor);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(anchor);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+function getIndice(calls: any[]): number {
+  if (!calls.length) return 0;
+
+  const errors = calls.reduce((acc: number, c: any) => {
+    if (c?.stats?.error_logic && c.stats.error_logic > 0) {
+      return acc + 1;
+    }
+    return acc;
+  }, 0);
+
+  return Math.floor((1 - errors / calls.length) * 100);
+}
+
+/* ===== Skeleton helpers ===== */
+function CountItemSkeleton() {
+  return (
+    <Box
+      sx={{
+        pt: 2,
+        m: 1,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        flexDirection: "column",
+        width: 150,
+      }}
+    >
+      <Skeleton variant="text" width={60} height={36} />
+      <Skeleton variant="text" width={110} height={22} sx={{ mb: 4 }} />
+    </Box>
+  );
+}
+
+function ChartSkeleton({ height = 260 }: { height?: number }) {
+  return (
+    <Box sx={{ height }}>
+      <Skeleton variant="rounded" width="100%" height="100%" />
+    </Box>
+  );
+}
+
+interface TalkPageProps {
+    params: {
+        id: string; // captured from the URL
+    };
+}
+
+export default function TalkPage({ params }: TalkPageProps) {
+  const [filledSections, setFilledSections] = useState(0);
+  const [totalSections, setTotalSections] = useState(0);
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const { selectedUserId, selectedCentre } = useCentre();
+  const userProductId = Number(params.id);
+
+  // Compteurs par intention
+  const [callsCountByIntent, setCallsCountByIntent] = useState<number[]>([]);
+  const [loadingCounts, setLoadingCounts] = useState<boolean>(true);
+
+  // Données d’aperçu histogramme (droite)
+  const [previewData, setPreviewData] = useState<PreviewPoint[]>([]);
+  const [loadingPreview, setLoadingPreview] = useState<boolean>(true);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Redirige si non authentifié
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/authentication/signin");
+    }
+  }, [status, router]);
+
+  useEffect(() => {
+  if (!userProductId) return;
+
+  (async () => {
+    try {
+      const res = await fetch(`/api/configuration/informationnel?userProductId=${userProductId}`, {
+        cache: "no-store",
+      });
+
+      const json = await res.json();
+
+      if (json.success) {
+        setFilledSections(json.filledSections ?? 0);
+        setTotalSections(json.totalSections ?? 0);
+      }
+    } catch (e) {
+      console.error("Erreur récupération info counter:", e);
+    }
+  })();
+}, [userProductId]);
+
+  // Charge les compteurs par intention (24h démo gelées)
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        setLoadingCounts(true);
+
+        const params = new URLSearchParams();
+        // 24h côté API
+
+        // démo gelée
+        if (DEMO_MODE) {
+          params.set("demo", "1");
+          params.set("demoDays", String(DEMO_DAYS));
+          params.set("anchor", DEMO_ANCHOR_ISO);
+          params.set("demoPreserveDow", "1");
+        }
+
+        // centre sélectionné
+        if (selectedUserId) params.set("asUserId", String(selectedUserId));
+
+        const res = await fetch(`/api/calls?userProductId=${userProductId}&mode=all`, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+
+        if (!res.ok) throw new Error("Erreur récupération appels");
+        const data: Call[] = await res.json();
+        console.log("calls", data);
+
+        // stricte journée d'anchor (00:00–23:59)
+        const { start, end } = getAnchorDayBounds(new Date().toISOString());
+
+        const todaysCalls = data.filter((c) => {
+          console.log(new Date(c.createdAt));
+          console.log("start", start);
+          console.log("end", end);
+
+          const d = new Date(c.createdAt);
+          return d >= start && d <= end;
+        });
+
+        const counts = intents.map((it) => {
+
+          if (it.value === "all") {
+            return todaysCalls.length;
+          }
+
+          if (it.value === "urgency") {
+            return todaysCalls.reduce((acc, c: any) => {
+              const emergency = c.stats?.emergency;
+
+              const isEmergency =
+                emergency === true ||
+                emergency === "true" ||
+                emergency === 1 ||
+                (Array.isArray(emergency) && emergency.length > 0) ||
+                (typeof emergency === "object" && emergency !== null);
+
+              return acc + (isEmergency ? 1 : 0);
+            }, 0);
+          }
+
+          if (it.value === "pourcentage") {
+            return getIndice(todaysCalls);
+          }
+
+          return todaysCalls.reduce((acc, c: any) => {
+            console.log(c.stats);
+            return c.stats?.rdv_booked != 0 ? acc + c.stats?.rdv_booked : acc;
+          }, 0);
+
+        });
+
+
+        setCallsCountByIntent(counts);
+      } catch (e) {
+        if (!isAbortError(e)) {
+          setCallsCountByIntent(intents.map(() => 0));
+        }
+      } finally {
+        setLoadingCounts(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [status, selectedUserId, userProductId]);
+
+  // Charge l’aperçu histogramme (30j démo gelés)
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        setLoadingPreview(true);
+
+        const params = new URLSearchParams();
+        if (DEMO_MODE) {
+          params.set("demo", "1");
+          params.set("demoDays", String(DEMO_DAYS));
+          params.set("anchor", DEMO_ANCHOR_ISO);
+          params.set("demoPreserveDow", "1");
+        }
+        if (selectedUserId) params.set("asUserId", String(selectedUserId));
+
+        const res = await fetch(`/api/calls?userProductId=${userProductId}&mode=all`, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error("Erreur récupération stats");
+        const calls: Call[] = await res.json();
+
+        // groupement par JOUR ISO (stable)
+        const byIso = new Map<string, number>();
+        for (const c of calls) {
+          const d = new Date(c.createdAt);
+          const iso = d.toISOString().slice(0, 10);
+          byIso.set(iso, (byIso.get(iso) || 0) + 1);
+        }
+
+        const points = Array.from(byIso.entries())
+          .map(([iso, total]) => ({
+            iso,
+            day: new Date(iso).toLocaleDateString(),
+            total,
+          }))
+          .sort((a, b) => (a.iso < b.iso ? -1 : 1));
+
+        setPreviewData(points.slice(-14).map(({ day, total }) => ({ day, total })));
+      } catch (e) {
+        if (!isAbortError(e)) setPreviewData([]);
+      } finally {
+        setLoadingPreview(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [status, selectedUserId, userProductId]);
+
+  if (!mounted) return null;
+  return (
+    <ClientLayout>
+      <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
+        {/* Titre principal */}
+        <Typography variant="h4" gutterBottom>
+          LYRAE © Talk
+        </Typography>
+
+        {/* SECTION 1 : Appels (à gauche) + Statistiques (à droite) */}
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          {/* Colonne Appels (gauche) */}
+          <Grid item xs={12} md={7}>
+            <Box sx={{ p: 3, bgcolor: "#fff", borderRadius: 2, height: "100%" }}>
+              <Typography variant="h5" gutterBottom>
+                Appels
+              </Typography>
+              {selectedCentre !== undefined && (
+                <Typography variant="subtitle1" gutterBottom>
+                  {selectedCentre
+                    ? "Visualisez les appels du centre sélectionné."
+                    : "Visualisez vos appels pris en charge par LyraeTalk."}
+                </Typography>
+)}
+
+              <Card
+                sx={{
+                  borderRadius: 2,
+                  border: "1px solid #e0e0e0",
+                  p: 2,
+                  mt: 2,
+                }}
+              >
+                <CardContent sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                  <Typography variant="h6">Total (24h)</Typography>
+
+                  <Box
+                    sx={{
+                      mt: 1,
+                      display: "flex",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {loadingCounts ? (
+                      // ---- Skeletons des 3 compteurs ----
+                      <>
+                        <CountItemSkeleton />
+                        <CountItemSkeleton />
+                        <CountItemSkeleton />
+                      </>
+                    ) : (
+                      intents.map((it, index) => (
+                        <Box
+                          key={it.value}
+                          sx={{
+                            pt: 2,
+                            m: 1,
+                            flex: 1,
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            flexDirection: "column",
+                          }}
+                        >
+                          <Typography variant="h5" sx={{ mb: 0 }}>
+                            {
+                              it.value === "pourcentage"
+                              ? `${callsCountByIntent[index] ?? 0}%`
+                              : callsCountByIntent[index] ?? 0
+                            }
+                          </Typography>
+                          <Typography variant="subtitle1" sx={{ mb: 4 }}>
+                            {(callsCountByIntent[index] ?? 0) > 1 ? it.label : it.sing_label}
+                          </Typography>
+                        </Box>
+                      ))
+                    )}
+                  </Box>
+
+                  <Box sx={{ mt: "auto", pt: 2 }}>
+                    <Link
+                      href={`/client/services/talk/${userProductId}/calls`}
+                      onClick={() => router.push(`/client/services/talk/${userProductId}/calls`)}
+                      underline="none"
+                      sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        border: "1px solid #48C8AF",
+                        borderRadius: "4px",
+                        padding: "6px 16px",
+                        fontSize: "0.875rem",
+                        fontWeight: 500,
+                        cursor: "pointer",
+                        color: "#48C8AF",
+                        "&:hover": {
+                          borderColor: "#48C8AF",
+                          backgroundColor: "rgba(72,200,175,0.08)",
+                          textDecoration: "none",
+                        },
+                      }}
+                    >
+                      <IconEye size={18} />
+                      Voir la liste des appels
+                    </Link>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Box>
+          </Grid>
+
+          {/* Colonne Statistiques (droite) */}
+          <Grid item xs={12} md={5}>
+            <Box sx={{ p: 3, bgcolor: "#fff", borderRadius: 2, height: "100%" }}>
+              <Typography variant="h5" gutterBottom>
+                Statistiques appels
+              </Typography>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                Aperçu des 14 derniers jours (nombre d’appels / jour)
+              </Typography>
+
+              {loadingPreview ? (
+                // ---- Skeleton du graphique ----
+                <ChartSkeleton />
+              ) : previewData.length === 0 ? (
+                <Typography color="text.secondary">Aucune donnée à afficher.</Typography>
+              ) : (
+                <Box sx={{ height: 260 }}>
+                  {mounted &&
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={previewData}>
+                        <CartesianGrid stroke="#e0e0e0" strokeDasharray="3 3" />
+                        <XAxis dataKey="day" />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip />
+                        <Bar dataKey="total" fill="#48C8AF" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  }
+                </Box>
+              )}
+
+              <Box sx={{ textAlign: "right", mt: 2 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<IconChartBar size={18} />}
+                  onClick={() => router.push(`/client/services/talk/${userProductId}/stats_appel`)}
+                  sx={{
+                    borderColor: "#48C8AF",
+                    color: "#48C8AF",
+                    "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
+                  }}
+                >
+                  Voir les statistiques détaillées
+                </Button>
+              </Box>
+            </Box>
+          </Grid>
+        </Grid>
+
+        {/* === Bloc 2 : Informations & Libellés === */}
+        <Box sx={{ p: 3, mt: 2, bgcolor: "#fff", borderRadius: 2 }}>
+          <Typography variant="h5" gutterBottom>
+            Informations & Libellés
+          </Typography>
+          <Typography variant="subtitle1" gutterBottom>
+            Gérez les documents “Informations” et “Libellés” de votre service. Les données sont
+            enregistrées localement et isolées par centre sélectionné.
+          </Typography>
+          
+          <Card
+            sx={{
+              mt: 2,
+              borderRadius: 2,
+              border: "1px solid #e0e0e0",
+              p: 2,
+            }}
+          >
+            <CardContent
+              sx={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 2 }}
+            >
+              <Box>
+                <Typography variant="h6" sx={{ mb: 0.5 }}>
+                  Accéder aux documents
+                </Typography>
+                <Typography variant="body1" color="text.secondary">
+                  Ouvrir la page dédiée pour consulter et modifier les champs informationnels et les libellés.
+                </Typography>
+              </Box>
+                {loadingCounts ? (
+                  <Skeleton width={40} height={24} />
+                ) : (
+                  <Typography variant="h6">{filledSections}/{totalSections}</Typography>
+                )}
+              <Button
+                variant="outlined"
+                startIcon={<IconEye size={18} />}
+                onClick={() => router.push(`/client/services/talk/${userProductId}/informationnel`)}
+                sx={{
+                  borderColor: "#48C8AF",
+                  color: "#48C8AF",
+                  whiteSpace: "nowrap",
+                  "&:hover": {
+                    borderColor: "#48C8AF",
+                    backgroundColor: "rgba(72,200,175,0.08)",
+                  },
+                }}
+              >
+                Ouvrir
+              </Button>
+            </CardContent>
+          </Card>
+        </Box>
+
+        {/* SECTION 3 : Paramétrage Talk */}
+        <Box sx={{ p: 3, bgcolor: "#fff", borderRadius: 2 }}>
+          <Typography variant="h5" gutterBottom>
+            Paramétrage Talk
+          </Typography>
+          <Typography variant="subtitle1" gutterBottom>
+            Configurez les préférences de votre service (horaires, routage, notifications…).
+          </Typography>
+
+          <Card sx={{ borderRadius: 2, border: "1px solid #e0e0e0", p: 2, mt: 1 }}>
+            <CardContent sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Typography variant="subtitle1" color="text.secondary">
+                  
+                  Accéder aux paramètres avancés de Talk pour ce centre.
+              </Typography>
+              <Button
+                  variant="outlined"
+                  onClick={() => router.push(`/client/services/talk/${userProductId}/parametrage`)}
+                  sx={{
+                  borderColor: "#48C8AF",
+                  color: "#48C8AF",
+                  "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
+                  }}
+              >
+                Ouvrir le paramétrage
+              </Button>
+            </CardContent>
+          </Card>
+        </Box>
+      </Box>
+    </ClientLayout>
+  );
+}

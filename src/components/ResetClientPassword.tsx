@@ -54,8 +54,10 @@ export default function ResetClientPassword() {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch("/api/clients");
+        const response = await fetch("/api/admin/client");
+        console.log("res",response);
         const data = await response.json();
+        console.log("clients", data);
         if (response.ok) {
           setClients(data);
         } else {

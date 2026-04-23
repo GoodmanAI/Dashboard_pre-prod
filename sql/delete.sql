@@ -1,0 +1,1 @@
+DELETE FROM "Call" WHERE "userId" IN (3, 4, 5);

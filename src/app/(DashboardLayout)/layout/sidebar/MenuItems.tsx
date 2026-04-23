@@ -4,8 +4,13 @@ import {
   IconLayoutDashboard,
   IconPhone,
   IconLifebuoy,
+  IconQuestionMark,
+  IconAdjustmentsAlt,
+  IconSettings,
+  IconChartInfographic
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
+import { useSession } from "next-auth/react";
 
 /**
  * Typages des éléments de menu :
@@ -39,36 +44,74 @@ export type SidebarItem = NavLabel | MenuLink;
  *  - Les éléments cliquables possèdent un `id` unique, un `title`,
  *    une `icon` Tabler et une `href` absolue vers la page cible.
  */
+
 const Menuitems: SidebarItem[] = [
   // === Section : Accueil ===
-  { navlabel: true, subheader: "Home" },
-  {
-    id: uniqueId(),
-    title: "Dashboard",
-    icon: IconLayoutDashboard,
-    href: "/client",
-  },
+  // { navlabel: true, subheader: "Home" },
+  // {
+  //   id: uniqueId(),
+  //   title: "Dashboard",
+  //   icon: IconLayoutDashboard,
+  //   href: "/client",
+  // },
 
-  // === Section : Services ===
-  { navlabel: true, subheader: "Services" },
-  {
+  // // === Section : Services ===
+  { navlabel: true, subheader: "Configuration" },
+   {
     id: uniqueId(),
-    title: "LYRAE © Explain + Satisfy",
+    title: "Mapping des examens",
     icon: IconFilePencil,
-    href: "/client/services/explain",
+    href: "/client/services/talk/{TALK_ID}/parametrage/mapping_exam",
   },
   {
     id: uniqueId(),
-    title: "LYRAE © Talk (Radiologie)",
-    icon: IconPhone,
-    href: "/client/services/talk",
+    title: "Paramètres généraux",
+    icon: IconSettings,
+    href: "/client/services/talk/{TALK_ID}/parametrage",
   },
   {
     id: uniqueId(),
-    title: "LYRAE © Talk (Dentisterie)",
-    icon: IconPhone,
-    href: "/client/services/talk-dentist",
+    title: "Module informationnel",
+    icon: IconQuestionMark,
+    href: "/client/services/talk/{TALK_ID}/informationnel",
   },
+  {
+    id: uniqueId(),
+    title: "Questions par examen",
+    icon: IconAdjustmentsAlt,
+    href: "/client/services/talk/{TALK_ID}/parametrage/questions_exam"
+  },
+  { navlabel: true, subheader: "Statistiques" },
+  {
+    id: uniqueId(),
+    title: "Liste des appels",
+    icon: IconPhone,
+    href: "/client/services/talk/{TALK_ID}/calls",
+  },
+  {
+    id: uniqueId(),
+    title: "Statistiques d'appels",
+    icon: IconChartInfographic,
+    href: "/client/services/talk/{TALK_ID}/stats_appel",
+  },
+  // {
+  //   id: uniqueId(),
+  //   title: "LYRAE © Explain + Satisfy",
+  //   icon: IconFilePencil,
+  //   href: "/client/services/explain",
+  // },
+  // {
+  //   id: uniqueId(),
+  //   title: "LYRAE © Talk (Radiologie)",
+  //   icon: IconPhone,
+  //   href: "/client/services/talk",
+  // },
+  // {
+  //   id: uniqueId(),
+  //   title: "LYRAE © Talk (Dentisterie)",
+  //   icon: IconPhone,
+  //   href: "/client/services/talk-dentist",
+  // },
 
   // === Section : Assistance ===
   { navlabel: true, subheader: "Assistance" },

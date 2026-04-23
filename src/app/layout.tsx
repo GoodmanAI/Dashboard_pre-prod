@@ -60,8 +60,8 @@ export default function RootLayout({
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   /** Détection des pages d’authentification pour retirer le chrome global. */
-  const pathname = usePathname();
-  const isAuthPage = pathname.startsWith("/authentication");
+  const pathname: any = usePathname();
+  const isAuthPage = pathname?.startsWith("/authentication");
 
   return (
     <html lang="fr" className={myFont.variable}>
@@ -82,7 +82,7 @@ export default function RootLayout({
                   onSidebarClose={() => setMobileSidebarOpen(false)}
                 />
                 {/* En-tête et zone de contenu métier. */}
-                <PageWrapper className="page-wrapper">
+                <PageWrapper className="page-wrapper" style={{ overflowX: "hidden"}}>
                   <Header toggleMobileSidebar={() => setMobileSidebarOpen(true)} />
                   {/* Zone d’injection des pages (routes enfants). */}
                     <Box sx={{
@@ -91,7 +91,7 @@ export default function RootLayout({
                       }}
                     >
                       {children}
-                      </Box>
+                    </Box>
                 </PageWrapper>
               </MainWrapper>
             </CentreProvider>
