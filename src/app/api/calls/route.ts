@@ -96,14 +96,35 @@ export async function GET(request: NextRequest) {
   
     // Filtre statut
     if (statusParam && statusParam !== "all") {
-      if (statusParam === "not_performed") {
+      if (statusParam.startsWith("transfer:")) {
+        const reason = statusParam.slice("transfer:".length);
+        if (reason === "all") {
+          whereClause.AND.push({
+            stats: { path: ["end_reason"], equals: "transfer" },
+          });
+        } else {
+          whereClause.AND.push({
+            stats: { path: ["transferReason"], equals: reason },
+          });
+        }
+      } else if (statusParam === "not_performed") {
         whereClause.AND.push({
-          stats: {
-            path: ["transferReason"],
-            equals: "exam_type"
-          }
+          stats: { path: ["transferReason"], equals: "exam_type" },
         });
-      } else if (statusParam === "rescheduled") { 
+      } else if (statusParam === "hung_up") {
+        whereClause.AND.push({
+          AND: [
+            { stats: { path: ["rdv_booked"], equals: 0 } },
+            { stats: { path: ["rdv_canceled"], equals: 0 } },
+            { stats: { path: ["rdv_modified"], equals: 0 } },
+            {
+              NOT: {
+                stats: { path: ["end_reason"], equals: "transfer" },
+              },
+            },
+          ],
+        });
+      } else if (statusParam === "rescheduled") {
         whereClause.AND.push({
           stats: {
             path: ["rdv_modified"],
@@ -138,6 +159,20 @@ export async function GET(request: NextRequest) {
     calls = calls.filter((c: any) => {
       return Array.isArray(c.steps) && c.steps.length > 1;
     });
+
+    if (statusParam === "hung_up") {
+      calls = calls.filter((c: any) => {
+        const s = c.stats || {};
+        const hasRdvStatus = !!s.rdv_status;
+        const hasRenseignements =
+          Array.isArray(s.intents) && s.intents.includes("renseignements");
+        return !hasRdvStatus && !hasRenseignements;
+      });
+    }
+
+    if (statusParam === "no_slot_api_retrieve") {
+      calls = calls.filter((c: any) => !!c?.stats?.no_slot_api_retrieve);
+    }
 
     // ==========================
     // MODE ALL → pas de pagination
