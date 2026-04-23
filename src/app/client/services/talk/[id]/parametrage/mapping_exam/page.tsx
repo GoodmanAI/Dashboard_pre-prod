@@ -7,6 +7,7 @@ import InsertLinkIcon from '@mui/icons-material/InsertLink';
 import { Stack, Button, Snackbar, Alert, Portal, TextField } from "@mui/material";
 import { useRouter } from "next/navigation";
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
+import { useTalkBasePath } from "@/utils/talkRoutes";
 
 interface TalkPageProps {
   params: { id: string };
@@ -260,6 +261,7 @@ export default function MappingExam({ params }: TalkPageProps) {
 
   const router = useRouter();
   const userProductId = Number(params.id);
+  const basePath = useTalkBasePath(userProductId);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -339,7 +341,7 @@ export default function MappingExam({ params }: TalkPageProps) {
               variant="contained"
               startIcon={<InsertLinkIcon />}
               onClick={() =>
-                router.push(`/client/services/talk/${userProductId}/parametrage/mapping_exam/double_exam`)
+                router.push(`${basePath}/parametrage/mapping_exam/double_exam`)
               }
               disabled={saving}
               sx={{ backgroundColor: "#48C8AF" }}
@@ -351,7 +353,7 @@ export default function MappingExam({ params }: TalkPageProps) {
               variant="contained"
               startIcon={<SettingsIcon />}
               onClick={() =>
-                router.push(`/client/services/talk/${userProductId}/parametrage/mapping_exam/type_exam`)
+                router.push(`${basePath}/parametrage/mapping_exam/type_exam`)
               }
               disabled={saving}
               sx={{ backgroundColor: "#48C8AF" }}

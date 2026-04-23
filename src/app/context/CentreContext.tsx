@@ -3,13 +3,13 @@
 import React, {
   createContext,
   useContext,
+  useMemo,
   useState,
   ReactNode,
   useEffect,
 } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
-import { revalidatePath } from 'next/cache';
 
 /**
  * Représentation minimale d’un centre (utilisateur géré).
@@ -32,7 +32,14 @@ export interface ManagedUser {
  * (ne pas modifier pour éviter les breaking changes)
  */
 interface CentreContextType {
+  /** Liste visible dans le sélecteur du Header (filtrée selon les centres actifs pour ADMIN). */
   centres: ManagedUser[];
+  /** Liste brute de tous les centres disponibles (ADMIN : tous les clients gérés). */
+  allCentres: ManagedUser[];
+  /** IDs des centres explicitement activés par l'ADMIN. `null` = pas de filtre actif (tous visibles). */
+  activeCentreIds: number[] | null;
+  /** Met à jour la sélection d'ADMIN (liste d'IDs visibles). `null` ou vide = pas de filtre. */
+  setActiveCentreIds: (ids: number[] | null) => void;
   selectedCentre: ManagedUser | null;
   selectedUserId: number | null; // alias pratique de selectedCentre?.id
   setSelectedCentreById: (id: number) => void;
@@ -40,16 +47,96 @@ interface CentreContextType {
 
 /** Clé de persistance de l’ID centre sélectionné (localStorage). */
 const STORAGE_KEY = "lyrae_selected_centre_id";
+/** Clé de persistance des centres actifs côté ADMIN (localStorage). */
+const ACTIVE_CENTRES_KEY = "lyrae_admin_active_centre_ids";
+
+/**
+ * Retourne le userProductId "effectif" d'un centre pour affichage/tri :
+ * - en priorité `c.userProductId` (ADMIN via /api/admin/centres)
+ * - sinon l'id du premier UserProduct dont le produit contient "Talk".
+ */
+export const getCentreUserProductId = (c: ManagedUser): number | null => {
+  if (c.userProductId) return c.userProductId;
+  const talk = (c.userProducts || []).find(
+    (p: any) => p?.product?.name?.includes("Talk")
+  );
+  return talk?.id ?? null;
+};
 
 const CentreContext = createContext<CentreContextType | undefined>(undefined);
 
 export const CentreProvider = ({ children }: { children: ReactNode }) => {
   const { data: session, status } = useSession();
-  const [centres, setCentres] = useState<ManagedUser[]>([]);
+  const [allCentres, setAllCentres] = useState<ManagedUser[]>([]);
+  const [activeCentreIds, setActiveCentreIdsState] = useState<number[] | null>(null);
   const [selectedCentre, setSelectedCentre] = useState<ManagedUser | null>(null);
   let currentCentre = (selectedCentre?.userProducts?.find((c) => c.product.name.includes("Talk"))?.id || selectedCentre?.id) ?? null;
   const router = useRouter();
   const pathname: any = usePathname();
+
+  // Restaure la préférence ADMIN (centres actifs) depuis localStorage
+  useEffect(() => {
+    if (session?.user?.role !== "ADMIN") {
+      setActiveCentreIdsState(null);
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const raw = localStorage.getItem(ACTIVE_CENTRES_KEY);
+    if (!raw) {
+      setActiveCentreIdsState(null);
+      return;
+    }
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        const normalized = arr
+          .map((n: unknown) => Number(n))
+          .filter((n) => Number.isFinite(n));
+        setActiveCentreIdsState(normalized.length ? normalized : null);
+      }
+    } catch {
+      setActiveCentreIdsState(null);
+    }
+  }, [session?.user?.role]);
+
+  /**
+   * Met à jour la préférence ADMIN de centres actifs (liste + persistance).
+   * `null` ou liste vide retire le filtre (tous les centres redeviennent visibles).
+   */
+  const setActiveCentreIds = (ids: number[] | null) => {
+    if (!ids || ids.length === 0) {
+      setActiveCentreIdsState(null);
+      if (typeof window !== "undefined") localStorage.removeItem(ACTIVE_CENTRES_KEY);
+      return;
+    }
+    setActiveCentreIdsState(ids);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(ACTIVE_CENTRES_KEY, JSON.stringify(ids));
+    }
+  };
+
+  /**
+   * Liste brute triée par userProductId ascendant (affichée sur la page admin home).
+   */
+  const sortedAllCentres = useMemo<ManagedUser[]>(() => {
+    return [...allCentres].sort((a, b) => {
+      const ua = getCentreUserProductId(a) ?? Number.MAX_SAFE_INTEGER;
+      const ub = getCentreUserProductId(b) ?? Number.MAX_SAFE_INTEGER;
+      return ua - ub;
+    });
+  }, [allCentres]);
+
+  /**
+   * Liste visible dans le sélecteur Header (triée puis filtrée).
+   * Pour les ADMIN avec filtre actif : intersection avec `activeCentreIds`.
+   * Sinon : liste complète.
+   */
+  const centres = useMemo<ManagedUser[]>(() => {
+    if (session?.user?.role !== "ADMIN") return sortedAllCentres;
+    if (!activeCentreIds || activeCentreIds.length === 0) return sortedAllCentres;
+    const set = new Set(activeCentreIds);
+    return sortedAllCentres.filter((c) => set.has(c.id));
+  }, [sortedAllCentres, activeCentreIds, session?.user?.role]);
 
   /**
    * Chargement initial des centres lorsque la session est authentifiée.
@@ -70,7 +157,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
 
           if (resAll.ok) {
             const list: ManagedUser[] = await resAll.json();
-            setCentres(list);
+            setAllCentres(list);
 
             const raw =
               (typeof window !== "undefined" && localStorage.getItem(STORAGE_KEY)) || "";
@@ -97,7 +184,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
 
         if (data?.centreRole === "ADMIN_USER" && Array.isArray(data?.managedUsers)) {
           const list: ManagedUser[] = data.managedUsers;
-          setCentres(list);
+          setAllCentres(list);
 
           // Restauration d’une sélection précédente si valide, sinon fallback au premier centre.
           const raw = (typeof window !== "undefined" && localStorage.getItem(STORAGE_KEY)) || "";
@@ -119,24 +206,24 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
             const res = await fetch("/api/users/8", { cache: "no-store" });
 
             const otherCentre = await res.json();
-            setCentres([data, otherCentre]);
+            setAllCentres([data, otherCentre]);
           } else {
             const res = await fetch("/api/users/7", { cache: "no-store" });
             const otherCentre = await res.json();
-            setCentres([data, otherCentre]);
+            setAllCentres([data, otherCentre]);
           }
         } else if (data.id == 12 ||data.id == 13) {
           if (data.id == 12) {
             const res = await fetch("/api/users/13", { cache: "no-store" });
             const otherCentre = await res.json();
-            setCentres([data, otherCentre]);
+            setAllCentres([data, otherCentre]);
           } else {
             const res = await fetch("/api/users/12", { cache: "no-store" });
             const otherCentre = await res.json();
-            setCentres([data, otherCentre]);
+            setAllCentres([data, otherCentre]);
           }
         } else {
-          setCentres([]);
+          setAllCentres([]);
           setSelectedCentre(null);
           if (typeof window !== "undefined") {
             localStorage.removeItem(STORAGE_KEY);
@@ -144,7 +231,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
         }
       } catch (err) {
         console.error("Failed to load centres:", err);
-        setCentres([]);
+        setAllCentres([]);
         setSelectedCentre(null);
       }
     })();
@@ -177,6 +264,34 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
   }, [centres]);
 
   /**
+   * Synchronisation automatique du centre sélectionné avec l'URL.
+   * Quand on navigue vers /admin/clients/{upid}/... ou /client/services/talk/{upid}/...,
+   * on met à jour `selectedCentre` pour que le Header, la Sidebar et tout consommateur
+   * du contexte reflètent le centre réellement affiché. Gère les cas :
+   * - clic sur une card "centre" qui navigue directement (sans passer par setSelectedCentreById)
+   * - arrivée via lien externe / bookmark / back-forward
+   */
+  useEffect(() => {
+    if (!allCentres.length || !pathname) return;
+    const m = pathname.match(
+      /^\/(?:admin\/clients|client\/services\/talk)\/(\d+)(?:\/|$)/
+    );
+    if (!m) return;
+    const urlUpid = Number(m[1]);
+    if (!Number.isFinite(urlUpid)) return;
+
+    const match = allCentres.find((c) => getCentreUserProductId(c) === urlUpid);
+    if (!match) return;
+    if (selectedCentre?.id === match.id) return;
+
+    setSelectedCentre(match);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, String(match.id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, allCentres]);
+
+  /**
    * Change le centre actif et persiste l’ID en localStorage.
    */
   const setSelectedCentreById = async (id: number) => {
@@ -198,12 +313,18 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
     console.log("redirect to", userProductId)
     if (!centre) return;
 
-    // Si l'utilisateur n'est pas sur une page /talk/, on le redirige vers la page
-    // d'appels du centre fraîchement sélectionné (utile notamment pour les ADMIN
-    // qui arrivent depuis /admin ou /client sans contexte produit).
-    if (!pathname?.includes("/talk/")) {
+    const isAdmin = session?.user?.role === "ADMIN";
+    const onClientTalkPath = /^\/client\/services\/talk\/\d+/.test(pathname || "");
+    const onAdminClientPath = /^\/admin\/clients\/\d+/.test(pathname || "");
+    const canInlineReplace = onClientTalkPath || onAdminClientPath;
+
+    // Si l'utilisateur n'est pas déjà sur une page centre (talk/clients), redirection vers la
+    // page d'appels du centre fraîchement sélectionné, en respectant le préfixe lié au rôle.
+    if (!canInlineReplace) {
       if (userProductId) {
-        const target = `/client/services/talk/${userProductId}/calls`;
+        const target = isAdmin
+          ? `/admin/clients/${userProductId}/calls`
+          : `/client/services/talk/${userProductId}/calls`;
         router.push(target);
         router.refresh();
       }
@@ -227,7 +348,6 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
     if (newPath !== pathname) {
       router.replace(newPath);
       router.refresh();
-      revalidatePath(newPath);
     }
   };
 
@@ -238,6 +358,9 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
     <CentreContext.Provider
       value={{
         centres,
+        allCentres: sortedAllCentres,
+        activeCentreIds,
+        setActiveCentreIds,
         selectedCentre,
         selectedUserId: selectedCentre?.id ?? null,
         setSelectedCentreById,
