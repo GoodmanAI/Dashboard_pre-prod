@@ -8,9 +8,11 @@ import {
   Typography,
   Stack,
   Button,
-  Link,
   TextField,
+  InputAdornment,
+  IconButton,
 } from "@mui/material";
+import { IconEye, IconEyeOff } from "@tabler/icons-react";
 
 /**
  * Page de connexion
@@ -24,6 +26,7 @@ export default function SignIn() {
   /* -------------------------------------------------------------------------- */
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   /* -------------------------------------------------------------------------- */
@@ -176,11 +179,35 @@ export default function SignIn() {
               fullWidth
               variant="outlined"
               label="Password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
               autoComplete="current-password"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword((v) => !v)}
+                      edge="end"
+                      size="small"
+                      disabled={loading}
+                      aria-label={
+                        showPassword
+                          ? "Masquer le mot de passe"
+                          : "Afficher le mot de passe"
+                      }
+                      sx={{ color: "#91A3B7" }}
+                    >
+                      {showPassword ? (
+                        <IconEyeOff size={18} />
+                      ) : (
+                        <IconEye size={18} />
+                      )}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
               sx={{
                 backgroundColor: "#FFFFFF",
                 borderRadius: "8px",
@@ -210,16 +237,6 @@ export default function SignIn() {
             >
               {loading ? "Signing In..." : "Login"}
             </Button>
-
-            <Box sx={{ textAlign: "center" }}>
-              <Link
-                href="#"
-                underline="none"
-                sx={{ fontWeight: 700, fontSize: "13px", color: "#34495E" }}
-              >
-                Forgot password?
-              </Link>
-            </Box>
           </Stack>
         </form>
       </Box>
