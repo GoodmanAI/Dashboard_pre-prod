@@ -10,9 +10,12 @@ interface RawClient {
   id: number;
   name: string | null;
   email: string;
+  city: string | null;
+  centreRole: "ADMIN_USER" | "USER" | null;
   createdAt: Date;
   updatedAt: Date;
   userProducts: {
+    id: number;
     product: {
       id: number;
       name: string;
@@ -39,17 +42,20 @@ export async function GET(request: NextRequest) {
         id: true,
         name: true,
         email: true,
+        city: true,
+        centreRole: true,
         createdAt: true,
         updatedAt: true,
         userProducts: {
           select: {
+            id: true, // ID de la ligne UserProduct (= userProductId cross-app)
             product: {
               select: {
                 id: true,
                 name: true,
               },
             },
-            assignedAt: true, // Récupérer la date d'affiliation du produit
+            assignedAt: true, // Date d'affiliation du produit
           },
         },
       },
@@ -60,10 +66,15 @@ export async function GET(request: NextRequest) {
       id: client.id,
       name: client.name,
       email: client.email,
+      city: client.city,
+      centreRole: client.centreRole,
       createdAt: client.createdAt,
       updatedAt: client.updatedAt,
       products: client.userProducts.map(up => ({
+        // ⚠️ "id" reste celui du Product (1, 2, …) pour conserver la compat front.
+        // `userProductId` = ID de la ligne UserProduct (cohérent avec le reste du dashboard).
         id: up.product.id,
+        userProductId: up.id,
         name: up.product.name,
         assignedAt: up.assignedAt,
       })),
