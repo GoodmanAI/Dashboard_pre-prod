@@ -286,7 +286,7 @@ export default function AdminTicketsPage() {
           <Card sx={{ p: 4, textAlign: "center" }}>
             <IconTicket size={40} color="#9ca3af" style={{ opacity: 0.6 }} />
             <Typography sx={{ mt: 1 }} color="text.secondary">
-              Aucun ticket pour l'instant.
+              Aucun ticket pour l&apos;instant.
             </Typography>
           </Card>
         ) : filtered.length === 0 ? (

@@ -193,7 +193,7 @@ function ResetPasswordPanel({
           Réinitialiser le mot de passe
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Assigne un nouveau mot de passe au client sélectionné. L'ancien sera immédiatement invalidé.
+          Assigne un nouveau mot de passe au client sélectionné. L&apos;ancien sera immédiatement invalidé.
         </Typography>
       </Box>
 
@@ -273,7 +273,7 @@ function ResetPasswordPanel({
         <DialogTitle sx={{ fontWeight: 700 }}>Confirmer la réinitialisation</DialogTitle>
         <DialogContent dividers>
           <DialogContentText sx={{ mb: 2 }}>
-            L'ancien mot de passe sera invalidé immédiatement.
+            L&apos;ancien mot de passe sera invalidé immédiatement.
           </DialogContentText>
           <Stack spacing={1}>
             <Row label="Client" value={selectedClient?.name || "—"} />
@@ -423,7 +423,7 @@ function DeleteAccountPanel({
           </Box>
 
           <Typography variant="body2" sx={{ color: "#7f1d1d", mb: 2 }}>
-            Tu t'apprêtes à supprimer{" "}
+            Tu t&apos;apprêtes à supprimer{" "}
             <strong>{selectedClient.name}</strong> ({selectedClient.email}).
             Toutes les données associées seront également supprimées et ne pourront
             pas être récupérées.
