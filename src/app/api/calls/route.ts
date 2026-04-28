@@ -5,6 +5,21 @@ import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Forme canonique d'un numéro FR pour la comparaison :
+ * `+33XXXXXXXXX`, `0033XXXXXXXXX`, `33XXXXXXXXX`, `06XXXXXXXX` →
+ * tous normalisés en `06XXXXXXXX`. Permet de matcher quelle que soit la
+ * notation saisie par l'utilisateur ou stockée en BDD.
+ */
+function canonicalPhoneFR(p: string | null | undefined): string {
+  if (!p) return "";
+  let d = String(p).replace(/[^\d+]/g, "");
+  if (d.startsWith("+33")) d = "0" + d.slice(3);
+  else if (d.startsWith("0033")) d = "0" + d.slice(4);
+  else if (d.startsWith("33") && d.length === 11) d = "0" + d.slice(2);
+  return d;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth();
@@ -23,6 +38,11 @@ export async function GET(request: NextRequest) {
     const statusParam = searchParams.get("status");
     const fromParam = searchParams.get("from");
     const toParam = searchParams.get("to");
+    const phoneParam = searchParams.get("phone");
+
+    // Recherche par numéro de téléphone : on ignore date / status / examType
+    // pour rechercher sur la totalité des appels du centre.
+    const phoneSearchActive = !!phoneParam && phoneParam.trim().length > 0;
 
     if (!userProductIdParam) {
       return NextResponse.json(
@@ -101,7 +121,7 @@ export async function GET(request: NextRequest) {
 
       whereClause.createdAt = dateFilter;
     }
-  
+
     // Filtre statut
     if (statusParam && statusParam !== "all") {
       if (statusParam.startsWith("transfer:")) {
@@ -115,10 +135,14 @@ export async function GET(request: NextRequest) {
             stats: { path: ["transferReason"], equals: reason },
           });
         }
-      } else if (statusParam === "not_performed") {
-        whereClause.AND.push({
-          stats: { path: ["transferReason"], equals: "exam_type" },
-        });
+      } else if (
+        statusParam === "not_performed" ||
+        statusParam === "no_slot_api_retrieve"
+      ) {
+        // Filtrés en JS post-fetch (cf. plus bas) pour garantir une logique
+        // strictement identique à la page Statistiques d'appels.
+        // — `not_performed`        → stats.transferReason === "exam_type"
+        // — `no_slot_api_retrieve` → stats.no_slot_api_retrieve truthy
       } else if (statusParam === "hung_up") {
         whereClause.AND.push({
           AND: [
@@ -180,6 +204,21 @@ export async function GET(request: NextRequest) {
 
     if (statusParam === "no_slot_api_retrieve") {
       calls = calls.filter((c: any) => !!c?.stats?.no_slot_api_retrieve);
+    }
+
+    if (statusParam === "not_performed") {
+      calls = calls.filter((c: any) => c?.stats?.transferReason === "exam_type");
+    }
+
+    // Recherche numéro — match canonique (06... ↔ +336...)
+    if (phoneSearchActive) {
+      const needle = canonicalPhoneFR(phoneParam);
+      if (needle) {
+        calls = calls.filter((c: any) => {
+          const stored = canonicalPhoneFR(c?.stats?.phoneNumber);
+          return stored.includes(needle);
+        });
+      }
     }
 
     // ==========================

@@ -110,8 +110,8 @@ export default function ExplainPage() {
         if (!res.ok) throw new Error("Échec de récupération du client");
         const data: ClientData = await res.json();
 
-        const explainUP = data.userProducts.find((up) =>
-          up.product.name.toLowerCase().includes("explain")
+        const explainUP = (data.userProducts ?? []).find((up: any) =>
+          up?.product?.name?.toLowerCase().includes("explain")
         );
 
         if (!explainUP || !explainUP.explainDetails) {

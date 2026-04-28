@@ -338,7 +338,7 @@ function CentreTodayCard({ centre, period }: { centre: ManagedUser; period: Peri
 
 /**
  * Admin Overview
- * - Permet de choisir quels centres (userProductId) apparaissent dans le sélecteur du Header.
+ * - Permet de choisir quels centres (userProductId) apparaissent dans le sélecteur en haut.
  * - Les centres décochés sont masqués, pas supprimés.
  */
 const AdminOverviewPage = () => {
@@ -436,7 +436,7 @@ const AdminOverviewPage = () => {
                   Centres actifs
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Sélection des centres visibles dans le sélecteur du Header
+                  Sélection des centres visibles dans le sélecteur
                 </Typography>
               </Box>
             </Box>
@@ -482,7 +482,7 @@ const AdminOverviewPage = () => {
                       Centres actifs
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Centres visibles dans le sélecteur du Header
+                      Centres visibles dans le sélecteur
                     </Typography>
                   </Box>
                 </Box>

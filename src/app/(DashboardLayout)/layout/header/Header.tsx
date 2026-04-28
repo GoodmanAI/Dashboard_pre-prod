@@ -157,7 +157,13 @@
               {(centres.length > 0 && selectedCentre) && (
                 <>
                 <Select
-                  value={selectedCentre?.userProductId?.toString() != undefined ? selectedCentre?.userProductId?.toString() : selectedCentre?.userProducts.find((e: any) => e.product.name.includes("Talk")).id.toString()}
+                  value={(
+                    selectedCentre?.userProductId ??
+                    selectedCentre?.userProducts?.find((e: any) =>
+                      e?.product?.name?.includes("Talk")
+                    )?.id ??
+                    ""
+                  ).toString()}
                   onChange={(e) => setSelectedCentreById(Number(e.target.value))}
                   variant="standard"
                   disableUnderline
@@ -173,7 +179,9 @@
                 {centres.map((c: any) => {
                   const upid =
                     c.userProductId ??
-                    c.userProducts?.find((e: any) => e.product.name.includes("Talk"))?.id;
+                    c.userProducts?.find((e: any) =>
+                      e?.product?.name?.includes("Talk")
+                    )?.id;
                   const label = c.name ?? c.email;
                   return (
                     <MuiMenuItem
