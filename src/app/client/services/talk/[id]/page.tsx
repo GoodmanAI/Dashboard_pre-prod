@@ -6,16 +6,27 @@ import {
   Typography,
   Button,
   Card,
-  CardContent,
   Grid,
   Skeleton,
-  Link
+  Chip,
+  Divider,
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { IconEye, IconChartBar } from "@tabler/icons-react";
+import {
+  IconChartBar,
+  IconGauge,
+  IconCalendarCheck,
+  IconAlertTriangle,
+  IconPhone,
+  IconChevronRight,
+  IconSettings,
+  IconInfoCircle,
+} from "@tabler/icons-react";
 import { useCentre } from "@/app/context/CentreContext";
 import { useTalkBasePath } from "@/utils/talkRoutes";
+import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
+import SectionHeader from "@/components/admin/SectionHeader";
 
 // Recharts (aperçu histogramme)
 import {
@@ -128,7 +139,7 @@ export default function TalkPage({ params }: TalkPageProps) {
   const [totalSections, setTotalSections] = useState(0);
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { selectedUserId, selectedCentre } = useCentre();
+  const { selectedUserId } = useCentre();
   const userProductId = Number(params.id);
   const basePath = useTalkBasePath(userProductId);
 
@@ -315,249 +326,314 @@ export default function TalkPage({ params }: TalkPageProps) {
   }, [status, selectedUserId, userProductId]);
 
   if (!mounted) return null;
-  return (
-    <ClientLayout>
-      <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-        {/* Titre principal */}
-        <Typography variant="h4" gutterBottom>
-          LYRAE © Talk
-        </Typography>
 
-        {/* SECTION 1 : Appels (à gauche) + Statistiques (à droite) */}
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          {/* Colonne Appels (gauche) */}
-          <Grid item xs={12} md={7}>
-            <Box sx={{ p: 3, bgcolor: "#fff", borderRadius: 2, height: "100%" }}>
-              <Typography variant="h5" gutterBottom>
-                Appels
-              </Typography>
-              {selectedCentre !== undefined && (
-                <Typography variant="subtitle1" gutterBottom>
-                  {selectedCentre
-                    ? "Visualisez les appels du centre sélectionné."
-                    : "Visualisez vos appels pris en charge par LyraeTalk."}
-                </Typography>
-)}
+  /* === Petits sous-composants locaux pour la DA === */
 
-              <Card
-                sx={{
-                  borderRadius: 2,
-                  border: "1px solid #e0e0e0",
-                  p: 2,
-                  mt: 2,
-                }}
-              >
-                <CardContent sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
-                  <Typography variant="h6">Total (24h)</Typography>
-
-                  <Box
-                    sx={{
-                      mt: 1,
-                      display: "flex",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    {loadingCounts ? (
-                      // ---- Skeletons des 3 compteurs ----
-                      <>
-                        <CountItemSkeleton />
-                        <CountItemSkeleton />
-                        <CountItemSkeleton />
-                      </>
-                    ) : (
-                      intents.map((it, index) => (
-                        <Box
-                          key={it.value}
-                          sx={{
-                            pt: 2,
-                            m: 1,
-                            flex: 1,
-                            display: "flex",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            flexDirection: "column",
-                          }}
-                        >
-                          <Typography variant="h5" sx={{ mb: 0 }}>
-                            {
-                              it.value === "pourcentage"
-                              ? `${callsCountByIntent[index] ?? 0}%`
-                              : callsCountByIntent[index] ?? 0
-                            }
-                          </Typography>
-                          <Typography variant="subtitle1" sx={{ mb: 4 }}>
-                            {(callsCountByIntent[index] ?? 0) > 1 ? it.label : it.sing_label}
-                          </Typography>
-                        </Box>
-                      ))
-                    )}
-                  </Box>
-
-                  <Box sx={{ mt: "auto", pt: 2 }}>
-                    <Link
-                      href={`${basePath}/calls`}
-                      onClick={() => router.push(`${basePath}/calls`)}
-                      underline="none"
-                      sx={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        border: "1px solid #48C8AF",
-                        borderRadius: "4px",
-                        padding: "6px 16px",
-                        fontSize: "0.875rem",
-                        fontWeight: 500,
-                        cursor: "pointer",
-                        color: "#48C8AF",
-                        "&:hover": {
-                          borderColor: "#48C8AF",
-                          backgroundColor: "rgba(72,200,175,0.08)",
-                          textDecoration: "none",
-                        },
-                      }}
-                    >
-                      <IconEye size={18} />
-                      Voir la liste des appels
-                    </Link>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Box>
-          </Grid>
-
-          {/* Colonne Statistiques (droite) */}
-          <Grid item xs={12} md={5}>
-            <Box sx={{ p: 3, bgcolor: "#fff", borderRadius: 2, height: "100%" }}>
-              <Typography variant="h5" gutterBottom>
-                Statistiques appels
-              </Typography>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
-                Aperçu des 14 derniers jours (nombre d’appels / jour)
-              </Typography>
-
-              {loadingPreview ? (
-                // ---- Skeleton du graphique ----
-                <ChartSkeleton />
-              ) : previewData.length === 0 ? (
-                <Typography color="text.secondary">Aucune donnée à afficher.</Typography>
-              ) : (
-                <Box sx={{ height: 260 }}>
-                  {mounted &&
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={previewData}>
-                        <CartesianGrid stroke="#e0e0e0" strokeDasharray="3 3" />
-                        <XAxis dataKey="day" />
-                        <YAxis allowDecimals={false} />
-                        <Tooltip />
-                        <Bar dataKey="total" fill="#48C8AF" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  }
-                </Box>
-              )}
-
-              <Box sx={{ textAlign: "right", mt: 2 }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<IconChartBar size={18} />}
-                  onClick={() => router.push(`${basePath}/stats_appel`)}
-                  sx={{
-                    borderColor: "#48C8AF",
-                    color: "#48C8AF",
-                    "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
-                  }}
-                >
-                  Voir les statistiques détaillées
-                </Button>
-              </Box>
-            </Box>
-          </Grid>
-        </Grid>
-
-        {/* === Bloc 2 : Informations & Libellés === */}
-        <Box sx={{ p: 3, mt: 2, bgcolor: "#fff", borderRadius: 2 }}>
-          <Typography variant="h5" gutterBottom>
-            Informations & Libellés
-          </Typography>
-          <Typography variant="subtitle1" gutterBottom>
-            Gérez les documents “Informations” et “Libellés” de votre service. Les données sont
-            enregistrées localement et isolées par centre sélectionné.
-          </Typography>
-          
-          <Card
-            sx={{
-              mt: 2,
-              borderRadius: 2,
-              border: "1px solid #e0e0e0",
-              p: 2,
-            }}
-          >
-            <CardContent
-              sx={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 2 }}
-            >
-              <Box>
-                <Typography variant="h6" sx={{ mb: 0.5 }}>
-                  Accéder aux documents
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Ouvrir la page dédiée pour consulter et modifier les champs informationnels et les libellés.
-                </Typography>
-              </Box>
-                {loadingCounts ? (
-                  <Skeleton width={40} height={24} />
-                ) : (
-                  <Typography variant="h6">{filledSections}/{totalSections}</Typography>
-                )}
-              <Button
-                variant="outlined"
-                startIcon={<IconEye size={18} />}
-                onClick={() => router.push(`${basePath}/informationnel`)}
-                sx={{
-                  borderColor: "#48C8AF",
-                  color: "#48C8AF",
-                  whiteSpace: "nowrap",
-                  "&:hover": {
-                    borderColor: "#48C8AF",
-                    backgroundColor: "rgba(72,200,175,0.08)",
-                  },
-                }}
-              >
-                Ouvrir
-              </Button>
-            </CardContent>
-          </Card>
+  const KpiTile = ({
+    label,
+    value,
+    icon,
+    loading,
+    valueColor,
+  }: {
+    label: string;
+    value: string | number;
+    icon: React.ReactNode;
+    loading?: boolean;
+    valueColor?: string;
+  }) => (
+    <Card sx={{ p: 2.5, height: "100%" }} elevation={1}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: "12px",
+            display: "grid",
+            placeItems: "center",
+            bgcolor: "rgba(72,200,175,0.12)",
+            color: "#2a6f64",
+            flexShrink: 0,
+          }}
+        >
+          {icon}
         </Box>
-
-        {/* SECTION 3 : Paramétrage Talk */}
-        <Box sx={{ p: 3, bgcolor: "#fff", borderRadius: 2 }}>
-          <Typography variant="h5" gutterBottom>
-            Paramétrage Talk
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {label}
           </Typography>
-          <Typography variant="subtitle1" gutterBottom>
-            Configurez les préférences de votre service (horaires, routage, notifications…).
-          </Typography>
-
-          <Card sx={{ borderRadius: 2, border: "1px solid #e0e0e0", p: 2, mt: 1 }}>
-            <CardContent sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography variant="subtitle1" color="text.secondary">
-                  
-                  Accéder aux paramètres avancés de Talk pour ce centre.
-              </Typography>
-              <Button
-                  variant="outlined"
-                  onClick={() => router.push(`${basePath}/parametrage`)}
-                  sx={{
-                  borderColor: "#48C8AF",
-                  color: "#48C8AF",
-                  "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
-                  }}
-              >
-                Ouvrir le paramétrage
-              </Button>
-            </CardContent>
-          </Card>
+          {loading ? (
+            <Skeleton variant="text" width={80} height={28} />
+          ) : (
+            <Typography
+              variant="h5"
+              fontWeight={800}
+              sx={{ color: valueColor, lineHeight: 1.2 }}
+              noWrap
+            >
+              {value}
+            </Typography>
+          )}
         </Box>
       </Box>
+    </Card>
+  );
+
+  const NavCard = ({
+    title,
+    description,
+    icon,
+    href,
+    badge,
+  }: {
+    title: string;
+    description: string;
+    icon: React.ReactNode;
+    href: string;
+    badge?: React.ReactNode;
+  }) => (
+    <Card
+      elevation={1}
+      onClick={() => router.push(href)}
+      sx={{
+        p: 2.5,
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        gap: 1.5,
+        cursor: "pointer",
+        transition: "transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease",
+        border: "1px solid transparent",
+        "&:hover": {
+          transform: "translateY(-2px)",
+          boxShadow: "0 8px 24px rgba(72,200,175,0.15)",
+          borderColor: "rgba(72,200,175,0.4)",
+        },
+      }}
+    >
+      <Box
+        sx={{
+          width: 40,
+          height: 40,
+          borderRadius: "10px",
+          display: "grid",
+          placeItems: "center",
+          bgcolor: "rgba(72,200,175,0.12)",
+          color: "#2a6f64",
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+          <Typography variant="subtitle1" fontWeight={700} noWrap>
+            {title}
+          </Typography>
+          {badge}
+        </Box>
+        <Typography variant="caption" color="text.secondary">
+          {description}
+        </Typography>
+      </Box>
+      <Box sx={{ color: "#9ca3af", flexShrink: 0 }}>
+        <IconChevronRight size={18} />
+      </Box>
+    </Card>
+  );
+
+  // Indice (utilisé pour la couleur de la tuile)
+  const indiceValue = Number(callsCountByIntent[0] ?? 0);
+  const indiceColor =
+    indiceValue >= 80 ? "#22c55e" : indiceValue >= 60 ? "#f59e0b" : "#ef4444";
+
+  // Total appels du jour : on dérive depuis les compteurs ou calculs existants
+  // (somme indirecte non précise — on utilise rdv_pris+urgences faute de mieux,
+  // ou on attend que loadingCounts soit fini pour fallback)
+  const totalCallsToday = previewData.length > 0 ? previewData[previewData.length - 1]?.total ?? 0 : 0;
+
+  return (
+    <ClientLayout>
+      <PageContainer title="LyraeTalk" description="Vue d'ensemble du service vocal">
+        <Box>
+          <SectionHeader
+            title="LyraeTalk"
+            subtitle="Vue d'ensemble du service vocal · 24 dernières heures"
+          />
+
+          {/* === Row 1 : KPI tiles === */}
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid item xs={12} sm={6} md={3}>
+              <KpiTile
+                label="Indice de performance"
+                value={`${indiceValue}%`}
+                icon={<IconGauge size={20} />}
+                loading={loadingCounts}
+                valueColor={indiceColor}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <KpiTile
+                label="Prises de RDV"
+                value={callsCountByIntent[1] ?? 0}
+                icon={<IconCalendarCheck size={20} />}
+                loading={loadingCounts}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <KpiTile
+                label="Urgences"
+                value={callsCountByIntent[2] ?? 0}
+                icon={<IconAlertTriangle size={20} />}
+                loading={loadingCounts}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <KpiTile
+                label="Appels (aujourd'hui)"
+                value={totalCallsToday}
+                icon={<IconPhone size={20} />}
+                loading={loadingPreview}
+              />
+            </Grid>
+          </Grid>
+
+          {/* === Row 2 : Histogramme + bouton détails === */}
+          <Card sx={{ p: 3, mb: 3 }} elevation={1}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 2,
+                flexWrap: "wrap",
+                mb: 1,
+              }}
+            >
+              <Box>
+                <Typography
+                  variant="overline"
+                  sx={{ color: "#2a6f64", fontWeight: 700, letterSpacing: 1 }}
+                >
+                  Activité — 14 derniers jours
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Nombre d&apos;appels par jour
+                </Typography>
+              </Box>
+              <Button
+                variant="outlined"
+                startIcon={<IconChartBar size={18} />}
+                onClick={() => router.push(`${basePath}/stats_appel`)}
+                sx={{
+                  borderColor: "#48C8AF",
+                  color: "#2a6f64",
+                  fontWeight: 600,
+                  "&:hover": { borderColor: "#3BA992", bgcolor: "rgba(72,200,175,0.08)" },
+                }}
+              >
+                Statistiques détaillées
+              </Button>
+            </Box>
+            <Divider sx={{ mb: 2 }} />
+
+            {loadingPreview ? (
+              <ChartSkeleton height={280} />
+            ) : previewData.length === 0 ? (
+              <Box sx={{ py: 6, textAlign: "center" }}>
+                <Typography color="text.secondary">
+                  Aucune donnée à afficher pour la période.
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{ height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={previewData}>
+                    <CartesianGrid stroke="#f0f0f0" strokeDasharray="3 3" />
+                    <XAxis dataKey="day" tick={{ fontSize: 12 }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 8,
+                        border: "1px solid rgba(72,200,175,0.3)",
+                        fontSize: 12,
+                      }}
+                    />
+                    <Bar dataKey="total" fill="#48C8AF" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+          </Card>
+
+          {/* === Row 3 : Accès rapide aux pages métier === */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              mb: 2,
+            }}
+          >
+            <Box sx={{ width: 4, height: 28, borderRadius: 1, bgcolor: "#48C8AF" }} />
+            <Typography variant="subtitle1" fontWeight={800}>
+              Accès rapide
+            </Typography>
+          </Box>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={6}>
+              <NavCard
+                title="Liste des appels"
+                description="Historique, recherche, transcriptions"
+                icon={<IconPhone size={20} />}
+                href={`${basePath}/calls`}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={6}>
+              <NavCard
+                title="Statistiques d'appels"
+                description="Indicateurs détaillés et analyses"
+                icon={<IconChartBar size={20} />}
+                href={`${basePath}/stats_appel`}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={6}>
+              <NavCard
+                title="Module informationnel"
+                description="Infos centre, accès, horaires, examens"
+                icon={<IconInfoCircle size={20} />}
+                href={`${basePath}/informationnel`}
+                badge={
+                  loadingCounts ? (
+                    <Skeleton variant="rounded" width={42} height={20} />
+                  ) : totalSections > 0 ? (
+                    <Chip
+                      size="small"
+                      label={`${filledSections}/${totalSections}`}
+                      sx={{
+                        height: 20,
+                        bgcolor: "rgba(72,200,175,0.15)",
+                        color: "#2a6f64",
+                        fontWeight: 600,
+                        fontSize: 11,
+                      }}
+                    />
+                  ) : undefined
+                }
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={6}>
+              <NavCard
+                title="Paramétrage Talk"
+                description="Voix, mapping, questions, options du bot"
+                icon={<IconSettings size={20} />}
+                href={`${basePath}/parametrage`}
+              />
+            </Grid>
+          </Grid>
+        </Box>
+      </PageContainer>
     </ClientLayout>
   );
 }
