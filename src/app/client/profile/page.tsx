@@ -619,10 +619,10 @@ const ProfilePage = () => {
                       />
                       <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
                         {u.userProducts?.length ? (
-                          u.userProducts.map((up) => (
+                          u.userProducts.map((up: any, idx: number) => (
                             <Chip
-                              key={`${u.id}-${up.product.id}`}
-                              label={up.product.name}
+                              key={`${u.id}-${up?.product?.id ?? idx}`}
+                              label={up?.product?.name ?? "—"}
                               size="small"
                               sx={{
                                 bgcolor: "rgba(72,200,175,0.15)",

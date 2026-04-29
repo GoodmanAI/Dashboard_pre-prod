@@ -41,8 +41,9 @@ import {
   TaskAlt as IconConfirmRDV,
 } from "@mui/icons-material";
 import { useCentre } from "@/app/context/CentreContext";
-import { subDays, startOfDay } from "date-fns";
+import { subDays, startOfDay, endOfDay } from "date-fns";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
+import DateRangePresets from "@/components/DateRangePresets";
 
 /* =========================================================
    Types & utils
@@ -307,10 +308,10 @@ export default function StatsAppelPage({ params }: any) {
 
   // Date range state - CORRIGÉ : déplacé avant les useEffect
   const [dateRange, setDateRange] = useState<DateRange>(() => {
-    const today = startOfDay(new Date());
+    const today = new Date();
     return {
-      from: subDays(today, 6),
-      to: today,
+      from: startOfDay(subDays(today, 6)),
+      to: endOfDay(today),
     };
   });
   const [dateRangeDraft, setDateRangeDraft] = useState<DateRange>(dateRange);
@@ -979,7 +980,8 @@ export default function StatsAppelPage({ params }: any) {
             Analyse personnalisable par période
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+          <DateRangePresets range={dateRange} onChange={setDateRange} />
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Button
               variant="outlined"
@@ -1000,9 +1002,25 @@ export default function StatsAppelPage({ params }: any) {
               anchorEl={anchorEl}
               onClose={() => setAnchorEl(null)}
               anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+              PaperProps={{
+                sx: {
+                  borderRadius: 2,
+                  boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+                  border: "1px solid rgba(72,200,175,0.15)",
+                },
+              }}
             >
-              <Box sx={{ p: 2 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              <Box sx={{ p: 2.5, pb: 1 }}>
+                <Typography
+                  variant="overline"
+                  sx={{
+                    color: "#2a6f64",
+                    fontWeight: 700,
+                    letterSpacing: 1,
+                    display: "block",
+                    mb: 1.5,
+                  }}
+                >
                   Sélectionner une période
                 </Typography>
 
@@ -1013,12 +1031,34 @@ export default function StatsAppelPage({ params }: any) {
                   }}
                 />
               </Box>
-              <Box sx={{ mt: 2, mb:2, mr: 2, display: "flex", justifyContent: "flex-end" }}>
+              <Box
+                sx={{
+                  px: 2.5,
+                  py: 1.5,
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 1,
+                  borderTop: "1px solid #f0f0f0",
+                }}
+              >
+                <Button
+                  variant="text"
+                  onClick={() => setAnchorEl(null)}
+                  sx={{ color: "text.secondary", textTransform: "none" }}
+                >
+                  Annuler
+                </Button>
                 <Button
                   variant="contained"
                   onClick={() => {
-                    setDateRange(dateRangeDraft); // ✅ déclenche le useEffect
-                    setAnchorEl(null);            // ferme
+                    setDateRange(dateRangeDraft);
+                    setAnchorEl(null);
+                  }}
+                  sx={{
+                    bgcolor: "#48C8AF",
+                    fontWeight: 600,
+                    textTransform: "none",
+                    "&:hover": { bgcolor: "#3BA992" },
                   }}
                 >
                   Appliquer

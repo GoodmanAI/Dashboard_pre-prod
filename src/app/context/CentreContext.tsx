@@ -70,7 +70,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
   const [allCentres, setAllCentres] = useState<ManagedUser[]>([]);
   const [activeCentreIds, setActiveCentreIdsState] = useState<number[] | null>(null);
   const [selectedCentre, setSelectedCentre] = useState<ManagedUser | null>(null);
-  let currentCentre = (selectedCentre?.userProducts?.find((c) => c.product.name.includes("Talk"))?.id || selectedCentre?.id) ?? null;
+  let currentCentre = (selectedCentre?.userProducts?.find((c: any) => c?.product?.name?.includes("Talk"))?.id || selectedCentre?.id) ?? null;
   const router = useRouter();
   const pathname: any = usePathname();
 
@@ -297,21 +297,28 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
   const setSelectedCentreById = async (id: number) => {
     let centre: any = centres.find((c) => c.userProductId === id) || null;
     if (!centre) {
-      centre = centres.find((c: any) => c.userProducts.find((e: any) => e.product.name.includes("Talk") )) || centres.find((c: any) => c.userProductId == id)
+      centre =
+        centres.find((c: any) =>
+          (c.userProducts ?? []).find((e: any) =>
+            e?.product?.name?.includes("Talk")
+          )
+        ) || centres.find((c: any) => c.userProductId == id);
     }
 
+    if (!centre) return;
+
     setSelectedCentre(centre);
-    
+
     if (centre) localStorage.setItem(STORAGE_KEY, String(centre.id));
     else localStorage.removeItem(STORAGE_KEY);
-    
-    console.log("CENTRE LOL", centre);
-    const userProductId = centre.userProductId || centre.userProducts.find((e: any) => e.product.name.includes("Talk"))?.id;
 
-    console.log("searching for", currentCentre);
-    console.log("or searching for", selectedCentre?.userProductId);
-    console.log("redirect to", userProductId)
-    if (!centre) return;
+    const userProductId =
+      centre.userProductId ??
+      (centre.userProducts ?? []).find((e: any) =>
+        e?.product?.name?.includes("Talk")
+      )?.id;
+
+    if (!userProductId) return;
 
     const isAdmin = session?.user?.role === "ADMIN";
     const onClientTalkPath = /^\/client\/services\/talk\/\d+/.test(pathname || "");

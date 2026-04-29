@@ -338,8 +338,27 @@ export default function ReportsPage() {
             anchorEl={datePopoverAnchor}
             onClose={() => setDatePopoverAnchor(null)}
             anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+            PaperProps={{
+              sx: {
+                borderRadius: 2,
+                boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+                border: "1px solid rgba(72,200,175,0.15)",
+              },
+            }}
           >
-            <Box sx={{ p: 2 }}>
+            <Box sx={{ p: 2.5 }}>
+              <Typography
+                variant="overline"
+                sx={{
+                  color: "#2a6f64",
+                  fontWeight: 700,
+                  letterSpacing: 1,
+                  display: "block",
+                  mb: 1.5,
+                }}
+              >
+                Sélectionner une période
+              </Typography>
               <DateRangePicker
                 value={
                   dateRange ?? {

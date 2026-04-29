@@ -22,14 +22,19 @@ import {
   Tabs,
   Tab,
   Checkbox,
-  Popover
+  Popover,
+  TextField,
+  InputAdornment,
+  IconButton,
 } from "@mui/material";
+import { IconSearch, IconX, IconDownload } from "@tabler/icons-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTalkBasePath } from "@/utils/talkRoutes";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import { io } from "socket.io-client";
-import { subDays, startOfDay } from "date-fns";
+import { subDays, startOfDay, endOfDay, subYears } from "date-fns";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
+import DateRangePresets from "@/components/DateRangePresets";
 
 type Speaker = "Lyrae" | "User";
 
@@ -175,6 +180,125 @@ interface CallListPageProps {
   params: { id: string };
 }
 
+/**
+ * Génère et télécharge un PDF de la transcription d'un appel.
+ * Utilise jsPDF (déjà dans les dépendances).
+ */
+async function exportCallToPdf(call: any, steps: any[]) {
+  // Import dynamique : évite d'embarquer jsPDF dans le bundle initial
+  const { default: jsPDF } = await import("jspdf");
+
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 40;
+  const contentWidth = pageWidth - 2 * margin;
+
+  let y = margin;
+
+  // ── Titre
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor("#1f2937");
+  doc.text("Transcription d'appel", margin, y);
+  y += 28;
+
+  // ── Métadonnées
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor("#374151");
+
+  const date = new Date(call.createdAt);
+  const dateStr = date.toLocaleDateString("fr-FR");
+  const timeStr = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const phone = formatPhoneFR(call.stats?.phoneNumber);
+
+  const metas: string[] = [
+    `Date : ${dateStr} à ${timeStr}`,
+    `Numéro appelant : ${phone}`,
+  ];
+  if (call.stats?.rdv_status) metas.push(`Statut RDV : ${call.stats.rdv_status}`);
+  if (call.stats?.transferReason) metas.push(`Motif transfert : ${call.stats.transferReason}`);
+  if (call.stats?.duration) metas.push(`Durée : ${call.stats.duration}s`);
+
+  metas.forEach((line) => {
+    doc.text(line, margin, y);
+    y += 14;
+  });
+
+  // ── Séparateur
+  y += 8;
+  doc.setDrawColor(229, 231, 235);
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 20;
+
+  // ── Conversation
+  doc.setFontSize(11);
+  for (let i = 0; i < steps.length; i++) {
+    const speaker = i % 2 === 0 ? "Lyrae" : "Patient";
+    const text = String(steps[i]?.text ?? "");
+    if (!text) continue;
+
+    const wrapped = doc.splitTextToSize(text, contentWidth - 12);
+    const blockHeight = 16 + wrapped.length * 14 + 6;
+
+    // Saut de page si plus de place
+    if (y + blockHeight > pageHeight - margin) {
+      doc.addPage();
+      y = margin;
+    }
+
+    // Locuteur
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(speaker === "Lyrae" ? "#2a6f64" : "#374151");
+    doc.text(speaker + " :", margin, y);
+    y += 14;
+
+    // Texte
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor("#1f2937");
+    doc.text(wrapped, margin + 12, y);
+    y += wrapped.length * 14 + 10;
+  }
+
+  // ── Pied de page sur chaque page : numéro de page + horodatage
+  const pageCount = (doc as any).internal.getNumberOfPages?.() ?? 1;
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor("#9ca3af");
+    doc.text(
+      `Page ${p}/${pageCount}`,
+      pageWidth - margin,
+      pageHeight - 20,
+      { align: "right" }
+    );
+    doc.text(
+      `Exporté le ${new Date().toLocaleString("fr-FR")}`,
+      margin,
+      pageHeight - 20
+    );
+  }
+
+  const fileDate = date.toISOString().slice(0, 10);
+  doc.save(`appel-${call.id}-${fileDate}.pdf`);
+}
+
+/** Formate un numéro français pour affichage : `+33 6 12 34 56 78` ou `06 12 34 56 78`. */
+function formatPhoneFR(p?: string | null): string {
+  if (!p) return "—";
+  const digits = p.replace(/\s/g, "");
+  if (digits.startsWith("+33") && digits.length === 12) {
+    return `+33 ${digits[3]} ${digits.slice(4, 6)} ${digits.slice(6, 8)} ${digits.slice(8, 10)} ${digits.slice(10, 12)}`;
+  }
+  if (digits.startsWith("0") && digits.length === 10) {
+    return `${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 6)} ${digits.slice(6, 8)} ${digits.slice(8, 10)}`;
+  }
+  return p;
+}
+
 const formatCallTime = (timestamp?: number) => {
   if (!timestamp) return "";
   const date = new Date(timestamp);
@@ -227,14 +351,19 @@ export default function CallListPage({ params }: CallListPageProps) {
   }, [mapping]);
 
   const [dateRange, setDateRange] = useState<DateRange>(() => {
-    const today = startOfDay(new Date());
+    const today = new Date();
     return {
-      from: subDays(today, 6),
-      to: today,
+      from: startOfDay(subDays(today, 6)),
+      to: endOfDay(today),
     };
   });
 
   const [dateRangeDraft, setDateRangeDraft] = useState<DateRange>(dateRange);
+
+  // Recherche par numéro — input vs query (debouncé)
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneSearch, setPhoneSearch] = useState("");
+  const phoneSearchActive = phoneSearch.trim().length > 0;
 
   // URL → state
   useEffect(() => {
@@ -242,12 +371,45 @@ export default function CallListPage({ params }: CallListPageProps) {
     const statusFromUrl: any = searchParams?.get("status");
     const examTypeFromUrl: any = searchParams?.get("examType");
     const tabFromUrl: any = searchParams?.get("tab");
+    const phoneFromUrl: any = searchParams?.get("phone");
 
     if (!isNaN(pageFromUrl) && pageFromUrl > 0) setPage(pageFromUrl);
     if (statusFromUrl) setStatusFilter(statusFromUrl);
     if (examTypeFromUrl) setExamTypeFilter(examTypeFromUrl);
     if (tabFromUrl) setTab(tabFromUrl);
+    if (phoneFromUrl) {
+      setPhoneInput(phoneFromUrl);
+      setPhoneSearch(phoneFromUrl);
+    }
   }, []);
+
+  // Debounce de la recherche numéro (300ms) — évite de spammer l'API à chaque touche
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPhoneSearch(phoneInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [phoneInput]);
+
+  // Reset des autres filtres quand on démarre une nouvelle recherche numéro.
+  // Les filtres restent ENSUITE modifiables pour affiner la recherche.
+  const phoneWasActiveRef = useRef(false);
+  useEffect(() => {
+    const isActive = phoneSearch.trim().length > 0;
+    if (isActive && !phoneWasActiveRef.current) {
+      // Transition inactive → active : reset une fois
+      setStatusFilter("all");
+      setExamTypeFilter("all");
+      setTab("all");
+      const today = new Date();
+      setDateRange({
+        from: startOfDay(subYears(today, 5)),
+        to: today,
+      });
+    }
+    phoneWasActiveRef.current = isActive;
+  }, [phoneSearch]);
 
   // Fetch mapping types d'examen
   useEffect(() => {
@@ -270,10 +432,11 @@ export default function CallListPage({ params }: CallListPageProps) {
     paramsUrl.set("status", statusFilter);
     paramsUrl.set("examType", examTypeFilter);
     paramsUrl.set("tab", tab);
+    if (phoneSearchActive) paramsUrl.set("phone", phoneSearch);
 
     router.replace(`${basePath}/calls?${paramsUrl.toString()}`, { scroll: false });
 
-  }, [page, statusFilter, examTypeFilter, tab]);
+  }, [page, statusFilter, examTypeFilter, tab, phoneSearch]);
 
   // FETCH
   useEffect(() => {
@@ -305,6 +468,7 @@ export default function CallListPage({ params }: CallListPageProps) {
         });
 
         if (tab === "scanners") params.append("examType", "scanner");
+        if (phoneSearchActive) params.append("phone", phoneSearch);
 
         const res = await fetch(`/api/calls?${params}`, { signal: controller.signal });
 
@@ -337,7 +501,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
     return () => controller.abort();
 
-  }, [userProductId, page, statusFilter, examTypeFilter, tab, dateRange]);
+  }, [userProductId, page, statusFilter, examTypeFilter, tab, dateRange, phoneSearch]);
 
   useEffect(() => {
     const init = async () => {
@@ -425,7 +589,44 @@ export default function CallListPage({ params }: CallListPageProps) {
         Retour
       </Button>
 
-      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+      <Box sx={{ display: "flex", gap: 2, mb: 2, alignItems: "center", flexWrap: "wrap" }}>
+
+        <TextField
+          placeholder="Rechercher par numéro (ex. 0612... ou +336...)"
+          variant="outlined"
+          size="small"
+          value={phoneInput}
+          onChange={(e) => setPhoneInput(e.target.value)}
+          sx={{ width: 340, bgcolor: "white" }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <IconSearch size={18} />
+              </InputAdornment>
+            ),
+            endAdornment: phoneInput ? (
+              <InputAdornment position="end">
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setPhoneInput("");
+                  }}
+                  aria-label="Effacer la recherche"
+                >
+                  <IconX size={16} />
+                </IconButton>
+              </InputAdornment>
+            ) : null,
+          }}
+        />
+
+        <DateRangePresets
+          range={dateRange}
+          onChange={(r) => {
+            setDateRange(r);
+            setPage(1);
+          }}
+        />
 
         <Button
           variant="outlined"
@@ -444,10 +645,26 @@ export default function CallListPage({ params }: CallListPageProps) {
           open={open}
           anchorEl={anchorEl}
           onClose={() => setAnchorEl(null)}
+          PaperProps={{
+            sx: {
+              borderRadius: 2,
+              boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+              border: "1px solid rgba(72,200,175,0.15)",
+            },
+          }}
           anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
         >
-          <Box sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+          <Box sx={{ p: 2.5, pb: 1 }}>
+            <Typography
+              variant="overline"
+              sx={{
+                color: "#2a6f64",
+                fontWeight: 700,
+                letterSpacing: 1,
+                display: "block",
+                mb: 1.5,
+              }}
+            >
               Sélectionner une période
             </Typography>
 
@@ -457,13 +674,35 @@ export default function CallListPage({ params }: CallListPageProps) {
             />
           </Box>
 
-          <Box sx={{ mt: 2, mb: 2, mr: 2, display: "flex", justifyContent: "flex-end" }}>
+          <Box
+            sx={{
+              px: 2.5,
+              py: 1.5,
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 1,
+              borderTop: "1px solid #f0f0f0",
+            }}
+          >
+            <Button
+              variant="text"
+              onClick={() => setAnchorEl(null)}
+              sx={{ color: "text.secondary", textTransform: "none" }}
+            >
+              Annuler
+            </Button>
             <Button
               variant="contained"
               onClick={() => {
                 setDateRange(dateRangeDraft);
                 setAnchorEl(null);
                 setPage(1);
+              }}
+              sx={{
+                bgcolor: "#48C8AF",
+                fontWeight: 600,
+                textTransform: "none",
+                "&:hover": { bgcolor: "#3BA992" },
               }}
             >
               Appliquer
@@ -485,7 +724,7 @@ export default function CallListPage({ params }: CallListPageProps) {
         <Tab value="scanners" label="Scanners & IRM" />
       </Tabs>
 
-      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+      <Box sx={{ display: "flex", gap: 2, mb: 2, alignItems: "center", flexWrap: "wrap" }}>
         <FormControl sx={{ minWidth: 220 }}>
           <InputLabel>Filtrer par statut</InputLabel>
           <Select
@@ -525,6 +764,18 @@ export default function CallListPage({ params }: CallListPageProps) {
             ))}
           </Select>
         </FormControl>
+
+        {phoneSearchActive && (
+          <Chip
+            size="small"
+            label={`Recherche numéro : ${phoneInput}`}
+            sx={{
+              bgcolor: "rgba(72,200,175,0.15)",
+              color: "#2a6f64",
+              fontWeight: 600,
+            }}
+          />
+        )}
       </Box>
 
       {loading && (
@@ -584,75 +835,106 @@ export default function CallListPage({ params }: CallListPageProps) {
                       sx={{ ml: 1 }}
                     />
 
-                    <ListItemButton onClick={() => setSelectedCall(call)}>
-
-                      <ListItemText
-                        primary={
-                          <Box display="flex" gap={1} alignItems="center" sx={{ width: "100%" }}>
-                            <Typography fontWeight={600}>
-                              Appel du {formatDateFR(call.createdAt)}{" "}
-                              {call.stats.call_start_time &&
-                                `à ${formatCallTime(call.stats.call_start_time)}`}
+                    <ListItemButton
+                      onClick={() => setSelectedCall(call)}
+                      sx={{ py: 1.25, px: 2 }}
+                    >
+                      <Box sx={{ width: "100%", display: "flex", flexDirection: "column", gap: 0.75 }}>
+                        {/* Ligne 1 : date · dernier état (si dispo) */}
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            gap: 2,
+                            color: "text.secondary",
+                          }}
+                        >
+                          <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                            {formatDateFR(call.createdAt)}
+                            {call.stats.call_start_time && (
+                              <> · {formatCallTime(call.stats.call_start_time)}</>
+                            )}
+                          </Typography>
+                          {states[call.stats.last_state] && (
+                            <Typography variant="caption">
+                              Dernier état : {states[call.stats.last_state]}
                             </Typography>
+                          )}
+                        </Box>
 
-                            <Typography
-                              fontSize={14}
-                              color="text.secondary"
-                              sx={{ fontWeight: "bold" }}
-                            >
-                              {call.stats.phoneNumber}
-                            </Typography>
-
-                            {(() => {
-                              const chips = getCallChips(call, examLabelMap);
-
-                              return chips.map((chip, i) => (
-                                <Chip
-                                  key={i}
-                                  size="small"
-                                  variant={chip.variant ?? "filled"}
-                                  label={chip.label}
-                                  color={chip.customColor ? undefined : chip.muiColor}
-                                  sx={
-                                    chip.customColor
-                                      ? chip.variant === "outlined"
-                                        ? {
-                                            borderColor: chip.customColor,
-                                            color: chip.customColor,
-                                            backgroundColor: "transparent",
-                                            fontWeight: 600,
-                                          }
-                                        : {
-                                            backgroundColor: chip.customColor,
-                                            color: chip.textColor ?? "white",
-                                            fontWeight: 600,
-                                          }
-                                      : undefined
-                                  }
-                                />
-                              ));
-                            })()}
-
-                            <Typography
-                              fontSize={14}
-                              sx={{ textDecoration: "underline", marginLeft: "auto" }}
-                            >
-                              Dernier état: {states[call.stats.last_state] || "N/A"}
-                            </Typography>
-
+                        {/* Ligne 2 : numéro mis en avant + chips */}
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 0.5,
+                              bgcolor: "rgba(72,200,175,0.12)",
+                              color: "#2a6f64",
+                              px: 1.25,
+                              py: 0.25,
+                              borderRadius: "999px",
+                              fontWeight: 700,
+                              fontSize: "0.8rem",
+                              fontVariantNumeric: "tabular-nums",
+                              letterSpacing: 0.3,
+                              lineHeight: 1.6,
+                            }}
+                          >
+                            <span aria-hidden style={{ fontSize: 12 }}>📞</span>
+                            {formatPhoneFR(call.stats.phoneNumber)}
                           </Box>
-                        }
 
-                        secondary={
-                          firstStep && (
-                            <Typography variant="body2" noWrap>
-                              <strong>{firstStep.text}</strong>
-                              {secondStep && <span> — {secondStep.text}</span>}
-                            </Typography>
-                          )
-                        }
-                      />
+                          {(() => {
+                            const chips = getCallChips(call, examLabelMap);
+                            return chips.map((chip, i) => (
+                              <Chip
+                                key={i}
+                                size="small"
+                                variant={chip.variant ?? "filled"}
+                                label={chip.label}
+                                color={chip.customColor ? undefined : chip.muiColor}
+                                sx={
+                                  chip.customColor
+                                    ? chip.variant === "outlined"
+                                      ? {
+                                          borderColor: chip.customColor,
+                                          color: chip.customColor,
+                                          backgroundColor: "transparent",
+                                          fontWeight: 600,
+                                        }
+                                      : {
+                                          backgroundColor: chip.customColor,
+                                          color: chip.textColor ?? "white",
+                                          fontWeight: 600,
+                                        }
+                                    : undefined
+                                }
+                              />
+                            ));
+                          })()}
+                        </Box>
 
+                        {/* Ligne 3 : aperçu de la conversation */}
+                        {firstStep && (
+                          <Typography
+                            variant="caption"
+                            noWrap
+                            sx={{ color: "text.secondary", display: "block" }}
+                          >
+                            <strong>{firstStep.text}</strong>
+                            {secondStep && <span> — {secondStep.text}</span>}
+                          </Typography>
+                        )}
+                      </Box>
                     </ListItemButton>
 
                   </ListItem>
@@ -686,9 +968,35 @@ export default function CallListPage({ params }: CallListPageProps) {
         PaperProps={{ sx: { width: { xs: "100%", sm: 500 }, p: 3 } }}
       >
 
-        <Typography variant="h6" gutterBottom>
-          Conversation
-        </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2,
+          }}
+        >
+          <Typography variant="h6">Conversation</Typography>
+
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<IconDownload size={16} />}
+            disabled={!selectedCall || filteredSteps.length === 0}
+            onClick={() => {
+              if (selectedCall) exportCallToPdf(selectedCall, filteredSteps);
+            }}
+            sx={{
+              borderColor: "#48C8AF",
+              color: "#2a6f64",
+              fontWeight: 600,
+              textTransform: "none",
+              "&:hover": { borderColor: "#3BA992", bgcolor: "rgba(72,200,175,0.08)" },
+            }}
+          >
+            Exporter PDF
+          </Button>
+        </Box>
 
         {filteredSteps.map((text: any, idx: number) => {
 
