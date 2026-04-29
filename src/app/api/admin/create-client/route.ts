@@ -22,6 +22,8 @@ const CreateUserSchema = z.object({
 
   name: z.string().min(1, "Name is required"),
 
+  isSecretary: z.boolean().optional(),
+
   products: z
     .array(
       z.object({
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { email, password, name, products } = parseResult.data;
+    const { email, password, name, products, isSecretary } = parseResult.data;
     const normalizedEmail = email;
 
     // Vérifier si un utilisateur avec cet email ou nom existe déjà
@@ -96,6 +98,7 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
         name,
         role: "CLIENT",
+        isSecretary: isSecretary ?? false,
       },
     });
 

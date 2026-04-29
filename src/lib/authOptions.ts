@@ -57,7 +57,13 @@ export const authOptions: NextAuthOptions  = {
           throw new Error("Invalid email or password");
         }
 
-        return { id: user.id, name: user.name, email: user.email, role: user.role };
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          isSecretary: user.isSecretary,
+        };
       },
     }),
   ],
@@ -88,6 +94,15 @@ export const authOptions: NextAuthOptions  = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.isSecretary = user.isSecretary ?? false;
+      } else if (token.id && typeof token.isSecretary === "undefined") {
+        // Re-hydrate isSecretary depuis la BDD pour les sessions
+        // créées avant l'ajout du flag (token JWT antérieur).
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as number },
+          select: { isSecretary: true },
+        });
+        token.isSecretary = dbUser?.isSecretary ?? false;
       }
       return token;
     },
@@ -97,6 +112,7 @@ export const authOptions: NextAuthOptions  = {
           ...session.user,
           id: token.id as number,
           role: token.role as "ADMIN" | "CLIENT",
+          isSecretary: (token.isSecretary as boolean | undefined) ?? false,
         };
       }
       return session;

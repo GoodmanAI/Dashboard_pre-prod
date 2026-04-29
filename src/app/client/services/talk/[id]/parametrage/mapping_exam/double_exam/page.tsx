@@ -13,7 +13,9 @@ import {
   Switch,
   Select,
   MenuItem,
+  Box,
 } from "@mui/material";
+import { useSession } from "next-auth/react";
 
 interface DoubleExamPageProps {
   params: {
@@ -40,6 +42,8 @@ const doubleExams = [
 export default function DoubleExamPage({ params }: DoubleExamPageProps) {
   const userProductId = Number(params.id);
   const router = useRouter();
+  const { data: sessionData } = useSession();
+  const readOnly = !!sessionData?.user?.isSecretary;
 
   const [mapping, setMapping] = useState<
     Record<string, { enabled: boolean; mode: "single" | "double" }>
@@ -123,6 +127,23 @@ export default function DoubleExamPage({ params }: DoubleExamPageProps) {
         Correspondance des Multi-Examens
       </h1>
 
+      {readOnly && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Mode lecture seule — votre compte secrétaire ne permet pas de modifier la correspondance.
+        </Alert>
+      )}
+
+      <Box
+        component="fieldset"
+        disabled={readOnly}
+        sx={{
+          border: "none",
+          padding: 0,
+          margin: 0,
+          minWidth: 0,
+          "&:disabled": { opacity: 0.7 },
+        }}
+      >
       <table
         style={{
           width: "100%",
@@ -194,6 +215,8 @@ export default function DoubleExamPage({ params }: DoubleExamPageProps) {
         </tbody>
       </table>
 
+      </Box>
+
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1}
@@ -209,18 +232,20 @@ export default function DoubleExamPage({ params }: DoubleExamPageProps) {
           justifyContent: "flex-end",
         }}
       >
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          onClick={handleSave}
-          disabled={saving}
-          sx={{
-            backgroundColor: "#48C8AF",
-            "&:hover": { backgroundColor: "#3bb49d" },
-          }}
-        >
-          Enregistrer
-        </Button>
+        {!readOnly && (
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={handleSave}
+            disabled={saving}
+            sx={{
+              backgroundColor: "#48C8AF",
+              "&:hover": { backgroundColor: "#3bb49d" },
+            }}
+          >
+            Enregistrer
+          </Button>
+        )}
 
         <Portal>
           <Snackbar

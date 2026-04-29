@@ -8,6 +8,8 @@ import { Stack, Button, Snackbar, Alert, Portal, TextField } from "@mui/material
 import { useRouter } from "next/navigation";
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import { useTalkBasePath } from "@/utils/talkRoutes";
+import { useSession } from "next-auth/react";
+import { Box } from "@mui/material";
 
 interface TalkPageProps {
   params: { id: string };
@@ -262,6 +264,8 @@ export default function MappingExam({ params }: TalkPageProps) {
   const router = useRouter();
   const userProductId = Number(params.id);
   const basePath = useTalkBasePath(userProductId);
+  const { data: sessionData } = useSession();
+  const readOnly = !!sessionData?.user?.isSecretary;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -332,9 +336,27 @@ export default function MappingExam({ params }: TalkPageProps) {
         Retour
       </Button>
 
+      {readOnly && (
+        <Alert severity="info" sx={{ my: 2 }}>
+          Mode lecture seule — votre compte secrétaire ne permet pas de modifier la correspondance des examens.
+        </Alert>
+      )}
+
       {data.length > 0 && (
         <>
-          <EditableTable data={data} setData={setData} />
+          <Box
+            component="fieldset"
+            disabled={readOnly}
+            sx={{
+              border: "none",
+              padding: 0,
+              margin: 0,
+              minWidth: 0,
+              "&:disabled": { opacity: 0.7 },
+            }}
+          >
+            <EditableTable data={data} setData={setData} />
+          </Box>
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ position: "sticky", bottom: 10 }}>
             <Button
@@ -358,18 +380,20 @@ export default function MappingExam({ params }: TalkPageProps) {
               disabled={saving}
               sx={{ backgroundColor: "#48C8AF" }}
             >
-              Modifier Types d&apos;examens
+              {readOnly ? "Voir Types d'examens" : "Modifier Types d'examens"}
             </Button>
 
-            <Button
-              variant="contained"
-              startIcon={<SaveIcon />}
-              onClick={handleSave}
-              disabled={saving}
-              sx={{ backgroundColor: "#48C8AF" }}
-            >
-              Enregistrer
-            </Button>
+            {!readOnly && (
+              <Button
+                variant="contained"
+                startIcon={<SaveIcon />}
+                onClick={handleSave}
+                disabled={saving}
+                sx={{ backgroundColor: "#48C8AF" }}
+              >
+                Enregistrer
+              </Button>
+            )}
           </Stack>
 
           <Portal>

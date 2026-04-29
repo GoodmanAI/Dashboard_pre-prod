@@ -16,6 +16,8 @@ import {
   Grid,
   Divider,
   Chip,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
 import {
   IconUserPlus,
@@ -24,6 +26,7 @@ import {
   IconLock,
   IconId,
   IconPackage,
+  IconUserShield,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elements/CustomTextField";
@@ -41,6 +44,7 @@ export default function CreateClientPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [isSecretary, setIsSecretary] = useState(false);
   const [talkProductId, setTalkProductId] = useState<number | null>(null);
 
   const [loading, setLoading] = useState(false);
@@ -89,7 +93,7 @@ export default function CreateClientPage() {
       const response = await fetch("/api/admin/create-client", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name, products }),
+        body: JSON.stringify({ email, password, name, products, isSecretary }),
       });
       const data = await response.json();
 
@@ -98,6 +102,7 @@ export default function CreateClientPage() {
         setEmail("");
         setPassword("");
         setName("");
+        setIsSecretary(false);
       } else if (data.error && data.details) {
         setErrors(data.details);
         setErrorMessage(data.error);
@@ -208,6 +213,75 @@ export default function CreateClientPage() {
                     />
                   </Box>
                 </Stack>
+
+                {/* --- Type de compte --- */}
+                <Typography
+                  variant="overline"
+                  sx={{ color: "#2a6f64", fontWeight: 700, letterSpacing: 1 }}
+                >
+                  Type de compte
+                </Typography>
+                <Divider sx={{ mb: 2, mt: 0.5 }} />
+
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.5,
+                    p: 2,
+                    bgcolor: isSecretary
+                      ? "rgba(72,200,175,0.08)"
+                      : "rgba(0,0,0,0.02)",
+                    borderRadius: 2,
+                    mb: 3,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: "10px",
+                      display: "grid",
+                      placeItems: "center",
+                      bgcolor: isSecretary
+                        ? "rgba(72,200,175,0.2)"
+                        : "rgba(0,0,0,0.06)",
+                      color: isSecretary ? "#2a6f64" : "text.secondary",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <IconUserShield size={18} />
+                  </Box>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="body2" fontWeight={600}>
+                      Compte secrétaire
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Lecture seule sur la configuration. Peut cocher les
+                      appels comme traités sur la page /appels.
+                    </Typography>
+                  </Box>
+                  <FormControlLabel
+                    sx={{ m: 0 }}
+                    control={
+                      <Switch
+                        checked={isSecretary}
+                        onChange={(e) => setIsSecretary(e.target.checked)}
+                        disabled={loading}
+                        sx={{
+                          "& .MuiSwitch-switchBase.Mui-checked": {
+                            color: "#48C8AF",
+                          },
+                          "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track":
+                            {
+                              backgroundColor: "#48C8AF",
+                            },
+                        }}
+                      />
+                    }
+                    label=""
+                  />
+                </Box>
 
                 {/* --- Produit affecté (info) --- */}
                 <Typography
@@ -344,6 +418,24 @@ export default function CreateClientPage() {
                 </Box>
                 <Box>
                   <Typography variant="caption" color="text.secondary">
+                    Type de compte
+                  </Typography>
+                  <Box sx={{ mt: 0.5 }}>
+                    <Chip
+                      size="small"
+                      label={isSecretary ? "Secrétaire" : "Client standard"}
+                      sx={{
+                        bgcolor: isSecretary
+                          ? "rgba(72,200,175,0.15)"
+                          : "rgba(0,0,0,0.06)",
+                        color: isSecretary ? "#2a6f64" : "text.secondary",
+                        fontWeight: 600,
+                      }}
+                    />
+                  </Box>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
                     Produit
                   </Typography>
                   <Box sx={{ mt: 0.5 }}>
@@ -390,6 +482,22 @@ export default function CreateClientPage() {
                 <Typography variant="body2" fontWeight={600}>
                   {email || "—"}
                 </Typography>
+              </Box>
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>
+                  Type
+                </Typography>
+                <Chip
+                  size="small"
+                  label={isSecretary ? "Secrétaire (lecture seule)" : "Client standard"}
+                  sx={{
+                    bgcolor: isSecretary
+                      ? "rgba(72,200,175,0.15)"
+                      : "rgba(0,0,0,0.06)",
+                    color: isSecretary ? "#2a6f64" : "text.secondary",
+                    fontWeight: 600,
+                  }}
+                />
               </Box>
               <Box sx={{ display: "flex", gap: 1 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>

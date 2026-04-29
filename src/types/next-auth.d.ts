@@ -6,6 +6,7 @@ declare module "next-auth" {
     name: string | null;
     email: string;
     role: "ADMIN" | "CLIENT";
+    isSecretary?: boolean;
   }
 
   interface Session {
@@ -14,6 +15,7 @@ declare module "next-auth" {
       name: string | null;
       email: string;
       role: "ADMIN" | "CLIENT";
+      isSecretary?: boolean;
     };
   }
 
@@ -22,5 +24,6 @@ declare module "next-auth" {
     role: "ADMIN" | "CLIENT";
     name: string | null;
     email: string;
+    isSecretary?: boolean;
   }
 }

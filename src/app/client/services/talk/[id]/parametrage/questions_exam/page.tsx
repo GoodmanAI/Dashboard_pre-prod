@@ -22,6 +22,7 @@ import {
 } from "@mui/material";
 import SaveIcon from "@mui/icons-material/Save";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
+import { useSession } from "next-auth/react";
 
 interface PageProps {
   params: { id: string };
@@ -60,6 +61,8 @@ function parseStringArray(value?: string): string[] {
 export default function EditExamQuestions({ params }: PageProps) {
   const userProductId = Number(params.id);
   const router = useRouter();
+  const { data: sessionData } = useSession();
+  const readOnly = !!sessionData?.user?.isSecretary;
 
   const [exams, setExams] = useState<Record<string, Exam>>({});
   const [search, setSearch] = useState("");
@@ -220,6 +223,12 @@ export default function EditExamQuestions({ params }: PageProps) {
           Configuration des interrogatoires par examen
         </Typography>
 
+        {readOnly && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Mode lecture seule — votre compte secrétaire ne permet pas de modifier les questions.
+          </Alert>
+        )}
+
         {/* Recherche */}
         <TextField
           fullWidth
@@ -230,6 +239,17 @@ export default function EditExamQuestions({ params }: PageProps) {
         />
 
         {/* Table */}
+        <Box
+          component="fieldset"
+          disabled={readOnly}
+          sx={{
+            border: "none",
+            padding: 0,
+            margin: 0,
+            minWidth: 0,
+            "&:disabled": { opacity: 0.7 },
+          }}
+        >
         <TableContainer component={Paper} sx={{ mb: 2 }}>
           <Table>
             <TableHead>
@@ -301,35 +321,38 @@ export default function EditExamQuestions({ params }: PageProps) {
             />
           </Stack>
         )}
+        </Box>
 
         {/* Barre sticky */}
-        <Box
-          sx={{
-            position: "sticky",
-            bottom: 0,
-            backgroundColor: "rgba(248,248,248,0.9)",
-            backdropFilter: "blur(6px)",
-            py: 2,
-            px: 2,
-            mt: 3,
-            borderTop: "1px solid #eee",
-            display: "flex",
-            justifyContent: "flex-end",
-          }}
-        >
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            onClick={handleSave}
-            disabled={saving}
+        {!readOnly && (
+          <Box
             sx={{
-              backgroundColor: "#48C8AF",
-              "&:hover": { backgroundColor: "#3bb49d" },
+              position: "sticky",
+              bottom: 0,
+              backgroundColor: "rgba(248,248,248,0.9)",
+              backdropFilter: "blur(6px)",
+              py: 2,
+              px: 2,
+              mt: 3,
+              borderTop: "1px solid #eee",
+              display: "flex",
+              justifyContent: "flex-end",
             }}
           >
-            Enregistrer
-          </Button>
-        </Box>
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon />}
+              onClick={handleSave}
+              disabled={saving}
+              sx={{
+                backgroundColor: "#48C8AF",
+                "&:hover": { backgroundColor: "#3bb49d" },
+              }}
+            >
+              Enregistrer
+            </Button>
+          </Box>
+        )}
       </Box>
       <Portal>
         <Snackbar
