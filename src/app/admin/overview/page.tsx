@@ -40,6 +40,15 @@ import {
   IconGauge,
   IconAlertTriangle,
 } from "@tabler/icons-react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip as ReTooltip,
+  CartesianGrid,
+} from "recharts";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import { useCentre, ManagedUser } from "@/app/context/CentreContext";
 
@@ -50,6 +59,54 @@ type TodayStats = {
   notPerformedExam: number; // transferReason === "exam_type"
   planningFull: number;     // stats.no_slot_api_retrieve truthy
 };
+
+type CentreFetchState = {
+  calls: any[];
+  loading: boolean;
+  error: string | null;
+};
+
+type Period = "today" | "week";
+
+/** Bucket des appels par jour (J-N à J), retourne les points avec count = 0 pour les jours sans appel. */
+function bucketCallsByDay(
+  calls: any[],
+  fromDate: Date,
+  toDate: Date
+): { iso: string; day: string; count: number }[] {
+  const byDay = new Map<string, number>();
+  for (const c of calls) {
+    if (!c?.createdAt) continue;
+    const iso = new Date(c.createdAt).toISOString().slice(0, 10);
+    byDay.set(iso, (byDay.get(iso) || 0) + 1);
+  }
+  const points: { iso: string; day: string; count: number }[] = [];
+  const cursor = new Date(fromDate);
+  cursor.setHours(0, 0, 0, 0);
+  const end = new Date(toDate);
+  end.setHours(0, 0, 0, 0);
+  while (cursor <= end) {
+    const iso = cursor.toISOString().slice(0, 10);
+    points.push({
+      iso,
+      day: cursor.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }),
+      count: byDay.get(iso) || 0,
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return points;
+}
+
+/** Bucket des appels par heure (00h–23h) — utilisé pour la période "Aujourd'hui". */
+function bucketCallsByHour(calls: any[]): { hour: string; count: number }[] {
+  const byHour = new Array(24).fill(0);
+  for (const c of calls) {
+    if (!c?.createdAt) continue;
+    const h = new Date(c.createdAt).getHours();
+    byHour[h]++;
+  }
+  return byHour.map((count, h) => ({ hour: `${String(h).padStart(2, "0")}h`, count }));
+}
 
 /**
  * Calcule les stats du jour (depuis minuit local) à partir d'un lot d'appels,
@@ -164,58 +221,40 @@ function StatRow({
   );
 }
 
-type Period = "today" | "week";
-
 /**
  * Card représentant un centre actif avec ses stats sur la période choisie.
- * - "today" : depuis minuit local
- * - "week"  : depuis minuit du jour il y a 6 jours (donc 7 jours inclus avec aujourd'hui)
+ * Reçoit `calls`, `loading`, `error` depuis le parent (fetch lifté pour partager
+ * les données avec la card "Vue d'ensemble").
+ *
+ * Ajoute un sparkline en bas (par heure si "today", par jour si "week").
  */
-function CentreTodayCard({ centre, period }: { centre: ManagedUser; period: Period }) {
+function CentreTodayCard({
+  centre,
+  period,
+  calls,
+  loading,
+  error,
+}: {
+  centre: ManagedUser;
+  period: Period;
+  calls: any[];
+  loading: boolean;
+  error: string | null;
+}) {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<TodayStats | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
+  const stats = useMemo(() => (calls.length || !loading ? computeTodayStats(calls) : null), [calls, loading]);
 
-    const run = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const from = new Date();
-        from.setHours(0, 0, 0, 0);
-        if (period === "week") {
-          from.setDate(from.getDate() - 6);
-        }
-        const to = new Date();
-        const url =
-          `/api/calls?userProductId=${centre.userProductId}` +
-          `&mode=all&from=${from.toISOString()}&to=${to.toISOString()}`;
-        const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const calls = Array.isArray(data) ? data : data?.data ?? [];
-        if (!cancelled) setStats(computeTodayStats(calls));
-      } catch (e: any) {
-        if (e?.name === "AbortError") return;
-        if (!cancelled) setError("Erreur");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    run();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [centre.userProductId, period]);
+  const sparklineData = useMemo(() => {
+    if (period === "today") return bucketCallsByHour(calls);
+    const from = new Date();
+    from.setHours(0, 0, 0, 0);
+    from.setDate(from.getDate() - 6);
+    const to = new Date();
+    return bucketCallsByDay(calls, from, to);
+  }, [calls, period]);
 
   const periodLabel = period === "today" ? "Aujourd'hui" : "7 derniers jours";
-  // Refetch (= on a déjà des stats et on recharge) : on garde l'affichage, on dim
   const refetching = loading && !!stats;
 
   return (
@@ -332,7 +371,253 @@ function CentreTodayCard({ centre, period }: { centre: ManagedUser; period: Peri
           />
         </Stack>
       ) : null}
+
+      {/* Sparkline en bas — donne une vue rapide de la temporalité */}
+      {!loading && !error && calls.length > 0 && (
+        <Box sx={{ mt: 2 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mb: 0.5, fontSize: 10, letterSpacing: 0.5 }}
+          >
+            {period === "today" ? "PAR HEURE" : "PAR JOUR"}
+          </Typography>
+          <Box sx={{ height: 56 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={sparklineData}>
+                <Bar dataKey="count" fill="#48C8AF" radius={[2, 2, 0, 0]} />
+                <ReTooltip
+                  cursor={{ fill: "rgba(72,200,175,0.08)" }}
+                  contentStyle={{
+                    fontSize: 11,
+                    borderRadius: 6,
+                    border: "1px solid rgba(72,200,175,0.3)",
+                    padding: "4px 8px",
+                  }}
+                  labelStyle={{ fontWeight: 600, color: "#2a6f64" }}
+                  formatter={(value: any) => [`${value} appel${value > 1 ? "s" : ""}`, ""]}
+                  labelFormatter={(label: any) => label}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
+        </Box>
+      )}
     </Card>
+  );
+}
+
+/**
+ * Card "Vue d'ensemble" — agrège les stats de TOUS les centres actifs et affiche
+ * un histogramme global (par heure ou par jour selon la période).
+ */
+function OverviewSummaryCard({
+  centresData,
+  period,
+  centresCount,
+}: {
+  centresData: Record<number, CentreFetchState>;
+  period: Period;
+  centresCount: number;
+}) {
+  const all = Object.values(centresData);
+  const loading = all.length === 0 || all.some((d) => d.loading && d.calls.length === 0);
+  const allCalls = all.flatMap((d) => d.calls);
+
+  const stats = useMemo(() => computeTodayStats(allCalls), [allCalls]);
+
+  const histogram = useMemo(() => {
+    if (period === "today") return bucketCallsByHour(allCalls);
+    const from = new Date();
+    from.setHours(0, 0, 0, 0);
+    from.setDate(from.getDate() - 6);
+    const to = new Date();
+    return bucketCallsByDay(allCalls, from, to);
+  }, [allCalls, period]);
+
+  const xKey = period === "today" ? "hour" : "day";
+  const subtitle = period === "today" ? "Activité par heure" : "Activité par jour";
+
+  return (
+    <Card sx={{ p: { xs: 3, md: 4 }, mb: 3 }} elevation={1}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}>
+        <Typography
+          variant="overline"
+          sx={{ color: "#2a6f64", fontWeight: 700, letterSpacing: 1 }}
+        >
+          Vue d&apos;ensemble
+        </Typography>
+        <Chip
+          size="small"
+          label={`${centresCount} centre${centresCount > 1 ? "s" : ""}`}
+          sx={{
+            height: 20,
+            bgcolor: "rgba(72,200,175,0.15)",
+            color: "#2a6f64",
+            fontWeight: 600,
+            fontSize: 10,
+          }}
+        />
+      </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+        Agrégé sur tous les centres actifs
+      </Typography>
+
+      <Divider sx={{ mb: 3 }} />
+
+      {/* Mega KPIs */}
+      <Grid container spacing={2} sx={{ mb: 4 }}>
+        <Grid item xs={6} md={3}>
+          <SummaryKpi
+            label="Appels"
+            value={stats.totalCalls}
+            icon={<IconPhone size={20} />}
+            loading={loading}
+          />
+        </Grid>
+        <Grid item xs={6} md={3}>
+          <SummaryKpi
+            label="RDV pris"
+            value={stats.nbRDV}
+            icon={<IconCalendarCheck size={20} />}
+            loading={loading}
+          />
+        </Grid>
+        <Grid item xs={6} md={3}>
+          <SummaryKpi
+            label="Indice moyen"
+            value={`${stats.indice}%`}
+            valueColor={indiceColor(stats.indice)}
+            icon={<IconGauge size={20} />}
+            loading={loading}
+          />
+        </Grid>
+        <Grid item xs={6} md={3}>
+          <SummaryKpi
+            label="Non traités"
+            value={stats.notPerformedExam + stats.planningFull}
+            icon={<IconAlertTriangle size={20} />}
+            loading={loading}
+          />
+        </Grid>
+      </Grid>
+
+      {/* Histogram */}
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ fontSize: 11, letterSpacing: 0.5, fontWeight: 600 }}
+        >
+          {subtitle.toUpperCase()}
+        </Typography>
+        {loading && (
+          <Typography variant="caption" color="text.secondary">
+            chargement…
+          </Typography>
+        )}
+      </Box>
+
+      {loading ? (
+        <Skeleton variant="rounded" height={220} />
+      ) : allCalls.length === 0 ? (
+        <Box
+          sx={{
+            height: 220,
+            display: "grid",
+            placeItems: "center",
+            border: "1px dashed #e5e7eb",
+            borderRadius: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            Aucun appel sur la période.
+          </Typography>
+        </Box>
+      ) : (
+        <Box sx={{ height: 220 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={histogram}>
+              <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey={xKey}
+                tick={{ fontSize: 11, fill: "#6b7280" }}
+                axisLine={{ stroke: "#e5e7eb" }}
+                tickLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 11, fill: "#6b7280" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <ReTooltip
+                cursor={{ fill: "rgba(72,200,175,0.08)" }}
+                contentStyle={{
+                  borderRadius: 8,
+                  border: "1px solid rgba(72,200,175,0.3)",
+                  fontSize: 12,
+                  padding: "6px 10px",
+                }}
+                labelStyle={{ fontWeight: 600, color: "#2a6f64" }}
+                formatter={(value: any) => [`${value} appel${value > 1 ? "s" : ""}`, ""]}
+              />
+              <Bar dataKey="count" fill="#48C8AF" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Box>
+      )}
+    </Card>
+  );
+}
+
+function SummaryKpi({
+  label,
+  value,
+  icon,
+  loading,
+  valueColor,
+}: {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+  loading?: boolean;
+  valueColor?: string;
+}) {
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+      <Box
+        sx={{
+          width: 44,
+          height: 44,
+          borderRadius: "12px",
+          display: "grid",
+          placeItems: "center",
+          bgcolor: "rgba(72,200,175,0.12)",
+          color: "#2a6f64",
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </Box>
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Typography variant="caption" color="text.secondary" noWrap>
+          {label}
+        </Typography>
+        {loading ? (
+          <Skeleton variant="text" width={70} height={32} />
+        ) : (
+          <Typography
+            variant="h5"
+            fontWeight={800}
+            sx={{ color: valueColor, lineHeight: 1.2 }}
+            noWrap
+          >
+            {value}
+          </Typography>
+        )}
+      </Box>
+    </Box>
   );
 }
 
@@ -351,6 +636,69 @@ const AdminOverviewPage = () => {
   const [search, setSearch] = useState("");
   const [snack, setSnack] = useState(false);
   const [period, setPeriod] = useState<Period>("today");
+
+  // Fetch lifté : on charge les calls de chaque centre actif en parallèle ici,
+  // pour partager les données entre la card "Vue d'ensemble" et chaque card centre.
+  const [centresData, setCentresData] = useState<Record<number, CentreFetchState>>({});
+
+  useEffect(() => {
+    if (!activeCentres.length) {
+      setCentresData({});
+      return;
+    }
+    const controllers = new Map<number, AbortController>();
+    const activeIds = new Set(activeCentres.map((c) => c.userProductId));
+
+    // Reset clean : enlève les anciens centres qui ne sont plus actifs
+    setCentresData((prev) => {
+      const next: Record<number, CentreFetchState> = {};
+      for (const c of activeCentres) {
+        next[c.userProductId] = {
+          calls: prev[c.userProductId]?.calls ?? [],
+          loading: true,
+          error: null,
+        };
+      }
+      return next;
+    });
+
+    activeCentres.forEach((centre) => {
+      const controller = new AbortController();
+      controllers.set(centre.userProductId, controller);
+
+      (async () => {
+        try {
+          const from = new Date();
+          from.setHours(0, 0, 0, 0);
+          if (period === "week") from.setDate(from.getDate() - 6);
+          const to = new Date();
+          const url =
+            `/api/calls?userProductId=${centre.userProductId}` +
+            `&mode=all&from=${from.toISOString()}&to=${to.toISOString()}`;
+          const res = await fetch(url, { signal: controller.signal });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const calls = Array.isArray(data) ? data : data?.data ?? [];
+          if (!activeIds.has(centre.userProductId)) return;
+          setCentresData((prev) => ({
+            ...prev,
+            [centre.userProductId]: { calls, loading: false, error: null },
+          }));
+        } catch (err: any) {
+          if (err?.name === "AbortError") return;
+          if (!activeIds.has(centre.userProductId)) return;
+          setCentresData((prev) => ({
+            ...prev,
+            [centre.userProductId]: { calls: [], loading: false, error: "Erreur" },
+          }));
+        }
+      })();
+    });
+
+    return () => {
+      controllers.forEach((c) => c.abort());
+    };
+  }, [activeCentres, period]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -636,13 +984,32 @@ const AdminOverviewPage = () => {
                 </Typography>
               </Card>
             ) : (
-              <Grid container spacing={3}>
-                {activeCentres.map((c) => (
-                  <Grid item xs={12} sm={6} md={4} key={c.id}>
-                    <CentreTodayCard centre={c} period={period} />
-                  </Grid>
-                ))}
-              </Grid>
+              <>
+                {/* Vue d'ensemble agrégée — KPI globaux + histogramme */}
+                <OverviewSummaryCard
+                  centresData={centresData}
+                  period={period}
+                  centresCount={activeCentres.length}
+                />
+
+                {/* Cards par centre */}
+                <Grid container spacing={3}>
+                  {activeCentres.map((c) => {
+                    const data = centresData[c.userProductId];
+                    return (
+                      <Grid item xs={12} sm={6} md={4} key={c.id}>
+                        <CentreTodayCard
+                          centre={c}
+                          period={period}
+                          calls={data?.calls ?? []}
+                          loading={data?.loading ?? true}
+                          error={data?.error ?? null}
+                        />
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              </>
             )}
           </Grid>
         </Grid>
