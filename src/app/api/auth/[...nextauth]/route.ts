@@ -54,7 +54,6 @@ const handler = NextAuth({
           email: user.email,
           role: user.role,
           name: user.name,
-          isSecretary: user.isSecretary,
         };
       },
     }),
@@ -65,13 +64,6 @@ const handler = NextAuth({
       if (user) {
         token.role = user.role;
         token.id = user.id;
-        token.isSecretary = user.isSecretary ?? false;
-      } else if (token.id && typeof token.isSecretary === "undefined") {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as number },
-          select: { isSecretary: true },
-        });
-        token.isSecretary = dbUser?.isSecretary ?? false;
       }
       return token;
     },
@@ -80,8 +72,6 @@ const handler = NextAuth({
       if (session.user) {
         session.user.role = token.role;
         session.user.id = token.id;
-        session.user.isSecretary = (token.isSecretary as boolean | undefined) ?? false;
-        console.log("token", token);
       }
       return session;
     },
