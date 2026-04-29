@@ -35,6 +35,7 @@ import { useRouter } from "next/navigation";
 import { IconChevronLeft } from "@tabler/icons-react";
 import { useCentre } from "@/app/context/CentreContext";
 import { useTalkBasePath } from "@/utils/talkRoutes";
+import { useSession } from "next-auth/react";
 
 type ExamKey = "radiographie" | "irm" | "echographie" | "scanner" | "mammo";
 type VoiceKey = "femme" | "homme" | "neutre";
@@ -335,6 +336,9 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   const { selectedUserId, selectedCentre } = useCentre();
   const userProductId = Number(params.id);
   const basePath = useTalkBasePath(userProductId);
+  const { data: sessionData } = useSession();
+  console.log("user", sessionData?.user);
+  const readOnly = !!sessionData?.user?.isSecretary;
   
   const [settings, setSettings] = useState<TalkSettings>(DEFAULTS);
   const [saving, setSaving] = useState(false);
@@ -523,7 +527,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
         <Typography variant="h4">Paramétrage Talk</Typography>
         <Box sx={{ display: "flex", gap: 1 }}>
-          {userProductId && 
+          {userProductId &&
             <Button
               variant="outlined"
               startIcon={<IconChevronLeft size={18} />}
@@ -537,20 +541,28 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               Retour à Talk
             </Button>
           }
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            onClick={handleSave}
-            disabled={saving}
-            sx={{
-              backgroundColor: "#48C8AF",
-              "&:hover": { backgroundColor: "#3bb49d" },
-            }}
-          >
-            Enregistrer
-          </Button>
+          {!readOnly && (
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon />}
+              onClick={handleSave}
+              disabled={saving}
+              sx={{
+                backgroundColor: "#48C8AF",
+                "&:hover": { backgroundColor: "#3bb49d" },
+              }}
+            >
+              Enregistrer
+            </Button>
+          )}
         </Box>
       </Box>
+
+      {readOnly && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Mode lecture seule — votre compte secrétaire ne permet pas de modifier la configuration.
+        </Alert>
+      )}
 
       {/* Info centre */}
       <Card sx={{ borderRadius: 2, border: "1px solid #e0e0e0", mb: 2 }}>
@@ -562,6 +574,17 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         </CardContent>
       </Card>
 
+      <Box
+        component="fieldset"
+        disabled={readOnly}
+        sx={{
+          border: "none",
+          padding: 0,
+          margin: 0,
+          minWidth: 0,
+          "&:disabled": { opacity: 0.7 },
+        }}
+      >
       {/* Préférences générales */}
       <Accordion defaultExpanded>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -1124,35 +1147,39 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         }
       </Accordion>
 
+      </Box>
+
       {/* Barre d’action */}
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={1}
-        sx={{
-          position: "sticky",
-          bottom: 0,
-          bgcolor: "rgba(248,248,248,0.9)",
-          backdropFilter: "blur(6px)",
-          py: 1.5,
-          px: 2,
-          mt: 2,
-          borderTop: "1px solid #eee",
-          justifyContent: "flex-end",
-        }}
-      >
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          onClick={handleSave}
-          disabled={saving}
+      {!readOnly && (
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
           sx={{
-            backgroundColor: "#48C8AF",
-            "&:hover": { backgroundColor: "#3bb49d" },
+            position: "sticky",
+            bottom: 0,
+            bgcolor: "rgba(248,248,248,0.9)",
+            backdropFilter: "blur(6px)",
+            py: 1.5,
+            px: 2,
+            mt: 2,
+            borderTop: "1px solid #eee",
+            justifyContent: "flex-end",
           }}
         >
-          Enregistrer
-        </Button>
-      </Stack>
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={handleSave}
+            disabled={saving}
+            sx={{
+              backgroundColor: "#48C8AF",
+              "&:hover": { backgroundColor: "#3bb49d" },
+            }}
+          >
+            Enregistrer
+          </Button>
+        </Stack>
+      )}
 
       <Snackbar
         open={snack.open}

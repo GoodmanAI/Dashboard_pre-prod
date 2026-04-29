@@ -18,6 +18,7 @@ import {
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SaveIcon from "@mui/icons-material/Save";
+import { useSession } from "next-auth/react";
 
 // const emptyDay: DayHours = { enabled: false, ranges: [] };
 
@@ -270,6 +271,8 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
   });
   const [saving, setSaving] = useState<any>(null);
   const userProductId = Number(params.id);
+  const { data: sessionData } = useSession();
+  const readOnly = !!sessionData?.user?.isSecretary;
 
   useEffect(() => {
     async function loadConfig() {
@@ -379,6 +382,23 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
         Fiche client — Paramétrage Lyrae Talk
       </Typography>
 
+      {readOnly && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Mode lecture seule — votre compte secrétaire ne permet pas de modifier la configuration.
+        </Alert>
+      )}
+
+      <Box
+        component="fieldset"
+        disabled={readOnly}
+        sx={{
+          border: "none",
+          padding: 0,
+          margin: 0,
+          minWidth: 0,
+          "&:disabled": { opacity: 0.7 },
+        }}
+      >
       <form>
         {/* Informations générales */}
         <Accordion defaultExpanded>
@@ -993,35 +1013,38 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
         </Accordion>
         
       </form>
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={1}
-        sx={{
-          position: "sticky",
-          bottom: 0,
-          bgcolor: "rgba(248,248,248,0.9)",
-          backdropFilter: "blur(6px)",
-          py: 1.5,
-          px: 2,
-          mt: 2,
-          borderTop: "1px solid #eee",
-          justifyContent: "flex-end",
-          zIndex: 99
-        }}
-      >
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          onClick={handleSave}
-          disabled={saving}
+      </Box>
+      {!readOnly && (
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
           sx={{
-            backgroundColor: "#48C8AF",
-            "&:hover": { backgroundColor: "#3bb49d" },
+            position: "sticky",
+            bottom: 0,
+            bgcolor: "rgba(248,248,248,0.9)",
+            backdropFilter: "blur(6px)",
+            py: 1.5,
+            px: 2,
+            mt: 2,
+            borderTop: "1px solid #eee",
+            justifyContent: "flex-end",
+            zIndex: 99
           }}
         >
-          Enregistrer
-        </Button>
-      </Stack>
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={handleSave}
+            disabled={saving}
+            sx={{
+              backgroundColor: "#48C8AF",
+              "&:hover": { backgroundColor: "#3bb49d" },
+            }}
+          >
+            Enregistrer
+          </Button>
+        </Stack>
+      )}
 
       <Portal>
         <Snackbar

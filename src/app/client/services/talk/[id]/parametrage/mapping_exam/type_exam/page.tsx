@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import SaveIcon from "@mui/icons-material/Save";
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import { useRouter } from "next/navigation";
-import { Stack, Button, Snackbar, Alert, Portal } from "@mui/material";
+import { Stack, Button, Snackbar, Alert, Portal, Box } from "@mui/material";
 import SettingsIcon from '@mui/icons-material/Settings';
+import { useSession } from "next-auth/react";
 
 interface TalkPageProps {
   params: {
@@ -24,6 +25,8 @@ const exams = [
 export default function EditTypeExam({ params }: TalkPageProps){
     const userProductId = Number(params.id);
     const router = useRouter();
+    const { data: sessionData } = useSession();
+    const readOnly = !!sessionData?.user?.isSecretary;
     const [mapping, setMapping] = useState<Record<string, { fr: string, diminutif: string }>>({});
     const [saving, setSaving] = useState(false);
     const [snack, setSnack] = useState<{
@@ -106,6 +109,24 @@ export default function EditTypeExam({ params }: TalkPageProps){
             <h1 className="text-xl font-bold mb-8 pl-4">
                 Correspondance des Examens
             </h1>
+
+            {readOnly && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Mode lecture seule — votre compte secrétaire ne permet pas de modifier la configuration.
+              </Alert>
+            )}
+
+            <Box
+              component="fieldset"
+              disabled={readOnly}
+              sx={{
+                border: "none",
+                padding: 0,
+                margin: 0,
+                minWidth: 0,
+                "&:disabled": { opacity: 0.7 },
+              }}
+            >
             <table style={{width: "100%", padding: "0 50px", borderCollapse: "collapse", textAlign: "left"}}>
                 <thead>
                     <tr style={{backgroundColor: "rgba(230, 230, 230, 0.6)"}}>
@@ -170,6 +191,7 @@ export default function EditTypeExam({ params }: TalkPageProps){
             </tbody>
 
             </table>
+            </Box>
             <Stack
             direction={{ xs: "column", sm: "row" }}
             spacing={1}
@@ -185,18 +207,20 @@ export default function EditTypeExam({ params }: TalkPageProps){
               justifyContent: "flex-end"
             }}
           >
-            <Button
-              variant="contained"
-              startIcon={<SaveIcon />}
-              onClick={handleSave}
-              disabled={saving}
-              sx={{
-                backgroundColor: "#48C8AF",
-                "&:hover": { backgroundColor: "#3bb49d" },
-              }}
-            >
-              Enregistrer
-            </Button>
+            {!readOnly && (
+              <Button
+                variant="contained"
+                startIcon={<SaveIcon />}
+                onClick={handleSave}
+                disabled={saving}
+                sx={{
+                  backgroundColor: "#48C8AF",
+                  "&:hover": { backgroundColor: "#3bb49d" },
+                }}
+              >
+                Enregistrer
+              </Button>
+            )}
             
             <Portal>
               <Snackbar
