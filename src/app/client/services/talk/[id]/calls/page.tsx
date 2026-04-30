@@ -142,20 +142,30 @@ function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
     });
   }
 
-  if (stats.rdv_status) {
+  // Un RDV a été pris si soit le statut final est "success", soit rdv_booked > 0
+  // (cas où l'appel s'est terminé sur une autre étape mais qu'un RDV a été enregistré).
+  const hasBookedRdv =
+    stats.rdv_status === "success" || (stats.rdv_booked && stats.rdv_booked > 0);
+
+  if (hasBookedRdv) {
+    chips.push({ label: call_status.success || "Rendez-vous", customColor: "#4ade80" });
+    const rawExamId = stats.exam_type_id;
+    const examId = Array.isArray(rawExamId) ? rawExamId[0] : rawExamId;
+    if (examId) {
+      chips.push({
+        label: examLabelMap[examId] || String(examId),
+        customColor: "#059669",
+        variant: "outlined",
+      });
+    }
+  }
+
+  // Chip de statut additionnel (Planning complet, Pas de créneaux, etc.)
+  // — on l'ajoute aussi si un RDV a été pris, pour ne pas perdre l'info de l'état final.
+  // On évite seulement le doublon "success" puisque le chip "Rendez-vous" est déjà ajouté ci-dessus.
+  if (stats.rdv_status && stats.rdv_status !== "success") {
     const label = call_status[stats.rdv_status] || "Inconnu";
-    if (stats.rdv_status === "success") {
-      chips.push({ label, customColor: "#4ade80" });
-      const rawExamId = stats.exam_type_id;
-      const examId = Array.isArray(rawExamId) ? rawExamId[0] : rawExamId;
-      if (examId) {
-        chips.push({
-          label: examLabelMap[examId] || String(examId),
-          customColor: "#059669",
-          variant: "outlined",
-        });
-      }
-    } else if (stats.rdv_status === "full_planning_end") {
+    if (stats.rdv_status === "full_planning_end") {
       chips.push({ label, customColor: "#D4BFC7", textColor: "#1f2937" });
     } else if (stats.rdv_status === "no_slot") {
       chips.push({ label, muiColor: "error" });
