@@ -88,6 +88,8 @@ export default function RootLayout({
                     <Box sx={{
                         width: "100%",
                         minHeight: "calc(100vh - 170px)",
+                        pl: 3,
+                        pr: 3,
                       }}
                     >
                       {children}
