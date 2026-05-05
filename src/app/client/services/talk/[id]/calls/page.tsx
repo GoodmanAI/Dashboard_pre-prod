@@ -26,8 +26,9 @@ import {
   TextField,
   InputAdornment,
   IconButton,
+  Tooltip,
 } from "@mui/material";
-import { IconSearch, IconX, IconDownload } from "@tabler/icons-react";
+import { IconSearch, IconX, IconDownload, IconFlag, IconFlagFilled, IconAlertTriangle } from "@tabler/icons-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTalkBasePath } from "@/utils/talkRoutes";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
@@ -79,6 +80,7 @@ const call_status: any = {
   canceled: "Annulé",
   rescheduled: "Modifié",
   full_planning_end: "Planning complet",
+  confirmed: "Confirmé",
 };
 
 import { pink } from "@mui/material/colors";
@@ -159,6 +161,8 @@ function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
       chips.push({ label, customColor: "#D4BFC7", textColor: "#1f2937" });
     } else if (stats.rdv_status === "no_slot") {
       chips.push({ label, muiColor: "error" });
+    } else if (stats.rdv_status === "confirmed") {
+      chips.push({ label, customColor: "#4a8560" });
     } else {
       chips.push({ label, muiColor: "default" });
     }
@@ -173,7 +177,8 @@ interface CallSummary {
   steps: any;
   stats: any;
   createdAt: string;
-  treated?: boolean; // 👈 ajouté
+  treated?: boolean;
+  flagged?: boolean;
 }
 
 interface CallListPageProps {
@@ -335,6 +340,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
   const [selectedCall, setSelectedCall] = useState<any | null>(null);
   const [checkboxState, setCheckboxState] = useState<Record<number, boolean>>({});
+  const [flaggedState, setFlaggedState] = useState<Record<number, boolean>>({});
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const open = Boolean(anchorEl);
 
@@ -479,12 +485,15 @@ export default function CallListPage({ params }: CallListPageProps) {
         setCalls(data);
         setTotal(total);
         const initialCheckbox: Record<number, boolean> = {};
+        const initialFlagged: Record<number, boolean> = {};
 
         data.forEach((call: CallSummary) => {
           initialCheckbox[call.id] = !!call.treated;
+          initialFlagged[call.id] = !!call.flagged;
         });
 
         setCheckboxState(initialCheckbox);
+        setFlaggedState(initialFlagged);
 
       } catch (err: any) {
 
@@ -527,12 +536,54 @@ export default function CallListPage({ params }: CallListPageProps) {
           )
         );
       });
+
+      socket.on("call-flagged", ({ callId, flagged }) => {
+        setFlaggedState((prev) => ({
+          ...prev,
+          [callId]: flagged,
+        }));
+
+        setCalls((prev) =>
+          prev.map((c) =>
+            c.id === callId ? { ...c, flagged } : c
+          )
+        );
+      });
     };
 
     init();
   }, []);
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+
+  const toggleFlag = async (call: CallSummary) => {
+    const newValue = !flaggedState[call.id];
+
+    setFlaggedState((prev) => ({
+      ...prev,
+      [call.id]: newValue,
+    }));
+
+    try {
+      await fetch(`/api/calls/${call.id}/flag`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flagged: newValue }),
+      });
+
+      setCalls((prev) =>
+        prev.map((c) =>
+          c.id === call.id ? { ...c, flagged: newValue } : c
+        )
+      );
+    } catch (e) {
+      setFlaggedState((prev) => ({
+        ...prev,
+        [call.id]: !newValue,
+      }));
+      console.error("Erreur update flagged", e);
+    }
+  };
 
   const toggleCall = async (call: CallSummary) => {
 
@@ -580,14 +631,31 @@ export default function CallListPage({ params }: CallListPageProps) {
   return (
     <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
 
-      <Button
-        variant="contained"
-        startIcon={<ArrowBackIosIcon />}
-        onClick={() => router.back()}
-        sx={{ backgroundColor: "#48C8AF", mb: 2 }}
-      >
-        Retour
-      </Button>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+        <Button
+          variant="contained"
+          startIcon={<ArrowBackIosIcon />}
+          onClick={() => router.back()}
+          sx={{ backgroundColor: "#48C8AF" }}
+        >
+          Retour
+        </Button>
+
+        <Button
+          variant="outlined"
+          startIcon={<IconAlertTriangle size={18} />}
+          onClick={() => router.push(`${basePath}/incidents`)}
+          sx={{
+            borderColor: "#ef4444",
+            color: "#ef4444",
+            textTransform: "none",
+            fontWeight: 600,
+            "&:hover": { borderColor: "#dc2626", bgcolor: "rgba(239,68,68,0.08)" },
+          }}
+        >
+          Voir les incidents
+        </Button>
+      </Box>
 
       <Box sx={{ display: "flex", gap: 2, mb: 2, alignItems: "center", flexWrap: "wrap" }}>
 
@@ -893,6 +961,19 @@ export default function CallListPage({ params }: CallListPageProps) {
                             {formatPhoneFR(call.stats.phoneNumber)}
                           </Box>
 
+                          {flaggedState[call.id] && (
+                            <Chip
+                              size="small"
+                              icon={<IconFlagFilled size={14} style={{ color: "white" }} />}
+                              label="Incident"
+                              sx={{
+                                backgroundColor: "#ef4444",
+                                color: "white",
+                                fontWeight: 600,
+                              }}
+                            />
+                          )}
+
                           {(() => {
                             const chips = getCallChips(call, examLabelMap);
                             return chips.map((chip, i) => (
@@ -936,6 +1017,28 @@ export default function CallListPage({ params }: CallListPageProps) {
                         )}
                       </Box>
                     </ListItemButton>
+
+                    <Divider
+                      orientation="vertical"
+                      flexItem
+                      sx={{ mx: 1, my: 1.5, borderColor: "#e5e7eb" }}
+                    />
+
+                    <Tooltip
+                      title={flaggedState[call.id] ? "Retirer le signalement" : "Signaler comme incident"}
+                    >
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFlag(call);
+                        }}
+                        sx={{ mr: 1, color: flaggedState[call.id] ? "#ef4444" : "#9ca3af" }}
+                        aria-label="Signaler un incident"
+                      >
+                        {flaggedState[call.id] ? <IconFlagFilled size={20} /> : <IconFlag size={20} />}
+                      </IconButton>
+                    </Tooltip>
 
                   </ListItem>
 

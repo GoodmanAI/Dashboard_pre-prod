@@ -10,6 +10,7 @@ import {
   IconChartInfographic,
   IconDashboard,
   IconBolt,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -89,6 +90,12 @@ const Menuitems: SidebarItem[] = [
     title: "Liste des appels",
     icon: IconPhone,
     href: "/client/services/talk/{TALK_ID}/calls",
+  },
+  {
+    id: uniqueId(),
+    title: "Incidents",
+    icon: IconAlertTriangle,
+    href: "/client/services/talk/{TALK_ID}/incidents",
   },
   {
     id: uniqueId(),
@@ -176,6 +183,12 @@ export const AdminMenuitems: SidebarItem[] = [
     title: "Liste des appels",
     icon: IconPhone,
     href: "/client/services/talk/{TALK_ID}/calls",
+  },
+  {
+    id: uniqueId(),
+    title: "Incidents",
+    icon: IconAlertTriangle,
+    href: "/client/services/talk/{TALK_ID}/incidents",
   },
   {
     id: uniqueId(),

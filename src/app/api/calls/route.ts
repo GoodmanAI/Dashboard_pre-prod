@@ -39,10 +39,12 @@ export async function GET(request: NextRequest) {
     const fromParam = searchParams.get("from");
     const toParam = searchParams.get("to");
     const phoneParam = searchParams.get("phone");
+    const flaggedParam = searchParams.get("flagged");
 
     // Recherche par numéro de téléphone : on ignore date / status / examType
     // pour rechercher sur la totalité des appels du centre.
     const phoneSearchActive = !!phoneParam && phoneParam.trim().length > 0;
+    const flaggedOnly = flaggedParam === "true";
 
     if (!userProductIdParam) {
       return NextResponse.json(
@@ -104,6 +106,10 @@ export async function GET(request: NextRequest) {
         },
       ],
     };
+
+    if (flaggedOnly) {
+      whereClause.flagged = true;
+    }
 
     // ==========================
     // Filtre date

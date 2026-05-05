@@ -277,6 +277,7 @@ model CallConversation {
   userProductId Int
   centerId      Int
   treated       Boolean  @default(false)
+  flagged       Boolean  @default(false)
   steps         Json     @default("{}")
   stats         Json     @default("{}")
   createdAt     DateTime @default(now())
