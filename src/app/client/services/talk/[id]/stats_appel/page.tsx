@@ -567,8 +567,9 @@ export default function StatsAppelPage({ params }: any) {
   }, [calls]);
 
   const confirmRDV = useMemo(() => {
-    // TODO : à remplacer par une vraie logique de confirmation de RDV
-    return 0;
+    return calls.reduce((acc, c: any) => {
+      return acc + (c?.stats?.rdv_status === "confirmed" ? 1 : 0);
+    }, 0);
   }, [calls]);
 
   // 3ème ligne
