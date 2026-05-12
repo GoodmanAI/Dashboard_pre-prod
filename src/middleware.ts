@@ -16,6 +16,9 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   /^\/api\/configuration\/get\/mapping\/getLibelle$/,
   /^\/api\/configuration\/get\/is_open$/,
   /^\/api\/configuration$/,
+  // Ingestion heartbeats (services backend) — auth via header x-heartbeat-secret
+  // côté handler. On exclut `status` qui reste protégé par session admin.
+  /^\/api\/heartbeat\/(?!status$)[^/]+$/,
 ];
 
 function isPublicApi(pathname: string): boolean {
