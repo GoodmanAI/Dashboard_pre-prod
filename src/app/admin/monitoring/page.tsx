@@ -32,7 +32,7 @@ type ServiceStatus = {
   uptime: number;
 };
 
-const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 10000;
 
 /** Formate un uptime (en secondes) en `Xj Hh Mm Ss` ou `Hh Mm Ss`. */
 function formatUptime(seconds: number): string {
@@ -144,7 +144,7 @@ const MonitoringPage = () => {
               Monitoring
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Statut temps réel des services · seuil DOWN à 15s · refresh 2s
+              Statut temps réel des services · seuil DOWN à 5min · refresh 10s
             </Typography>
           </Box>
           {sorted && sorted.length > 0 && (

@@ -3,7 +3,9 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { listHeartbeats } from "@/utils/heartbeatStore";
 
-const DOWN_AFTER_SECONDS = 15;
+// Seuil ~2.5× l'intervalle d'émission (2min) : tolère un beat raté + jitter.
+// À ajuster si l'intervalle d'émission change côté services.
+const DOWN_AFTER_SECONDS = 300;
 
 export async function GET() {
   const now = Date.now();
