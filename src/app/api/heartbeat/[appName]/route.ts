@@ -10,8 +10,10 @@ export async function POST(
   // Secret partagé optionnel : si HEARTBEAT_SECRET est défini, on l'exige.
   // Absent => mode dev, on accepte tout (cohérent avec le brief).
   const expected = process.env.HEARTBEAT_SECRET;
+  console.log("expected", expected);
   if (expected) {
     const got = req.headers.get("x-heartbeat-secret");
+
     if (got !== expected) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
