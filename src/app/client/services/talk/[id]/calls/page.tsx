@@ -80,7 +80,7 @@ const call_status: any = {
   canceled: "Annulé",
   rescheduled: "Modifié",
   full_planning_end: "Planning complet",
-  confirmed: "Confirmé",
+  confirmed: "Confirmation RDV",
 };
 
 import { pink } from "@mui/material/colors";

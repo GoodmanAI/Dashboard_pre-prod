@@ -11,6 +11,7 @@ import {
   IconDashboard,
   IconBolt,
   IconAlertTriangle,
+  IconActivity,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -151,6 +152,12 @@ export const AdminMenuitems: SidebarItem[] = [
     title: "Actions",
     icon: IconBolt,
     href: "/admin/actions",
+  },
+  {
+    id: uniqueId(),
+    title: "Monitoring",
+    icon: IconActivity,
+    href: "/admin/monitoring",
   },
 
   { navlabel: true, subheader: "Client" },
