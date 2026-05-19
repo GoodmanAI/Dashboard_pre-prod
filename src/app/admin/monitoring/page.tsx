@@ -20,10 +20,13 @@ import {
   IconCheck,
   IconClock,
   IconCpu,
+  IconBolt,
+  IconWorldWww,
 } from "@tabler/icons-react";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 
-type ServiceStatus = {
+type PushService = {
+  kind: "push";
   app: string;
   lastSeen: string;
   secondsAgo: number;
@@ -31,6 +34,20 @@ type ServiceStatus = {
   pid: number;
   uptime: number;
 };
+
+type ProbeService = {
+  kind: "probe";
+  app: string;
+  lastSeen: string;
+  secondsAgo: number;
+  status: "alive" | "down";
+  httpStatus: number | null;
+  latencyMs: number | null;
+  lastError: string | null;
+  neverChecked: boolean;
+};
+
+type ServiceStatus = PushService | ProbeService;
 
 const POLL_INTERVAL_MS = 10000;
 
@@ -212,9 +229,10 @@ const MonitoringPage = () => {
               color="text.secondary"
               sx={{ display: "block", mt: 1 }}
             >
-              Les services apparaîtront ici dès leur premier POST sur
+              Les services push apparaîtront dès leur premier POST sur
               {" "}
-              <code>/api/heartbeat/&lt;appName&gt;</code>.
+              <code>/api/heartbeat/&lt;appName&gt;</code>. Les probes actives
+              sont vérifiées automatiquement.
             </Typography>
           </Card>
         ) : (
@@ -236,6 +254,7 @@ function ServiceCard({ service }: { service: ServiceStatus }) {
   const accent = isAlive ? "#22c55e" : "#ef4444";
   const accentBg = isAlive ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)";
   const accentText = isAlive ? "#15803d" : "#b91c1c";
+  const isProbe = service.kind === "probe";
 
   return (
     <Card
@@ -257,14 +276,24 @@ function ServiceCard({ service }: { service: ServiceStatus }) {
           gap: 1,
         }}
       >
-        <Typography
-          variant="subtitle1"
-          fontWeight={700}
-          noWrap
-          sx={{ minWidth: 0 }}
-        >
-          {service.app}
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0 }}>
+          <Typography variant="subtitle1" fontWeight={700} noWrap>
+            {service.app}
+          </Typography>
+          <Chip
+            size="small"
+            label={isProbe ? "probe" : "push"}
+            sx={{
+              height: 16,
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: 0.5,
+              bgcolor: "rgba(0,0,0,0.06)",
+              color: "text.secondary",
+              "& .MuiChip-label": { px: 0.75 },
+            }}
+          />
+        </Box>
         <Chip
           size="small"
           icon={
@@ -286,22 +315,59 @@ function ServiceCard({ service }: { service: ServiceStatus }) {
       <Divider sx={{ mb: 1.5 }} />
 
       <Stack spacing={1}>
-        <Row
-          icon={<IconActivity size={16} />}
-          label="Vu"
-          value={formatLastSeen(service.secondsAgo)}
-          highlight={!isAlive}
-        />
-        <Row
-          icon={<IconClock size={16} />}
-          label="Uptime"
-          value={formatUptime(service.uptime)}
-        />
-        <Row
-          icon={<IconCpu size={16} />}
-          label="PID"
-          value={String(service.pid)}
-        />
+        {service.kind === "push" ? (
+          <>
+            <Row
+              icon={<IconActivity size={16} />}
+              label="Vu"
+              value={formatLastSeen(service.secondsAgo)}
+              highlight={!isAlive}
+            />
+            <Row
+              icon={<IconClock size={16} />}
+              label="Uptime"
+              value={formatUptime(service.uptime)}
+            />
+            <Row
+              icon={<IconCpu size={16} />}
+              label="PID"
+              value={String(service.pid)}
+            />
+          </>
+        ) : (
+          <>
+            <Row
+              icon={<IconActivity size={16} />}
+              label="Check"
+              value={
+                service.neverChecked
+                  ? "en cours…"
+                  : formatLastSeen(service.secondsAgo)
+              }
+              highlight={!isAlive && !service.neverChecked}
+            />
+            <Row
+              icon={<IconWorldWww size={16} />}
+              label="HTTP"
+              value={
+                service.httpStatus !== null
+                  ? String(service.httpStatus)
+                  : service.lastError ?? "—"
+              }
+              highlight={
+                service.httpStatus !== null &&
+                (service.httpStatus < 200 || service.httpStatus >= 300)
+              }
+            />
+            <Row
+              icon={<IconBolt size={16} />}
+              label="Latence"
+              value={
+                service.latencyMs !== null ? `${service.latencyMs} ms` : "—"
+              }
+            />
+          </>
+        )}
       </Stack>
     </Card>
   );
