@@ -22,6 +22,7 @@ import {
   IconCpu,
   IconBolt,
   IconWorldWww,
+  IconDatabase,
 } from "@tabler/icons-react";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 
@@ -37,11 +38,12 @@ type PushService = {
 
 type ProbeService = {
   kind: "probe";
+  probeKind: "http" | "postgres";
   app: string;
   lastSeen: string;
   secondsAgo: number;
   status: "alive" | "down";
-  httpStatus: number | null;
+  statusCode: string | null;
   latencyMs: number | null;
   lastError: string | null;
   neverChecked: boolean;
@@ -347,16 +349,25 @@ function ServiceCard({ service }: { service: ServiceStatus }) {
               highlight={!isAlive && !service.neverChecked}
             />
             <Row
-              icon={<IconWorldWww size={16} />}
-              label="HTTP"
+              icon={
+                service.probeKind === "postgres" ? (
+                  <IconDatabase size={16} />
+                ) : (
+                  <IconWorldWww size={16} />
+                )
+              }
+              label={service.probeKind === "postgres" ? "Query" : "HTTP"}
               value={
-                service.httpStatus !== null
-                  ? String(service.httpStatus)
-                  : service.lastError ?? "—"
+                service.statusCode ?? service.lastError ?? "—"
               }
               highlight={
-                service.httpStatus !== null &&
-                (service.httpStatus < 200 || service.httpStatus >= 300)
+                service.statusCode !== null &&
+                service.statusCode !== "OK" &&
+                !(
+                  /^\d+$/.test(service.statusCode) &&
+                  Number(service.statusCode) >= 200 &&
+                  Number(service.statusCode) < 300
+                )
               }
             />
             <Row

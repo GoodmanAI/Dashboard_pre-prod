@@ -35,11 +35,6 @@ export async function GET() {
   });
 
   const probes = listProbes().map(({ config, state }) => {
-    const lastWasOk =
-      state.lastHttpStatus !== null &&
-      state.lastHttpStatus >= 200 &&
-      state.lastHttpStatus < 300;
-
     const lastSuccessSec = state.lastSuccessAt
       ? Math.max(
           0,
@@ -47,14 +42,10 @@ export async function GET() {
         )
       : null;
 
-    // Seuil identique aux heartbeats push : 2.5× l'intervalle de probe.
+    // Seuil ~2.5× l'intervalle de probe : tolère un check raté + jitter.
     const toleranceSec = Math.floor((config.intervalMs * 2.5) / 1000);
     const status: "alive" | "down" =
-      lastWasOk &&
-      lastSuccessSec !== null &&
-      lastSuccessSec < toleranceSec
-        ? "alive"
-        : "down";
+      lastSuccessSec !== null && lastSuccessSec < toleranceSec ? "alive" : "down";
 
     const lastSeenIso =
       state.lastSuccessAt ?? state.lastCheckedAt ?? new Date(0).toISOString();
@@ -67,11 +58,12 @@ export async function GET() {
 
     return {
       kind: "probe" as const,
+      probeKind: state.kind,
       app: config.app,
       lastSeen: lastSeenIso,
       secondsAgo,
       status,
-      httpStatus: state.lastHttpStatus,
+      statusCode: state.lastStatusCode,
       latencyMs: state.lastLatencyMs,
       lastError: state.lastError,
       neverChecked: state.lastCheckedAt === null,
