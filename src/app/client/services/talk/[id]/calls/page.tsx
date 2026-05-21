@@ -151,8 +151,10 @@ function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
       const rawExamId = stats.exam_type_id;
       const examId = Array.isArray(rawExamId) ? rawExamId[0] : rawExamId;
       if (examId) {
+        const baseExamLabel = examLabelMap[examId] || String(examId);
+        const isDoppler = stats.doppler_used === true;
         chips.push({
-          label: examLabelMap[examId] || String(examId),
+          label: isDoppler ? `${baseExamLabel} + Doppler` : baseExamLabel,
           customColor: "#059669",
           variant: "outlined",
         });

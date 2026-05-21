@@ -12,6 +12,7 @@ import {
   IconBolt,
   IconAlertTriangle,
   IconActivity,
+  IconChartHistogram,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -146,6 +147,12 @@ export const AdminMenuitems: SidebarItem[] = [
     title: "Overview",
     icon: IconDashboard,
     href: "/admin/overview",
+  },
+  {
+    id: uniqueId(),
+    title: "Stats produit",
+    icon: IconChartHistogram,
+    href: "/admin/analytics-internal",
   },
   {
     id: uniqueId(),
