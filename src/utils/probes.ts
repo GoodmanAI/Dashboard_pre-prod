@@ -91,13 +91,14 @@ function postgresCheck() {
 
 function buildProbes(): ProbeConfig[] {
   return [
-    {
-      app: "lyrae-talk-functions",
-      kind: "http",
-      intervalMs: 120_000,
-      timeoutMs: 8_000,
-      check: httpCheck("https://lyrae-talk-functions.azurewebsites.net/api/health"),
-    },
+    // Probe HTTP vers lyrae-talk-functions désactivée temporairement.
+    // {
+    //   app: "lyrae-talk-functions",
+    //   kind: "http",
+    //   intervalMs: 120_000,
+    //   timeoutMs: 8_000,
+    //   check: httpCheck("https://lyrae-talk-functions.azurewebsites.net/api/health"),
+    // },
     {
       // BDD principale du dashboard (DATABASE_URL).
       app: "postgres",
