@@ -13,9 +13,6 @@ import {
  * Usage : ouvrir `/api/rdv/dev-seed` (ou `/api/rdv/dev-seed?centerId=N`) dans le navigateur.
  */
 export async function GET(req: NextRequest) {
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "Disabled in production" }, { status: 403 });
-  }
   if (!process.env.APPOINTMENT_HMAC_SECRET) {
     return NextResponse.json(
       {
