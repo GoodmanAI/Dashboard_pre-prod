@@ -84,31 +84,50 @@ type TimeseriesPoint = {
   ai2risAvgMs: number;
 };
 
-type EagerRecommendation = "activate" | "watch" | "skip" | "insufficient";
+type Recommendation = "activate" | "watch" | "skip" | "insufficient";
 
-type EagerMetrics = {
+type FeatureMetrics = {
   volume: number;
-  eagerCount: number;
-  resumedCount: number;
-  fausseFinRatePct: number;
-  gainAvgMs: number;
-  gainMaxMs: number;
-  gainTotalMs: number;
-  gainExpectedMs: number;
-  recommendation: EagerRecommendation;
+  confirmedCount: number;
+  // Bénéfice (selon kind)
+  benefitAvgMs: number;
+  benefitMaxMs: number;
+  benefitTotalMs: number;
+  benefitCount: number;
+  // Coût (selon kind)
+  costCount: number;
+  costRatioPct: number;
+  costAvgMs: number;
+  costMaxMs: number;
+  // Helpers
+  expectedPerEventMs: number;
+  recommendation: Recommendation;
+  extras: Record<string, number>;
 };
 
-type EagerByState = EagerMetrics & { state: string };
+type FeatureStateMetrics = FeatureMetrics & { state: string };
+
+type DistributionBucket = { range: string; min: number; max: number; count: number };
+
+type FeatureData = {
+  global: FeatureMetrics;
+  byState: FeatureStateMetrics[];
+  distribution: DistributionBucket[] | null;
+};
+
+type FeatureKey =
+  | "eager"
+  | "tts_streaming"
+  | "buffered_utterance"
+  | "mw_late_detection"
+  | "wait_sound_overshoot";
 
 type AnalyticsInternal = {
   period: { from: string; to: string };
   totalCalls: number;
   callsWithInternal: number;
   timeseries: TimeseriesPoint[];
-  eager: {
-    global: EagerMetrics;
-    byState: EagerByState[];
-  };
+  features: Record<FeatureKey, FeatureData>;
 
   identification: {
     finalStatusDistribution: Record<string, number>;
@@ -395,7 +414,7 @@ function DistributionBars({
   );
 }
 
-// ---------- Eager (EagerEndOfTurn) ----------
+// ---------- Monitoring de features candidates (registre unifié) ----------
 
 /** Formate des millisecondes en libellé court ("250ms", "1.2s", "2min 30s"). */
 function formatMs(ms: number): string {
@@ -411,7 +430,7 @@ function formatMs(ms: number): string {
 }
 
 const RECO_META: Record<
-  EagerRecommendation,
+  Recommendation,
   { label: string; color: string; bg: string }
 > = {
   activate: { label: "Activer", color: "#15803d", bg: "rgba(34,197,94,0.18)" },
@@ -424,7 +443,7 @@ const RECO_META: Record<
   },
 };
 
-function RecommendationChip({ reco }: { reco: EagerRecommendation }) {
+function RecommendationChip({ reco }: { reco: Recommendation }) {
   const meta = RECO_META[reco];
   return (
     <Chip
@@ -441,10 +460,142 @@ function RecommendationChip({ reco }: { reco: EagerRecommendation }) {
   );
 }
 
+/**
+ * Registre de features. Ajouter une feature = ajouter une entrée ici, le reste
+ * de l'écran s'adapte automatiquement (KPIs, tableau, scatter, distribution).
+ * Voir §2 du brief : modèle commun + registre déclaratif.
+ */
+type BenefitKind = "ms" | "count";
+type CostKind = "count" | "ms" | null;
+/**
+ *  - "default"  : X = costRatioPct (cost en %), Y = benefitAvgMs (gain ms) ; quadrant haut-gauche favorable.
+ *  - "inverted" : X = costAvgMs (overshoot ms), Y = benefitCount ; quadrant haut-gauche favorable (peu d'overshoot, bcp de détections).
+ *  - "none"     : pas de scatter (feature sans coût mesuré → simple classement par bénéfice).
+ */
+type QuadrantMode = "default" | "inverted" | "none";
+
+type FeatureMeta = {
+  key: FeatureKey;
+  label: string;
+  benefitKind: BenefitKind;
+  costKind: CostKind;
+  benefitLabel: string;
+  costLabel: string;
+  confirmedLabel: string;
+  /** Libellé de la colonne de ventilation (Étape, Détecteur…). */
+  byStateLabel: string;
+  /** Label de l'unité conceptuelle ("event", "segment", "utterance", "tour"…). */
+  eventLabel: string;
+  caveat: string;
+  /** Extras à afficher en KPI. */
+  extras?: { key: string; label: string; suffix?: string }[];
+  hasDistribution: boolean;
+  quadrantMode: QuadrantMode;
+};
+
+const FEATURES_REGISTRY: FeatureMeta[] = [
+  {
+    key: "eager",
+    label: "Speculative (EagerEndOfTurn)",
+    benefitKind: "ms",
+    costKind: "count",
+    benefitLabel: "Gain moyen (avance Eager → EoT)",
+    costLabel: "Fausses fins",
+    confirmedLabel: "Eager confirmés",
+    byStateLabel: "Étape",
+    eventLabel: "event",
+    caveat:
+      "Le gain est un PLAFOND : le gain réel = min(gain, durée pipeline NLP+TTS de l'étape). Surestime sur les étapes à réponse courte.",
+    hasDistribution: false,
+    quadrantMode: "default",
+  },
+  {
+    key: "tts_streaming",
+    label: "Streaming TTS",
+    benefitKind: "ms",
+    costKind: "count",
+    benefitLabel: "Gain moyen (stream_total − first_chunk)",
+    costLabel: "Cache hits (gain nul)",
+    confirmedLabel: "Miss (générés)",
+    byStateLabel: "Étape",
+    eventLabel: "segment",
+    extras: [
+      { key: "firstChunkAvgMs", label: "1er chunk moy.", suffix: "ms" },
+      { key: "streamTotalAvgMs", label: "Stream total moy.", suffix: "ms" },
+      { key: "charAvg", label: "Longueur moy. (chars)" },
+    ],
+    caveat:
+      "Gain = streaming ElevenLabs pur, n'inclut PAS le post-traitement ffmpeg ni l'upload (ajoutés après le stream). Si cache hit rate très élevé → feature peu rentable.",
+    hasDistribution: true,
+    quadrantMode: "default",
+  },
+  {
+    key: "buffered_utterance",
+    label: "Barge-in bridé (audio non-interruptible)",
+    benefitKind: "ms",
+    costKind: "count",
+    benefitLabel: "Attente moyenne (pose → traitement)",
+    costLabel: "Jetées (patient parlait encore)",
+    confirmedLabel: "Bufferisées",
+    byStateLabel: "Étape",
+    eventLabel: "utterance",
+    caveat:
+      "Le wait est le gain DIRECT (pas un plafond). by_state révèle quelles phrases non-interruptibles (validate_exam, transferts, intro) coûtent le plus.",
+    hasDistribution: true,
+    quadrantMode: "default",
+  },
+  {
+    key: "mw_late_detection",
+    label: "Remonter le cutoff orchestrateur (2s)",
+    benefitKind: "count",
+    costKind: "ms",
+    benefitLabel: "Détections perdues récupérables",
+    costLabel: "Overshoot (ms à ajouter au cutoff)",
+    confirmedLabel: "Détections perdues",
+    byStateLabel: "Détecteur",
+    eventLabel: "détection",
+    caveat:
+      "Bénéfice = volume de détections perdues (priorité absolue à detectUrgence : une urgence ratée est grave). Coût = remonter le cutoff de ~overshoot_max_ms ajoute ce blanc à CHAQUE tour. Décider détecteur par détecteur. Alimenté en différé (2-4s après le tour) → léger sous-comptage possible sur les appels qui raccrochent juste après.",
+    hasDistribution: true,
+    quadrantMode: "inverted",
+  },
+  {
+    key: "wait_sound_overshoot",
+    label: "Wait sound coupable / adaptatif",
+    benefitKind: "ms",
+    costKind: null,
+    benefitLabel: "Temps mort récupérable (attente fin wait sound)",
+    costLabel: "Naturel dégradé si wait sound coupé (non mesuré)",
+    confirmedLabel: "Tours mesurés",
+    byStateLabel: "Étape",
+    eventLabel: "tour",
+    caveat:
+      "Le random delay de transition (200-500ms, intentionnel) est exclu de la mesure. Seuls les tours ayant joué ≥1 wait sound et dont la queue s'est vidée normalement sont comptés. by_state = état de DÉPART (celui dont les wait sounds jouent).",
+    hasDistribution: true,
+    quadrantMode: "none",
+  },
+];
+
+const FEATURES_BY_KEY = Object.fromEntries(
+  FEATURES_REGISTRY.map((f) => [f.key, f])
+) as Record<FeatureKey, FeatureMeta>;
+
+/** Affiche un bénéfice selon son kind. */
+function formatBenefit(d: FeatureMetrics, kind: BenefitKind): string {
+  return kind === "ms" ? formatMs(d.benefitAvgMs) : String(d.benefitCount);
+}
+/** Affiche un coût selon son kind ("n/a" si null). */
+function formatCost(d: FeatureMetrics, kind: CostKind): string {
+  if (kind === null) return "n/a";
+  if (kind === "ms") return formatMs(d.costAvgMs);
+  return `${d.costCount} (${d.costRatioPct}%)`;
+}
+
 /** Tooltip personnalisé pour le scatter bénéfice vs risque. */
-function ScatterTooltip(props: any) {
+function ScatterTooltip({ meta, ...props }: any) {
   if (!props?.active || !props?.payload?.length) return null;
-  const d = props.payload[0].payload as EagerByState;
+  const d = props.payload[0].payload as FeatureStateMetrics;
+  const m = meta as FeatureMeta;
   return (
     <Box
       sx={{
@@ -454,7 +605,7 @@ function ScatterTooltip(props: any) {
         p: 1.2,
         fontSize: 12,
         boxShadow: 2,
-        minWidth: 180,
+        minWidth: 200,
       }}
     >
       <Typography variant="caption" fontWeight={800} sx={{ display: "block", color: "#2a6f64" }}>
@@ -463,12 +614,24 @@ function ScatterTooltip(props: any) {
       <Box sx={{ mt: 0.5, display: "grid", gap: 0.25, gridTemplateColumns: "auto auto" }}>
         <Typography variant="caption" color="text.secondary">Volume</Typography>
         <Typography variant="caption" fontWeight={600} sx={{ textAlign: "right" }}>{d.volume}</Typography>
-        <Typography variant="caption" color="text.secondary">Fausses fins</Typography>
-        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "right" }}>{d.fausseFinRatePct}%</Typography>
-        <Typography variant="caption" color="text.secondary">Gain moyen</Typography>
-        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "right" }}>{formatMs(d.gainAvgMs)}</Typography>
-        <Typography variant="caption" color="text.secondary">Gain total potentiel</Typography>
-        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "right", color: "#2a6f64" }}>{formatMs(d.gainTotalMs)}</Typography>
+        <Typography variant="caption" color="text.secondary">{m.costLabel}</Typography>
+        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "right" }}>
+          {formatCost(d, m.costKind)}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {m.benefitKind === "ms" ? "Bénéfice moyen" : "Bénéfice (count)"}
+        </Typography>
+        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "right" }}>
+          {formatBenefit(d, m.benefitKind)}
+        </Typography>
+        {m.benefitKind === "ms" && (
+          <>
+            <Typography variant="caption" color="text.secondary">Bénéfice total</Typography>
+            <Typography variant="caption" fontWeight={600} sx={{ textAlign: "right", color: "#2a6f64" }}>
+              {formatMs(d.benefitTotalMs)}
+            </Typography>
+          </>
+        )}
       </Box>
       <Box sx={{ mt: 0.75 }}>
         <RecommendationChip reco={d.recommendation} />
@@ -477,11 +640,28 @@ function ScatterTooltip(props: any) {
   );
 }
 
-function EagerSection({ eager }: { eager: AnalyticsInternal["eager"] }) {
-  const { global, byState } = eager;
+/**
+ * Section générique pilotée par le registre. Affiche :
+ *  - un sélecteur de feature (Tabs)
+ *  - les KPI communs (+ extras spécifiques)
+ *  - scatter bénéfice vs risque par étape
+ *  - bar top étapes par bénéfice total
+ *  - histogramme de distribution (si feature.hasDistribution)
+ *  - tableau détaillé par étape
+ *  - bandeau de caveat
+ */
+function FeatureMonitoringSection({
+  features,
+}: {
+  features: AnalyticsInternal["features"];
+}) {
+  const [activeKey, setActiveKey] = useState<FeatureKey>("eager");
+  const meta = FEATURES_BY_KEY[activeKey];
+  const data = features[activeKey];
+  const { global, byState, distribution } = data;
 
-  // Couleur des points du scatter selon la recommandation.
-  const dotColor = (reco: EagerRecommendation) =>
+  // Couleur des points/barres selon la recommandation.
+  const dotColor = (reco: Recommendation) =>
     reco === "activate"
       ? "#22c55e"
       : reco === "watch"
@@ -490,15 +670,12 @@ function EagerSection({ eager }: { eager: AnalyticsInternal["eager"] }) {
       ? "#ef4444"
       : "#9ca3af";
 
-  // Top 10 étapes par gain total pour le bar chart.
-  const topByGain = byState.slice(0, 10);
-
-  // Si aucun event Eager sur la période : empty state.
+  const topByBenefit = byState.slice(0, 10);
   const hasAnyData = global.volume > 0;
 
   return (
     <Card elevation={1} sx={{ p: { xs: 2.5, md: 3 }, mb: 3 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
         <Box
           sx={{
             width: 44,
@@ -515,14 +692,40 @@ function EagerSection({ eager }: { eager: AnalyticsInternal["eager"] }) {
         </Box>
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography variant="subtitle1" fontWeight={800} lineHeight={1.2}>
-            Évaluation EagerEndOfTurn
+            Monitoring features
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Gain potentiel d&apos;un déclenchement spéculatif du pipeline NLP+TTS
+            Évaluation du gain potentiel des features candidates par étape métier
           </Typography>
         </Box>
       </Box>
 
+      {/* ---------- Sélecteur de feature ---------- */}
+      <Tabs
+        value={activeKey}
+        onChange={(_, v) => setActiveKey(v as FeatureKey)}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{
+          mb: 2,
+          borderBottom: 1,
+          borderColor: "divider",
+          "& .MuiTab-root": {
+            textTransform: "none",
+            fontWeight: 600,
+            fontSize: 13,
+            minHeight: 42,
+          },
+          "& .Mui-selected": { color: "#2a6f64 !important" },
+          "& .MuiTabs-indicator": { backgroundColor: "#48C8AF" },
+        }}
+      >
+        {FEATURES_REGISTRY.map((f) => (
+          <Tab key={f.key} value={f.key} label={f.label} />
+        ))}
+      </Tabs>
+
+      {/* ---------- Bandeau d'avertissement (caveat) ---------- */}
       <Box
         sx={{
           display: "flex",
@@ -532,19 +735,15 @@ function EagerSection({ eager }: { eager: AnalyticsInternal["eager"] }) {
           px: 1.5,
           py: 1,
           borderRadius: 1,
-          bgcolor: "rgba(72,200,175,0.05)",
-          border: "1px dashed rgba(72,200,175,0.3)",
+          bgcolor: "rgba(245,158,11,0.06)",
+          border: "1px dashed rgba(245,158,11,0.4)",
         }}
       >
-        <IconInfoCircle size={16} color="#2a6f64" style={{ flexShrink: 0, marginTop: 2 }} />
+        <IconInfoCircle size={16} color="#92400e" style={{ flexShrink: 0, marginTop: 2 }} />
         <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.5 }}>
-          Le <strong>gain moyen</strong> est un <em>plafond</em> par tour — le gain net réel
-          dépend du temps de démarrage du pipeline NLP+TTS. Les fausses fins (TurnResumed)
-          ne rapportent rien et sont déjà déduites dans le <em>gain attendu / event</em>.
+          {meta.caveat}
         </Typography>
       </Box>
-
-      <Divider sx={{ mb: 2.5 }} />
 
       {!hasAnyData ? (
         <Box
@@ -557,12 +756,12 @@ function EagerSection({ eager }: { eager: AnalyticsInternal["eager"] }) {
           }}
         >
           <Typography variant="body2" color="text.secondary">
-            Aucun event Eager collecté sur la période.
+            Aucun {meta.eventLabel} collecté pour cette feature sur la période.
           </Typography>
         </Box>
       ) : (
         <>
-          {/* ---------- KPI globaux ---------- */}
+          {/* ---------- KPI globaux (rendu conditionnel selon kinds) ---------- */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={6} md={3}>
               <KpiCard
@@ -573,182 +772,309 @@ function EagerSection({ eager }: { eager: AnalyticsInternal["eager"] }) {
             </Grid>
             <Grid item xs={6} md={3}>
               <KpiCard
-                label="Eager confirmés"
-                value={global.eagerCount}
+                label={meta.confirmedLabel}
+                value={global.confirmedCount}
                 icon={<IconCheck size={20} />}
                 valueColor="#22c55e"
               />
             </Grid>
+
+            {/* Carte coût : selon kind. Masquée si costKind === null. */}
+            {meta.costKind === "count" && (
+              <Grid item xs={6} md={3}>
+                <KpiCard
+                  label={meta.costLabel}
+                  value={`${global.costCount} (${global.costRatioPct}%)`}
+                  icon={<IconAlertTriangle size={20} />}
+                  valueColor={
+                    global.costRatioPct > 25
+                      ? "#ef4444"
+                      : global.costRatioPct > 15
+                      ? "#f59e0b"
+                      : "#22c55e"
+                  }
+                />
+              </Grid>
+            )}
+            {meta.costKind === "ms" && (
+              <>
+                <Grid item xs={6} md={3}>
+                  <KpiCard
+                    label={`${meta.costLabel} (moy.)`}
+                    value={formatMs(global.costAvgMs)}
+                    icon={<IconAlertTriangle size={20} />}
+                    valueColor={
+                      global.costAvgMs > 800
+                        ? "#ef4444"
+                        : global.costAvgMs > 300
+                        ? "#f59e0b"
+                        : "#22c55e"
+                    }
+                  />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <KpiCard
+                    label={`${meta.costLabel} (max)`}
+                    value={formatMs(global.costMaxMs)}
+                    icon={<IconChartBar size={20} />}
+                  />
+                </Grid>
+              </>
+            )}
+            {meta.costKind === null && (
+              <Grid item xs={6} md={3}>
+                <KpiCard
+                  label={meta.costLabel}
+                  value="n/a"
+                  icon={<IconInfoCircle size={20} />}
+                  valueColor="#9ca3af"
+                />
+              </Grid>
+            )}
+
+            {/* Carte "bénéfice total" : ms total OU count selon kind. */}
             <Grid item xs={6} md={3}>
               <KpiCard
-                label="Fausses fins"
-                value={`${global.resumedCount} (${global.fausseFinRatePct}%)`}
-                icon={<IconAlertTriangle size={20} />}
-                valueColor={
-                  global.fausseFinRatePct > 25
-                    ? "#ef4444"
-                    : global.fausseFinRatePct > 15
-                    ? "#f59e0b"
-                    : "#22c55e"
+                label={meta.benefitKind === "ms" ? "Bénéfice total potentiel" : "Total récupérable"}
+                value={
+                  meta.benefitKind === "ms"
+                    ? formatMs(global.benefitTotalMs)
+                    : String(global.benefitCount)
                 }
-              />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <KpiCard
-                label="Gain total potentiel"
-                value={formatMs(global.gainTotalMs)}
                 icon={<IconClock size={20} />}
                 valueColor="#2a6f64"
               />
             </Grid>
-            <Grid item xs={6} md={4}>
-              <KpiCard
-                label="Gain moyen / tour confirmé"
-                value={formatMs(global.gainAvgMs)}
-                icon={<IconTimeline size={20} />}
-              />
-            </Grid>
-            <Grid item xs={6} md={4}>
-              <KpiCard
-                label="Gain max observé"
-                value={formatMs(global.gainMaxMs)}
-                icon={<IconChartBar size={20} />}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <KpiCard
-                label="Gain attendu pondéré / event"
-                value={formatMs(global.gainExpectedMs)}
-                icon={<IconBolt size={20} />}
-                valueColor="#4899B5"
-              />
-            </Grid>
+
+            {/* Cartes bénéfice détaillées : uniquement si benefitKind === "ms". */}
+            {meta.benefitKind === "ms" && (
+              <>
+                <Grid item xs={6} md={4}>
+                  <KpiCard
+                    label={meta.benefitLabel}
+                    value={formatMs(global.benefitAvgMs)}
+                    icon={<IconTimeline size={20} />}
+                  />
+                </Grid>
+                <Grid item xs={6} md={4}>
+                  <KpiCard
+                    label="Bénéfice max observé"
+                    value={formatMs(global.benefitMaxMs)}
+                    icon={<IconChartBar size={20} />}
+                  />
+                </Grid>
+                {/* "Attendu pondéré" n'a de sens qu'avec un coût count (ratio). */}
+                {meta.costKind === "count" && (
+                  <Grid item xs={12} md={4}>
+                    <KpiCard
+                      label={`Bénéfice attendu pondéré / ${meta.eventLabel}`}
+                      value={formatMs(global.expectedPerEventMs)}
+                      icon={<IconBolt size={20} />}
+                      valueColor="#4899B5"
+                    />
+                  </Grid>
+                )}
+              </>
+            )}
+
+            {/* ---------- Extras spécifiques à la feature ---------- */}
+            {meta.extras?.map((ex) => {
+              const v = global.extras[ex.key] ?? 0;
+              const display =
+                ex.suffix === "ms" ? formatMs(v) : `${v}${ex.suffix ? " " + ex.suffix : ""}`;
+              return (
+                <Grid item xs={6} md={4} key={ex.key}>
+                  <KpiCard label={ex.label} value={display} icon={<IconChartBar size={20} />} />
+                </Grid>
+              );
+            })}
           </Grid>
 
-          {/* ---------- Scatter "Bénéfice vs Risque" + Bar top étapes ---------- */}
-          <Grid container spacing={3} sx={{ mb: 3 }}>
-            <Grid item xs={12} md={6}>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
-              >
-                BÉNÉFICE VS RISQUE PAR ÉTAPE
-              </Typography>
-              <Box sx={{ height: 280, position: "relative" }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 16, right: 20, bottom: 36, left: 8 }}>
-                    <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" />
-                    <XAxis
-                      type="number"
-                      dataKey="fausseFinRatePct"
-                      name="Taux fausses fins"
-                      unit="%"
-                      tick={{ fontSize: 11, fill: "#6b7280" }}
-                      axisLine={{ stroke: "#e5e7eb" }}
-                      tickLine={false}
-                      domain={[0, "auto"]}
-                      label={{
-                        value: "Taux fausses fins (%)",
-                        position: "insideBottom",
-                        offset: -8,
-                        style: { fontSize: 11, fill: "#6b7280" },
-                      }}
-                    />
-                    <YAxis
-                      type="number"
-                      dataKey="gainAvgMs"
-                      name="Gain moyen"
-                      unit="ms"
-                      tick={{ fontSize: 11, fill: "#6b7280" }}
-                      axisLine={false}
-                      tickLine={false}
-                      label={{
-                        value: "Gain moyen (ms)",
-                        angle: -90,
-                        position: "insideLeft",
-                        offset: 12,
-                        style: { fontSize: 11, fill: "#6b7280" },
-                      }}
-                    />
-                    <ZAxis
-                      type="number"
-                      dataKey="volume"
-                      range={[60, 500]}
-                      name="Volume"
-                    />
-                    <ReferenceLine
-                      x={15}
-                      stroke="#22c55e"
-                      strokeDasharray="3 3"
-                      strokeOpacity={0.5}
-                    />
-                    <ReferenceLine
-                      y={250}
-                      stroke="#22c55e"
-                      strokeDasharray="3 3"
-                      strokeOpacity={0.5}
-                    />
-                    <ReTooltip content={<ScatterTooltip />} cursor={{ strokeDasharray: "3 3" }} />
-                    <Scatter data={byState}>
-                      {byState.map((d, i) => (
-                        <Cell key={i} fill={dotColor(d.recommendation)} fillOpacity={0.75} />
-                      ))}
-                    </Scatter>
-                  </ScatterChart>
-                </ResponsiveContainer>
-              </Box>
-              <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap", gap: 1, mt: 1 }}>
-                {(["activate", "watch", "skip", "insufficient"] as EagerRecommendation[]).map(
-                  (r) => (
-                    <Box key={r} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                      <Box
-                        sx={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          bgcolor: dotColor(r),
-                        }}
-                      />
-                      <Typography variant="caption" color="text.secondary">
-                        {RECO_META[r].label}
-                      </Typography>
-                    </Box>
-                  )
-                )}
-              </Stack>
-            </Grid>
+          {/* ---------- Scatter (quadrant) + Bar top étapes ---------- */}
+          {(() => {
+            // Configuration des axes du scatter selon quadrantMode :
+            //  - default  : X = costRatioPct (%), Y = benefitAvgMs (ms)
+            //  - inverted : X = costAvgMs (ms),   Y = benefitCount (count)
+            //  - none     : pas de scatter (bar chart pleine largeur)
+            const isInverted = meta.quadrantMode === "inverted";
+            const showScatter = meta.quadrantMode !== "none";
 
-            <Grid item xs={12} md={6}>
+            const xField = isInverted ? "costAvgMs" : "costRatioPct";
+            const xUnit = isInverted ? "ms" : "%";
+            const xLabel = isInverted
+              ? `${meta.costLabel} (ms)`
+              : `${meta.costLabel} (%)`;
+            const xFormatter = isInverted ? (v: number) => formatMs(v) : undefined;
+
+            const yField = isInverted ? "benefitCount" : "benefitAvgMs";
+            const yUnit = isInverted ? "" : "ms";
+            const yLabel = isInverted ? meta.benefitLabel : "Bénéfice moyen (ms)";
+
+            // Pour le bar chart : dataKey selon kind du bénéfice.
+            const barDataKey = meta.benefitKind === "ms" ? "benefitTotalMs" : "benefitCount";
+            const barTooltipLabel = meta.benefitKind === "ms" ? "Bénéfice total" : "Détections récupérables";
+            const barTickFormatter = meta.benefitKind === "ms" ? (v: number) => formatMs(v) : undefined;
+
+            return (
+              <Grid container spacing={3} sx={{ mb: 3 }}>
+                {showScatter && (
+                  <Grid item xs={12} md={6}>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
+                    >
+                      BÉNÉFICE VS {isInverted ? "COÛT LATENCE" : "RISQUE"} PAR {meta.byStateLabel.toUpperCase()}
+                    </Typography>
+                    <Box sx={{ height: 280, position: "relative" }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ScatterChart margin={{ top: 16, right: 20, bottom: 36, left: 8 }}>
+                          <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" />
+                          <XAxis
+                            type="number"
+                            dataKey={xField}
+                            name={meta.costLabel}
+                            unit={xUnit}
+                            tick={{ fontSize: 11, fill: "#6b7280" }}
+                            axisLine={{ stroke: "#e5e7eb" }}
+                            tickLine={false}
+                            domain={[0, "auto"]}
+                            tickFormatter={xFormatter}
+                            label={{
+                              value: xLabel,
+                              position: "insideBottom",
+                              offset: -8,
+                              style: { fontSize: 11, fill: "#6b7280" },
+                            }}
+                          />
+                          <YAxis
+                            type="number"
+                            dataKey={yField}
+                            name={isInverted ? "Détections" : "Bénéfice moyen"}
+                            unit={yUnit}
+                            tick={{ fontSize: 11, fill: "#6b7280" }}
+                            axisLine={false}
+                            tickLine={false}
+                            label={{
+                              value: yLabel,
+                              angle: -90,
+                              position: "insideLeft",
+                              offset: 12,
+                              style: { fontSize: 11, fill: "#6b7280" },
+                            }}
+                          />
+                          <ZAxis type="number" dataKey="volume" range={[60, 500]} name="Volume" />
+                          <ReTooltip
+                            content={<ScatterTooltip meta={meta} />}
+                            cursor={{ strokeDasharray: "3 3" }}
+                          />
+                          <Scatter data={byState}>
+                            {byState.map((d, i) => (
+                              <Cell key={i} fill={dotColor(d.recommendation)} fillOpacity={0.75} />
+                            ))}
+                          </Scatter>
+                        </ScatterChart>
+                      </ResponsiveContainer>
+                    </Box>
+                    <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap", gap: 1, mt: 1 }}>
+                      {(["activate", "watch", "skip", "insufficient"] as Recommendation[]).map((r) => (
+                        <Box key={r} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          <Box
+                            sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: dotColor(r) }}
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            {RECO_META[r].label}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Grid>
+                )}
+
+                <Grid item xs={12} md={showScatter ? 6 : 12}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
+                  >
+                    TOP {meta.byStateLabel.toUpperCase()}S PAR {meta.benefitKind === "ms" ? "BÉNÉFICE TOTAL" : "VOLUME RÉCUPÉRABLE"}
+                  </Typography>
+                  <Box sx={{ height: 280 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={topByBenefit}
+                        layout="vertical"
+                        margin={{ top: 8, right: 24, left: 8, bottom: 4 }}
+                      >
+                        <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" horizontal={false} />
+                        <XAxis
+                          type="number"
+                          tick={{ fontSize: 11, fill: "#6b7280" }}
+                          axisLine={{ stroke: "#e5e7eb" }}
+                          tickLine={false}
+                          tickFormatter={barTickFormatter}
+                          allowDecimals={false}
+                        />
+                        <YAxis
+                          type="category"
+                          dataKey="state"
+                          tick={{ fontSize: 11, fill: "#6b7280" }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={140}
+                        />
+                        <ReTooltip
+                          cursor={{ fill: "rgba(72,200,175,0.08)" }}
+                          contentStyle={{
+                            borderRadius: 8,
+                            border: "1px solid rgba(72,200,175,0.3)",
+                            fontSize: 12,
+                            padding: "6px 10px",
+                          }}
+                          labelStyle={{ fontWeight: 600, color: "#2a6f64" }}
+                          formatter={(value: any) => [
+                            meta.benefitKind === "ms" ? formatMs(Number(value)) : String(value),
+                            barTooltipLabel,
+                          ]}
+                        />
+                        <Bar dataKey={barDataKey} radius={[0, 4, 4, 0]}>
+                          {topByBenefit.map((d, i) => (
+                            <Cell key={i} fill={dotColor(d.recommendation)} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Box>
+                </Grid>
+              </Grid>
+            );
+          })()}
+
+          {/* ---------- Histogramme distribution (si applicable) ---------- */}
+          {meta.hasDistribution && distribution && distribution.length > 0 && (
+            <Box sx={{ mb: 3 }}>
               <Typography
                 variant="caption"
                 color="text.secondary"
                 sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
               >
-                TOP ÉTAPES PAR GAIN TOTAL POTENTIEL
+                DISTRIBUTION ({meta.eventLabel.toUpperCase()}S)
               </Typography>
-              <Box sx={{ height: 280 }}>
+              <Box sx={{ height: 220 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={topByGain}
-                    layout="vertical"
-                    margin={{ top: 8, right: 24, left: 8, bottom: 4 }}
-                  >
-                    <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" horizontal={false} />
+                  <BarChart data={distribution} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+                    <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" vertical={false} />
                     <XAxis
-                      type="number"
+                      dataKey="range"
                       tick={{ fontSize: 11, fill: "#6b7280" }}
                       axisLine={{ stroke: "#e5e7eb" }}
                       tickLine={false}
-                      tickFormatter={(v: number) => formatMs(v)}
                     />
                     <YAxis
-                      type="category"
-                      dataKey="state"
                       tick={{ fontSize: 11, fill: "#6b7280" }}
                       axisLine={false}
                       tickLine={false}
-                      width={130}
+                      allowDecimals={false}
                     />
                     <ReTooltip
                       cursor={{ fill: "rgba(72,200,175,0.08)" }}
@@ -759,26 +1085,21 @@ function EagerSection({ eager }: { eager: AnalyticsInternal["eager"] }) {
                         padding: "6px 10px",
                       }}
                       labelStyle={{ fontWeight: 600, color: "#2a6f64" }}
-                      formatter={(value: any) => [formatMs(Number(value)), "Gain total"]}
                     />
-                    <Bar dataKey="gainTotalMs" radius={[0, 4, 4, 0]}>
-                      {topByGain.map((d, i) => (
-                        <Cell key={i} fill={dotColor(d.recommendation)} />
-                      ))}
-                    </Bar>
+                    <Bar dataKey="count" fill="#48C8AF" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
-            </Grid>
-          </Grid>
+            </Box>
+          )}
 
-          {/* ---------- Tableau détaillé ---------- */}
+          {/* ---------- Tableau détaillé (colonnes adaptatives) ---------- */}
           <Typography
             variant="caption"
             color="text.secondary"
             sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
           >
-            DÉTAIL PAR ÉTAPE (TRIÉ PAR GAIN TOTAL ↓)
+            DÉTAIL PAR {meta.byStateLabel.toUpperCase()} (TRIÉ PAR {meta.benefitKind === "ms" ? "BÉNÉFICE TOTAL" : "VOLUME"} ↓)
           </Typography>
           <TableContainer
             component={Paper}
@@ -788,36 +1109,52 @@ function EagerSection({ eager }: { eager: AnalyticsInternal["eager"] }) {
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Étape</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
-                    Volume
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
-                    Eager
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
-                    Fausses fins
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
-                    Taux faux
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
-                    Gain moy.
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
-                    Gain max
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
-                    Gain total
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
-                    <MuiTooltip title="Gain moyen × (1 − taux fausses fins). Pondéré par le risque que l'Eager soit une fausse fin.">
-                      <span>Gain attendu / event</span>
-                    </MuiTooltip>
-                  </TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11 }}>
-                    Reco
-                  </TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>{meta.byStateLabel}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>Volume</TableCell>
+
+                  {/* Coût en count : 2 colonnes (count + taux). */}
+                  {meta.costKind === "count" && (
+                    <>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
+                        {meta.costLabel}
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>Taux</TableCell>
+                    </>
+                  )}
+                  {/* Coût en ms : 2 colonnes (moy + max). */}
+                  {meta.costKind === "ms" && (
+                    <>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
+                        {meta.costLabel} moy.
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
+                        {meta.costLabel} max
+                      </TableCell>
+                    </>
+                  )}
+
+                  {/* Colonnes bénéfice : selon kind. */}
+                  {meta.benefitKind === "ms" ? (
+                    <>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>Bénéfice moy.</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>Bénéfice max</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>Bénéfice total</TableCell>
+                      {/* "Attendu/event" seulement si coût count (pondération significative). */}
+                      {meta.costKind === "count" && (
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
+                          <MuiTooltip title="Bénéfice moyen × (1 − taux). Pondéré par le risque de gaspillage.">
+                            <span>Attendu / {meta.eventLabel}</span>
+                          </MuiTooltip>
+                        </TableCell>
+                      )}
+                    </>
+                  ) : (
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
+                      Récupérables
+                    </TableCell>
+                  )}
+
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11 }}>Reco</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -825,28 +1162,63 @@ function EagerSection({ eager }: { eager: AnalyticsInternal["eager"] }) {
                   <TableRow key={s.state} hover>
                     <TableCell sx={{ fontWeight: 600 }}>{s.state}</TableCell>
                     <TableCell align="right">{s.volume}</TableCell>
-                    <TableCell align="right">{s.eagerCount}</TableCell>
-                    <TableCell align="right">{s.resumedCount}</TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{
-                        color:
-                          s.fausseFinRatePct > 25
-                            ? "#ef4444"
-                            : s.fausseFinRatePct > 15
-                            ? "#f59e0b"
-                            : "#22c55e",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {s.fausseFinRatePct}%
-                    </TableCell>
-                    <TableCell align="right">{formatMs(s.gainAvgMs)}</TableCell>
-                    <TableCell align="right">{formatMs(s.gainMaxMs)}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: "#2a6f64" }}>
-                      {formatMs(s.gainTotalMs)}
-                    </TableCell>
-                    <TableCell align="right">{formatMs(s.gainExpectedMs)}</TableCell>
+
+                    {meta.costKind === "count" && (
+                      <>
+                        <TableCell align="right">{s.costCount}</TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{
+                            color:
+                              s.costRatioPct > 25
+                                ? "#ef4444"
+                                : s.costRatioPct > 15
+                                ? "#f59e0b"
+                                : "#22c55e",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {s.costRatioPct}%
+                        </TableCell>
+                      </>
+                    )}
+                    {meta.costKind === "ms" && (
+                      <>
+                        <TableCell
+                          align="right"
+                          sx={{
+                            color:
+                              s.costAvgMs > 800
+                                ? "#ef4444"
+                                : s.costAvgMs > 300
+                                ? "#f59e0b"
+                                : "#22c55e",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {formatMs(s.costAvgMs)}
+                        </TableCell>
+                        <TableCell align="right">{formatMs(s.costMaxMs)}</TableCell>
+                      </>
+                    )}
+
+                    {meta.benefitKind === "ms" ? (
+                      <>
+                        <TableCell align="right">{formatMs(s.benefitAvgMs)}</TableCell>
+                        <TableCell align="right">{formatMs(s.benefitMaxMs)}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: "#2a6f64" }}>
+                          {formatMs(s.benefitTotalMs)}
+                        </TableCell>
+                        {meta.costKind === "count" && (
+                          <TableCell align="right">{formatMs(s.expectedPerEventMs)}</TableCell>
+                        )}
+                      </>
+                    ) : (
+                      <TableCell align="right" sx={{ fontWeight: 700, color: "#2a6f64" }}>
+                        {s.benefitCount}
+                      </TableCell>
+                    )}
+
                     <TableCell align="center">
                       <RecommendationChip reco={s.recommendation} />
                     </TableCell>
@@ -1368,8 +1740,8 @@ const AnalyticsInternalPage = () => {
           <TimeseriesCard timeseries={data.timeseries} />
         )}
 
-        {/* ---------- Évaluation EagerEndOfTurn ---------- */}
-        {data?.eager && <EagerSection eager={data.eager} />}
+        {/* ---------- Monitoring features candidates (eager / tts / buffered) ---------- */}
+        {data?.features && <FeatureMonitoringSection features={data.features} />}
 
         {loading && !data ? (
           <Box

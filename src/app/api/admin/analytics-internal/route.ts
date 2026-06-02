@@ -261,105 +261,437 @@ export async function GET(req: NextRequest) {
     if (typeof m.repeat_slower_intent_count === "number") repeatSlowerIntents.push(m.repeat_slower_intent_count);
   }
 
-  // ---------- Eager (évaluation EagerEndOfTurn) ----------
-  // Lecture : c.internal.eager = { eager_count, turn_resumed_count, _gain_sum_ms,
-  // gain_avg_ms, gain_max_ms, by_state: { [step]: { mêmes champs } } }.
+  // ---------- Monitoring de features candidates (registre unifié) ----------
+  // 3 features partagent le même modèle : VOLUME (opportunités), BÉNÉFICE (ms
+  // gagnables), COÛT/RISQUE (gaspillage), VENTILATION PAR ÉTAPE, parfois
+  // DISTRIBUTION.
+  //   - eager              (speculative EagerEndOfTurn)
+  //   - tts_streaming      (streaming ElevenLabs)
+  //   - buffered_utterance (barge-in bridé pendant audios non-interruptibles)
   //
-  // IMPORTANT : on agrège en repartant des SOMMES (eager_count, _gain_sum_ms)
-  // puis on recalcule gain_avg_ms = Σ_gain_sum_ms / Σeager_count.
-  // Surtout PAS de moyenne des moyennes — pondération par eager_count obligatoire.
-  type EagerAcc = {
-    eagerCount: number;
-    resumedCount: number;
-    gainSumMs: number;
-    gainMaxMs: number;
-  };
-  const eagerGlobalAcc: EagerAcc = {
-    eagerCount: 0,
-    resumedCount: 0,
-    gainSumMs: 0,
-    gainMaxMs: 0,
-  };
-  const eagerByStateAcc = new Map<string, EagerAcc>();
+  // RÈGLE D'OR (§5 du brief) : on agrège en repartant des SOMMES — _*_sum_ms et
+  // *_count — puis on recalcule les moyennes (Σsum / Σcount). JAMAIS de moyenne
+  // des moyennes par appel : on pondère par le volume.
 
-  for (const c of withInternal) {
-    const eager = c.internal?.eager;
-    if (!eager) continue;
-    const ec = typeof eager.eager_count === "number" ? eager.eager_count : 0;
-    const rc = typeof eager.turn_resumed_count === "number" ? eager.turn_resumed_count : 0;
-    // Skip les appels sans aucun event Eager pour ne pas polluer les moyennes.
-    if (ec === 0 && rc === 0) continue;
+  /**
+   * Bénéfice = ce que la feature rapporte.
+   *  - "ms"    : un temps gagnable (gain/wait/overshoot moyen). Cas standard.
+   *  - "count" : un nb d'events récupérables (ex. mw_late_detection : détections perdues).
+   * Coût = ce que la feature coûte. Trois modes :
+   *  - "count" : nb d'events gaspillés (fausses fins, cache hits, jetées).
+   *  - "ms"    : un coût en temps (overshoot à ajouter au cutoff sur TOUS les tours).
+   *  - null    : non mesuré côté donnée (qualitatif / UX).
+   */
+  type BenefitKind = "ms" | "count";
+  type CostKind = "count" | "ms" | null;
 
-    eagerGlobalAcc.eagerCount += ec;
-    eagerGlobalAcc.resumedCount += rc;
-    if (typeof eager._gain_sum_ms === "number") eagerGlobalAcc.gainSumMs += eager._gain_sum_ms;
-    if (typeof eager.gain_max_ms === "number") {
-      eagerGlobalAcc.gainMaxMs = Math.max(eagerGlobalAcc.gainMaxMs, eager.gain_max_ms);
+  type FeatureConfig = {
+    /** Clé d'accès dans `c.internal`. */
+    rootKey: string;
+    benefitKind: BenefitKind;
+    costKind: CostKind;
+    /** Champ donnant le nb d'events "confirmés" (sert au pondérage des moyennes). */
+    confirmedField: string;
+
+    // --- BÉNÉFICE en ms ---
+    /** Somme interne (préfixe "_") des bénéfices. Requis si benefitKind === "ms". */
+    benefitSumField?: string;
+    /** Max observé. Requis si benefitKind === "ms". */
+    benefitMaxField?: string;
+
+    // --- COÛT en count ---
+    /** Champ comptant les events gaspillés. Requis si costKind === "count". */
+    costCountField?: string;
+
+    // --- COÛT en ms ---
+    /** Somme interne du coût en ms. Requis si costKind === "ms". */
+    costSumField?: string;
+    /** Max coût ms. Requis si costKind === "ms". */
+    costMaxField?: string;
+    /** Compteur pour pondérer la moyenne du coût ms (souvent identique à confirmedField). */
+    costAvgWeightField?: string;
+
+    /** Si true : volume = confirmed + costCount ; sinon volume = confirmed. */
+    volumeIncludesCost: boolean;
+    /** Champ contenant l'objet de ventilation (by_state ou by_detector). */
+    byStateField: string;
+    /** Champ optionnel de distribution (array de buckets). */
+    distributionField: string | null;
+    /** Champs additionnels (somme + count) pour moyennes pondérées (KPI extras). */
+    extras?: { outKey: string; sumField: string; countField: string }[];
+    /** Seuils pour la reco. Tous optionnels — sélectionnés selon le kind dans deriveFromAcc. */
+    thresholds: {
+      minVolume: number;
+      // Pour costKind === "count"
+      goodCostRatio?: number;
+      badCostRatio?: number;
+      // Pour costKind === "ms"
+      goodCostMs?: number;
+      badCostMs?: number;
+      // Pour benefitKind === "ms"
+      goodBenefitMs?: number;
+      badBenefitMs?: number;
+      // Pour benefitKind === "count"
+      goodBenefitCount?: number;
+      badBenefitCount?: number;
+    };
+  };
+
+  const FEATURE_CONFIGS: Record<string, FeatureConfig> = {
+    eager: {
+      rootKey: "eager",
+      benefitKind: "ms",
+      costKind: "count",
+      confirmedField: "eager_count",
+      costCountField: "turn_resumed_count",
+      benefitSumField: "_gain_sum_ms",
+      benefitMaxField: "gain_max_ms",
+      volumeIncludesCost: true,
+      byStateField: "by_state",
+      distributionField: null,
+      thresholds: { minVolume: 100, goodCostRatio: 0.15, badCostRatio: 0.25, goodBenefitMs: 250, badBenefitMs: 150 },
+    },
+    tts_streaming: {
+      rootKey: "tts_streaming",
+      benefitKind: "ms",
+      costKind: "count",
+      // Le bénéfice n'existe QUE sur les miss (cache hit = pas d'appel ElevenLabs).
+      confirmedField: "miss_count",
+      costCountField: "cache_hit_count",
+      benefitSumField: "_gain_sum_ms",
+      benefitMaxField: "gain_max_ms",
+      volumeIncludesCost: true,
+      byStateField: "by_state",
+      distributionField: "gain_distribution",
+      extras: [
+        { outKey: "firstChunkAvgMs", sumField: "_first_chunk_sum_ms", countField: "miss_count" },
+        { outKey: "streamTotalAvgMs", sumField: "_stream_total_sum_ms", countField: "miss_count" },
+        // char_avg s'applique aux segments générés (miss).
+        { outKey: "charAvg", sumField: "_char_sum", countField: "miss_count" },
+      ],
+      thresholds: { minVolume: 100, goodCostRatio: 0.85, badCostRatio: 0.95, goodBenefitMs: 200, badBenefitMs: 100 },
+    },
+    buffered_utterance: {
+      rootKey: "buffered_utterance",
+      benefitKind: "ms",
+      costKind: "count",
+      // count = utterances bufferisées consommées (toutes "confirmées" rapportent du gain).
+      confirmedField: "count",
+      costCountField: "discarded_count",
+      benefitSumField: "_wait_sum_ms",
+      benefitMaxField: "wait_max_ms",
+      // discarded_count ⊆ count (sous-ensemble jeté) : volume = count, pas count+discarded.
+      volumeIncludesCost: false,
+      byStateField: "by_state",
+      distributionField: "wait_distribution",
+      thresholds: { minVolume: 100, goodCostRatio: 0.20, badCostRatio: 0.40, goodBenefitMs: 200, badBenefitMs: 80 },
+    },
+    mw_late_detection: {
+      rootKey: "mw_late_detection",
+      // Bénéfice = nb de détections perdues récupérables (un COMPTE).
+      benefitKind: "count",
+      // Coût = de combien remonter le cutoff (latence ajoutée à TOUS les tours).
+      costKind: "ms",
+      // count = détections perdues (= confirmedCount = benefitCount).
+      confirmedField: "count",
+      costSumField: "_overshoot_sum_ms",
+      costMaxField: "overshoot_max_ms",
+      costAvgWeightField: "count",
+      volumeIncludesCost: false,
+      // ⚠️ ventilation par DÉTECTEUR (detectUrgence, detectMulti…), pas par état métier.
+      byStateField: "by_detector",
+      distributionField: "overshoot_distribution",
+      thresholds: {
+        minVolume: 30,
+        // Bcp de détections + overshoot faible = activer
+        goodBenefitCount: 10,
+        badBenefitCount: 3,
+        goodCostMs: 300,
+        badCostMs: 800,
+      },
+    },
+    wait_sound_overshoot: {
+      rootKey: "wait_sound_overshoot",
+      benefitKind: "ms",
+      // Coût non mesuré (qualitatif : naturel dégradé si wait sound coupé).
+      costKind: null,
+      confirmedField: "count",
+      benefitSumField: "_overshoot_sum_ms",
+      benefitMaxField: "overshoot_max_ms",
+      volumeIncludesCost: false,
+      byStateField: "by_state",
+      distributionField: "overshoot_distribution",
+      thresholds: { minVolume: 100, goodBenefitMs: 300, badBenefitMs: 100 },
+    },
+  };
+
+  type FeatureAcc = {
+    confirmedCount: number;
+    /** Coût en count (cache hits, fausses fins, jetées…). */
+    costCount: number;
+    /** Bénéfice en ms : somme pondérée par confirmedField. */
+    benefitSumMs: number;
+    benefitMaxMs: number;
+    /** Coût en ms : somme pondérée par costAvgWeightField. */
+    costSumMs: number;
+    costMaxMs: number;
+    costAvgWeight: number;
+    extrasSum: Record<string, number>;
+    extrasCount: Record<string, number>;
+    /** Distribution agrégée bucket-à-bucket (clé = range string). */
+    distribution: Map<string, { range: string; min: number; max: number; count: number }> | null;
+  };
+
+  function newAcc(cfg: FeatureConfig): FeatureAcc {
+    return {
+      confirmedCount: 0,
+      costCount: 0,
+      benefitSumMs: 0,
+      benefitMaxMs: 0,
+      costSumMs: 0,
+      costMaxMs: 0,
+      costAvgWeight: 0,
+      extrasSum: {},
+      extrasCount: {},
+      distribution: cfg.distributionField ? new Map() : null,
+    };
+  }
+
+  /** Accumule une "instance" (un appel pour le global, ou un by_state[step]). */
+  function addToAcc(acc: FeatureAcc, cfg: FeatureConfig, payload: any) {
+    if (!payload || typeof payload !== "object") return;
+    const ce = payload[cfg.confirmedField];
+    if (typeof ce === "number") acc.confirmedCount += ce;
+
+    // Bénéfice en ms (sinon le bénéfice IS confirmedCount, déjà compté).
+    if (cfg.benefitKind === "ms") {
+      if (cfg.benefitSumField) {
+        const bs = payload[cfg.benefitSumField];
+        if (typeof bs === "number") acc.benefitSumMs += bs;
+      }
+      if (cfg.benefitMaxField) {
+        const bm = payload[cfg.benefitMaxField];
+        if (typeof bm === "number") acc.benefitMaxMs = Math.max(acc.benefitMaxMs, bm);
+      }
     }
 
-    const byState = eager.by_state;
-    if (byState && typeof byState === "object") {
-      for (const [step, raw] of Object.entries(byState)) {
-        if (!raw || typeof raw !== "object") continue;
-        const m = raw as any;
-        if (!eagerByStateAcc.has(step)) {
-          eagerByStateAcc.set(step, {
-            eagerCount: 0,
-            resumedCount: 0,
-            gainSumMs: 0,
-            gainMaxMs: 0,
-          });
-        }
-        const acc = eagerByStateAcc.get(step)!;
-        if (typeof m.eager_count === "number") acc.eagerCount += m.eager_count;
-        if (typeof m.turn_resumed_count === "number") acc.resumedCount += m.turn_resumed_count;
-        if (typeof m._gain_sum_ms === "number") acc.gainSumMs += m._gain_sum_ms;
-        if (typeof m.gain_max_ms === "number") {
-          acc.gainMaxMs = Math.max(acc.gainMaxMs, m.gain_max_ms);
-        }
+    // Coût selon kind.
+    if (cfg.costKind === "count" && cfg.costCountField) {
+      const co = payload[cfg.costCountField];
+      if (typeof co === "number") acc.costCount += co;
+    } else if (cfg.costKind === "ms") {
+      if (cfg.costSumField) {
+        const cs = payload[cfg.costSumField];
+        if (typeof cs === "number") acc.costSumMs += cs;
+      }
+      if (cfg.costMaxField) {
+        const cm = payload[cfg.costMaxField];
+        if (typeof cm === "number") acc.costMaxMs = Math.max(acc.costMaxMs, cm);
+      }
+      if (cfg.costAvgWeightField) {
+        const cw = payload[cfg.costAvgWeightField];
+        if (typeof cw === "number") acc.costAvgWeight += cw;
+      }
+    }
+
+    if (cfg.extras) {
+      for (const ex of cfg.extras) {
+        const s = payload[ex.sumField];
+        const c = payload[ex.countField];
+        if (typeof s === "number") acc.extrasSum[ex.outKey] = (acc.extrasSum[ex.outKey] ?? 0) + s;
+        if (typeof c === "number") acc.extrasCount[ex.outKey] = (acc.extrasCount[ex.outKey] ?? 0) + c;
       }
     }
   }
 
-  /** Dérive les métriques utiles + une reco ON/OFF basée sur seuils. */
-  function deriveEager(acc: EagerAcc) {
-    const volume = acc.eagerCount + acc.resumedCount;
-    const fausseFinRate = volume > 0 ? acc.resumedCount / volume : 0;
-    const gainAvgMs = acc.eagerCount > 0 ? acc.gainSumMs / acc.eagerCount : 0;
-    const gainExpectedMs = gainAvgMs * (1 - fausseFinRate);
-    const gainTotalMs = acc.gainSumMs; // = eagerCount × gainAvgMs
+  /** Agrège la distribution bucket-à-bucket (somme des count). */
+  function addDistribution(
+    acc: FeatureAcc,
+    distField: string | null,
+    payload: any
+  ) {
+    if (!distField || !acc.distribution) return;
+    const dist = payload?.[distField];
+    if (!Array.isArray(dist)) return;
+    for (const b of dist) {
+      if (!b || typeof b !== "object") continue;
+      const range = String(b.range ?? `${b.min}-${b.max}`);
+      const existing = acc.distribution.get(range);
+      if (existing) {
+        existing.count += typeof b.count === "number" ? b.count : 0;
+      } else {
+        acc.distribution.set(range, {
+          range,
+          min: typeof b.min === "number" ? b.min : 0,
+          max: typeof b.max === "number" ? b.max : 0,
+          count: typeof b.count === "number" ? b.count : 0,
+        });
+      }
+    }
+  }
 
-    // Seuils proposés : volume suffisant ≥ 100, gain pertinent > 250ms,
-    // taux de fausses fins acceptable < 15%. Les "watch" sont entre les deux.
+  /** Dérive les métriques finales depuis un accumulateur. */
+  function deriveFromAcc(acc: FeatureAcc, cfg: FeatureConfig) {
+    const volume =
+      cfg.volumeIncludesCost && cfg.costKind === "count"
+        ? acc.confirmedCount + acc.costCount
+        : acc.confirmedCount;
+
+    // --- Bénéfice ---
+    const benefitAvgMs =
+      cfg.benefitKind === "ms" && acc.confirmedCount > 0
+        ? acc.benefitSumMs / acc.confirmedCount
+        : 0;
+    const benefitMaxMs = cfg.benefitKind === "ms" ? acc.benefitMaxMs : 0;
+    // Pour benefitKind="ms" : total = Σ_sum_ms (cohérent avec confirmedCount × avg)
+    // Pour benefitKind="count" : "total" = confirmedCount (= nb d'events récupérables)
+    const benefitTotalMs = cfg.benefitKind === "ms" ? acc.benefitSumMs : 0;
+    const benefitCount = cfg.benefitKind === "count" ? acc.confirmedCount : 0;
+
+    // --- Coût ---
+    let costRatio = 0;
+    let costAvgMs = 0;
+    let costMaxMs = 0;
+    if (cfg.costKind === "count") {
+      costRatio = volume > 0 ? acc.costCount / volume : 0;
+    } else if (cfg.costKind === "ms") {
+      costAvgMs = acc.costAvgWeight > 0 ? acc.costSumMs / acc.costAvgWeight : 0;
+      costMaxMs = acc.costMaxMs;
+    }
+
+    // --- Expected per event (= bénéfice ajusté par le risque). N'a de sens que
+    // pour benefitKind="ms" + costKind="count" (pondération par le ratio). ---
+    const expectedPerEventMs =
+      cfg.benefitKind === "ms" && cfg.costKind === "count"
+        ? benefitAvgMs * (1 - costRatio)
+        : 0;
+
+    // --- Recommandation ---
+    const th = cfg.thresholds;
     let recommendation: "activate" | "watch" | "skip" | "insufficient";
-    if (volume < 100) {
+    if (volume < th.minVolume) {
       recommendation = "insufficient";
-    } else if (fausseFinRate < 0.15 && gainAvgMs > 250) {
-      recommendation = "activate";
-    } else if (fausseFinRate > 0.25 || gainAvgMs < 150) {
-      recommendation = "skip";
+    } else if (cfg.benefitKind === "count" && cfg.costKind === "ms") {
+      // mw_late_detection : bcp de détections + faible overshoot = activer.
+      if (
+        benefitCount >= (th.goodBenefitCount ?? Infinity) &&
+        costAvgMs <= (th.goodCostMs ?? -Infinity)
+      ) {
+        recommendation = "activate";
+      } else if (
+        benefitCount <= (th.badBenefitCount ?? -Infinity) ||
+        costAvgMs >= (th.badCostMs ?? Infinity)
+      ) {
+        recommendation = "skip";
+      } else {
+        recommendation = "watch";
+      }
+    } else if (cfg.costKind === null) {
+      // wait_sound_overshoot : pas de coût → reco basée seulement sur le bénéfice.
+      if (benefitAvgMs > (th.goodBenefitMs ?? Infinity)) recommendation = "activate";
+      else if (benefitAvgMs < (th.badBenefitMs ?? -Infinity)) recommendation = "skip";
+      else recommendation = "watch";
     } else {
-      recommendation = "watch";
+      // Default : benefitKind="ms" + costKind="count" (eager / tts / buffered).
+      if (
+        costRatio < (th.goodCostRatio ?? Infinity) &&
+        benefitAvgMs > (th.goodBenefitMs ?? -Infinity)
+      ) {
+        recommendation = "activate";
+      } else if (
+        costRatio > (th.badCostRatio ?? -Infinity) ||
+        benefitAvgMs < (th.badBenefitMs ?? Infinity)
+      ) {
+        recommendation = "skip";
+      } else {
+        recommendation = "watch";
+      }
+    }
+
+    // Extras (moyennes pondérées via Σ / Σcount).
+    const extras: Record<string, number> = {};
+    if (cfg.extras) {
+      for (const ex of cfg.extras) {
+        const s = acc.extrasSum[ex.outKey] ?? 0;
+        const c = acc.extrasCount[ex.outKey] ?? 0;
+        extras[ex.outKey] = c > 0 ? Math.round((s / c) * 100) / 100 : 0;
+      }
     }
 
     return {
       volume,
-      eagerCount: acc.eagerCount,
-      resumedCount: acc.resumedCount,
-      // Pourcentages renvoyés × 100 avec 2 décimales pour pré-calcul côté UI.
-      fausseFinRatePct: Math.round(fausseFinRate * 10000) / 100,
-      gainAvgMs: Math.round(gainAvgMs),
-      gainMaxMs: Math.round(acc.gainMaxMs),
-      gainTotalMs: Math.round(gainTotalMs),
-      gainExpectedMs: Math.round(gainExpectedMs),
+      confirmedCount: acc.confirmedCount,
+      // Bénéfice (selon kind)
+      benefitAvgMs: Math.round(benefitAvgMs),
+      benefitMaxMs: Math.round(benefitMaxMs),
+      benefitTotalMs: Math.round(benefitTotalMs),
+      benefitCount,
+      // Coût (selon kind)
+      costCount: acc.costCount,
+      costRatioPct: Math.round(costRatio * 10000) / 100,
+      costAvgMs: Math.round(costAvgMs),
+      costMaxMs: Math.round(costMaxMs),
+      // Helpers
+      expectedPerEventMs: Math.round(expectedPerEventMs),
       recommendation,
+      extras,
     };
   }
 
-  const eagerGlobal = deriveEager(eagerGlobalAcc);
-  const eagerByState = Array.from(eagerByStateAcc.entries())
-    .map(([state, acc]) => ({ state, ...deriveEager(acc) }))
-    .sort((a, b) => b.gainTotalMs - a.gainTotalMs);
+  /** Agrège une feature complète sur tous les appels withInternal. */
+  function aggregateFeature(cfg: FeatureConfig) {
+    const globalAcc = newAcc(cfg);
+    const byStateAccs = new Map<string, FeatureAcc>();
+
+    for (const c of withInternal) {
+      const payload = c.internal?.[cfg.rootKey];
+      if (!payload) continue;
+      const confirmed =
+        typeof payload[cfg.confirmedField] === "number" ? payload[cfg.confirmedField] : 0;
+      const cost =
+        cfg.costKind === "count" && cfg.costCountField && typeof payload[cfg.costCountField] === "number"
+          ? payload[cfg.costCountField]
+          : 0;
+      // Skip les appels sans aucun event pour ne pas polluer (cf. §7 du brief).
+      if (confirmed === 0 && cost === 0) continue;
+
+      addToAcc(globalAcc, cfg, payload);
+      addDistribution(globalAcc, cfg.distributionField, payload);
+
+      const byState = payload[cfg.byStateField];
+      if (byState && typeof byState === "object") {
+        for (const [step, raw] of Object.entries(byState)) {
+          if (!raw || typeof raw !== "object") continue;
+          if (!byStateAccs.has(step)) byStateAccs.set(step, newAcc(cfg));
+          addToAcc(byStateAccs.get(step)!, cfg, raw);
+        }
+      }
+    }
+
+    const global = deriveFromAcc(globalAcc, cfg);
+    const byState = Array.from(byStateAccs.entries())
+      .map(([state, acc]) => ({ state, ...deriveFromAcc(acc, cfg) }))
+      // Tri par bénéfice total selon le kind : ms → benefitTotalMs ; count → benefitCount.
+      .sort((a, b) => {
+        const va = cfg.benefitKind === "ms" ? a.benefitTotalMs : a.benefitCount;
+        const vb = cfg.benefitKind === "ms" ? b.benefitTotalMs : b.benefitCount;
+        return vb - va;
+      });
+
+    const distribution = globalAcc.distribution
+      ? Array.from(globalAcc.distribution.values()).sort((a, b) => a.min - b.min)
+      : null;
+
+    return { global, byState, distribution };
+  }
+
+  const features = {
+    eager: aggregateFeature(FEATURE_CONFIGS.eager),
+    tts_streaming: aggregateFeature(FEATURE_CONFIGS.tts_streaming),
+    buffered_utterance: aggregateFeature(FEATURE_CONFIGS.buffered_utterance),
+    mw_late_detection: aggregateFeature(FEATURE_CONFIGS.mw_late_detection),
+    wait_sound_overshoot: aggregateFeature(FEATURE_CONFIGS.wait_sound_overshoot),
+  };
 
   // ---------- Timeseries (évolution temporelle par jour) ----------
   // On bucket les indicateurs clés par jour ISO (YYYY-MM-DD) pour exposer une
@@ -436,10 +768,7 @@ export async function GET(req: NextRequest) {
     totalCalls: calls.length,
     callsWithInternal: n,
     timeseries,
-    eager: {
-      global: eagerGlobal,
-      byState: eagerByState,
-    },
+    features,
 
     identification: {
       finalStatusDistribution: finalStatuses,
