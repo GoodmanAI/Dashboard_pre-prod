@@ -261,6 +261,106 @@ export async function GET(req: NextRequest) {
     if (typeof m.repeat_slower_intent_count === "number") repeatSlowerIntents.push(m.repeat_slower_intent_count);
   }
 
+  // ---------- Eager (évaluation EagerEndOfTurn) ----------
+  // Lecture : c.internal.eager = { eager_count, turn_resumed_count, _gain_sum_ms,
+  // gain_avg_ms, gain_max_ms, by_state: { [step]: { mêmes champs } } }.
+  //
+  // IMPORTANT : on agrège en repartant des SOMMES (eager_count, _gain_sum_ms)
+  // puis on recalcule gain_avg_ms = Σ_gain_sum_ms / Σeager_count.
+  // Surtout PAS de moyenne des moyennes — pondération par eager_count obligatoire.
+  type EagerAcc = {
+    eagerCount: number;
+    resumedCount: number;
+    gainSumMs: number;
+    gainMaxMs: number;
+  };
+  const eagerGlobalAcc: EagerAcc = {
+    eagerCount: 0,
+    resumedCount: 0,
+    gainSumMs: 0,
+    gainMaxMs: 0,
+  };
+  const eagerByStateAcc = new Map<string, EagerAcc>();
+
+  for (const c of withInternal) {
+    const eager = c.internal?.eager;
+    if (!eager) continue;
+    const ec = typeof eager.eager_count === "number" ? eager.eager_count : 0;
+    const rc = typeof eager.turn_resumed_count === "number" ? eager.turn_resumed_count : 0;
+    // Skip les appels sans aucun event Eager pour ne pas polluer les moyennes.
+    if (ec === 0 && rc === 0) continue;
+
+    eagerGlobalAcc.eagerCount += ec;
+    eagerGlobalAcc.resumedCount += rc;
+    if (typeof eager._gain_sum_ms === "number") eagerGlobalAcc.gainSumMs += eager._gain_sum_ms;
+    if (typeof eager.gain_max_ms === "number") {
+      eagerGlobalAcc.gainMaxMs = Math.max(eagerGlobalAcc.gainMaxMs, eager.gain_max_ms);
+    }
+
+    const byState = eager.by_state;
+    if (byState && typeof byState === "object") {
+      for (const [step, raw] of Object.entries(byState)) {
+        if (!raw || typeof raw !== "object") continue;
+        const m = raw as any;
+        if (!eagerByStateAcc.has(step)) {
+          eagerByStateAcc.set(step, {
+            eagerCount: 0,
+            resumedCount: 0,
+            gainSumMs: 0,
+            gainMaxMs: 0,
+          });
+        }
+        const acc = eagerByStateAcc.get(step)!;
+        if (typeof m.eager_count === "number") acc.eagerCount += m.eager_count;
+        if (typeof m.turn_resumed_count === "number") acc.resumedCount += m.turn_resumed_count;
+        if (typeof m._gain_sum_ms === "number") acc.gainSumMs += m._gain_sum_ms;
+        if (typeof m.gain_max_ms === "number") {
+          acc.gainMaxMs = Math.max(acc.gainMaxMs, m.gain_max_ms);
+        }
+      }
+    }
+  }
+
+  /** Dérive les métriques utiles + une reco ON/OFF basée sur seuils. */
+  function deriveEager(acc: EagerAcc) {
+    const volume = acc.eagerCount + acc.resumedCount;
+    const fausseFinRate = volume > 0 ? acc.resumedCount / volume : 0;
+    const gainAvgMs = acc.eagerCount > 0 ? acc.gainSumMs / acc.eagerCount : 0;
+    const gainExpectedMs = gainAvgMs * (1 - fausseFinRate);
+    const gainTotalMs = acc.gainSumMs; // = eagerCount × gainAvgMs
+
+    // Seuils proposés : volume suffisant ≥ 100, gain pertinent > 250ms,
+    // taux de fausses fins acceptable < 15%. Les "watch" sont entre les deux.
+    let recommendation: "activate" | "watch" | "skip" | "insufficient";
+    if (volume < 100) {
+      recommendation = "insufficient";
+    } else if (fausseFinRate < 0.15 && gainAvgMs > 250) {
+      recommendation = "activate";
+    } else if (fausseFinRate > 0.25 || gainAvgMs < 150) {
+      recommendation = "skip";
+    } else {
+      recommendation = "watch";
+    }
+
+    return {
+      volume,
+      eagerCount: acc.eagerCount,
+      resumedCount: acc.resumedCount,
+      // Pourcentages renvoyés × 100 avec 2 décimales pour pré-calcul côté UI.
+      fausseFinRatePct: Math.round(fausseFinRate * 10000) / 100,
+      gainAvgMs: Math.round(gainAvgMs),
+      gainMaxMs: Math.round(acc.gainMaxMs),
+      gainTotalMs: Math.round(gainTotalMs),
+      gainExpectedMs: Math.round(gainExpectedMs),
+      recommendation,
+    };
+  }
+
+  const eagerGlobal = deriveEager(eagerGlobalAcc);
+  const eagerByState = Array.from(eagerByStateAcc.entries())
+    .map(([state, acc]) => ({ state, ...deriveEager(acc) }))
+    .sort((a, b) => b.gainTotalMs - a.gainTotalMs);
+
   // ---------- Timeseries (évolution temporelle par jour) ----------
   // On bucket les indicateurs clés par jour ISO (YYYY-MM-DD) pour exposer une
   // courbe temporelle. On génère un point par jour de la fenêtre, même quand
@@ -336,6 +436,10 @@ export async function GET(req: NextRequest) {
     totalCalls: calls.length,
     callsWithInternal: n,
     timeseries,
+    eager: {
+      global: eagerGlobal,
+      byState: eagerByState,
+    },
 
     identification: {
       finalStatusDistribution: finalStatuses,

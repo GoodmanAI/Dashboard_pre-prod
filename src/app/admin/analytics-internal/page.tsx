@@ -18,11 +18,19 @@ import {
   ListItemText,
   MenuItem,
   OutlinedInput,
+  Paper,
   Select,
   Skeleton,
   Stack,
   Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Tabs,
+  Tooltip as MuiTooltip,
   Typography,
 } from "@mui/material";
 import {
@@ -37,6 +45,8 @@ import {
   IconChartBar,
   IconClock,
   IconTimeline,
+  IconBolt,
+  IconInfoCircle,
 } from "@tabler/icons-react";
 import {
   ResponsiveContainer,
@@ -51,6 +61,10 @@ import {
   Line,
   Area,
   AreaChart,
+  ScatterChart,
+  Scatter,
+  ZAxis,
+  ReferenceLine,
 } from "recharts";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
@@ -70,11 +84,31 @@ type TimeseriesPoint = {
   ai2risAvgMs: number;
 };
 
+type EagerRecommendation = "activate" | "watch" | "skip" | "insufficient";
+
+type EagerMetrics = {
+  volume: number;
+  eagerCount: number;
+  resumedCount: number;
+  fausseFinRatePct: number;
+  gainAvgMs: number;
+  gainMaxMs: number;
+  gainTotalMs: number;
+  gainExpectedMs: number;
+  recommendation: EagerRecommendation;
+};
+
+type EagerByState = EagerMetrics & { state: string };
+
 type AnalyticsInternal = {
   period: { from: string; to: string };
   totalCalls: number;
   callsWithInternal: number;
   timeseries: TimeseriesPoint[];
+  eager: {
+    global: EagerMetrics;
+    byState: EagerByState[];
+  };
 
   identification: {
     finalStatusDistribution: Record<string, number>;
@@ -358,6 +392,472 @@ function DistributionBars({
         );
       })}
     </Stack>
+  );
+}
+
+// ---------- Eager (EagerEndOfTurn) ----------
+
+/** Formate des millisecondes en libellé court ("250ms", "1.2s", "2min 30s"). */
+function formatMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "0ms";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60_000) {
+    const s = ms / 1000;
+    return s >= 10 ? `${Math.round(s)}s` : `${s.toFixed(1)}s`;
+  }
+  const min = Math.floor(ms / 60_000);
+  const sec = Math.round((ms % 60_000) / 1000);
+  return sec === 0 ? `${min}min` : `${min}min ${sec}s`;
+}
+
+const RECO_META: Record<
+  EagerRecommendation,
+  { label: string; color: string; bg: string }
+> = {
+  activate: { label: "Activer", color: "#15803d", bg: "rgba(34,197,94,0.18)" },
+  watch: { label: "À surveiller", color: "#92400e", bg: "rgba(245,158,11,0.18)" },
+  skip: { label: "Ne pas activer", color: "#b91c1c", bg: "rgba(239,68,68,0.18)" },
+  insufficient: {
+    label: "Volume insuffisant",
+    color: "#4b5563",
+    bg: "rgba(156,163,175,0.2)",
+  },
+};
+
+function RecommendationChip({ reco }: { reco: EagerRecommendation }) {
+  const meta = RECO_META[reco];
+  return (
+    <Chip
+      size="small"
+      label={meta.label}
+      sx={{
+        height: 22,
+        bgcolor: meta.bg,
+        color: meta.color,
+        fontWeight: 700,
+        fontSize: 11,
+      }}
+    />
+  );
+}
+
+/** Tooltip personnalisé pour le scatter bénéfice vs risque. */
+function ScatterTooltip(props: any) {
+  if (!props?.active || !props?.payload?.length) return null;
+  const d = props.payload[0].payload as EagerByState;
+  return (
+    <Box
+      sx={{
+        bgcolor: "background.paper",
+        border: "1px solid rgba(72,200,175,0.4)",
+        borderRadius: 1,
+        p: 1.2,
+        fontSize: 12,
+        boxShadow: 2,
+        minWidth: 180,
+      }}
+    >
+      <Typography variant="caption" fontWeight={800} sx={{ display: "block", color: "#2a6f64" }}>
+        {d.state}
+      </Typography>
+      <Box sx={{ mt: 0.5, display: "grid", gap: 0.25, gridTemplateColumns: "auto auto" }}>
+        <Typography variant="caption" color="text.secondary">Volume</Typography>
+        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "right" }}>{d.volume}</Typography>
+        <Typography variant="caption" color="text.secondary">Fausses fins</Typography>
+        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "right" }}>{d.fausseFinRatePct}%</Typography>
+        <Typography variant="caption" color="text.secondary">Gain moyen</Typography>
+        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "right" }}>{formatMs(d.gainAvgMs)}</Typography>
+        <Typography variant="caption" color="text.secondary">Gain total potentiel</Typography>
+        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "right", color: "#2a6f64" }}>{formatMs(d.gainTotalMs)}</Typography>
+      </Box>
+      <Box sx={{ mt: 0.75 }}>
+        <RecommendationChip reco={d.recommendation} />
+      </Box>
+    </Box>
+  );
+}
+
+function EagerSection({ eager }: { eager: AnalyticsInternal["eager"] }) {
+  const { global, byState } = eager;
+
+  // Couleur des points du scatter selon la recommandation.
+  const dotColor = (reco: EagerRecommendation) =>
+    reco === "activate"
+      ? "#22c55e"
+      : reco === "watch"
+      ? "#f59e0b"
+      : reco === "skip"
+      ? "#ef4444"
+      : "#9ca3af";
+
+  // Top 10 étapes par gain total pour le bar chart.
+  const topByGain = byState.slice(0, 10);
+
+  // Si aucun event Eager sur la période : empty state.
+  const hasAnyData = global.volume > 0;
+
+  return (
+    <Card elevation={1} sx={{ p: { xs: 2.5, md: 3 }, mb: 3 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1 }}>
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: "12px",
+            display: "grid",
+            placeItems: "center",
+            bgcolor: "rgba(72,200,175,0.12)",
+            color: "#2a6f64",
+            flexShrink: 0,
+          }}
+        >
+          <IconBolt size={22} />
+        </Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography variant="subtitle1" fontWeight={800} lineHeight={1.2}>
+            Évaluation EagerEndOfTurn
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Gain potentiel d&apos;un déclenchement spéculatif du pipeline NLP+TTS
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 1,
+          mb: 2.5,
+          px: 1.5,
+          py: 1,
+          borderRadius: 1,
+          bgcolor: "rgba(72,200,175,0.05)",
+          border: "1px dashed rgba(72,200,175,0.3)",
+        }}
+      >
+        <IconInfoCircle size={16} color="#2a6f64" style={{ flexShrink: 0, marginTop: 2 }} />
+        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+          Le <strong>gain moyen</strong> est un <em>plafond</em> par tour — le gain net réel
+          dépend du temps de démarrage du pipeline NLP+TTS. Les fausses fins (TurnResumed)
+          ne rapportent rien et sont déjà déduites dans le <em>gain attendu / event</em>.
+        </Typography>
+      </Box>
+
+      <Divider sx={{ mb: 2.5 }} />
+
+      {!hasAnyData ? (
+        <Box
+          sx={{
+            py: 6,
+            display: "grid",
+            placeItems: "center",
+            border: "1px dashed #e5e7eb",
+            borderRadius: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            Aucun event Eager collecté sur la période.
+          </Typography>
+        </Box>
+      ) : (
+        <>
+          {/* ---------- KPI globaux ---------- */}
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid item xs={6} md={3}>
+              <KpiCard
+                label="Volume total"
+                value={global.volume}
+                icon={<IconBolt size={20} />}
+              />
+            </Grid>
+            <Grid item xs={6} md={3}>
+              <KpiCard
+                label="Eager confirmés"
+                value={global.eagerCount}
+                icon={<IconCheck size={20} />}
+                valueColor="#22c55e"
+              />
+            </Grid>
+            <Grid item xs={6} md={3}>
+              <KpiCard
+                label="Fausses fins"
+                value={`${global.resumedCount} (${global.fausseFinRatePct}%)`}
+                icon={<IconAlertTriangle size={20} />}
+                valueColor={
+                  global.fausseFinRatePct > 25
+                    ? "#ef4444"
+                    : global.fausseFinRatePct > 15
+                    ? "#f59e0b"
+                    : "#22c55e"
+                }
+              />
+            </Grid>
+            <Grid item xs={6} md={3}>
+              <KpiCard
+                label="Gain total potentiel"
+                value={formatMs(global.gainTotalMs)}
+                icon={<IconClock size={20} />}
+                valueColor="#2a6f64"
+              />
+            </Grid>
+            <Grid item xs={6} md={4}>
+              <KpiCard
+                label="Gain moyen / tour confirmé"
+                value={formatMs(global.gainAvgMs)}
+                icon={<IconTimeline size={20} />}
+              />
+            </Grid>
+            <Grid item xs={6} md={4}>
+              <KpiCard
+                label="Gain max observé"
+                value={formatMs(global.gainMaxMs)}
+                icon={<IconChartBar size={20} />}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <KpiCard
+                label="Gain attendu pondéré / event"
+                value={formatMs(global.gainExpectedMs)}
+                icon={<IconBolt size={20} />}
+                valueColor="#4899B5"
+              />
+            </Grid>
+          </Grid>
+
+          {/* ---------- Scatter "Bénéfice vs Risque" + Bar top étapes ---------- */}
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            <Grid item xs={12} md={6}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
+              >
+                BÉNÉFICE VS RISQUE PAR ÉTAPE
+              </Typography>
+              <Box sx={{ height: 280, position: "relative" }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <ScatterChart margin={{ top: 16, right: 20, bottom: 36, left: 8 }}>
+                    <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" />
+                    <XAxis
+                      type="number"
+                      dataKey="fausseFinRatePct"
+                      name="Taux fausses fins"
+                      unit="%"
+                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                      axisLine={{ stroke: "#e5e7eb" }}
+                      tickLine={false}
+                      domain={[0, "auto"]}
+                      label={{
+                        value: "Taux fausses fins (%)",
+                        position: "insideBottom",
+                        offset: -8,
+                        style: { fontSize: 11, fill: "#6b7280" },
+                      }}
+                    />
+                    <YAxis
+                      type="number"
+                      dataKey="gainAvgMs"
+                      name="Gain moyen"
+                      unit="ms"
+                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                      axisLine={false}
+                      tickLine={false}
+                      label={{
+                        value: "Gain moyen (ms)",
+                        angle: -90,
+                        position: "insideLeft",
+                        offset: 12,
+                        style: { fontSize: 11, fill: "#6b7280" },
+                      }}
+                    />
+                    <ZAxis
+                      type="number"
+                      dataKey="volume"
+                      range={[60, 500]}
+                      name="Volume"
+                    />
+                    <ReferenceLine
+                      x={15}
+                      stroke="#22c55e"
+                      strokeDasharray="3 3"
+                      strokeOpacity={0.5}
+                    />
+                    <ReferenceLine
+                      y={250}
+                      stroke="#22c55e"
+                      strokeDasharray="3 3"
+                      strokeOpacity={0.5}
+                    />
+                    <ReTooltip content={<ScatterTooltip />} cursor={{ strokeDasharray: "3 3" }} />
+                    <Scatter data={byState}>
+                      {byState.map((d, i) => (
+                        <Cell key={i} fill={dotColor(d.recommendation)} fillOpacity={0.75} />
+                      ))}
+                    </Scatter>
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </Box>
+              <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap", gap: 1, mt: 1 }}>
+                {(["activate", "watch", "skip", "insufficient"] as EagerRecommendation[]).map(
+                  (r) => (
+                    <Box key={r} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: "50%",
+                          bgcolor: dotColor(r),
+                        }}
+                      />
+                      <Typography variant="caption" color="text.secondary">
+                        {RECO_META[r].label}
+                      </Typography>
+                    </Box>
+                  )
+                )}
+              </Stack>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
+              >
+                TOP ÉTAPES PAR GAIN TOTAL POTENTIEL
+              </Typography>
+              <Box sx={{ height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={topByGain}
+                    layout="vertical"
+                    margin={{ top: 8, right: 24, left: 8, bottom: 4 }}
+                  >
+                    <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                      axisLine={{ stroke: "#e5e7eb" }}
+                      tickLine={false}
+                      tickFormatter={(v: number) => formatMs(v)}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="state"
+                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={130}
+                    />
+                    <ReTooltip
+                      cursor={{ fill: "rgba(72,200,175,0.08)" }}
+                      contentStyle={{
+                        borderRadius: 8,
+                        border: "1px solid rgba(72,200,175,0.3)",
+                        fontSize: 12,
+                        padding: "6px 10px",
+                      }}
+                      labelStyle={{ fontWeight: 600, color: "#2a6f64" }}
+                      formatter={(value: any) => [formatMs(Number(value)), "Gain total"]}
+                    />
+                    <Bar dataKey="gainTotalMs" radius={[0, 4, 4, 0]}>
+                      {topByGain.map((d, i) => (
+                        <Cell key={i} fill={dotColor(d.recommendation)} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </Box>
+            </Grid>
+          </Grid>
+
+          {/* ---------- Tableau détaillé ---------- */}
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
+          >
+            DÉTAIL PAR ÉTAPE (TRIÉ PAR GAIN TOTAL ↓)
+          </Typography>
+          <TableContainer
+            component={Paper}
+            elevation={0}
+            sx={{ border: "1px solid #f3f4f6", maxHeight: 420 }}
+          >
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Étape</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
+                    Volume
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
+                    Eager
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
+                    Fausses fins
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
+                    Taux faux
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
+                    Gain moy.
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
+                    Gain max
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
+                    Gain total
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
+                    <MuiTooltip title="Gain moyen × (1 − taux fausses fins). Pondéré par le risque que l'Eager soit une fausse fin.">
+                      <span>Gain attendu / event</span>
+                    </MuiTooltip>
+                  </TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11 }}>
+                    Reco
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {byState.map((s) => (
+                  <TableRow key={s.state} hover>
+                    <TableCell sx={{ fontWeight: 600 }}>{s.state}</TableCell>
+                    <TableCell align="right">{s.volume}</TableCell>
+                    <TableCell align="right">{s.eagerCount}</TableCell>
+                    <TableCell align="right">{s.resumedCount}</TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{
+                        color:
+                          s.fausseFinRatePct > 25
+                            ? "#ef4444"
+                            : s.fausseFinRatePct > 15
+                            ? "#f59e0b"
+                            : "#22c55e",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {s.fausseFinRatePct}%
+                    </TableCell>
+                    <TableCell align="right">{formatMs(s.gainAvgMs)}</TableCell>
+                    <TableCell align="right">{formatMs(s.gainMaxMs)}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: "#2a6f64" }}>
+                      {formatMs(s.gainTotalMs)}
+                    </TableCell>
+                    <TableCell align="right">{formatMs(s.gainExpectedMs)}</TableCell>
+                    <TableCell align="center">
+                      <RecommendationChip reco={s.recommendation} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </>
+      )}
+    </Card>
   );
 }
 
@@ -867,6 +1367,9 @@ const AnalyticsInternalPage = () => {
         {data && data.timeseries?.length > 0 && (
           <TimeseriesCard timeseries={data.timeseries} />
         )}
+
+        {/* ---------- Évaluation EagerEndOfTurn ---------- */}
+        {data?.eager && <EagerSection eager={data.eager} />}
 
         {loading && !data ? (
           <Box
