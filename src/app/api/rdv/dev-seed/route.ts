@@ -86,7 +86,9 @@ export async function GET(req: NextRequest) {
   );
 
   const record = ins.rows[0];
-  const baseUrl = `${req.nextUrl.protocol}//${req.nextUrl.host}`;
+  const baseUrl =
+    process.env.PUBLIC_APP_URL?.replace(/\/$/, "") ??
+    `${req.nextUrl.protocol}//${req.nextUrl.host}`;
 
   return NextResponse.json({
     note: "Endpoint de test — DEV uniquement.",
