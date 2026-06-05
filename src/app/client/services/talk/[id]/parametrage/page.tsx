@@ -36,6 +36,7 @@ import { IconChevronLeft } from "@tabler/icons-react";
 import { useCentre } from "@/app/context/CentreContext";
 import { useTalkBasePath } from "@/utils/talkRoutes";
 import { useSession } from "next-auth/react";
+import SmsConfirmationConfigCard from "./SmsConfirmationConfigCard";
 
 type ExamKey = "radiographie" | "irm" | "echographie" | "scanner" | "mammo";
 type VoiceKey = "femme" | "homme" | "neutre";
@@ -981,6 +982,9 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           </Typography>
         </AccordionDetails>
       </Accordion>
+
+      {/* Confirmation de rendez-vous par SMS */}
+      <SmsConfirmationConfigCard userProductId={Number(params.id)} />
 
       {/* Options */}
       <Accordion>
