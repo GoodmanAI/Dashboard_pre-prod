@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import {
   assertUserProductOwnership,
   requireAuth,
-  requireApiKey,
 } from "@/lib/auth-helpers";
 import {
   EXAM_TYPE_KEYS,
@@ -15,11 +14,13 @@ import {
 /**
  * GET — récupère la config "envoi SMS de confirmation" par type d'examen.
  *
- * Deux modes d'auth :
- *  1. API métier (header `x-api-key`) → query `?externalCenterCode=XYZ`
+ * Deux modes, discriminés par la query string :
+ *  1. `?externalCenterCode=XYZ` → mode public (aucune auth requise).
  *     Renvoie la config du UserProduct "LyraeTalk" du centre identifié.
- *  2. UI dashboard (session) → query `?userProductId=N`
- *     Renvoie la config du UserProduct demandé, après ownership check.
+ *     ⚠️ La donnée renvoyée n'est pas sensible (juste des booléens par type
+ *     d'examen), mais quiconque connaît un externalCenterCode peut la lire.
+ *
+ *  2. `?userProductId=N` → mode UI (session NextAuth + ownership check).
  *
  * Réponse :
  *   {
@@ -28,25 +29,13 @@ import {
  *   }
  *
  * Si aucune config n'a encore été enregistrée pour ce UserProduct, renvoie
- * toutes les valeurs à `false` (cohérent avec un opt-in explicite).
+ * toutes les valeurs à `false` (opt-in explicite).
  */
 export async function GET(req: NextRequest) {
-  const hasApiKey = req.headers.get("x-api-key") !== null;
-
+  const externalCenterCode = req.nextUrl.searchParams.get("externalCenterCode");
   let userProductId: number | null = null;
 
-  if (hasApiKey) {
-    const keyErr = requireApiKey(req, "APPOINTMENT_API_KEY");
-    if (keyErr) return keyErr;
-
-    const externalCenterCode = req.nextUrl.searchParams.get("externalCenterCode");
-    if (!externalCenterCode) {
-      return NextResponse.json(
-        { error: "Missing externalCenterCode query param" },
-        { status: 400 }
-      );
-    }
-
+  if (externalCenterCode) {
     const lookup = await db.query<{ id: number }>(
       `
       SELECT up."id"
@@ -75,7 +64,7 @@ export async function GET(req: NextRequest) {
     const parsed = param ? parseInt(param, 10) : NaN;
     if (!Number.isFinite(parsed)) {
       return NextResponse.json(
-        { error: "Missing or invalid userProductId" },
+        { error: "Missing externalCenterCode or userProductId" },
         { status: 400 }
       );
     }
