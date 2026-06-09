@@ -102,7 +102,7 @@ const Menuitems: SidebarItem[] = [
   },
   {
     id: uniqueId(),
-    title: "Planning complet",
+    title: "Examens non couverts",
     icon: IconCalendarOff,
     href: "/client/services/talk/{TALK_ID}/planning-complet",
   },
@@ -213,7 +213,7 @@ export const AdminMenuitems: SidebarItem[] = [
   },
   {
     id: uniqueId(),
-    title: "Planning complet",
+    title: "Examens non couverts",
     icon: IconCalendarOff,
     href: "/client/services/talk/{TALK_ID}/planning-complet",
   },
