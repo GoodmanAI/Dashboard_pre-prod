@@ -68,8 +68,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Le mapping externalCenterCode -> UserProduct -> User.id (= centerId stocké).
   const centerRes = await db.query<{ id: number }>(
-    `SELECT "id" FROM "User" WHERE "externalCenterCode" = $1 LIMIT 1`,
+    `
+    SELECT up."userId" AS "id"
+      FROM "ExternalCenterMapping" m
+      JOIN "UserProduct" up ON up."id" = m."userProductId"
+     WHERE m."externalCenterCode" = $1
+       AND up."removedAt" IS NULL
+     LIMIT 1
+    `,
     [externalCenterCode]
   );
   if (centerRes.rowCount === 0) {

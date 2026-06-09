@@ -38,12 +38,10 @@ export async function GET(req: NextRequest) {
   if (externalCenterCode) {
     const lookup = await db.query<{ id: number }>(
       `
-      SELECT up."id"
-        FROM "UserProduct" up
-        JOIN "User"    u ON u."id" = up."userId"
-        JOIN "Product" p ON p."id" = up."productId"
-       WHERE u."externalCenterCode" = $1
-         AND p."name" = 'LyraeTalk'
+      SELECT m."userProductId" AS "id"
+        FROM "ExternalCenterMapping" m
+        JOIN "UserProduct" up ON up."id" = m."userProductId"
+       WHERE m."externalCenterCode" = $1
          AND up."removedAt" IS NULL
        LIMIT 1
       `,
@@ -51,7 +49,7 @@ export async function GET(req: NextRequest) {
     );
     if (lookup.rowCount === 0) {
       return NextResponse.json(
-        { error: "No LyraeTalk UserProduct for this externalCenterCode" },
+        { error: "No UserProduct mapped to this externalCenterCode" },
         { status: 404 }
       );
     }
