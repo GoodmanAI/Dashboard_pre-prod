@@ -19,6 +19,12 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // Ingestion heartbeats (services backend) — auth via header x-heartbeat-secret
   // côté handler. On exclut `status` qui reste protégé par session admin.
   /^\/api\/heartbeat\/(?!status$)[^/]+$/,
+  // Confirmation de RDV par SMS :
+  //  - /api/rdv/init, /api/rdv/pending-events, /api/rdv/ack → API key (handler)
+  //  - /api/rdv/[token], /api/rdv/[token]/respond → public, protégés par le token
+  /^\/api\/rdv(\/|$)/,
+  // Config "envoi SMS par type d'examen" — auth mixte (API key OU session) côté handler.
+  /^\/api\/sms-confirmation-config$/,
 ];
 
 function isPublicApi(pathname: string): boolean {
