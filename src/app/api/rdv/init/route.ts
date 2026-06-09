@@ -105,16 +105,18 @@ export async function POST(req: NextRequest) {
     `
     INSERT INTO "AppointmentConfirmation"
       ("rdvId", "centerId", "phone", "firstname", "lastname",
-       "birthdate", "appointmentDate", "token", "expiresAt")
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       "birthdate", "appointmentDate", "token", "expiresAt",
+       "externalCenterCode")
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     ON CONFLICT ("rdvId", "centerId") DO UPDATE
-      SET "phone"           = EXCLUDED."phone",
-          "firstname"       = EXCLUDED."firstname",
-          "lastname"        = EXCLUDED."lastname",
-          "birthdate"       = EXCLUDED."birthdate",
-          "appointmentDate" = EXCLUDED."appointmentDate",
-          "token"           = EXCLUDED."token",
-          "expiresAt"       = EXCLUDED."expiresAt"
+      SET "phone"              = EXCLUDED."phone",
+          "firstname"          = EXCLUDED."firstname",
+          "lastname"           = EXCLUDED."lastname",
+          "birthdate"          = EXCLUDED."birthdate",
+          "appointmentDate"    = EXCLUDED."appointmentDate",
+          "token"              = EXCLUDED."token",
+          "expiresAt"          = EXCLUDED."expiresAt",
+          "externalCenterCode" = EXCLUDED."externalCenterCode"
     RETURNING "id", "token", "status", "expiresAt"
     `,
     [
@@ -127,6 +129,7 @@ export async function POST(req: NextRequest) {
       appointmentDtValid,
       token,
       expiresAt,
+      externalCenterCode,
     ]
   );
 

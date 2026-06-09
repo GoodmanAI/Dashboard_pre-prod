@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Card,
+  Chip,
   CircularProgress,
   Snackbar,
   Stack,
@@ -18,19 +19,24 @@ import {
   Typography,
 } from "@mui/material";
 
+interface Code {
+  id: number;
+  externalCenterCode: string;
+}
+
 interface Row {
   userProductId: number;
   userId: number;
   userName: string | null;
   productName: string;
-  externalCenterCode: string | null;
+  codes: Code[];
 }
 
 export default function ExternalMappingPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState<number | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -42,11 +48,6 @@ export default function ExternalMappingPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setRows(data.rows);
-      const initialDrafts: Record<number, string> = {};
-      data.rows.forEach((r: Row) => {
-        initialDrafts[r.userProductId] = r.externalCenterCode ?? "";
-      });
-      setDrafts(initialDrafts);
     } catch (e: any) {
       setError(e.message || "Erreur de chargement");
     } finally {
@@ -58,17 +59,18 @@ export default function ExternalMappingPage() {
     load();
   }, []);
 
-  async function save(row: Row) {
+  async function addCode(row: Row) {
     const value = (drafts[row.userProductId] ?? "").trim();
-    setSavingId(row.userProductId);
+    if (!value) return;
+    setBusyId(row.userProductId);
     setError(null);
     try {
       const res = await fetch("/api/external-center-mapping", {
-        method: "PUT",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userProductId: row.userProductId,
-          externalCenterCode: value || null,
+          externalCenterCode: value,
         }),
       });
       const data = await res.json();
@@ -76,26 +78,50 @@ export default function ExternalMappingPage() {
       setRows((prev) =>
         prev.map((r) =>
           r.userProductId === row.userProductId
-            ? { ...r, externalCenterCode: data.externalCenterCode }
+            ? {
+                ...r,
+                codes: [
+                  ...r.codes,
+                  { id: data.id, externalCenterCode: data.externalCenterCode },
+                ].sort((a, b) =>
+                  a.externalCenterCode.localeCompare(b.externalCenterCode)
+                ),
+              }
             : r
         )
       );
-      setToast(
-        data.externalCenterCode
-          ? `Mapping enregistré : ${data.externalCenterCode}`
-          : "Mapping supprimé"
-      );
+      setDrafts((d) => ({ ...d, [row.userProductId]: "" }));
+      setToast(`Code ajouté : ${data.externalCenterCode}`);
     } catch (e: any) {
-      setError(e.message || "Erreur d'enregistrement");
+      setError(e.message || "Erreur d'ajout");
     } finally {
-      setSavingId(null);
+      setBusyId(null);
     }
   }
 
-  function isDirty(row: Row): boolean {
-    const draft = (drafts[row.userProductId] ?? "").trim();
-    const current = (row.externalCenterCode ?? "").trim();
-    return draft !== current;
+  async function deleteCode(row: Row, code: Code) {
+    setBusyId(row.userProductId);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/external-center-mapping?id=${code.id}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setRows((prev) =>
+        prev.map((r) =>
+          r.userProductId === row.userProductId
+            ? { ...r, codes: r.codes.filter((c) => c.id !== code.id) }
+            : r
+        )
+      );
+      setToast(`Code supprimé : ${code.externalCenterCode}`);
+    } catch (e: any) {
+      setError(e.message || "Erreur de suppression");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   return (
@@ -104,13 +130,13 @@ export default function ExternalMappingPage() {
         Mapping centres externes
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Associe à chaque service un code utilisé par ton logiciel métier
-        (externalCenterCode). Le code est unique et sert à identifier le centre
-        depuis l&apos;API métier (init de RDV, config SMS).
+        Pour chaque service, ajoute les codes utilisés par ton logiciel métier
+        (externalCenterCode). Un service peut avoir plusieurs codes ; chaque
+        code est unique au global et identifie un service précis.
       </Typography>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
@@ -124,10 +150,10 @@ export default function ExternalMappingPage() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Centre</TableCell>
-                <TableCell>Service</TableCell>
-                <TableCell>Code externe</TableCell>
-                <TableCell align="right">Action</TableCell>
+                <TableCell sx={{ width: 200 }}>Centre</TableCell>
+                <TableCell sx={{ width: 160 }}>Service</TableCell>
+                <TableCell>Codes externes</TableCell>
+                <TableCell sx={{ width: 280 }}>Ajouter un code</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -136,35 +162,58 @@ export default function ExternalMappingPage() {
                   <TableCell>{row.userName ?? `User #${row.userId}`}</TableCell>
                   <TableCell>{row.productName}</TableCell>
                   <TableCell>
-                    <TextField
-                      size="small"
-                      value={drafts[row.userProductId] ?? ""}
-                      onChange={(e) =>
-                        setDrafts((d) => ({
-                          ...d,
-                          [row.userProductId]: e.target.value,
-                        }))
-                      }
-                      placeholder="(vide = pas de mapping)"
-                      disabled={savingId === row.userProductId}
-                    />
+                    {row.codes.length === 0 ? (
+                      <Typography variant="caption" color="text.secondary">
+                        Aucun code
+                      </Typography>
+                    ) : (
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        {row.codes.map((c) => (
+                          <Chip
+                            key={c.id}
+                            label={c.externalCenterCode}
+                            onDelete={() => deleteCode(row, c)}
+                            disabled={busyId === row.userProductId}
+                            sx={{ backgroundColor: "#E8F8F4" }}
+                          />
+                        ))}
+                      </Stack>
+                    )}
                   </TableCell>
-                  <TableCell align="right">
-                    <Button
-                      variant="contained"
-                      size="small"
-                      disabled={!isDirty(row) || savingId !== null}
-                      onClick={() => save(row)}
-                      sx={{
-                        backgroundColor: "#48C8AF",
-                        textTransform: "none",
-                        ":hover": { backgroundColor: "#3AB19B" },
-                      }}
-                    >
-                      {savingId === row.userProductId
-                        ? "Enregistrement…"
-                        : "Enregistrer"}
-                    </Button>
+                  <TableCell>
+                    <Stack direction="row" spacing={1}>
+                      <TextField
+                        size="small"
+                        value={drafts[row.userProductId] ?? ""}
+                        onChange={(e) =>
+                          setDrafts((d) => ({
+                            ...d,
+                            [row.userProductId]: e.target.value,
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") addCode(row);
+                        }}
+                        placeholder="Nouveau code"
+                        disabled={busyId === row.userProductId}
+                      />
+                      <Button
+                        variant="contained"
+                        size="small"
+                        disabled={
+                          !(drafts[row.userProductId] ?? "").trim() ||
+                          busyId === row.userProductId
+                        }
+                        onClick={() => addCode(row)}
+                        sx={{
+                          backgroundColor: "#48C8AF",
+                          textTransform: "none",
+                          ":hover": { backgroundColor: "#3AB19B" },
+                        }}
+                      >
+                        Ajouter
+                      </Button>
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ))}

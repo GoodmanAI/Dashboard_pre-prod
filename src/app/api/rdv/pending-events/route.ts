@@ -30,8 +30,9 @@ export async function GET(req: NextRequest) {
       WHERE "status" = 'PENDING' AND "expiresAt" < NOW()`
   );
 
-  // Le externalCenterCode est récupéré via ExternalCenterMapping
-  // (un User peut avoir plusieurs UserProduct mappés ; on prend le "LyraeTalk").
+  // Le externalCenterCode est celui utilisé à l'init (stocké directement
+  // dans AppointmentConfirmation) — pas de recalcul via mapping, ce qui
+  // garantit qu'on rend exactement le code que l'API métier nous a envoyé.
   const res = await db.query<{
     id: number;
     rdvId: string;
@@ -42,18 +43,12 @@ export async function GET(req: NextRequest) {
     externalCenterCode: string | null;
   }>(
     `
-    SELECT a."id", a."rdvId", a."status", a."respondedAction",
-           a."respondedAt", a."attempts",
-           m."externalCenterCode"
-      FROM "AppointmentConfirmation" a
-      LEFT JOIN "UserProduct" up
-             ON up."userId" = a."centerId"
-            AND up."productId" = (SELECT "id" FROM "Product" WHERE "name" = 'LyraeTalk' LIMIT 1)
-            AND up."removedAt" IS NULL
-      LEFT JOIN "ExternalCenterMapping" m ON m."userProductId" = up."id"
-     WHERE a."status" IN ('CONFIRMED', 'CANCELLED', 'EXPIRED', 'LOCKED')
-       AND a."ackedAt" IS NULL
-     ORDER BY a."updatedAt" ASC
+    SELECT "id", "rdvId", "status", "respondedAction",
+           "respondedAt", "attempts", "externalCenterCode"
+      FROM "AppointmentConfirmation"
+     WHERE "status" IN ('CONFIRMED', 'CANCELLED', 'EXPIRED', 'LOCKED')
+       AND "ackedAt" IS NULL
+     ORDER BY "updatedAt" ASC
      LIMIT $1
     `,
     [limit]
