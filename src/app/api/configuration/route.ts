@@ -176,9 +176,15 @@ export async function GET(req: NextRequest) {
           mappedExamMappings.length > 0
             ? mappedExamMappings
             : defaultTypes,
-        
+
         doubleBookingConfig: formattedMultiExam,
         options: settings.options,
+
+        // Stocké dans options.serviceEnabled, exposé à la racine pour que le
+        // bot Lyrae le lise directement. Défaut = true (service actif).
+        // Si false, tous les appels doivent être transférés sans passer par LyraeTalk.
+        serviceEnabled:
+          (settings.options as any)?.serviceEnabled === false ? false : true,
       },
       { status: 200 }
     );

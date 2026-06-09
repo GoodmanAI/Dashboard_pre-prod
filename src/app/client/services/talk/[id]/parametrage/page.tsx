@@ -21,7 +21,12 @@ import {
   Alert,
   Divider,
   Radio,
-  Switch
+  Switch,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddIcon from "@mui/icons-material/Add";
@@ -87,6 +92,8 @@ type TalkSettings = {
     motif: boolean;
     questions: boolean;
     menstruations: boolean;
+    /** true par défaut = service actif. false = appels transférés sans passer par LyraeTalk. */
+    serviceEnabled?: boolean;
   };
 };
 
@@ -148,6 +155,7 @@ const DEFAULTS: TalkSettings = {
     motif: true,
     questions: true,
     menstruations: false,
+    serviceEnabled: true,
   },
 };
 
@@ -343,6 +351,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   
   const [settings, setSettings] = useState<TalkSettings>(DEFAULTS);
   const [saving, setSaving] = useState(false);
+  const [confirmDisableOpen, setConfirmDisableOpen] = useState(false);
   const [snack, setSnack] = useState<{
     open: boolean;
     msg: string;
@@ -448,12 +457,12 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
     }));
   };
   
-  const handleSave = async () => {
-    console.log(settings);
-    if (!settings.botName.trim()) {
-      setSnack({ open: true, msg: "Le nom du chatbot est requis.", sev: "error" });
-      return;
-    }
+  /**
+   * Exécution effective du save. Séparé de `handleSave` pour pouvoir être
+   * déclenché soit directement, soit après confirmation utilisateur quand le
+   * service est désactivé.
+   */
+  const proceedSave = async () => {
     setSaving(true);
     try {
       try {
@@ -462,7 +471,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userProductId,
-            ...settings
+            ...settings,
           }),
         });
       } catch (error) {
@@ -495,6 +504,20 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    if (!settings.botName.trim()) {
+      setSnack({ open: true, msg: "Le nom du chatbot est requis.", sev: "error" });
+      return;
+    }
+    // Si le service est désactivé (cochée), on demande confirmation avant de save
+    // — geste lourd (tous les appels seront transférés sans passer par LyraeTalk).
+    if (settings.options?.serviceEnabled === false) {
+      setConfirmDisableOpen(true);
+      return;
+    }
+    await proceedSave();
   };
 
   const togglePlay = async (voice: VoiceKey) => {
@@ -1151,6 +1174,57 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         }
       </Accordion>
 
+      {/* Désactiver le service */}
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Typography variant="h6">Désactiver le service</Typography>
+            {settings.options?.serviceEnabled === false && (
+              <Chip
+                size="small"
+                label="Service désactivé"
+                sx={{
+                  bgcolor: "rgba(239,68,68,0.15)",
+                  color: "#b91c1c",
+                  fontWeight: 700,
+                }}
+              />
+            )}
+          </Stack>
+        </AccordionSummary>
+        {!loading &&
+          <AccordionDetails>
+            <Stack spacing={2}>
+              <Alert severity="warning" variant="outlined">
+                Cocher cette case désactive complètement LyraeTalk pour ce centre.
+                Tous les appels seront <strong>transférés directement</strong> sans
+                passer par le bot. Une confirmation vous sera demandée à
+                l&apos;enregistrement.
+              </Alert>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={settings.options?.serviceEnabled === false}
+                    disabled={readOnly}
+                    onChange={(e) =>
+                      update("options", {
+                        ...settings.options,
+                        serviceEnabled: !e.target.checked,
+                      })
+                    }
+                    sx={{
+                      color: "#ef4444",
+                      "&.Mui-checked": { color: "#ef4444" },
+                    }}
+                  />
+                }
+                label="Désactiver le service (transférer tous les appels directement)"
+              />
+            </Stack>
+          </AccordionDetails>
+        }
+      </Accordion>
+
       </Box>
 
       {/* Barre d’action */}
@@ -1200,6 +1274,49 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           {snack.msg}
         </Alert>
       </Snackbar>
+
+      {/* Dialog de confirmation lors de la désactivation du service */}
+      <Dialog
+        open={confirmDisableOpen}
+        onClose={() => setConfirmDisableOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: "#b91c1c" }}>
+          Confirmer la désactivation du service
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 1 }}>
+            Vous êtes sur le point de <strong>désactiver LyraeTalk</strong> pour ce centre.
+          </DialogContentText>
+          <Alert severity="warning" sx={{ my: 2 }}>
+            Tous les appels entrants seront <strong>transférés directement</strong> sans
+            passer par le bot. Aucune prise de rendez-vous, aucune identification patient,
+            aucune redirection automatique ne sera assurée par LyraeTalk tant que le service
+            restera désactivé.
+          </Alert>
+          <DialogContentText>
+            Vous pourrez réactiver le service à tout moment en décochant la case et en
+            enregistrant à nouveau.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setConfirmDisableOpen(false)} disabled={saving}>
+            Annuler
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={saving}
+            onClick={async () => {
+              setConfirmDisableOpen(false);
+              await proceedSave();
+            }}
+          >
+            Confirmer la désactivation
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
