@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.count - a.count)
       .slice(0, n);
 
-  // ---------- Identification ----------
+  // ---------- Identification (final_status + errors_by_step + birthdate + spell) ----------
   const finalStatuses: Record<string, number> = {
     success: 0,
     failed_transfer: 0,
@@ -123,21 +123,108 @@ export async function GET(req: NextRequest) {
     confirm: 0,
   };
 
+  // Bloc 1 — birthdate (résolution Node vs Azure).
+  const birthdateResolvedBy: Record<string, number> = {
+    node: 0,
+    node_collected: 0,
+    azure: 0,
+    null_or_other: 0,
+  };
+  const birthdateAttempts: number[] = [];
+  const birthdateCollections: number[] = [];
+  let birthdateAzureUsedCount = 0;
+  let birthdateTotalCount = 0;
+
+  // Bloc 2 — spell (épellation pour nouveaux patients).
+  const spellReconstructSource: Record<string, number> = {
+    node: 0,
+    azure: 0,
+    null_or_other: 0,
+  };
+  const spellAttempts: number[] = [];
+  const spellFieldsSpelled: number[] = [];
+  let spellTriggeredCount = 0;
+  let spellRecoveredExistingCount = 0;
+  let spellConfirmedNewCount = 0;
+
+  // Croisement spell.recovered_existing === true × identification.final_status :
+  // sert à valider que les "doublons évités" terminent bien en final_status === "success".
+  const crossSpellByFinalStatus: Record<string, number> = {
+    success: 0,
+    failed_transfer: 0,
+    new_patient: 0,
+    null_or_other: 0,
+  };
+
   for (const c of withInternal) {
     const ident = c.internal?.identification;
-    if (!ident) continue;
-    const status = ident.final_status;
-    if (status && status in finalStatuses) finalStatuses[status]++;
-    else finalStatuses.null_or_other++;
+    if (ident) {
+      const status = ident.final_status;
+      if (status && status in finalStatuses) finalStatuses[status]++;
+      else finalStatuses.null_or_other++;
 
-    if (typeof ident.total_attempts === "number") totalAttempts.push(ident.total_attempts);
+      if (typeof ident.total_attempts === "number") totalAttempts.push(ident.total_attempts);
 
-    const errs = ident.errors_by_step || {};
-    for (const k of ["birthdate", "lastname", "firstname", "confirm"]) {
-      const v = errs[k];
-      if (typeof v === "number") errorsByStep[k] += v;
+      const errs = ident.errors_by_step || {};
+      for (const k of ["birthdate", "lastname", "firstname", "confirm"]) {
+        const v = errs[k];
+        if (typeof v === "number") errorsByStep[k] += v;
+      }
+    }
+
+    // ---- birthdate ----
+    const bd = c.internal?.birthdate;
+    if (bd && typeof bd === "object") {
+      birthdateTotalCount++;
+      const rb = bd.resolved_by;
+      if (rb === "node") birthdateResolvedBy.node++;
+      else if (rb === "node_collected") birthdateResolvedBy.node_collected++;
+      else if (rb === "azure") birthdateResolvedBy.azure++;
+      else birthdateResolvedBy.null_or_other++;
+      if (typeof bd.attempts === "number") birthdateAttempts.push(bd.attempts);
+      if (typeof bd.collections === "number") birthdateCollections.push(bd.collections);
+      if (bd.azure_used === true) birthdateAzureUsedCount++;
+    }
+
+    // ---- spell ----
+    const sp = c.internal?.spell;
+    if (sp && typeof sp === "object") {
+      if (sp.triggered === true) {
+        spellTriggeredCount++;
+        const rs = sp.reconstruct_source;
+        if (rs === "node") spellReconstructSource.node++;
+        else if (rs === "azure") spellReconstructSource.azure++;
+        else spellReconstructSource.null_or_other++;
+        if (typeof sp.attempts === "number") spellAttempts.push(sp.attempts);
+        if (typeof sp.fields_spelled === "number") spellFieldsSpelled.push(sp.fields_spelled);
+      }
+      if (sp.recovered_existing === true) {
+        spellRecoveredExistingCount++;
+        // Croisement avec final_status — clé business : ce "doublon évité"
+        // a-t-il bien abouti à un "success" d'identification ?
+        const fs = ident?.final_status;
+        if (fs && fs in crossSpellByFinalStatus) crossSpellByFinalStatus[fs]++;
+        else crossSpellByFinalStatus.null_or_other++;
+      }
+      if (sp.confirmed_new === true) spellConfirmedNewCount++;
     }
   }
+
+  // ---- Métriques dérivées birthdate ----
+  const birthdateAutonomyPct =
+    birthdateTotalCount > 0
+      ? ((birthdateResolvedBy.node + birthdateResolvedBy.node_collected) / birthdateTotalCount) * 100
+      : 0;
+  const birthdateAzureUsedPct =
+    birthdateTotalCount > 0 ? (birthdateAzureUsedCount / birthdateTotalCount) * 100 : 0;
+  const birthdateNodeCollectedPct =
+    birthdateTotalCount > 0
+      ? (birthdateResolvedBy.node_collected / birthdateTotalCount) * 100
+      : 0;
+
+  // ---- Métriques dérivées spell ----
+  const spellRecoveryRatePct =
+    spellTriggeredCount > 0 ? (spellRecoveredExistingCount / spellTriggeredCount) * 100 : 0;
 
   // ---------- Steps (qualité par étape) ----------
   const repeatsByState = sumDicts("steps", "repeats_by_state");
@@ -774,6 +861,25 @@ export async function GET(req: NextRequest) {
       finalStatusDistribution: finalStatuses,
       errorsByStep,
       avgTotalAttempts: Math.round(avg(totalAttempts) * 100) / 100,
+      birthdate: {
+        totalCount: birthdateTotalCount,
+        resolvedByDistribution: birthdateResolvedBy,
+        autonomyPct: Math.round(birthdateAutonomyPct * 100) / 100,
+        azureUsedPct: Math.round(birthdateAzureUsedPct * 100) / 100,
+        nodeCollectedPct: Math.round(birthdateNodeCollectedPct * 100) / 100,
+        avgAttempts: Math.round(avg(birthdateAttempts) * 100) / 100,
+        avgCollections: Math.round(avg(birthdateCollections) * 100) / 100,
+      },
+      spell: {
+        triggeredCount: spellTriggeredCount,
+        recoveredExistingCount: spellRecoveredExistingCount,
+        confirmedNewCount: spellConfirmedNewCount,
+        recoveryRatePct: Math.round(spellRecoveryRatePct * 100) / 100,
+        reconstructSourceDistribution: spellReconstructSource,
+        avgAttempts: Math.round(avg(spellAttempts) * 100) / 100,
+        avgFieldsSpelled: Math.round(avg(spellFieldsSpelled) * 100) / 100,
+      },
+      crossSpellByFinalStatus,
     },
 
     steps: {

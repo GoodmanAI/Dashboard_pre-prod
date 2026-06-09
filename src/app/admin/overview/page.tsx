@@ -27,8 +27,6 @@ import {
   Chip,
   Card,
   Skeleton,
-  ToggleButton,
-  ToggleButtonGroup,
   LinearProgress,
 } from "@mui/material";
 import {
@@ -51,6 +49,9 @@ import {
 } from "recharts";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import { useCentre, ManagedUser } from "@/app/context/CentreContext";
+import DateRangePresets from "@/components/DateRangePresets";
+import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
+import { startOfDay, endOfDay, differenceInCalendarDays } from "date-fns";
 
 type TodayStats = {
   totalCalls: number;
@@ -65,8 +66,6 @@ type CentreFetchState = {
   loading: boolean;
   error: string | null;
 };
-
-type Period = "today" | "week";
 
 /** Bucket des appels par jour (J-N à J), retourne les points avec count = 0 pour les jours sans appel. */
 function bucketCallsByDay(
@@ -230,13 +229,15 @@ function StatRow({
  */
 function CentreTodayCard({
   centre,
-  period,
+  range,
+  isSingleDay,
   calls,
   loading,
   error,
 }: {
   centre: ManagedUser;
-  period: Period;
+  range: DateRange;
+  isSingleDay: boolean;
   calls: any[];
   loading: boolean;
   error: string | null;
@@ -246,15 +247,14 @@ function CentreTodayCard({
   const stats = useMemo(() => (calls.length || !loading ? computeTodayStats(calls) : null), [calls, loading]);
 
   const sparklineData = useMemo(() => {
-    if (period === "today") return bucketCallsByHour(calls);
-    const from = new Date();
-    from.setHours(0, 0, 0, 0);
-    from.setDate(from.getDate() - 6);
-    const to = new Date();
-    return bucketCallsByDay(calls, from, to);
-  }, [calls, period]);
+    if (isSingleDay) return bucketCallsByHour(calls);
+    return bucketCallsByDay(calls, range.from, range.to);
+  }, [calls, isSingleDay, range.from, range.to]);
 
-  const periodLabel = period === "today" ? "Aujourd'hui" : "7 derniers jours";
+  const formatShort = (d: Date) => d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+  const periodLabel = isSingleDay
+    ? formatShort(range.from)
+    : `${formatShort(range.from)} → ${formatShort(range.to)}`;
   const refetching = loading && !!stats;
 
   return (
@@ -333,7 +333,7 @@ function CentreTodayCard({
         </Typography>
       ) : stats ? (
         <Stack
-          key={period}
+          key={isSingleDay ? "single" : "range"}
           spacing={0.25}
           divider={<Divider sx={{ opacity: 0.5 }} />}
           sx={{
@@ -380,7 +380,7 @@ function CentreTodayCard({
             color="text.secondary"
             sx={{ display: "block", mb: 0.5, fontSize: 10, letterSpacing: 0.5 }}
           >
-            {period === "today" ? "PAR HEURE" : "PAR JOUR"}
+            {isSingleDay ? "PAR HEURE" : "PAR JOUR"}
           </Typography>
           <Box sx={{ height: 56 }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -413,11 +413,13 @@ function CentreTodayCard({
  */
 function OverviewSummaryCard({
   centresData,
-  period,
+  range,
+  isSingleDay,
   centresCount,
 }: {
   centresData: Record<number, CentreFetchState>;
-  period: Period;
+  range: DateRange;
+  isSingleDay: boolean;
   centresCount: number;
 }) {
   const all = Object.values(centresData);
@@ -427,16 +429,12 @@ function OverviewSummaryCard({
   const stats = useMemo(() => computeTodayStats(allCalls), [allCalls]);
 
   const histogram = useMemo(() => {
-    if (period === "today") return bucketCallsByHour(allCalls);
-    const from = new Date();
-    from.setHours(0, 0, 0, 0);
-    from.setDate(from.getDate() - 6);
-    const to = new Date();
-    return bucketCallsByDay(allCalls, from, to);
-  }, [allCalls, period]);
+    if (isSingleDay) return bucketCallsByHour(allCalls);
+    return bucketCallsByDay(allCalls, range.from, range.to);
+  }, [allCalls, isSingleDay, range.from, range.to]);
 
-  const xKey = period === "today" ? "hour" : "day";
-  const subtitle = period === "today" ? "Activité par heure" : "Activité par jour";
+  const xKey = isSingleDay ? "hour" : "day";
+  const subtitle = isSingleDay ? "Activité par heure" : "Activité par jour";
 
   return (
     <Card sx={{ p: { xs: 3, md: 4 }, mb: 3 }} elevation={1}>
@@ -635,7 +633,16 @@ const AdminOverviewPage = () => {
   const [dirty, setDirty] = useState(false);
   const [search, setSearch] = useState("");
   const [snack, setSnack] = useState(false);
-  const [period, setPeriod] = useState<Period>("today");
+  // Range courant + état d'affichage du DatePicker. Default = aujourd'hui (J).
+  const [range, setRange] = useState<DateRange>({
+    from: startOfDay(new Date()),
+    to: endOfDay(new Date()),
+  });
+  const [showPicker, setShowPicker] = useState(false);
+
+  // Si le range couvre une seule journée → bucketing par HEURE (sparklines /
+  // histogram). Sinon → bucketing par JOUR. Décision unique propagée aux cards.
+  const isSingleDay = differenceInCalendarDays(range.to, range.from) === 0;
 
   // Fetch lifté : on charge les calls de chaque centre actif en parallèle ici,
   // pour partager les données entre la card "Vue d'ensemble" et chaque card centre.
@@ -668,13 +675,9 @@ const AdminOverviewPage = () => {
 
       (async () => {
         try {
-          const from = new Date();
-          from.setHours(0, 0, 0, 0);
-          if (period === "week") from.setDate(from.getDate() - 6);
-          const to = new Date();
           const url =
             `/api/calls?userProductId=${centre.userProductId}` +
-            `&mode=all&from=${from.toISOString()}&to=${to.toISOString()}`;
+            `&mode=all&from=${range.from.toISOString()}&to=${range.to.toISOString()}`;
           const res = await fetch(url, { signal: controller.signal });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
@@ -698,7 +701,7 @@ const AdminOverviewPage = () => {
     return () => {
       controllers.forEach((c) => c.abort());
     };
-  }, [activeCentres, period]);
+  }, [activeCentres, range.from, range.to]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -926,15 +929,15 @@ const AdminOverviewPage = () => {
             </Accordion>
           </Grid>
 
-          {/* === Cards centres actifs — stats du jour === */}
+          {/* === Cards centres actifs — stats sur la période === */}
           <Grid item xs={12} sx={{ mt: 4 }}>
             <Box
               sx={{
                 display: "flex",
                 alignItems: "center",
-                gap: 3,
+                gap: 2,
                 flexWrap: "wrap",
-                mb: 3,
+                mb: 2,
               }}
             >
               {/* Barre d'accent teal à gauche du titre */}
@@ -946,36 +949,51 @@ const AdminOverviewPage = () => {
                   bgcolor: "#48C8AF",
                 }}
               />
-              <Box>
+              <Box sx={{ flex: 1 }}>
                 <Typography variant="h5" fontWeight={800} lineHeight={1.1}>
-                  Stats {period === "today" ? "du jour" : "de la semaine"}
+                  Activité sur la période
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {period === "today"
-                    ? "Sur la journée · par centre actif"
-                    : "7 derniers jours (aujourd'hui inclus) · par centre actif"}
+                  {isSingleDay
+                    ? `Sur la journée · ${range.from.toLocaleDateString("fr-FR")}`
+                    : `Du ${range.from.toLocaleDateString("fr-FR")} au ${range.to.toLocaleDateString("fr-FR")}`}
                 </Typography>
               </Box>
-
-              <ToggleButtonGroup
-                value={period}
-                exclusive
-                size="small"
-                onChange={(_, v) => {
-                  if (v) setPeriod(v);
-                }}
-                sx={{
-                  "& .MuiToggleButton-root.Mui-selected": {
-                    bgcolor: "#48C8AF",
-                    color: "#fff",
-                    "&:hover": { bgcolor: "#3BA992" },
-                  },
-                }}
-              >
-                <ToggleButton value="today">Aujourd&apos;hui</ToggleButton>
-                <ToggleButton value="week">Semaine</ToggleButton>
-              </ToggleButtonGroup>
             </Box>
+
+            {/* Carte filtres de période — DateRangePresets + DatePicker repliable */}
+            <Card elevation={1} sx={{ p: { xs: 2, md: 2.5 }, mb: 3 }}>
+              <Stack
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                flexWrap="wrap"
+                sx={{ gap: 1 }}
+              >
+                <DateRangePresets range={range} onChange={setRange} />
+                <Chip
+                  size="small"
+                  label={
+                    showPicker
+                      ? "Masquer le calendrier"
+                      : `${range.from.toLocaleDateString("fr-FR")} → ${range.to.toLocaleDateString("fr-FR")}`
+                  }
+                  variant="outlined"
+                  onClick={() => setShowPicker((p) => !p)}
+                  sx={{
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    border: "1px solid rgba(72,200,175,0.3)",
+                    color: "#2a6f64",
+                  }}
+                />
+              </Stack>
+              {showPicker && (
+                <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
+                  <DateRangePicker value={range} onChange={setRange} />
+                </Box>
+              )}
+            </Card>
 
             {activeCentres.length === 0 ? (
               <Card sx={{ p: 3 }}>
@@ -988,7 +1006,8 @@ const AdminOverviewPage = () => {
                 {/* Vue d'ensemble agrégée — KPI globaux + histogramme */}
                 <OverviewSummaryCard
                   centresData={centresData}
-                  period={period}
+                  range={range}
+                  isSingleDay={isSingleDay}
                   centresCount={activeCentres.length}
                 />
 
@@ -1000,7 +1019,8 @@ const AdminOverviewPage = () => {
                       <Grid item xs={12} sm={6} md={4} key={c.id}>
                         <CentreTodayCard
                           centre={c}
-                          period={period}
+                          range={range}
+                          isSingleDay={isSingleDay}
                           calls={data?.calls ?? []}
                           loading={data?.loading ?? true}
                           error={data?.error ?? null}

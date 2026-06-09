@@ -13,6 +13,7 @@ import {
   IconAlertTriangle,
   IconActivity,
   IconChartHistogram,
+  IconCalendarOff,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -95,15 +96,21 @@ const Menuitems: SidebarItem[] = [
   },
   {
     id: uniqueId(),
-    title: "Incidents",
-    icon: IconAlertTriangle,
-    href: "/client/services/talk/{TALK_ID}/incidents",
-  },
-  {
-    id: uniqueId(),
     title: "Statistiques d'appels",
     icon: IconChartInfographic,
     href: "/client/services/talk/{TALK_ID}/stats_appel",
+  },
+  {
+    id: uniqueId(),
+    title: "Examens non couverts",
+    icon: IconCalendarOff,
+    href: "/client/services/talk/{TALK_ID}/planning-complet",
+  },
+  {
+    id: uniqueId(),
+    title: "Incidents",
+    icon: IconAlertTriangle,
+    href: "/client/services/talk/{TALK_ID}/incidents",
   },
   // {
   //   id: uniqueId(),
@@ -200,15 +207,21 @@ export const AdminMenuitems: SidebarItem[] = [
   },
   {
     id: uniqueId(),
-    title: "Incidents",
-    icon: IconAlertTriangle,
-    href: "/client/services/talk/{TALK_ID}/incidents",
-  },
-  {
-    id: uniqueId(),
     title: "Statistiques d'appels",
     icon: IconChartInfographic,
     href: "/client/services/talk/{TALK_ID}/stats_appel",
+  },
+  {
+    id: uniqueId(),
+    title: "Examens non couverts",
+    icon: IconCalendarOff,
+    href: "/client/services/talk/{TALK_ID}/planning-complet",
+  },
+  {
+    id: uniqueId(),
+    title: "Incidents",
+    icon: IconAlertTriangle,
+    href: "/client/services/talk/{TALK_ID}/incidents",
   },
 
   { navlabel: true, subheader: "Assistance" },

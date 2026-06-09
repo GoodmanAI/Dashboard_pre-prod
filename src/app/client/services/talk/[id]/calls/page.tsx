@@ -122,6 +122,8 @@ function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
   if (stats.rdv_modified > 0) {
     chips.push({
       label: "Modifié",
+      customColor: "#facc15",
+      textColor: "#1f2937",
     });
   }
 

@@ -133,6 +133,25 @@ type AnalyticsInternal = {
     finalStatusDistribution: Record<string, number>;
     errorsByStep: Record<string, number>;
     avgTotalAttempts: number;
+    birthdate: {
+      totalCount: number;
+      resolvedByDistribution: Record<string, number>;
+      autonomyPct: number;
+      azureUsedPct: number;
+      nodeCollectedPct: number;
+      avgAttempts: number;
+      avgCollections: number;
+    };
+    spell: {
+      triggeredCount: number;
+      recoveredExistingCount: number;
+      confirmedNewCount: number;
+      recoveryRatePct: number;
+      reconstructSourceDistribution: Record<string, number>;
+      avgAttempts: number;
+      avgFieldsSpelled: number;
+    };
+    crossSpellByFinalStatus: Record<string, number>;
   };
 
   steps: {
@@ -411,6 +430,480 @@ function DistributionBars({
         );
       })}
     </Stack>
+  );
+}
+
+// ---------- Identification patient (birthdate + spell + crossover) ----------
+
+/**
+ * Carte "hero KPI" pour mettre en avant un indicateur business clé :
+ * gros chiffre, label court, sous-libellé contextuel optionnel.
+ */
+function HeroKpi({
+  label,
+  value,
+  sublabel,
+  accent = "#48C8AF",
+  icon,
+}: {
+  label: string;
+  value: string | number;
+  sublabel?: string;
+  accent?: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 2,
+        p: 2.5,
+        borderRadius: 2,
+        bgcolor: `${accent}14`,
+        border: `1px solid ${accent}40`,
+        height: "100%",
+      }}
+    >
+      <Box
+        sx={{
+          width: 56,
+          height: 56,
+          borderRadius: "14px",
+          display: "grid",
+          placeItems: "center",
+          bgcolor: `${accent}30`,
+          color: accent,
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </Box>
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 0.3 }}>
+          {label}
+        </Typography>
+        <Typography variant="h3" fontWeight={800} sx={{ color: accent, lineHeight: 1.1, mt: 0.25 }}>
+          {value}
+        </Typography>
+        {sublabel && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+            {sublabel}
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+const FINAL_STATUS_COLORS: Record<string, string> = {
+  success: "#22c55e",
+  new_patient: "#4899B5",
+  failed_transfer: "#ef4444",
+  null_or_other: "#9ca3af",
+};
+
+const FINAL_STATUS_LABELS: Record<string, string> = {
+  success: "Succès",
+  new_patient: "Nouveau patient",
+  failed_transfer: "Transfert (échec)",
+  null_or_other: "Autre / null",
+};
+
+const RESOLVED_BY_COLORS: Record<string, string> = {
+  node: "#22c55e",
+  node_collected: "#48C8AF",
+  azure: "#f59e0b",
+  null_or_other: "#9ca3af",
+};
+
+const RESOLVED_BY_LABELS: Record<string, string> = {
+  node: "Node (direct)",
+  node_collected: "Node (collecte progressive)",
+  azure: "Azure (fallback NLP)",
+  null_or_other: "Non résolu",
+};
+
+const RECONSTRUCT_COLORS: Record<string, string> = {
+  node: "#22c55e",
+  azure: "#f59e0b",
+  null_or_other: "#9ca3af",
+};
+
+const RECONSTRUCT_LABELS: Record<string, string> = {
+  node: "Node",
+  azure: "Azure",
+  null_or_other: "—",
+};
+
+function IdentificationSection({
+  identification,
+}: {
+  identification: AnalyticsInternal["identification"];
+}) {
+  const { finalStatusDistribution, errorsByStep, avgTotalAttempts, birthdate, spell, crossSpellByFinalStatus } = identification;
+
+  const finalStatusTotal = Object.values(finalStatusDistribution).reduce((a, b) => a + b, 0);
+  const finalStatusBars = Object.entries(finalStatusDistribution).map(([key, count]) => ({
+    key,
+    label: FINAL_STATUS_LABELS[key] ?? key,
+    count,
+  }));
+
+  const resolvedByBars = Object.entries(birthdate.resolvedByDistribution).map(([key, count]) => ({
+    key,
+    label: RESOLVED_BY_LABELS[key] ?? key,
+    count,
+  }));
+
+  const reconstructBars = Object.entries(spell.reconstructSourceDistribution).map(([key, count]) => ({
+    key,
+    label: RECONSTRUCT_LABELS[key] ?? key,
+    count,
+  }));
+
+  const errorsByStepData = Object.entries(errorsByStep).map(([state, count]) => ({ state, count }));
+
+  // Taux de transfert pour échec d'identification (KPI à surveiller à la baisse).
+  const failedTransferPct =
+    finalStatusTotal > 0
+      ? Math.round((finalStatusDistribution.failed_transfer / finalStatusTotal) * 10000) / 100
+      : 0;
+
+  return (
+    <Card elevation={1} sx={{ p: { xs: 2.5, md: 3 }, mb: 3 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: "12px",
+            display: "grid",
+            placeItems: "center",
+            bgcolor: "rgba(72,200,175,0.12)",
+            color: "#2a6f64",
+            flexShrink: 0,
+          }}
+        >
+          <IconId size={22} />
+        </Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography variant="subtitle1" fontWeight={800} lineHeight={1.2}>
+            Identification patient
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Résolution date de naissance · Épellation · Statut final
+          </Typography>
+        </Box>
+      </Box>
+
+      <Divider sx={{ mb: 2.5 }} />
+
+      {/* ---------- HERO KPI : 2 indicateurs business clés ---------- */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={6}>
+          <HeroKpi
+            label="DOUBLONS PATIENTS ÉVITÉS"
+            value={spell.recoveredExistingCount}
+            sublabel={
+              spell.triggeredCount > 0
+                ? `${spell.recoveryRatePct}% des épellations déclenchées ont retrouvé un dossier existant`
+                : "Aucune épellation déclenchée sur la période"
+            }
+            accent="#22c55e"
+            icon={<IconCheck size={28} />}
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <HeroKpi
+            label="RÉSOLUTION DATE NAISSANCE SANS AZURE"
+            value={`${birthdate.autonomyPct}%`}
+            sublabel={
+              birthdate.totalCount > 0
+                ? `${birthdate.totalCount} appels analysés — ${birthdate.azureUsedPct}% ont basculé sur Azure`
+                : "Aucun appel avec birthdate mesuré"
+            }
+            accent={birthdate.autonomyPct >= 80 ? "#22c55e" : birthdate.autonomyPct >= 60 ? "#f59e0b" : "#ef4444"}
+            icon={<IconBolt size={28} />}
+          />
+        </Grid>
+      </Grid>
+
+      {/* ---------- Sous-sections détaillées : 2 colonnes ---------- */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        {/* === Date de naissance === */}
+        <Grid item xs={12} md={6}>
+          <Box
+            sx={{
+              p: 2.5,
+              borderRadius: 2,
+              border: "1px solid #f3f4f6",
+              height: "100%",
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1.5 }}>
+              Date de naissance — résolution
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+              Comment chaque date de naissance a été résolue : Node (direct ou via collecte progressive) vs Azure (fallback NLP).
+            </Typography>
+
+            <Grid container spacing={1.5} sx={{ mb: 2 }}>
+              <Grid item xs={6}>
+                <KpiCard
+                  label="Appels avec birthdate"
+                  value={birthdate.totalCount}
+                  icon={<IconChartBar size={18} />}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <KpiCard
+                  label="Collecte progressive"
+                  value={`${birthdate.nodeCollectedPct}%`}
+                  icon={<IconRepeat size={18} />}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <KpiCard
+                  label="Tentatives moy."
+                  value={birthdate.avgAttempts}
+                  icon={<IconRepeat size={18} />}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <KpiCard
+                  label="Collections moy."
+                  value={birthdate.avgCollections}
+                  icon={<IconRepeat size={18} />}
+                />
+              </Grid>
+            </Grid>
+
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
+            >
+              RÉPARTITION RESOLVED_BY
+            </Typography>
+            <DistributionBars
+              data={resolvedByBars}
+              total={birthdate.totalCount}
+              colors={RESOLVED_BY_COLORS}
+            />
+          </Box>
+        </Grid>
+
+        {/* === Épellation === */}
+        <Grid item xs={12} md={6}>
+          <Box
+            sx={{
+              p: 2.5,
+              borderRadius: 2,
+              border: "1px solid #f3f4f6",
+              height: "100%",
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1.5 }}>
+              Épellation du nom — récupération
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+              Quand le bot ne trouve aucun dossier, il fait épeler le nom puis relance la recherche. La métrique star : doublons évités.
+            </Typography>
+
+            <Grid container spacing={1.5} sx={{ mb: 2 }}>
+              <Grid item xs={6}>
+                <KpiCard
+                  label="Épellations déclenchées"
+                  value={spell.triggeredCount}
+                  icon={<IconChartBar size={18} />}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <KpiCard
+                  label="Taux de récupération"
+                  value={`${spell.recoveryRatePct}%`}
+                  icon={<IconCheck size={18} />}
+                  valueColor="#22c55e"
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <KpiCard
+                  label="Vrais nouveaux patients"
+                  value={spell.confirmedNewCount}
+                  icon={<IconCheck size={18} />}
+                  valueColor="#4899B5"
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <KpiCard
+                  label="Champs épelés moy."
+                  value={spell.avgFieldsSpelled}
+                  icon={<IconRepeat size={18} />}
+                />
+              </Grid>
+            </Grid>
+
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
+            >
+              SOURCE DE RECONSTRUCTION
+            </Typography>
+            <DistributionBars
+              data={reconstructBars}
+              total={spell.triggeredCount}
+              colors={RECONSTRUCT_COLORS}
+            />
+          </Box>
+        </Grid>
+      </Grid>
+
+      {/* ---------- Statut final + Croisement spell × identification ---------- */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={6}>
+          <Box
+            sx={{
+              p: 2.5,
+              borderRadius: 2,
+              border: "1px solid #f3f4f6",
+              height: "100%",
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 0.5 }}>
+              Statut final d&apos;identification
+            </Typography>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+              <Typography variant="caption" color="text.secondary">
+                Taux de transfert pour échec :
+              </Typography>
+              <Chip
+                size="small"
+                label={`${failedTransferPct}%`}
+                sx={{
+                  height: 20,
+                  fontWeight: 700,
+                  bgcolor:
+                    failedTransferPct > 10
+                      ? "rgba(239,68,68,0.15)"
+                      : failedTransferPct > 5
+                      ? "rgba(245,158,11,0.15)"
+                      : "rgba(34,197,94,0.15)",
+                  color:
+                    failedTransferPct > 10
+                      ? "#b91c1c"
+                      : failedTransferPct > 5
+                      ? "#92400e"
+                      : "#15803d",
+                }}
+              />
+              <Box sx={{ flex: 1 }} />
+              <Typography variant="caption" color="text.secondary">
+                Tentatives moy. <strong>{avgTotalAttempts}</strong>
+              </Typography>
+            </Stack>
+
+            <DistributionBars
+              data={finalStatusBars}
+              total={finalStatusTotal}
+              colors={FINAL_STATUS_COLORS}
+            />
+          </Box>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Box
+            sx={{
+              p: 2.5,
+              borderRadius: 2,
+              border: "1px solid #f3f4f6",
+              height: "100%",
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 0.5 }}>
+              Doublons évités → statut final
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+              Croisement <code>spell.recovered_existing = true</code> × <code>identification.final_status</code>. Idéalement, tous les doublons évités terminent en <strong>succès</strong>.
+            </Typography>
+
+            <TableContainer
+              component={Paper}
+              elevation={0}
+              sx={{ border: "1px solid #f3f4f6" }}
+            >
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Statut final</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>
+                      Appels (recovered_existing)
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>%</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {Object.entries(crossSpellByFinalStatus).map(([status, count]) => {
+                    const pct =
+                      spell.recoveredExistingCount > 0
+                        ? Math.round((count / spell.recoveredExistingCount) * 10000) / 100
+                        : 0;
+                    return (
+                      <TableRow key={status}>
+                        <TableCell>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Box
+                              sx={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: "50%",
+                                bgcolor: FINAL_STATUS_COLORS[status] ?? "#9ca3af",
+                              }}
+                            />
+                            <Typography variant="caption" fontWeight={600}>
+                              {FINAL_STATUS_LABELS[status] ?? status}
+                            </Typography>
+                          </Stack>
+                        </TableCell>
+                        <TableCell align="right">{count}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 600 }}>
+                          {pct}%
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        </Grid>
+      </Grid>
+
+      {/* ---------- Erreurs par étape ---------- */}
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
+      >
+        ERREURS PAR ÉTAPE (TOTAL CUMULÉ)
+      </Typography>
+      <Box sx={{ height: 180 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={errorsByStepData} margin={{ top: 8, right: 8, left: 0, bottom: 4 }}>
+            <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="state" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={{ stroke: "#e5e7eb" }} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} allowDecimals={false} />
+            <ReTooltip
+              cursor={{ fill: "rgba(239,68,68,0.08)" }}
+              contentStyle={{ borderRadius: 8, border: "1px solid rgba(239,68,68,0.3)", fontSize: 12, padding: "6px 10px" }}
+              labelStyle={{ fontWeight: 600, color: "#b91c1c" }}
+            />
+            <Bar dataKey="count" fill="#ef4444" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </Box>
+    </Card>
   );
 }
 
@@ -1500,32 +1993,8 @@ const AnalyticsInternalPage = () => {
     [allCentres]
   );
 
-  // ---------- Préparations dérivées ----------
-  const identificationBars = useMemo(() => {
-    if (!data) return [];
-    const d = data.identification.finalStatusDistribution;
-    return [
-      { key: "success", label: "Succès", count: d.success ?? 0 },
-      { key: "failed_transfer", label: "Transfert échec", count: d.failed_transfer ?? 0 },
-      { key: "new_patient", label: "Nouveau patient", count: d.new_patient ?? 0 },
-      { key: "null_or_other", label: "Autre / null", count: d.null_or_other ?? 0 },
-    ];
-  }, [data]);
-
-  const identificationColors: Record<string, string> = {
-    success: "#48C8AF",
-    failed_transfer: "#ef4444",
-    new_patient: "#4899B5",
-    null_or_other: "#9ca3af",
-  };
-
-  const errorsByStepData = useMemo(() => {
-    if (!data) return [];
-    return Object.entries(data.identification.errorsByStep).map(([state, count]) => ({
-      state,
-      count,
-    }));
-  }, [data]);
+  // Note : la préparation des données identification est maintenant interne à
+  // `IdentificationSection` (carte pleine largeur en haut de page).
 
   if (status === "loading") {
     return (
@@ -1740,6 +2209,9 @@ const AnalyticsInternalPage = () => {
           <TimeseriesCard timeseries={data.timeseries} />
         )}
 
+        {/* ---------- Identification patient (birthdate + spell + crossover) ---------- */}
+        {data?.identification && <IdentificationSection identification={data.identification} />}
+
         {/* ---------- Monitoring features candidates (eager / tts / buffered) ---------- */}
         {data?.features && <FeatureMonitoringSection features={data.features} />}
 
@@ -1781,58 +2253,9 @@ const AnalyticsInternalPage = () => {
               },
             }}
           >
-            {/* ---------- 1. Identification ---------- */}
-            <Box>
-              <SectionCard
-                title="Identification"
-                subtitle="Statut final et erreurs durant l'identification"
-                icon={<IconId size={22} />}
-              >
-                <Stack spacing={3}>
-                  <Box>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
-                    >
-                      DISTRIBUTION DU STATUT FINAL
-                    </Typography>
-                    <DistributionBars
-                      data={identificationBars}
-                      total={data.callsWithInternal}
-                      colors={identificationColors}
-                    />
-                  </Box>
-
-                  <Divider />
-
-                  <Box>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
-                    >
-                      ERREURS PAR ÉTAPE (TOTAL)
-                    </Typography>
-                    <MiniBarChart
-                      data={errorsByStepData}
-                      dataKey="count"
-                      xKey="state"
-                      height={180}
-                      color="#ef4444"
-                    />
-                  </Box>
-
-                  <Stack direction="row" spacing={2} sx={{ pt: 1 }}>
-                    <KpiCard
-                      label="Tentatives moy."
-                      value={data.identification.avgTotalAttempts}
-                      icon={<IconRepeat size={20} />}
-                    />
-                  </Stack>
-                </Stack>
-              </SectionCard>
-            </Box>
+            {/* Identification déplacée dans la nouvelle carte pleine largeur
+               IdentificationSection (au-dessus du masonry) — elle agrège
+               final_status, errors_by_step, birthdate, spell, et le croisement. */}
 
             {/* ---------- 2. Steps (qualité par étape) ---------- */}
             <Box>
