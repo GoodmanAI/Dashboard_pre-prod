@@ -73,9 +73,13 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    // Construit le map { codeExamenClient: libelle } depuis TalkSettings.exams.
-    // Le champ peut être array ou object selon les sites (cf. /api/configuration/get/mapping).
+    // Construit deux maps depuis TalkSettings.exams :
+    //   - labelByCode : code → libelle (suffixé "(avec injection)" pour les
+    //     codes injection IRM/Scanner)
+    //   - typeByCode  : code → typeExamen (RX/US/MG/CT/MR — la modalité reste
+    //     la même entre version standard et injection)
     const labelByCode: Record<string, string> = {};
+    const typeByCode: Record<string, string> = {};
     if (talkSettings?.exams) {
       const exams =
         typeof talkSettings.exams === "string"
@@ -88,11 +92,22 @@ export async function GET(req: NextRequest) {
         : [];
       for (const e of iterable as any[]) {
         if (!e || typeof e !== "object") continue;
-        const code = e.codeExamenClient;
-        // Préférence : libelleClient (sémantique "côté client") si défini,
-        // sinon libelle (le neuracorp).
         const label = e.libelleClient || e.libelle;
-        if (code && label && !labelByCode[code]) labelByCode[code] = label;
+        const type = e.typeExamen;
+        // Codes "standards" : code neuracorp + code client (sans injection).
+        const standardCandidates = [e.codeExamenClient, e.codeExamen].filter(Boolean);
+        for (const code of standardCandidates) {
+          if (label && !labelByCode[code]) labelByCode[code] = label;
+          if (type && !typeByCode[code]) typeByCode[code] = type;
+        }
+        // Code "avec injection" (IRM/Scanner injectés) : même type, libellé suffixé.
+        const injectCode = e.codeExamenClientInject;
+        if (injectCode) {
+          if (label && !labelByCode[injectCode]) {
+            labelByCode[injectCode] = `${label} (avec injection)`;
+          }
+          if (type && !typeByCode[injectCode]) typeByCode[injectCode] = type;
+        }
       }
     }
 
@@ -123,6 +138,12 @@ export async function GET(req: NextRequest) {
     };
     type DayBucket = { confirmed: number; toInvestigate: number };
     const byDay = new Map<string, DayBucket>();
+
+    // ---- Agrégats par modalité (somme confirmed + toInvestigate) ----
+    /** Distribution globale par type : { RX: n, US: n, MG: n, CT: n, MR: n, unknown: n }. */
+    const typeDistribution: Record<string, number> = {};
+    /** Pour chaque jour, count par type. Permet un line chart multi-séries. */
+    const typeByDay = new Map<string, Record<string, number>>();
 
     for (const c of calls) {
       const stats = (c.stats as any) || {};
@@ -163,12 +184,20 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      // Timeseries
+      // Timeseries (confirmed vs toInvestigate)
       const k = dayKey(c.createdAt);
       if (!byDay.has(k)) byDay.set(k, { confirmed: 0, toInvestigate: 0 });
       const slot = byDay.get(k)!;
       if (isConfirmed) slot.confirmed++;
       else slot.toInvestigate++;
+
+      // Agrégat par modalité (les 2 catégories confondues — vue "planning complet"
+      // globale par type d'examen).
+      const type = typeByCode[examCode] || "unknown";
+      typeDistribution[type] = (typeDistribution[type] ?? 0) + 1;
+      if (!typeByDay.has(k)) typeByDay.set(k, {});
+      const tDay = typeByDay.get(k)!;
+      tDay[type] = (tDay[type] ?? 0) + 1;
     }
 
     const sortByCountDesc = (a: Bucket, b: Bucket) => b.count - a.count;
@@ -176,7 +205,14 @@ export async function GET(req: NextRequest) {
     const investigateItems = Array.from(investigateBuckets.values()).sort(sortByCountDesc);
 
     // Génère un point par jour de la fenêtre (continuité, même 0).
+    // Pour le timeseries par type, on émet toutes les clés rencontrées + un set
+    // de types "standards" garantis pour stabiliser l'axe et les couleurs côté UI.
+    const standardTypes = ["RX", "US", "MG", "CT", "MR"];
+    const seenTypes = new Set<string>([...standardTypes, ...Object.keys(typeDistribution)]);
+
     const timeseries: { date: string; dayLabel: string; confirmed: number; toInvestigate: number }[] = [];
+    const typeTimeseries: Array<Record<string, number | string>> = [];
+
     const cursor = new Date(from);
     cursor.setHours(0, 0, 0, 0);
     const endDay = new Date(to);
@@ -184,12 +220,19 @@ export async function GET(req: NextRequest) {
     while (cursor <= endDay) {
       const k = dayKey(cursor);
       const d = byDay.get(k);
+      const dayLabel = cursor.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
       timeseries.push({
         date: k,
-        dayLabel: cursor.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }),
+        dayLabel,
         confirmed: d?.confirmed ?? 0,
         toInvestigate: d?.toInvestigate ?? 0,
       });
+
+      // Point de typeTimeseries : un champ par type (0 si rien ce jour-là).
+      const tDay = typeByDay.get(k) ?? {};
+      const point: Record<string, number | string> = { date: k, dayLabel };
+      for (const t of seenTypes) point[t] = tDay[t] ?? 0;
+      typeTimeseries.push(point);
       cursor.setDate(cursor.getDate() + 1);
     }
 
@@ -203,6 +246,11 @@ export async function GET(req: NextRequest) {
       confirmed: { total: confirmedTotal, items: confirmedItems },
       toInvestigate: { total: investigateTotal, items: investigateItems },
       timeseries,
+      // Vue par modalité (RX / US / MG / CT / MR / unknown) — confondue
+      // confirmed + toInvestigate.
+      typeDistribution,
+      typeTimeseries,
+      typeKeys: Array.from(seenTypes),
     });
   } catch (err) {
     console.error("Error in planning-complet/aggregate:", err);

@@ -31,8 +31,22 @@ import {
   Cell,
   AreaChart,
   Area,
+  PieChart,
+  Pie,
+  Legend,
+  LineChart,
+  Line,
 } from "recharts";
-import { startOfDay, endOfDay, subDays } from "date-fns";
+import {
+  startOfDay,
+  endOfDay,
+  subDays,
+  startOfWeek,
+  startOfMonth,
+  format,
+  differenceInCalendarDays,
+} from "date-fns";
+import { fr } from "date-fns/locale";
 import SectionHeader from "@/components/admin/SectionHeader";
 import DateRangePresets from "@/components/DateRangePresets";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
@@ -55,6 +69,12 @@ type AggregateResponse = {
   confirmed: { total: number; items: AggregateItem[] };
   toInvestigate: { total: number; items: AggregateItem[] };
   timeseries: { date: string; dayLabel: string; confirmed: number; toInvestigate: number }[];
+  /** Distribution globale par modalité (confirmed + toInvestigate confondus). */
+  typeDistribution: Record<string, number>;
+  /** Timeseries par jour, un champ par type — pour le multi-line chart. */
+  typeTimeseries: Array<Record<string, number | string>>;
+  /** Liste des types présents (ordonnée logiquement RX / US / MG / CT / MR + …). */
+  typeKeys: string[];
 };
 
 // ---------- Examens non pris en charge ----------
@@ -241,6 +261,373 @@ function ExamCard({
   );
 }
 
+// ---------- Modalité : palette + helpers ----------
+
+/** Couleurs cohérentes par modalité d'examen. */
+const TYPE_COLORS: Record<string, string> = {
+  RX: "#48C8AF",
+  US: "#4899B5",
+  MG: "#f59e0b",
+  CT: "#a855f7",
+  MR: "#ef4444",
+  unknown: "#9ca3af",
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  RX: "Radiologie",
+  US: "Échographie",
+  MG: "Mammographie",
+  CT: "Scanner",
+  MR: "IRM",
+  unknown: "Non identifié",
+};
+
+const colorForType = (t: string) => TYPE_COLORS[t] || "#6b7280";
+const labelForType = (t: string) => TYPE_LABELS[t] || t;
+
+type BucketGranularity = "single" | "day" | "week" | "month";
+
+/**
+ * Regroupe le timeseries quotidien par semaine ou mois. Les keys numériques
+ * (= les types) sont sommées ; `date` devient la 1ʳᵉ date du bucket et
+ * `dayLabel` est reformaté selon la granularité.
+ */
+function regroupTimeseries(
+  daily: Array<Record<string, number | string>>,
+  granularity: BucketGranularity,
+  typeKeys: string[]
+): Array<Record<string, number | string>> {
+  if (granularity === "day") return daily;
+
+  const bucketKey = (d: Date) => {
+    if (granularity === "week") return format(startOfWeek(d, { weekStartsOn: 1 }), "yyyy-MM-dd");
+    return format(startOfMonth(d), "yyyy-MM");
+  };
+  const bucketLabel = (d: Date) => {
+    if (granularity === "week") {
+      const start = startOfWeek(d, { weekStartsOn: 1 });
+      return `sem. ${format(start, "dd/MM", { locale: fr })}`;
+    }
+    return format(d, "MMM yyyy", { locale: fr });
+  };
+
+  const byBucket = new Map<string, Record<string, number | string>>();
+  for (const point of daily) {
+    const date = new Date(String(point.date));
+    const key = bucketKey(date);
+    if (!byBucket.has(key)) {
+      const init: Record<string, number | string> = { date: key, dayLabel: bucketLabel(date) };
+      for (const t of typeKeys) init[t] = 0;
+      byBucket.set(key, init);
+    }
+    const slot = byBucket.get(key)!;
+    for (const t of typeKeys) {
+      slot[t] = (slot[t] as number) + ((point[t] as number) || 0);
+    }
+  }
+  return Array.from(byBucket.values());
+}
+
+/**
+ * Donut + Multi-line par modalité. La granularité du multi-line est imposée
+ * par la plage de dates (calculée côté page) pour rester cohérente avec le
+ * range visible — pas de toggle qui pourrait donner l'impression de "voir plus"
+ * que ce que le filtre temporel inclut réellement.
+ */
+function ModalityCharts({
+  typeDistribution,
+  typeTimeseries,
+  typeKeys,
+  granularity,
+}: {
+  typeDistribution: Record<string, number>;
+  typeTimeseries: Array<Record<string, number | string>>;
+  typeKeys: string[];
+  granularity: BucketGranularity;
+}) {
+
+  // Données pour le donut : on garde seulement les types > 0, tri décroissant.
+  const pieData = typeKeys
+    .map((t) => ({ name: t, value: typeDistribution[t] ?? 0 }))
+    .filter((d) => d.value > 0)
+    .sort((a, b) => b.value - a.value);
+
+  const total = pieData.reduce((s, d) => s + d.value, 0);
+
+  // Liste des types réellement présents dans les données (pour ne pas dessiner
+  // des courbes plates à 0 pour les modalités absentes).
+  const activeTypes = typeKeys.filter((t) => (typeDistribution[t] ?? 0) > 0);
+
+  const lineData = regroupTimeseries(typeTimeseries, granularity, typeKeys);
+
+  return (
+    <Grid container spacing={3} sx={{ mb: 3 }}>
+      {/* ---------- Donut : répartition par modalité ---------- */}
+      <Grid item xs={12} md={5}>
+        <Card elevation={1} sx={{ p: 2.5, height: "100%" }}>
+          <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 0.5 }}>
+            Répartition par modalité
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+            Types d&apos;examens concernés par un planning complet
+          </Typography>
+
+          {pieData.length === 0 ? (
+            <Box
+              sx={{
+                height: 260,
+                display: "grid",
+                placeItems: "center",
+                border: "1px dashed #e5e7eb",
+                borderRadius: 2,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Aucune donnée sur la période.
+              </Typography>
+            </Box>
+          ) : (
+            <Box sx={{ height: 260, position: "relative" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={56}
+                    outerRadius={88}
+                    paddingAngle={2}
+                    stroke="#fff"
+                    strokeWidth={2}
+                  >
+                    {pieData.map((d, i) => (
+                      <Cell key={i} fill={colorForType(d.name)} />
+                    ))}
+                  </Pie>
+                  <ReTooltip
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: "1px solid rgba(72,200,175,0.3)",
+                      fontSize: 12,
+                      padding: "6px 10px",
+                    }}
+                    formatter={(value: any, name: any) => {
+                      const pct = total > 0 ? Math.round(((value as number) / total) * 1000) / 10 : 0;
+                      return [`${value} (${pct}%)`, labelForType(name as string)];
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Total au centre */}
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  textAlign: "center",
+                  pointerEvents: "none",
+                }}
+              >
+                <Typography variant="h5" fontWeight={800} sx={{ lineHeight: 1 }}>
+                  {total}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  appels
+                </Typography>
+              </Box>
+            </Box>
+          )}
+
+          {/* Légende custom avec compteurs */}
+          <Stack
+            direction="row"
+            spacing={1.5}
+            sx={{ flexWrap: "wrap", gap: 1, mt: 1.5, justifyContent: "center" }}
+          >
+            {pieData.map((d) => (
+              <Stack key={d.name} direction="row" alignItems="center" spacing={0.5}>
+                <Box
+                  sx={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    bgcolor: colorForType(d.name),
+                  }}
+                />
+                <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                  {labelForType(d.name)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  ({d.value})
+                </Typography>
+              </Stack>
+            ))}
+          </Stack>
+        </Card>
+      </Grid>
+
+      {/* ---------- Multi-line : évolution par modalité ---------- */}
+      <Grid item xs={12} md={7}>
+        <Card elevation={1} sx={{ p: 2.5, height: "100%" }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1}
+            sx={{ mb: 0.5, flexWrap: "wrap", gap: 1 }}
+          >
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="subtitle2" fontWeight={800}>
+                Évolution par modalité
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Une courbe par type d&apos;examen
+              </Typography>
+            </Box>
+            <Chip
+              size="small"
+              label={
+                granularity === "single"
+                  ? "Vue du jour"
+                  : granularity === "day"
+                  ? "Par jour"
+                  : granularity === "week"
+                  ? "Par semaine"
+                  : "Par mois"
+              }
+              sx={{
+                fontWeight: 600,
+                bgcolor: "rgba(72,200,175,0.15)",
+                color: "#2a6f64",
+              }}
+            />
+          </Stack>
+
+          {activeTypes.length === 0 ? (
+            <Box
+              sx={{
+                height: 260,
+                display: "grid",
+                placeItems: "center",
+                border: "1px dashed #e5e7eb",
+                borderRadius: 2,
+                mt: 1.5,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Aucune donnée sur la période.
+              </Typography>
+            </Box>
+          ) : granularity === "single" ? (
+            // Cas plage d'un seul jour : un BarChart vertical avec une barre
+            // par modalité (un LineChart à 1 point n'a aucun sens visuellement).
+            <Box sx={{ height: 260, mt: 1 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={activeTypes.map((t) => ({
+                    type: t,
+                    label: labelForType(t),
+                    count: typeDistribution[t] ?? 0,
+                  }))}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+                >
+                  <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: "#6b7280" }}
+                    axisLine={{ stroke: "#e5e7eb" }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "#6b7280" }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <ReTooltip
+                    cursor={{ fill: "rgba(72,200,175,0.08)" }}
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: "1px solid rgba(72,200,175,0.3)",
+                      fontSize: 12,
+                      padding: "6px 10px",
+                    }}
+                    formatter={(value: any) => [
+                      `${value} appel${(value as number) > 1 ? "s" : ""}`,
+                      "",
+                    ]}
+                  />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={64}>
+                    {activeTypes.map((t, i) => (
+                      <Cell key={i} fill={colorForType(t)} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Box>
+          ) : (
+            <Box sx={{ height: 260, mt: 1 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={lineData}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+                >
+                  <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="dayLabel"
+                    tick={{ fontSize: 11, fill: "#6b7280" }}
+                    axisLine={{ stroke: "#e5e7eb" }}
+                    tickLine={false}
+                    interval="preserveStartEnd"
+                    minTickGap={20}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "#6b7280" }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <ReTooltip
+                    cursor={{ strokeDasharray: "3 3" }}
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: "1px solid rgba(72,200,175,0.3)",
+                      fontSize: 12,
+                      padding: "6px 10px",
+                    }}
+                    formatter={(value: any, name: any) => [
+                      value,
+                      labelForType(name as string),
+                    ]}
+                  />
+                  <Legend
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: 12, paddingTop: 4 }}
+                    formatter={(value: string) => labelForType(value)}
+                  />
+                  {activeTypes.map((t) => (
+                    <Line
+                      key={t}
+                      type="monotone"
+                      dataKey={t}
+                      stroke={colorForType(t)}
+                      strokeWidth={2.5}
+                      dot={{ r: 2.5, fill: colorForType(t), strokeWidth: 0 }}
+                      activeDot={{ r: 4 }}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </Box>
+          )}
+        </Card>
+      </Grid>
+    </Grid>
+  );
+}
+
 // ---------- Page ----------
 interface Props {
   params: { id: string };
@@ -306,6 +693,22 @@ export default function PlanningCompletPage({ params }: Props) {
   // Max counts pour les barres proportionnelles, par catégorie.
   const maxConfirmed = data?.confirmed.items[0]?.count ?? 0;
   const maxInvestigate = data?.toInvestigate.items[0]?.count ?? 0;
+
+  /**
+   * Granularité automatique du graphique par modalité, dérivée de la plage de
+   * dates sélectionnée.
+   *  - 1 jour exactement → "single" : bar chart par modalité (pas de courbe)
+   *  - 2 → 14 jours      → par jour
+   *  - 15 → 60 jours     → par semaine
+   *  - > 60 jours        → par mois
+   */
+  const granularity: BucketGranularity = useMemo(() => {
+    const days = differenceInCalendarDays(range.to, range.from) + 1;
+    if (days <= 1) return "single";
+    if (days <= 14) return "day";
+    if (days <= 60) return "week";
+    return "month";
+  }, [range.from, range.to]);
 
   // Données pour le bar chart rdv_status (que les non-zéro).
   const rdvStatusBars = useMemo(() => {
@@ -581,10 +984,80 @@ export default function PlanningCompletPage({ params }: Props) {
 
             <Grid item xs={12} md={7}>
               <Card elevation={1} sx={{ p: 2.5, height: "100%" }}>
-                <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1.5 }}>
-                  Tendance temporelle
-                </Typography>
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  spacing={1}
+                  sx={{ mb: 1.5, flexWrap: "wrap", gap: 1 }}
+                >
+                  <Typography variant="subtitle2" fontWeight={800} sx={{ flex: 1 }}>
+                    Tendance temporelle
+                  </Typography>
+                  <Chip
+                    size="small"
+                    label={
+                      granularity === "single"
+                        ? "Vue du jour"
+                        : granularity === "day"
+                        ? "Par jour"
+                        : granularity === "week"
+                        ? "Par semaine"
+                        : "Par mois"
+                    }
+                    sx={{
+                      fontWeight: 600,
+                      bgcolor: "rgba(72,200,175,0.15)",
+                      color: "#2a6f64",
+                    }}
+                  />
+                </Stack>
                 {hasTimeseriesData ? (
+                  granularity === "single" ? (
+                    // Cas plage d'un seul jour : 2 barres comparatives au lieu
+                    // de courbes vides à 1 point.
+                    <Box sx={{ height: 180 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={[
+                            { label: "Planning complet", count: data.confirmed.total, color: "#48C8AF" },
+                            { label: "À examiner", count: data.toInvestigate.total, color: "#f59e0b" },
+                          ]}
+                          margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+                        >
+                          <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" vertical={false} />
+                          <XAxis
+                            dataKey="label"
+                            tick={{ fontSize: 11, fill: "#6b7280" }}
+                            axisLine={{ stroke: "#e5e7eb" }}
+                            tickLine={false}
+                          />
+                          <YAxis
+                            tick={{ fontSize: 11, fill: "#6b7280" }}
+                            axisLine={false}
+                            tickLine={false}
+                            allowDecimals={false}
+                          />
+                          <ReTooltip
+                            cursor={{ fill: "rgba(72,200,175,0.08)" }}
+                            contentStyle={{
+                              borderRadius: 8,
+                              border: "1px solid rgba(72,200,175,0.3)",
+                              fontSize: 12,
+                              padding: "6px 10px",
+                            }}
+                            formatter={(value: any) => [
+                              `${value} appel${(value as number) > 1 ? "s" : ""}`,
+                              "",
+                            ]}
+                          />
+                          <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={80}>
+                            <Cell fill="#48C8AF" />
+                            <Cell fill="#f59e0b" />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Box>
+                  ) : (
                   <Box sx={{ height: 180 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={data.timeseries} margin={{ top: 8, right: 8, left: 0, bottom: 4 }}>
@@ -643,6 +1116,7 @@ export default function PlanningCompletPage({ params }: Props) {
                       </AreaChart>
                     </ResponsiveContainer>
                   </Box>
+                  )
                 ) : (
                   <Box
                     sx={{
@@ -663,7 +1137,17 @@ export default function PlanningCompletPage({ params }: Props) {
           </Grid>
         )}
 
-        {/* ---------- 2 listes : Planning complet confirmé + À investiguer ---------- */}
+        {/* ---------- Graphiques par modalité (donut + multi-line) ---------- */}
+        {data && data.total > 0 && (
+          <ModalityCharts
+            typeDistribution={data.typeDistribution}
+            typeTimeseries={data.typeTimeseries}
+            typeKeys={data.typeKeys}
+            granularity={granularity}
+          />
+        )}
+
+        {/* ---------- 2 listes : Planning complet confirmé + À examiner ---------- */}
         {loading && !data ? (
           <Stack spacing={1.5}>
             {[0, 1, 2].map((i) => (
@@ -983,9 +1467,77 @@ export default function PlanningCompletPage({ params }: Props) {
 
               <Grid item xs={12} md={7}>
                 <Card elevation={1} sx={{ p: 2.5, height: "100%" }}>
-                  <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1.5 }}>
-                    Tendance temporelle
-                  </Typography>
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    spacing={1}
+                    sx={{ mb: 1.5, flexWrap: "wrap", gap: 1 }}
+                  >
+                    <Typography variant="subtitle2" fontWeight={800} sx={{ flex: 1 }}>
+                      Tendance temporelle
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={
+                        granularity === "single"
+                          ? "Vue du jour"
+                          : granularity === "day"
+                          ? "Par jour"
+                          : granularity === "week"
+                          ? "Par semaine"
+                          : "Par mois"
+                      }
+                      sx={{
+                        fontWeight: 600,
+                        bgcolor: "rgba(72,155,181,0.15)",
+                        color: "#1e5a73",
+                      }}
+                    />
+                  </Stack>
+                  {granularity === "single" ? (
+                    <Box sx={{ height: 180 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={[
+                            { label: "Examens non pratiqués", count: examNonPris.codes.total, color: "#4899B5" },
+                            { label: "Modalités non assurées", count: examNonPris.bookableTypes.total, color: "#a855f7" },
+                          ]}
+                          margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+                        >
+                          <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" vertical={false} />
+                          <XAxis
+                            dataKey="label"
+                            tick={{ fontSize: 11, fill: "#6b7280" }}
+                            axisLine={{ stroke: "#e5e7eb" }}
+                            tickLine={false}
+                          />
+                          <YAxis
+                            tick={{ fontSize: 11, fill: "#6b7280" }}
+                            axisLine={false}
+                            tickLine={false}
+                            allowDecimals={false}
+                          />
+                          <ReTooltip
+                            cursor={{ fill: "rgba(72,155,181,0.08)" }}
+                            contentStyle={{
+                              borderRadius: 8,
+                              border: "1px solid rgba(72,155,181,0.3)",
+                              fontSize: 12,
+                              padding: "6px 10px",
+                            }}
+                            formatter={(value: any) => [
+                              `${value} appel${(value as number) > 1 ? "s" : ""}`,
+                              "",
+                            ]}
+                          />
+                          <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={80}>
+                            <Cell fill="#4899B5" />
+                            <Cell fill="#a855f7" />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </Box>
+                  ) : (
                   <Box sx={{ height: 180 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart
@@ -1051,6 +1603,7 @@ export default function PlanningCompletPage({ params }: Props) {
                       </AreaChart>
                     </ResponsiveContainer>
                   </Box>
+                  )}
                 </Card>
               </Grid>
             </Grid>

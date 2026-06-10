@@ -85,11 +85,16 @@ export async function GET(req: NextRequest) {
       for (const e of iterable as any[]) {
         if (!e || typeof e !== "object") continue;
         const label = e.libelle || e.libelleClient;
-        if (label) {
-          if (e.codeExamen && !labelByCode[e.codeExamen]) labelByCode[e.codeExamen] = label;
-          if (e.codeExamenClient && !labelByCode[e.codeExamenClient]) {
-            labelByCode[e.codeExamenClient] = label;
-          }
+        if (!label) continue;
+        // Codes standards
+        if (e.codeExamen && !labelByCode[e.codeExamen]) labelByCode[e.codeExamen] = label;
+        if (e.codeExamenClient && !labelByCode[e.codeExamenClient]) {
+          labelByCode[e.codeExamenClient] = label;
+        }
+        // Code "avec injection" (IRM/Scanner injectés) : libellé suffixé pour
+        // distinguer visuellement de la version standard.
+        if (e.codeExamenClientInject && !labelByCode[e.codeExamenClientInject]) {
+          labelByCode[e.codeExamenClientInject] = `${label} (avec injection)`;
         }
       }
     }
