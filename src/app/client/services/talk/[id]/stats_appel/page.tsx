@@ -10,8 +10,14 @@ import {
   Skeleton,
   Popover,
   Select,
-  MenuItem
+  MenuItem,
+  Stack,
+  Chip,
+  Tooltip as MuiTooltip,
+  Tab,
+  Tabs,
 } from "@mui/material";
+import { IconTrendingUp, IconTrendingDown } from "@tabler/icons-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useTalkBasePath } from "@/utils/talkRoutes";
@@ -44,6 +50,34 @@ import { useCentre } from "@/app/context/CentreContext";
 import { subDays, startOfDay, endOfDay } from "date-fns";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import DateRangePresets from "@/components/DateRangePresets";
+import {
+  TransferCategory,
+  CATEGORY_META,
+  CATEGORY_ORDER,
+  getTransferMeta,
+  isCounterTransfer,
+} from "@/lib/transferReasons";
+import { getLanguageMeta, LANGUAGE_META, LanguageCode } from "@/lib/languages";
+import {
+  HANGUP_CONTEXTS,
+  UNKNOWN_HANGUP_CONTEXT,
+  isHangup,
+  getHangupContext,
+  HangupContextKey,
+} from "@/lib/hangupContext";
+import {
+  computeDelta,
+  computePreviousRange,
+  DeltaResult,
+  DeltaDirection,
+} from "@/lib/deltaCompare";
+import {
+  rowsToCsv,
+  downloadCsv,
+  isoDateForFilename,
+  formatDateFr,
+} from "@/lib/csvExport";
+import { IconDownload } from "@tabler/icons-react";
 
 /* =========================================================
    Types & utils
@@ -160,17 +194,126 @@ function secondsToMinLabel(totalSeconds: number) {
 }
 
 /* =========================================================
+   Heatmap helpers
+========================================================= */
+
+/** Jours en français, ordre européen (Lun → Dim). */
+const HEATMAP_DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+const HEATMAP_DAYS_FULL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+
+/**
+ * Construit une matrice 7×24 [jour][heure] = count, à partir d'un array
+ * d'appels et d'un filtre optionnel (pour ne compter que les RDV pris,
+ * les planning complets, etc.).
+ */
+function buildHeatmap(
+  calls: any[],
+  filter?: (call: any) => boolean
+): { matrix: number[][]; max: number; total: number } {
+  const matrix: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+  let max = 0;
+  let total = 0;
+  for (const c of calls) {
+    if (filter && !filter(c)) continue;
+    if (!c?.createdAt) continue;
+    const d = new Date(c.createdAt);
+    // JS getDay() : 0=Dim..6=Sam → on remappe en Lun=0..Dim=6 (convention FR)
+    const jsDay = d.getDay();
+    const dayIdx = jsDay === 0 ? 6 : jsDay - 1;
+    const hour = d.getHours();
+    matrix[dayIdx][hour]++;
+    total++;
+    if (matrix[dayIdx][hour] > max) max = matrix[dayIdx][hour];
+  }
+  return { matrix, max, total };
+}
+
+/* =========================================================
    UI components
 ========================================================= */
+
+/** Petit badge delta affiché sous la valeur principale d'une StatTile. */
+function DeltaBadge({
+  delta,
+  previousLabel,
+}: {
+  delta: DeltaResult;
+  previousLabel: string;
+}) {
+  // "insufficient" → on n'affiche rien (signal silencieux : période précédente
+  // trop petite pour être statistiquement fiable).
+  if (delta.kind === "insufficient") return null;
+
+  const TONE_COLORS: Record<"positive" | "negative" | "neutral", { color: string; bg: string }> = {
+    positive: { color: "#15803d", bg: "rgba(34,197,94,0.15)" },
+    negative: { color: "#b91c1c", bg: "rgba(239,68,68,0.15)" },
+    neutral: { color: "#4b5563", bg: "rgba(156,163,175,0.18)" },
+  };
+
+  let label: string;
+  let tone: "positive" | "negative" | "neutral" = "neutral";
+  let icon: React.ReactNode = null;
+  let tooltipExtra = "";
+
+  if (delta.kind === "equal") {
+    label = "=";
+    tone = "neutral";
+    tooltipExtra = `Identique à la période précédente (${delta.previous})`;
+  } else if (delta.kind === "new") {
+    label = "Nouveau";
+    tone = "positive";
+    tooltipExtra = `Aucune donnée sur la période précédente (${previousLabel})`;
+  } else {
+    // delta.kind === "delta"
+    const formatted = `${delta.pct > 0 ? "+" : ""}${delta.pct}%`;
+    icon = delta.sign === "up" ? <IconTrendingUp size={12} /> : <IconTrendingDown size={12} />;
+    label = formatted;
+    tone = delta.tone;
+    tooltipExtra = `vs ${delta.previous} ${previousLabel}`;
+  }
+
+  const t = TONE_COLORS[tone];
+  return (
+    <MuiTooltip title={tooltipExtra} arrow placement="top">
+      <Box
+        component="span"
+        sx={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 0.25,
+          mt: 0.25,
+          px: 0.75,
+          py: 0.1,
+          borderRadius: 0.75,
+          bgcolor: t.bg,
+          color: t.color,
+          fontSize: 11,
+          fontWeight: 700,
+          lineHeight: 1.4,
+          cursor: "help",
+        }}
+      >
+        {icon}
+        {label}
+      </Box>
+    </MuiTooltip>
+  );
+}
 
 function StatTile({
   title,
   value,
   icon,
+  delta,
+  previousLabel,
 }: {
   title: string;
   value: string | number;
   icon: React.ReactNode;
+  /** Si fourni, affiche un badge "↗ +18%" sous la valeur. */
+  delta?: DeltaResult;
+  /** Suffixe humain pour le tooltip du badge (ex: "sur la semaine précédente"). */
+  previousLabel?: string;
 }) {
   return (
     <Paper
@@ -203,6 +346,7 @@ function StatTile({
         <Typography variant="h5" fontWeight={700} noWrap>
           {value}
         </Typography>
+        {delta && <DeltaBadge delta={delta} previousLabel={previousLabel ?? ""} />}
       </Box>
     </Paper>
   );
@@ -212,7 +356,13 @@ function StatTileDouble({
   items,
   icon,
 }: {
-  items: { title: string; value: string | number }[];
+  items: {
+    title: string;
+    value: string | number;
+    /** Si fourni, badge delta affiché sous la valeur de cet item. */
+    delta?: DeltaResult;
+    previousLabel?: string;
+  }[];
   icon: React.ReactNode;
 }) {
   return (
@@ -249,6 +399,9 @@ function StatTileDouble({
             <Typography variant="h5" fontWeight={700} noWrap>
               {item.value}
             </Typography>
+            {item.delta && (
+              <DeltaBadge delta={item.delta} previousLabel={item.previousLabel ?? ""} />
+            )}
           </Box>
         ))}
       </Box>
@@ -285,6 +438,144 @@ function ChartSkeleton() {
   );
 }
 
+/**
+ * Heatmap 7 jours × 24 heures. Une cellule par créneau, coloration par
+ * intensité (clair → foncé) en fonction du max global de la matrice.
+ *
+ * - `colorRgb` : "R, G, B" — la cellule devient `rgba(R,G,B, 0.15→1)` selon
+ *   l'intensité. Cellules vides : gris très clair.
+ * - Tooltip au survol avec jour/heure/valeur.
+ */
+function Heatmap({
+  matrix,
+  max,
+  colorRgb,
+  metricLabel,
+}: {
+  matrix: number[][];
+  max: number;
+  colorRgb: string;
+  metricLabel: string;
+}) {
+  return (
+    <Box sx={{ overflowX: "auto" }}>
+      <Box sx={{ minWidth: 720, display: "inline-block" }}>
+        {/* Header heures (00 → 23, label 1 sur 2 pour pas surcharger) */}
+        <Box sx={{ display: "flex", gap: "3px", pl: "44px", mb: 0.5 }}>
+          {Array.from({ length: 24 }, (_, h) => (
+            <Box
+              key={h}
+              sx={{
+                width: 24,
+                textAlign: "center",
+                fontSize: 9,
+                color: "#9ca3af",
+                fontWeight: 600,
+              }}
+            >
+              {h % 2 === 0 ? `${String(h).padStart(2, "0")}h` : ""}
+            </Box>
+          ))}
+        </Box>
+
+        {/* Lignes : 7 jours */}
+        {matrix.map((row, dayIdx) => (
+          <Box
+            key={dayIdx}
+            sx={{ display: "flex", alignItems: "center", gap: "3px", mb: "3px" }}
+          >
+            <Box
+              sx={{
+                width: 40,
+                textAlign: "right",
+                pr: 1,
+                fontSize: 11,
+                color: "#374151",
+                fontWeight: 600,
+              }}
+            >
+              {HEATMAP_DAYS[dayIdx]}
+            </Box>
+            {row.map((value, h) => {
+              const intensity = max > 0 ? value / max : 0;
+              const isEmpty = value === 0;
+              const bg = isEmpty
+                ? "rgba(0,0,0,0.04)"
+                : `rgba(${colorRgb}, ${0.18 + intensity * 0.82})`;
+              return (
+                <MuiTooltip
+                  key={h}
+                  arrow
+                  placement="top"
+                  title={
+                    isEmpty
+                      ? `${HEATMAP_DAYS_FULL[dayIdx]} ${String(h).padStart(2, "0")}h — aucun`
+                      : `${HEATMAP_DAYS_FULL[dayIdx]} ${String(h).padStart(2, "0")}h — ${value} ${metricLabel}`
+                  }
+                >
+                  <Box
+                    sx={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: "4px",
+                      bgcolor: bg,
+                      transition: "transform 120ms ease, box-shadow 120ms ease",
+                      cursor: "pointer",
+                      "&:hover": {
+                        transform: "scale(1.4)",
+                        zIndex: 2,
+                        boxShadow: `0 4px 12px rgba(${colorRgb}, 0.4)`,
+                      },
+                    }}
+                  />
+                </MuiTooltip>
+              );
+            })}
+          </Box>
+        ))}
+
+        {/* Légende intensité */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            mt: 1.5,
+            pl: "44px",
+          }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+            Moins
+          </Typography>
+          {[0.18, 0.36, 0.54, 0.72, 1].map((alpha) => (
+            <Box
+              key={alpha}
+              sx={{
+                width: 16,
+                height: 12,
+                borderRadius: "3px",
+                bgcolor: `rgba(${colorRgb}, ${alpha})`,
+              }}
+            />
+          ))}
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+            Plus
+          </Typography>
+          {max > 0 && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontSize: 10, ml: 2 }}
+            >
+              Max sur la période : <strong>{max}</strong>
+            </Typography>
+          )}
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
 /* =========================================================
    Page principale
 ========================================================= */
@@ -300,6 +591,8 @@ export default function StatsAppelPage({ params }: any) {
   const { centres, selectedUserId } = useCentre();
   const [selectedExamCode, setSelectedExamCode] = useState<string | "all">("all");
   const [calls, setCalls] = useState<Call[]>([]);
+  /** Appels de la période précédente — pour calcul des deltas sur les KPI. */
+  const [previousCalls, setPreviousCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Distribution par sous-centre
@@ -425,6 +718,53 @@ export default function StatsAppelPage({ params }: any) {
     return () => controller.abort();
   }, [status, centres.length, effectiveUserId, dateRange, userProductId, daysAgoForRange]);
 
+  /**
+   * Période de comparaison N-1 dérivée du dateRange courant.
+   * `null` pour les ranges d'1 jour (delta non pertinent).
+   */
+  const previousRange = useMemo(
+    () => computePreviousRange(dateRange.from, dateRange.to),
+    [dateRange.from, dateRange.to]
+  );
+
+  /**
+   * Fetch des appels de la période précédente — pour calcul des deltas vs N-1
+   * sur les tuiles KPI. Pas exécuté si `previousRange` est null (single day).
+   * Utilise le mécanisme `from`/`to` existant côté backend.
+   */
+  useEffect(() => {
+    if (!effectiveUserId || !previousRange) {
+      setPreviousCalls([]);
+      return;
+    }
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          userProductId: String(userProductId),
+          mode: "all",
+          from: previousRange.from.toISOString(),
+          to: previousRange.to.toISOString(),
+          asUserId: String(effectiveUserId),
+        });
+        const res = await fetch(`/api/calls?${params.toString()}`, {
+          signal: controller.signal,
+          cache: "no-store",
+          headers: { "Cache-Control": "no-store" },
+        });
+        const data = await res.json();
+        // Mode all renvoie un array (ou { data, previous } si includePrevious).
+        const list = Array.isArray(data) ? data : data?.data ?? [];
+        setPreviousCalls(list);
+      } catch (e) {
+        if (!isAbortError(e)) {
+          console.error("Erreur fetch appels période précédente :", e);
+        }
+      }
+    })();
+    return () => controller.abort();
+  }, [effectiveUserId, userProductId, previousRange]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -544,11 +884,15 @@ export default function StatsAppelPage({ params }: any) {
     }, 0);
   }, [calls]);
 
+  // "Examens non pris en charge" — toute la catégorie examen_non_traitable
+  // (exam_type, exam_not_practiced, exam_interv, exam_mult, doppler_*, …),
+  // pas seulement exam_type comme avant. Évite la sous-estimation.
   const notPerformed = useMemo(() => {
     return calls.reduce((acc, c: any) => {
-      console.log(c.stats.transferReason);
-      const n = Number(c?.stats?.transferReason == "exam_type" ? 1 : 0);
-      return acc + (Number.isFinite(n) ? n : 0);
+      const reason = c?.stats?.transferReason;
+      if (!reason) return acc;
+      const meta = getTransferMeta(reason);
+      return acc + (meta.category === "examen_non_traitable" ? 1 : 0);
     }, 0);
   }, [calls]);
 
@@ -572,6 +916,258 @@ export default function StatsAppelPage({ params }: any) {
     }, 0);
   }, [calls]);
 
+  /* ========== KPI période précédente + deltas ==========
+   * Mêmes calculs que ci-dessus appliqués à `previousCalls`, puis on dérive
+   * les deltas vs courant via `computeDelta` (direction métier par KPI). */
+  const previousKpis = useMemo(() => {
+    const p = previousCalls;
+    return {
+      totalAppels: p.length,
+      nbRDV: p.reduce(
+        (acc, c: any) => acc + (Number(c?.stats?.rdv_booked ?? 0) || 0),
+        0
+      ),
+      nbUrgence: p.filter((c) => normalizeReso(c) === "urgence").length,
+      nbInfo: p.filter((c) => normalizeReso(c) === "info").length,
+      heuresSec: sumDurationsSec(p),
+      annulation: p.reduce(
+        (acc, c: any) => acc + (Number(c?.stats?.rdv_canceled ?? 0) || 0),
+        0
+      ),
+      modification: p.reduce(
+        (acc, c: any) => acc + (Number(c?.stats?.rdv_modified ?? 0) || 0),
+        0
+      ),
+      notPerformed: p.reduce((acc, c: any) => {
+        const r = c?.stats?.transferReason;
+        if (!r) return acc;
+        return acc + (getTransferMeta(r).category === "examen_non_traitable" ? 1 : 0);
+      }, 0),
+      radioInter: p.reduce(
+        (acc, c: any) => acc + (c.stats?.transferReason === "exam_interv" ? 1 : 0),
+        0
+      ),
+      noSlotApi: p.reduce(
+        (acc, c: any) => acc + (c?.stats?.no_slot_api_retrieve ? 1 : 0),
+        0
+      ),
+      confirmRDV: p.reduce(
+        (acc, c: any) => acc + (c?.stats?.rdv_status === "confirmed" ? 1 : 0),
+        0
+      ),
+    };
+  }, [previousCalls]);
+
+  const currentHeuresSec = useMemo(() => sumDurationsSec(calls), [calls]);
+
+  /**
+   * Deltas affichés sur les tuiles. `null` si la plage est d'1 jour
+   * (computePreviousRange → null) → pas de badge dans ce cas.
+   */
+  const deltas = useMemo(() => {
+    if (!previousRange) return null;
+    return {
+      totalAppels: computeDelta(totalAppels, previousKpis.totalAppels, "higher_is_better"),
+      nbRDV: computeDelta(nbRDV, previousKpis.nbRDV, "higher_is_better"),
+      nbUrgence: computeDelta(nbUrgence, previousKpis.nbUrgence, "neutral"),
+      nbInfo: computeDelta(nbInfo, previousKpis.nbInfo, "neutral"),
+      heures: computeDelta(currentHeuresSec, previousKpis.heuresSec, "higher_is_better"),
+      annulation: computeDelta(annulation, previousKpis.annulation, "neutral"),
+      modification: computeDelta(modification, previousKpis.modification, "neutral"),
+      notPerformed: computeDelta(notPerformed, previousKpis.notPerformed, "lower_is_better"),
+      radioInter: computeDelta(radioInter, previousKpis.radioInter, "neutral"),
+      noSlotApi: computeDelta(noSlotApi, previousKpis.noSlotApi, "lower_is_better"),
+      confirmRDV: computeDelta(confirmRDV, previousKpis.confirmRDV, "higher_is_better"),
+    };
+  }, [
+    previousRange,
+    previousKpis,
+    totalAppels,
+    nbRDV,
+    nbUrgence,
+    nbInfo,
+    currentHeuresSec,
+    annulation,
+    modification,
+    notPerformed,
+    radioInter,
+    noSlotApi,
+    confirmRDV,
+  ]);
+
+  /** Suffixe humain pour le tooltip des deltas (ex: "du 12 mai au 18 mai"). */
+  const previousLabel = previousRange?.label ?? "";
+
+  /** Format court d'un delta pour insertion CSV ("+18%" / "-12%" / "=" / "Nouveau" / ""). */
+  const formatDeltaForCsv = (d?: DeltaResult): string => {
+    if (!d) return "";
+    if (d.kind === "insufficient") return "";
+    if (d.kind === "equal") return "=";
+    if (d.kind === "new") return "Nouveau";
+    return `${d.pct > 0 ? "+" : ""}${d.pct}%`;
+  };
+
+  /* ========== Heatmap : 4 datasets calculés à la volée ========== */
+  type HeatmapMetricKey = "calls" | "rdv" | "planning" | "transfer";
+  const [heatmapMetric, setHeatmapMetric] = useState<HeatmapMetricKey>("calls");
+
+  const heatmapAll = useMemo(() => buildHeatmap(calls), [calls]);
+  const heatmapRdv = useMemo(
+    () =>
+      buildHeatmap(calls, (c: any) => Number(c?.stats?.rdv_booked ?? 0) > 0),
+    [calls]
+  );
+  const heatmapPlanning = useMemo(
+    () => buildHeatmap(calls, (c: any) => !!c?.stats?.no_slot_api_retrieve),
+    [calls]
+  );
+  const heatmapTransfer = useMemo(
+    () => buildHeatmap(calls, (c: any) => isCounterTransfer(c?.stats)),
+    [calls]
+  );
+
+  const heatmapConfig: Record<
+    HeatmapMetricKey,
+    {
+      label: string;
+      shortLabel: string;
+      description: string;
+      colorRgb: string;
+      data: { matrix: number[][]; max: number; total: number };
+    }
+  > = {
+    calls: {
+      label: "Appels",
+      shortLabel: "appels",
+      description: "Volume total d'appels par créneau — repère les heures de pointe",
+      colorRgb: "72, 200, 175",
+      data: heatmapAll,
+    },
+    rdv: {
+      label: "RDV pris",
+      shortLabel: "RDV",
+      description: "Quand les RDV se concrétisent — heures les plus productives",
+      colorRgb: "34, 197, 94",
+      data: heatmapRdv,
+    },
+    planning: {
+      label: "Planning complet",
+      shortLabel: "satur.",
+      description: "Quand les planning complets explosent — signal d'ouvrir des plages",
+      colorRgb: "124, 45, 77",
+      data: heatmapPlanning,
+    },
+    transfer: {
+      label: "Transferts secrétariat",
+      shortLabel: "transferts",
+      description: "Charge du secrétariat par créneau — anticipation des effectifs",
+      colorRgb: "239, 68, 68",
+      data: heatmapTransfer,
+    },
+  };
+  const currentHeatmap = heatmapConfig[heatmapMetric];
+
+  /**
+   * Construit un CSV multi-sections à partir des stats déjà calculées sur la
+   * page, puis déclenche le téléchargement. Aucune nouvelle requête : on
+   * exporte exactement ce que l'utilisateur voit pour la période sélectionnée.
+   */
+  const handleExportCsv = () => {
+    const rows: Array<Array<unknown> | null> = [];
+
+    // ===== Section : Période =====
+    rows.push(["Statistiques d'appels - Export"]);
+    rows.push(["Période du", formatDateFr(dateRange.from), "au", formatDateFr(dateRange.to)]);
+    if (previousRange) {
+      rows.push(["Comparaison avec", previousRange.label]);
+    }
+    rows.push(["Nombre total d'appels analysés", calls.length]);
+    rows.push(null);
+
+    // ===== Section : Indicateurs principaux =====
+    rows.push(["INDICATEURS PRINCIPAUX"]);
+    rows.push(["Indicateur", "Valeur", "Évolution"]);
+    rows.push(["Total d'appels", totalAppels, formatDeltaForCsv(deltas?.totalAppels)]);
+    rows.push(["Prises de RDV", nbRDV, formatDeltaForCsv(deltas?.nbRDV)]);
+    rows.push(["Urgences détectées", nbUrgence, formatDeltaForCsv(deltas?.nbUrgence)]);
+    rows.push(["Informations", nbInfo, formatDeltaForCsv(deltas?.nbInfo)]);
+    rows.push(["Heures prises en charge", heuresPrisEnCharge, formatDeltaForCsv(deltas?.heures)]);
+    rows.push(["Annulations", annulation, formatDeltaForCsv(deltas?.annulation)]);
+    rows.push(["Modifications", modification, formatDeltaForCsv(deltas?.modification)]);
+    rows.push(["Examens non pris en charge", notPerformed, formatDeltaForCsv(deltas?.notPerformed)]);
+    rows.push(["Planning complet", noSlotApi, formatDeltaForCsv(deltas?.noSlotApi)]);
+    rows.push(["Radio interventionnelle", radioInter, formatDeltaForCsv(deltas?.radioInter)]);
+    rows.push(["Confirmations RDV", confirmRDV, formatDeltaForCsv(deltas?.confirmRDV)]);
+    rows.push(["Indice de performance", `${indicePerformance}/100`]);
+    rows.push(null);
+
+    // ===== Section : Transferts par catégorie =====
+    rows.push(["RÉPARTITION DES TRANSFERTS PAR CATÉGORIE"]);
+    rows.push(["Catégorie", "Nombre"]);
+    for (const t of transferData) {
+      if ((t as any).name === "Aucune donnée") continue;
+      rows.push([(t as any).name, (t as any).value]);
+    }
+    rows.push(null);
+
+    // ===== Section : Top raisons précises de transfert =====
+    if (transferReasonDetail.length > 0) {
+      rows.push(["TOP RAISONS PRÉCISES DE TRANSFERT"]);
+      rows.push(["Raison", "Catégorie", "Nombre d'appels"]);
+      for (const r of transferReasonDetail) {
+        rows.push([r.label, r.category, r.count]);
+      }
+      rows.push(null);
+    }
+
+    // ===== Section : Analyse des raccrochages =====
+    if (hangupAnalysis.total > 0) {
+      rows.push(["ANALYSE DES RACCROCHAGES"]);
+      rows.push(["Contexte", "Nombre", "Pourcentage"]);
+      for (const h of hangupAnalysis.items) {
+        rows.push([h.label, h.count, `${Math.round(h.pct * 10) / 10}%`]);
+      }
+      rows.push(null);
+    }
+
+    // ===== Section : Langues =====
+    if (languageData.hasDiversity) {
+      rows.push(["RÉPARTITION PAR LANGUE DE CONVERSATION"]);
+      rows.push(["Langue", "Nombre d'appels", "Pourcentage"]);
+      for (const l of languageData.items) {
+        rows.push([l.label, l.count, `${Math.round(l.pct * 10) / 10}%`]);
+      }
+      rows.push(null);
+    }
+
+    // ===== Section : Examens demandés (pour les RDV) =====
+    if (examPieData.length > 0) {
+      rows.push(["RÉPARTITION DES EXAMENS (RDV PRIS)"]);
+      rows.push(["Examen", "Nombre"]);
+      for (const e of examPieData) {
+        if ((e as any).name === "Aucune donnée") continue;
+        rows.push([(e as any).name, (e as any).value]);
+      }
+      rows.push(null);
+    }
+
+    // ===== Section : Heatmap (jour × heure) — métrique courante =====
+    rows.push([`HEATMAP - ${currentHeatmap.label.toUpperCase()} (jour × heure)`]);
+    const heatmapHeader: unknown[] = ["Jour"];
+    for (let h = 0; h < 24; h++) heatmapHeader.push(`${String(h).padStart(2, "0")}h`);
+    rows.push(heatmapHeader);
+    for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
+      const row: unknown[] = [HEATMAP_DAYS_FULL[dayIdx]];
+      for (let h = 0; h < 24; h++) row.push(currentHeatmap.data.matrix[dayIdx][h]);
+      rows.push(row);
+    }
+
+    const csv = rowsToCsv(rows);
+    const fromStr = isoDateForFilename(dateRange.from);
+    const toStr = isoDateForFilename(dateRange.to);
+    downloadCsv(`stats-appels_${fromStr}_${toStr}.csv`, csv);
+  };
+
   // 3ème ligne
   const examLabelMap = useMemo(() => {
     if (!mapping) return {};
@@ -593,7 +1189,6 @@ export default function StatsAppelPage({ params }: any) {
   const examPieData = useMemo(() => {
     const buckets: Record<string, number> = {};
 
-    console.log(calls.filter((e: any) => e.stats.rdv_status == "success"));
     for (const c of calls as any[]) {
       const rawExam = c?.stats?.exam_type_id;
       const rdv = Number(c?.stats?.rdv_booked ?? 0);
@@ -634,7 +1229,6 @@ export default function StatsAppelPage({ params }: any) {
       const codes = Array.isArray(code) ? code : [code];
 
       codes.forEach((e) => {
-        console.log("mapping", mapping);
         const element = mapping?.find((m: any) => m.diminutif == e);
         if (element && !map.has(element.diminutif)) {
           map.set(element.diminutif, {
@@ -688,67 +1282,115 @@ export default function StatsAppelPage({ params }: any) {
     return sum === 0 ? [{ name: "Aucune donnée", value: 1 }] : arr;
   }, [calls, selectedExamCode]);
 
-  /* ========== Camembert (transfer) ========== */
-  const TRANSFER_KEYS = [
-    "redirect",
-    "error",
-    "exam_type",
-    "exam_mult",
-    "exam_interv",
-    "emergency",
-    "doctor",
-    "admin",
-    "result",
-    "incident",
-    "identification",
-  ] as const;
-
-  type TransferKey = (typeof TRANSFER_KEYS)[number];
-
-  const TRANSFER_LABELS: Record<string, string> = {
-    redirect: "Redirection demandée",
-    error: "Erreur",
-    exam_type: "Type d\'examen non pris en charge",
-    exam_mult: "Plusieurs examens demandés",
-    exam_interv: "Demande de radio interventionnelle",
-    emergency: "Urgence",
-    doctor: "Professionnel de santé",
-    admin: "Démarches administratives",
-    result: "Résultats d\'examens",
-    incident: "Demande à traiter par un humain",
-    identification: "Problème d\'identification",
-  };
-
+  /* ========== Camembert transferts — par CATÉGORIE ==========
+   * Comptage : on garde uniquement les "vrais" transferts vers secrétariat
+   * (end_reason === 'transfer' ET catégorie ≠ non_transfert). Source de vérité
+   * dans `src/lib/transferReasons.ts`. */
   const transferData = useMemo(() => {
-    const buckets: Record<TransferKey, number> = {
-      redirect: 0,
-      error: 0,
-      exam_type: 0,
-      exam_mult: 0,
-      exam_interv: 0,
-      emergency: 0,
-      doctor: 0,
-      admin: 0,
-      result: 0,
-      incident: 0,
-      identification: 0,
+    const buckets: Record<TransferCategory, number> = {
+      demande_patient: 0,
+      examen_non_traitable: 0,
+      patient_introuvable: 0,
+      incomprehension_etape: 0,
+      pas_de_creneau: 0,
+      erreur_technique: 0,
+      non_transfert: 0,
+      autre: 0,
     };
 
     for (const c of calls) {
-      const reason = (c as any)?.stats?.transferReason as TransferKey | undefined;
-      if (reason && reason in buckets) {
-        buckets[reason]++;
-      }
+      const stats = (c as any)?.stats;
+      if (!isCounterTransfer(stats)) continue;
+      const meta = getTransferMeta(stats?.transferReason);
+      buckets[meta.category]++;
     }
 
-    const arr = TRANSFER_KEYS.map((key) => ({
-      key,
-      name: TRANSFER_LABELS[key],
-      value: buckets[key],
+    const arr = CATEGORY_ORDER.filter((cat) => cat !== "non_transfert").map((cat) => ({
+      key: cat,
+      name: CATEGORY_META[cat].label,
+      value: buckets[cat],
+      color: CATEGORY_META[cat].color,
     }));
 
     const sum = arr.reduce((a, b) => a + b.value, 0);
-    return sum === 0 ? [{ name: "Aucune donnée", value: 1 }] : arr;
+    return sum === 0 ? [{ name: "Aucune donnée", value: 1, color: "#9ca3af" }] : arr;
+  }, [calls]);
+
+  /* ========== BarChart : top des raisons précises ========== */
+  const transferReasonDetail = useMemo(() => {
+    const buckets = new Map<string, { reason: string; label: string; category: TransferCategory; count: number }>();
+    for (const c of calls) {
+      const stats = (c as any)?.stats;
+      if (!isCounterTransfer(stats)) continue;
+      const reason = stats?.transferReason as string | undefined;
+      if (!reason) continue;
+      const meta = getTransferMeta(reason);
+      const existing = buckets.get(reason);
+      if (existing) {
+        existing.count++;
+      } else {
+        buckets.set(reason, {
+          reason,
+          label: meta.label,
+          category: meta.category,
+          count: 1,
+        });
+      }
+    }
+    return Array.from(buckets.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 12);
+  }, [calls]);
+
+  /* ========== Répartition par langue de conversation ==========
+   * On n'affiche le widget QUE si on observe au moins UNE langue ≠ "fr" sur la
+   * période — sinon (100% français), pas d'intérêt à montrer un graphique
+   * monochrome. */
+  const languageData = useMemo(() => {
+    const buckets = new Map<LanguageCode, number>();
+    for (const c of calls as any[]) {
+      const lang = (c?.stats?.language as string | undefined) ?? "fr";
+      const meta = getLanguageMeta(lang);
+      buckets.set(meta.code, (buckets.get(meta.code) ?? 0) + 1);
+    }
+    const total = Array.from(buckets.values()).reduce((s, v) => s + v, 0);
+    const items = Array.from(buckets.entries())
+      .map(([code, count]) => ({
+        code,
+        ...LANGUAGE_META[code],
+        count,
+        pct: total > 0 ? (count / total) * 100 : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+    const hasDiversity = items.some((i) => i.code !== "fr" && i.count > 0);
+    return { items, total, hasDiversity };
+  }, [calls]);
+
+  /* ========== Analyse des raccrochages par étape ==========
+   * Regroupe les appels "raccroché" (pas de RDV + pas de transfert) selon le
+   * `last_state` du bot, pour expliquer pourquoi le patient a abandonné. */
+  const hangupAnalysis = useMemo(() => {
+    const buckets = new Map<HangupContextKey, number>();
+    let total = 0;
+    for (const c of calls as any[]) {
+      const ctx = getHangupContext(c?.stats);
+      if (!ctx) continue;
+      total++;
+      buckets.set(ctx.key, (buckets.get(ctx.key) ?? 0) + 1);
+    }
+    const allCtx = [...HANGUP_CONTEXTS, UNKNOWN_HANGUP_CONTEXT];
+    const items = allCtx
+      .map((ctx) => ({
+        key: ctx.key,
+        label: ctx.label,
+        description: ctx.description,
+        color: ctx.color,
+        count: buckets.get(ctx.key) ?? 0,
+        pct: total > 0 ? ((buckets.get(ctx.key) ?? 0) / total) * 100 : 0,
+      }))
+      .filter((item) => item.count > 0)
+      .sort((a, b) => b.count - a.count);
+    return { items, total };
   }, [calls]);
 
   /* ========== Camembert (intent) ========== */
@@ -1068,6 +1710,22 @@ export default function StatsAppelPage({ params }: any) {
             </Popover>
           </Box>
 
+          {/* Export CSV — désactivé pendant le chargement ou si aucun appel. */}
+          <Button
+            variant="outlined"
+            startIcon={<IconDownload size={16} />}
+            onClick={handleExportCsv}
+            disabled={loading || calls.length === 0}
+            sx={{
+              borderColor: "#48C8AF",
+              color: "#48C8AF",
+              "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
+              textTransform: "none",
+            }}
+          >
+            Télécharger CSV
+          </Button>
+
           <Button
             variant="outlined"
             onClick={() => router.push(`${basePath}`)}
@@ -1090,15 +1748,45 @@ export default function StatsAppelPage({ params }: any) {
             {loading ? (
               <StatTileSkeleton />
             ) : i === 0 ? (
-              <StatTile title="Total d&apos;appels" value={totalAppels} icon={<IconTotal />} />
+              <StatTile
+                title="Total d&apos;appels"
+                value={totalAppels}
+                icon={<IconTotal />}
+                delta={deltas?.totalAppels}
+                previousLabel={previousLabel}
+              />
             ) : i === 1 ? (
-              <StatTile title="Prises de RDV" value={nbRDV} icon={<IconRDV />} />
+              <StatTile
+                title="Prises de RDV"
+                value={nbRDV}
+                icon={<IconRDV />}
+                delta={deltas?.nbRDV}
+                previousLabel={previousLabel}
+              />
             ) : i === 2 ? (
-              <StatTile title="Urgences détectées" value={nbUrgence} icon={<IconUrgence />} />
+              <StatTile
+                title="Urgences détectées"
+                value={nbUrgence}
+                icon={<IconUrgence />}
+                delta={deltas?.nbUrgence}
+                previousLabel={previousLabel}
+              />
             ) : i === 3 ? (
-              <StatTile title="Informations" value={nbInfo} icon={<IconInfo />} />
+              <StatTile
+                title="Informations"
+                value={nbInfo}
+                icon={<IconInfo />}
+                delta={deltas?.nbInfo}
+                previousLabel={previousLabel}
+              />
             ) : (
-              <StatTile title="Heures prises en charge" value={heuresPrisEnCharge} icon={<IconHeures />} />
+              <StatTile
+                title="Heures prises en charge"
+                value={heuresPrisEnCharge}
+                icon={<IconHeures />}
+                delta={deltas?.heures}
+                previousLabel={previousLabel}
+              />
             )}
           </Grid>
         ))}
@@ -1111,22 +1799,154 @@ export default function StatsAppelPage({ params }: any) {
             ) : i === 0 ? (
               <StatTileDouble
                 items={[
-                  { title: "Annulation", value: annulation },
-                  { title: "Modification", value: modification },
+                  {
+                    title: "Annulation",
+                    value: annulation,
+                    delta: deltas?.annulation,
+                    previousLabel,
+                  },
+                  {
+                    title: "Modification",
+                    value: modification,
+                    delta: deltas?.modification,
+                    previousLabel,
+                  },
                 ]}
                 icon={<IconAnnulMod />}
               />
             ) : i === 1 ? (
-              <StatTile title="Examen non pris en charge" value={notPerformed == 0 ? "-" : notPerformed} icon={<IconExamNotHandled />} />
+              <StatTile
+                title="Examen non pris en charge"
+                value={notPerformed == 0 ? "-" : notPerformed}
+                icon={<IconExamNotHandled />}
+                delta={deltas?.notPerformed}
+                previousLabel={previousLabel}
+              />
             ) : i === 2 ? (
-              <StatTile title="Planning complet" value={noSlotApi == 0 ? "-" : noSlotApi} icon={<IconPlanningFull />} />
+              <StatTile
+                title="Planning complet"
+                value={noSlotApi == 0 ? "-" : noSlotApi}
+                icon={<IconPlanningFull />}
+                delta={deltas?.noSlotApi}
+                previousLabel={previousLabel}
+              />
             ) : i === 3 ? (
-              <StatTile title="Demande de radio interventionnel" value={radioInter == 0 ? "-" : radioInter} icon={<IconRadioInterv />} />
+              <StatTile
+                title="Demande de radio interventionnel"
+                value={radioInter == 0 ? "-" : radioInter}
+                icon={<IconRadioInterv />}
+                delta={deltas?.radioInter}
+                previousLabel={previousLabel}
+              />
             ) : (
-              <StatTile title="Confirmation RDV" value={confirmRDV == 0 ? "-" : confirmRDV} icon={<IconConfirmRDV />} />
+              <StatTile
+                title="Confirmation RDV"
+                value={confirmRDV == 0 ? "-" : confirmRDV}
+                icon={<IconConfirmRDV />}
+                delta={deltas?.confirmRDV}
+                previousLabel={previousLabel}
+              />
             )}
           </Grid>
         ))}
+      </Grid>
+
+      {/* Heatmap horaire × jour de la semaine */}
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12}>
+          <Paper sx={{ p: 2.5 }}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              alignItems={{ xs: "flex-start", sm: "center" }}
+              spacing={1.5}
+              sx={{ mb: 1.5, flexWrap: "wrap", gap: 1 }}
+            >
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="h6" fontWeight={700}>
+                  Heatmap d&apos;activité
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {currentHeatmap.description}
+                </Typography>
+              </Box>
+              <Tabs
+                value={heatmapMetric}
+                onChange={(_, v) => setHeatmapMetric(v as HeatmapMetricKey)}
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{
+                  minHeight: 36,
+                  "& .MuiTab-root": {
+                    textTransform: "none",
+                    fontWeight: 600,
+                    fontSize: 12,
+                    minHeight: 36,
+                    py: 0.5,
+                    px: 1.5,
+                  },
+                  "& .Mui-selected": { color: "#2a6f64 !important" },
+                  "& .MuiTabs-indicator": {
+                    backgroundColor: `rgb(${currentHeatmap.colorRgb})`,
+                    height: 2,
+                  },
+                }}
+              >
+                {(["calls", "rdv", "planning", "transfer"] as HeatmapMetricKey[]).map((k) => {
+                  const c = heatmapConfig[k];
+                  return (
+                    <Tab
+                      key={k}
+                      value={k}
+                      label={
+                        <Stack direction="row" alignItems="center" spacing={0.75}>
+                          <span>{c.label}</span>
+                          {c.data.total > 0 && (
+                            <Chip
+                              size="small"
+                              label={c.data.total}
+                              sx={{
+                                height: 18,
+                                fontSize: 10,
+                                fontWeight: 700,
+                                bgcolor: `rgba(${c.colorRgb}, 0.15)`,
+                                color: "#374151",
+                              }}
+                            />
+                          )}
+                        </Stack>
+                      }
+                    />
+                  );
+                })}
+              </Tabs>
+            </Stack>
+
+            {loading ? (
+              <ChartSkeleton />
+            ) : currentHeatmap.data.total === 0 ? (
+              <Box
+                sx={{
+                  py: 6,
+                  display: "grid",
+                  placeItems: "center",
+                  border: "1px dashed #e5e7eb",
+                  borderRadius: 2,
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Aucune donnée &laquo; {currentHeatmap.label} &raquo; sur la période.
+                </Typography>
+              </Box>
+            ) : (
+              <Heatmap
+                matrix={currentHeatmap.data.matrix}
+                max={currentHeatmap.data.max}
+                colorRgb={currentHeatmap.colorRgb}
+                metricLabel={currentHeatmap.shortLabel}
+              />
+            )}
+          </Paper>
+        </Grid>
       </Grid>
 
       {/* 3 blocs : Performance / Histogramme / Activité horaire */}
@@ -1232,8 +2052,8 @@ export default function StatsAppelPage({ params }: any) {
                       outerRadius={100}
                       paddingAngle={2}
                     >
-                      {transferData.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      {transferData.map((d: any, i) => (
+                        <Cell key={i} fill={d.color || PIE_COLORS[i % PIE_COLORS.length]} />
                       ))}
                     </Pie>
                     <Legend
@@ -1322,6 +2142,225 @@ export default function StatsAppelPage({ params }: any) {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Détail des raisons précises de transfert (drill-down sous le camembert) */}
+      <Grid container spacing={2} sx={{ mt: 2 }}>
+        <Grid item xs={12}>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" fontWeight={700}>
+              Top des raisons précises de transfert
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Détail des 12 motifs les plus fréquents — couleur selon la catégorie
+            </Typography>
+            {loading ? (
+              <ChartSkeleton />
+            ) : transferReasonDetail.length === 0 ? (
+              <Box
+                sx={{
+                  height: 220,
+                  display: "grid",
+                  placeItems: "center",
+                  border: "1px dashed #e5e7eb",
+                  borderRadius: 2,
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Aucun transfert vers secrétariat sur la période.
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{ width: "100%", height: Math.max(220, transferReasonDetail.length * 32) }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={transferReasonDetail}
+                    layout="vertical"
+                    margin={{ top: 8, right: 24, left: 8, bottom: 4 }}
+                  >
+                    <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tick={{ fontSize: 11, fill: "#6b7280" }}
+                      axisLine={{ stroke: "#e5e7eb" }}
+                      tickLine={false}
+                      allowDecimals={false}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: "#374151" }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={220}
+                    />
+                    <ReTooltip
+                      cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                      contentStyle={{
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        fontSize: 12,
+                        padding: "6px 10px",
+                      }}
+                      formatter={(value: any, _name: any, payload: any) => [
+                        `${value} appel${(value as number) > 1 ? "s" : ""}`,
+                        CATEGORY_META[(payload?.payload?.category ?? "autre") as TransferCategory]
+                          ?.label ?? "",
+                      ]}
+                    />
+                    <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                      {transferReasonDetail.map((d, i) => (
+                        <Cell key={i} fill={CATEGORY_META[d.category].color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Analyse des raccrochages — par étape du flow où le patient a
+          abandonné. Affiché uniquement s'il y a au moins 1 raccroché sur la
+          période, sinon pas de valeur ajoutée. */}
+      {hangupAnalysis.total > 0 && (
+        <Grid container spacing={2} sx={{ mt: 2 }}>
+          <Grid item xs={12}>
+            <Paper sx={{ p: 2 }}>
+              <Stack
+                direction="row"
+                alignItems="baseline"
+                spacing={1}
+                sx={{ mb: 0.5, flexWrap: "wrap" }}
+              >
+                <Typography variant="h6" fontWeight={700}>
+                  Analyse des raccrochages
+                </Typography>
+                <Chip
+                  size="small"
+                  label={`${hangupAnalysis.total} appel${hangupAnalysis.total > 1 ? "s" : ""}`}
+                  sx={{ fontWeight: 600 }}
+                />
+              </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                À quelle étape le patient a-t-il raccroché ? Permet d&apos;expliquer
+                certains abandons (créneaux non adaptés, hésitation finale, etc.).
+              </Typography>
+              <Stack spacing={1.5}>
+                {hangupAnalysis.items.map((ctx) => (
+                  <Box key={ctx.key}>
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
+                      sx={{ mb: 0.5 }}
+                    >
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: "50%",
+                          bgcolor: ctx.color,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="caption" fontWeight={700} sx={{ display: "block" }}>
+                          {ctx.label}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: "block", fontSize: 11, lineHeight: 1.35 }}
+                        >
+                          {ctx.description}
+                        </Typography>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                        {ctx.count} ({Math.round(ctx.pct * 10) / 10}%)
+                      </Typography>
+                    </Stack>
+                    <Box
+                      sx={{
+                        height: 8,
+                        borderRadius: 4,
+                        bgcolor: "rgba(0,0,0,0.05)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: `${ctx.pct}%`,
+                          height: "100%",
+                          bgcolor: ctx.color,
+                          transition: "width 400ms ease",
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                ))}
+              </Stack>
+            </Paper>
+          </Grid>
+        </Grid>
+      )}
+
+      {/* Répartition par langue — affichée uniquement s'il y a au moins une
+          autre langue que le français sur la période (sinon graphique vide). */}
+      {languageData.hasDiversity && (
+        <Grid container spacing={2} sx={{ mt: 2 }}>
+          <Grid item xs={12}>
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="h6" fontWeight={700}>
+                Répartition par langue de conversation
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Langue effective en fin d&apos;appel — détection auto ou question explicite
+              </Typography>
+              <Stack spacing={1.5}>
+                {languageData.items.map((lang) => (
+                  <Box key={lang.code}>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      sx={{ mb: 0.5 }}
+                    >
+                      <Typography variant="body2" sx={{ fontSize: 16 }}>
+                        {lang.flag}
+                      </Typography>
+                      <Typography variant="caption" fontWeight={600} sx={{ flex: 1 }}>
+                        {lang.label}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {lang.count} appel{lang.count > 1 ? "s" : ""} (
+                        {Math.round(lang.pct * 10) / 10}%)
+                      </Typography>
+                    </Stack>
+                    <Box
+                      sx={{
+                        height: 8,
+                        borderRadius: 4,
+                        bgcolor: "rgba(0,0,0,0.05)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: `${lang.pct}%`,
+                          height: "100%",
+                          bgcolor: lang.color,
+                          transition: "width 400ms ease",
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                ))}
+              </Stack>
+            </Paper>
+          </Grid>
+        </Grid>
+      )}
 
       <Grid container spacing={2} sx={{ mt: 2 }}>
         <Grid item xs={12} md={6}>

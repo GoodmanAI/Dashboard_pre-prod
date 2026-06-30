@@ -40,6 +40,12 @@ export async function GET(request: NextRequest) {
     const toParam = searchParams.get("to");
     const phoneParam = searchParams.get("phone");
     const flaggedParam = searchParams.get("flagged");
+    // Optionnel : si fournis, retourne aussi les appels de la période précédente
+    // dans le champ `previous` (pour calcul des deltas vs N-1 sur les stats).
+    // Les autres filtres (status, examType, …) sont appliqués à l'identique.
+    const previousFromParam = searchParams.get("previousFrom");
+    const previousToParam = searchParams.get("previousTo");
+    const includePrevious = !!(previousFromParam && previousToParam);
 
     // Recherche par numéro de téléphone : on ignore date / status / examType
     // pour rechercher sur la totalité des appels du centre.
@@ -231,6 +237,60 @@ export async function GET(request: NextRequest) {
     // MODE ALL → pas de pagination
     // ==========================
     if (mode === "all") {
+      // Si la page demande une comparaison (deltas vs N-1), on fait un 2e
+      // fetch sur la période précédente avec EXACTEMENT les mêmes filtres
+      // (whereClause cloné + range remplacé + mêmes post-filtres JS).
+      if (includePrevious) {
+        const previousWhere: any = {
+          ...whereClause,
+          createdAt: {
+            gte: new Date(previousFromParam!),
+            lte: new Date(previousToParam!),
+          },
+        };
+        let previousCalls = await prisma.callConversation.findMany({
+          where: previousWhere,
+          orderBy: { createdAt: "desc" },
+        });
+
+        // Reproduire les filtres post-fetch JS identiquement.
+        previousCalls = previousCalls.filter(
+          (c: any) => Array.isArray(c.steps) && c.steps.length > 1
+        );
+        if (statusParam === "hung_up") {
+          previousCalls = previousCalls.filter((c: any) => {
+            const s = c.stats || {};
+            const hasRdvStatus = !!s.rdv_status;
+            const hasRenseignements =
+              Array.isArray(s.intents) && s.intents.includes("renseignements");
+            return !hasRdvStatus && !hasRenseignements;
+          });
+        }
+        if (statusParam === "no_slot_api_retrieve") {
+          previousCalls = previousCalls.filter(
+            (c: any) => !!c?.stats?.no_slot_api_retrieve
+          );
+        }
+        if (statusParam === "not_performed") {
+          previousCalls = previousCalls.filter(
+            (c: any) => c?.stats?.transferReason === "exam_type"
+          );
+        }
+        if (phoneSearchActive) {
+          const needle = canonicalPhoneFR(phoneParam);
+          if (needle) {
+            previousCalls = previousCalls.filter((c: any) => {
+              const stored = canonicalPhoneFR(c?.stats?.phoneNumber);
+              return stored.includes(needle);
+            });
+          }
+        }
+
+        return NextResponse.json(
+          { data: calls, previous: previousCalls },
+          { status: 200 }
+        );
+      }
       return NextResponse.json(calls, { status: 200 });
     }
 

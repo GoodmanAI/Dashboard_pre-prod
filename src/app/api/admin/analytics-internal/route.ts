@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireAdmin } from "@/lib/auth-helpers";
+import { getTransferMeta, isCounterTransfer } from "@/lib/transferReasons";
 
 export const dynamic = "force-dynamic";
 
@@ -849,6 +850,98 @@ export async function GET(req: NextRequest) {
     cursor.setDate(cursor.getDate() + 1);
   }
 
+  // ---------- Transferts vers secrétariat (par catégorie + top étapes) ----------
+  // Source de vérité du mapping : src/lib/transferReasons.ts.
+  // On compte seulement les "vrais" transferts (end_reason === "transfer" ET
+  // catégorie ≠ non_transfert).
+  const transferCategoryDistribution: Record<string, number> = {};
+  /** Top étapes : étape ayant atteint la limite globale d'erreurs (error_logic_type)
+   * + toutes les valeurs `transferReason` de catégorie incomprehension_etape. */
+  const failedStepCounts = new Map<string, { step: string; label: string; count: number }>();
+  let transfersTotal = 0;
+  let serviceDisabledCount = 0;
+
+  // Timeseries par jour : 1 ligne par catégorie de transfert (multi-line chart).
+  const transfersByDay = new Map<string, Record<string, number>>();
+  const transferCategoryKeys = [
+    "demande_patient",
+    "examen_non_traitable",
+    "patient_introuvable",
+    "incomprehension_etape",
+    "pas_de_creneau",
+    "erreur_technique",
+    "autre",
+  ];
+
+  for (const c of calls) {
+    const stats = (c.stats as any) || {};
+    if (stats.transferReason === "service_disabled") serviceDisabledCount++;
+    if (!isCounterTransfer(stats)) continue;
+    transfersTotal++;
+    const meta = getTransferMeta(stats.transferReason);
+    transferCategoryDistribution[meta.category] =
+      (transferCategoryDistribution[meta.category] ?? 0) + 1;
+
+    // Bucket timeseries par jour local
+    const tDate = new Date(c.createdAt);
+    const tKey = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, "0")}-${String(tDate.getDate()).padStart(2, "0")}`;
+    if (!transfersByDay.has(tKey)) transfersByDay.set(tKey, {});
+    const tDay = transfersByDay.get(tKey)!;
+    tDay[meta.category] = (tDay[meta.category] ?? 0) + 1;
+
+    // Cas spécial error_logic : la vraie étape est dans `stats.error_logic_type`.
+    if (stats.transferReason === "error_logic") {
+      const step = stats.error_logic_type;
+      if (typeof step === "string" && step.trim() !== "") {
+        const k = step;
+        const stepMeta = getTransferMeta(k);
+        const label = stepMeta.isKnown ? stepMeta.label : k;
+        const existing = failedStepCounts.get(k);
+        if (existing) existing.count++;
+        else failedStepCounts.set(k, { step: k, label, count: 1 });
+      } else {
+        // Sans étape précise : bucket dédié pour ne pas perdre l'info.
+        const k = "error_logic";
+        const label = "Trop d'erreurs (étape non précisée)";
+        const existing = failedStepCounts.get(k);
+        if (existing) existing.count++;
+        else failedStepCounts.set(k, { step: k, label, count: 1 });
+      }
+    } else if (meta.category === "incomprehension_etape") {
+      // Les transferReason directement liés à une étape (get_birthdate, confirm_phone, …).
+      const k = stats.transferReason;
+      const existing = failedStepCounts.get(k);
+      if (existing) existing.count++;
+      else failedStepCounts.set(k, { step: k, label: meta.label, count: 1 });
+    }
+  }
+
+  const topFailedSteps = Array.from(failedStepCounts.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 15);
+
+  // Génère un point par jour (continuité). Un champ par catégorie présente.
+  const transfersTimeseries: Array<Record<string, string | number>> = [];
+  {
+    const tCursor = new Date(from);
+    tCursor.setHours(0, 0, 0, 0);
+    const tEnd = new Date(to);
+    tEnd.setHours(0, 0, 0, 0);
+    while (tCursor <= tEnd) {
+      const k = `${tCursor.getFullYear()}-${String(tCursor.getMonth() + 1).padStart(2, "0")}-${String(tCursor.getDate()).padStart(2, "0")}`;
+      const day = transfersByDay.get(k) ?? {};
+      const point: Record<string, string | number> = {
+        date: k,
+        dayLabel: tCursor.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" }),
+      };
+      for (const cat of transferCategoryKeys) {
+        point[cat] = day[cat] ?? 0;
+      }
+      transfersTimeseries.push(point);
+      tCursor.setDate(tCursor.getDate() + 1);
+    }
+  }
+
   // ---------- Réponse ----------
   return NextResponse.json({
     period: { from: from.toISOString(), to: to.toISOString() },
@@ -856,6 +949,14 @@ export async function GET(req: NextRequest) {
     callsWithInternal: n,
     timeseries,
     features,
+    transfers: {
+      total: transfersTotal,
+      categoryDistribution: transferCategoryDistribution,
+      topFailedSteps,
+      serviceDisabledCount,
+      timeseries: transfersTimeseries,
+      categoryKeys: transferCategoryKeys,
+    },
 
     identification: {
       finalStatusDistribution: finalStatuses,

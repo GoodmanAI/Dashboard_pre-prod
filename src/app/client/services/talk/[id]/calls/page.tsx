@@ -43,35 +43,8 @@ const states: any = { identification_birthdate: "- Etape Identification", identi
 
 const ITEMS_PER_PAGE = 10;
 
-const transferReason: any = {
-  exam_type: "- Type d'examen non géré",
-  redirect: "- Demande de redirection",
-  incident: "- Nécessite intervention humaine",
-  emergency: "- Urgence médicale",
-  multi_exam_not_accepted: "- Examens multiples non gérés",
-  multi_examen_double_us: "- Double échographie non gérée",
-  error_logic: "- Erreur incompréhension",
-  admin: "- Démarche administrative",
-  exam_interv: "- Examen interventionnel",
-  patient_not_found: "- Patient non trouvé",
-  error_identification: "- Erreur d'identification",
-  create_rdv_failed: "- Échec de création de RDV",
-};
-
-const transferColor: Record<string, string> = {
-  exam_type: "#4899B5",
-  redirect: "#4899B5",
-  incident: "#4899B5",
-  emergency: "#4899B5",
-  multi_exam_not_accepted: "#4899B5",
-  multi_examen_double_us: "#4899B5",
-  error_logic: "#f97316",
-  admin: "#4899B5",
-  exam_interv: "#4899B5",
-  patient_not_found: "#4899B5",
-  error_identification: "#4899B5",
-  create_rdv_failed: "#4899B5",
-};
+// Labels et couleurs des transferReason centralisés dans
+// `src/lib/transferReasons.ts` (utilisés via getTransferMeta + CATEGORY_META).
 
 const call_status: any = {
   no_slot: "Pas de créneaux",
@@ -84,6 +57,9 @@ const call_status: any = {
 };
 
 import { pink } from "@mui/material/colors";
+import { getTransferMeta, CATEGORY_META } from "@/lib/transferReasons";
+import { getLanguageMeta, isNonDefaultLanguage } from "@/lib/languages";
+import { getHangupContext } from "@/lib/hangupContext";
 
 function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
   const stats = call.stats;
@@ -96,7 +72,28 @@ function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
     variant?: "filled" | "outlined";
   }[] = [];
 
-  // Urgences
+  // PRIORITÉ ABSOLUE : service désactivé (kill switch côté config).
+  // Chip rouge bien visible — devrait être très rare en pratique.
+  if (stats.transferReason === "service_disabled") {
+    chips.push({
+      label: "⚠ Service désactivé",
+      customColor: "#ef4444",
+      textColor: "#fff",
+    });
+  }
+
+  // Langue de conversation : on n'affiche un chip QUE si ce n'est pas le
+  // français (la grande majorité des appels). Signal discret pour repérer
+  // les appels où le patient a basculé sur une autre langue.
+  if (isNonDefaultLanguage(stats.language)) {
+    const langMeta = getLanguageMeta(stats.language);
+    chips.push({
+      label: `${langMeta.flag} ${langMeta.label}`,
+      customColor: langMeta.color,
+    });
+  }
+
+  // Urgences (chip dédié, priorité visuelle élevée)
   if (stats.transferReason === "emergency") {
     chips.push({
       label: "Appel d'urgence",
@@ -128,11 +125,19 @@ function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
   }
 
   if (stats.end_reason === "transfer") {
-    const color = transferColor[stats.transferReason] ?? "#fdba74";
-    chips.push({
-      label: `Redirection ${transferReason[stats.transferReason] || ""}`.trim(),
-      customColor: color,
-    });
+    // Cas déjà chippés explicitement plus haut (chip dédié visuel) → on évite
+    // la duplication avec le chip générique "Redirection …".
+    const alreadyChipped =
+      stats.transferReason === "emergency" || stats.transferReason === "service_disabled";
+    if (!alreadyChipped) {
+      const meta = getTransferMeta(stats.transferReason);
+      const catMeta = CATEGORY_META[meta.category];
+      chips.push({
+        label: `Redirection — ${meta.label}`,
+        customColor: catMeta.color,
+        textColor: catMeta.textColor,
+      });
+    }
   }
 
   if (
@@ -144,6 +149,19 @@ function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
     chips.push({
       label: "Raccroché",
     });
+
+    // Chip contextuel additionnel : pourquoi a-t-il raccroché ?
+    // Basé sur stats.last_state mappé dans hangupContext.ts.
+    // On masque "Raccrochage indéterminé" (chip trivial) et "early_hangup"
+    // (le label "Raccroché" seul suffit déjà).
+    const ctx = getHangupContext(stats);
+    if (ctx && ctx.key !== "unknown" && ctx.key !== "early_hangup") {
+      chips.push({
+        label: ctx.label,
+        customColor: ctx.color,
+        variant: "outlined",
+      });
+    }
   }
 
   if (stats.rdv_status) {

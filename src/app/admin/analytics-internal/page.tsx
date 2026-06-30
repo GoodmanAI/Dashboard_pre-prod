@@ -65,6 +65,7 @@ import {
   Scatter,
   ZAxis,
   ReferenceLine,
+  Legend,
 } from "recharts";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
@@ -72,6 +73,7 @@ import DateRangePresets from "@/components/DateRangePresets";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import { useCentre } from "@/app/context/CentreContext";
 import { startOfDay, endOfDay, subDays } from "date-fns";
+import { CATEGORY_META, TransferCategory } from "@/lib/transferReasons";
 
 // ---------- Types ----------
 type TimeseriesPoint = {
@@ -128,6 +130,16 @@ type AnalyticsInternal = {
   callsWithInternal: number;
   timeseries: TimeseriesPoint[];
   features: Record<FeatureKey, FeatureData>;
+
+  /** Agrégats des transferts vers secrétariat sur la période. */
+  transfers: {
+    total: number;
+    categoryDistribution: Record<string, number>;
+    topFailedSteps: Array<{ step: string; label: string; count: number }>;
+    serviceDisabledCount: number;
+    timeseries: Array<Record<string, string | number>>;
+    categoryKeys: string[];
+  };
 
   identification: {
     finalStatusDistribution: Record<string, number>;
@@ -430,6 +442,368 @@ function DistributionBars({
         );
       })}
     </Stack>
+  );
+}
+
+// ---------- Transferts vers secrétariat (catégorie + top étapes d'incompréhension) ----------
+
+/** Petit helper local : récupère { color, label } pour une catégorie depuis le
+ * fichier mutualisé `src/lib/transferReasons.ts`, avec fallback "Autre" pour
+ * les valeurs inconnues. Évite la duplication des couleurs côté admin. */
+function getCategoryUI(key: string): { color: string; label: string } {
+  const meta = CATEGORY_META[key as TransferCategory] ?? CATEGORY_META.autre;
+  return { color: meta.color, label: meta.label };
+}
+
+function TransfersSection({ transfers }: { transfers: AnalyticsInternal["transfers"] }) {
+  const { total, categoryDistribution, topFailedSteps, serviceDisabledCount, timeseries, categoryKeys } = transfers;
+
+  // Catégories réellement présentes (>0) sur la période — pour ne pas tracer
+  // des lignes plates à 0 dans le multi-line.
+  const activeCategories = (categoryKeys ?? []).filter(
+    (cat) => (categoryDistribution[cat] ?? 0) > 0
+  );
+  const hasAnyTimeseriesData = (timeseries ?? []).some((p) =>
+    activeCategories.some((cat) => ((p[cat] as number) ?? 0) > 0)
+  );
+
+  const categoryItems = Object.entries(categoryDistribution)
+    .map(([key, count]) => ({
+      key,
+      count,
+      ...getCategoryUI(key),
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  const maxStep = topFailedSteps[0]?.count ?? 0;
+
+  return (
+    <Card elevation={1} sx={{ p: { xs: 2.5, md: 3 }, mb: 3 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: "12px",
+            display: "grid",
+            placeItems: "center",
+            bgcolor: "rgba(239,68,68,0.12)",
+            color: "#b91c1c",
+            flexShrink: 0,
+          }}
+        >
+          <IconAlertTriangle size={22} />
+        </Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography variant="subtitle1" fontWeight={800} lineHeight={1.2}>
+            Transferts vers secrétariat
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Catégories de redirection et étapes les plus génératrices d&apos;incompréhension
+          </Typography>
+        </Box>
+      </Box>
+
+      <Divider sx={{ mb: 2.5 }} />
+
+      {/* ---------- KPI hero : total + service désactivé ---------- */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={6}>
+          <Box
+            sx={{
+              p: 2.5,
+              borderRadius: 2,
+              border: "1px solid rgba(239,68,68,0.25)",
+              bgcolor: "rgba(239,68,68,0.04)",
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              height: "100%",
+            }}
+          >
+            <Box
+              sx={{
+                width: 56,
+                height: 56,
+                borderRadius: "14px",
+                bgcolor: "rgba(239,68,68,0.15)",
+                color: "#b91c1c",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              <IconAlertTriangle size={28} />
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 0.3 }}>
+                TRANSFERTS SECRÉTARIAT
+              </Typography>
+              <Typography variant="h3" fontWeight={800} sx={{ color: "#b91c1c", lineHeight: 1 }}>
+                {total}
+              </Typography>
+            </Box>
+          </Box>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Box
+            sx={{
+              p: 2.5,
+              borderRadius: 2,
+              border: serviceDisabledCount > 0 ? "1px solid #ef4444" : "1px solid #e5e7eb",
+              bgcolor: serviceDisabledCount > 0 ? "rgba(239,68,68,0.06)" : "rgba(0,0,0,0.02)",
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              height: "100%",
+            }}
+          >
+            <Box
+              sx={{
+                width: 56,
+                height: 56,
+                borderRadius: "14px",
+                bgcolor:
+                  serviceDisabledCount > 0 ? "rgba(239,68,68,0.18)" : "rgba(156,163,175,0.18)",
+                color: serviceDisabledCount > 0 ? "#b91c1c" : "#6b7280",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              <IconBolt size={28} />
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: 0.3 }}>
+                APPELS · SERVICE DÉSACTIVÉ
+              </Typography>
+              <Typography
+                variant="h3"
+                fontWeight={800}
+                sx={{ color: serviceDisabledCount > 0 ? "#b91c1c" : "#6b7280", lineHeight: 1 }}
+              >
+                {serviceDisabledCount}
+              </Typography>
+              {serviceDisabledCount > 0 && (
+                <Typography variant="caption" sx={{ color: "#b91c1c", fontWeight: 600 }}>
+                  ⚠️ Un site a activé le kill switch sur la période
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        </Grid>
+      </Grid>
+
+      {/* ---------- 2 colonnes : Répartition catégories + Top étapes ---------- */}
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={5}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
+          >
+            RÉPARTITION PAR CATÉGORIE
+          </Typography>
+          {total === 0 ? (
+            <Box
+              sx={{
+                py: 6,
+                display: "grid",
+                placeItems: "center",
+                border: "1px dashed #e5e7eb",
+                borderRadius: 2,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Aucun transfert sur la période.
+              </Typography>
+            </Box>
+          ) : (
+            <Stack spacing={1.5}>
+              {categoryItems.map((c) => {
+                const pct = total > 0 ? (c.count / total) * 100 : 0;
+                return (
+                  <Box key={c.key}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                      <Typography variant="caption" fontWeight={600}>
+                        {c.label}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {c.count} ({Math.round(pct * 10) / 10}%)
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        height: 8,
+                        borderRadius: 4,
+                        bgcolor: "rgba(0,0,0,0.05)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: `${pct}%`,
+                          height: "100%",
+                          bgcolor: c.color,
+                          transition: "width 400ms ease",
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Stack>
+          )}
+        </Grid>
+
+        <Grid item xs={12} md={7}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 0.5, display: "block" }}
+          >
+            TOP ÉTAPES D&apos;INCOMPRÉHENSION
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+            Étapes où le bot a le plus échoué avant transfert — utile pour prioriser
+            les améliorations STT / reformulation.
+          </Typography>
+          {topFailedSteps.length === 0 ? (
+            <Box
+              sx={{
+                py: 6,
+                display: "grid",
+                placeItems: "center",
+                border: "1px dashed #e5e7eb",
+                borderRadius: 2,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Aucune incompréhension détectée sur la période.
+              </Typography>
+            </Box>
+          ) : (
+            <Box sx={{ height: Math.max(220, topFailedSteps.length * 28) }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={topFailedSteps}
+                  layout="vertical"
+                  margin={{ top: 8, right: 24, left: 8, bottom: 4 }}
+                >
+                  <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 11, fill: "#6b7280" }}
+                    axisLine={{ stroke: "#e5e7eb" }}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: "#374151" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={180}
+                  />
+                  <ReTooltip
+                    cursor={{ fill: "rgba(249,115,22,0.08)" }}
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 12,
+                      padding: "6px 10px",
+                    }}
+                    formatter={(value: any) => [
+                      `${value} appel${(value as number) > 1 ? "s" : ""}`,
+                      "Échecs",
+                    ]}
+                  />
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                    {topFailedSteps.map((s, i) => {
+                      const intensity = maxStep > 0 ? s.count / maxStep : 0;
+                      const fill =
+                        intensity > 0.66
+                          ? "#ef4444"
+                          : intensity > 0.33
+                          ? "#f97316"
+                          : "#fdba74";
+                      return <Cell key={i} fill={fill} />;
+                    })}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Box>
+          )}
+        </Grid>
+      </Grid>
+
+      {/* ---------- Tendance temporelle multi-catégories ---------- */}
+      {hasAnyTimeseriesData && activeCategories.length > 0 && (
+        <Box sx={{ mt: 3 }}>
+          <Divider sx={{ mb: 2 }} />
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontWeight: 600, letterSpacing: 0.5, mb: 1, display: "block" }}
+          >
+            ÉVOLUTION DES TRANSFERTS PAR CATÉGORIE
+          </Typography>
+          <Box sx={{ height: 240 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={timeseries} margin={{ top: 8, right: 8, left: 0, bottom: 4 }}>
+                <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="dayLabel"
+                  tick={{ fontSize: 11, fill: "#6b7280" }}
+                  axisLine={{ stroke: "#e5e7eb" }}
+                  tickLine={false}
+                  interval="preserveStartEnd"
+                  minTickGap={20}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#6b7280" }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                />
+                <ReTooltip
+                  cursor={{ strokeDasharray: "3 3" }}
+                  contentStyle={{
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 12,
+                    padding: "6px 10px",
+                  }}
+                  formatter={(value: any, name: any) => [
+                    value,
+                    getCategoryUI(name as string).label,
+                  ]}
+                />
+                <Legend
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: 12, paddingTop: 4 }}
+                  formatter={(value: string) => getCategoryUI(value).label}
+                />
+                {activeCategories.map((cat) => (
+                  <Line
+                    key={cat}
+                    type="monotone"
+                    dataKey={cat}
+                    stroke={getCategoryUI(cat).color}
+                    strokeWidth={2.5}
+                    dot={{
+                      r: 2.5,
+                      fill: getCategoryUI(cat).color,
+                      strokeWidth: 0,
+                    }}
+                    activeDot={{ r: 4 }}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </Box>
+        </Box>
+      )}
+    </Card>
   );
 }
 
@@ -2211,6 +2585,9 @@ const AnalyticsInternalPage = () => {
 
         {/* ---------- Identification patient (birthdate + spell + crossover) ---------- */}
         {data?.identification && <IdentificationSection identification={data.identification} />}
+
+        {/* ---------- Transferts vers secrétariat (catégorie + top étapes incompréhension) ---------- */}
+        {data?.transfers && <TransfersSection transfers={data.transfers} />}
 
         {/* ---------- Monitoring features candidates (eager / tts / buffered) ---------- */}
         {data?.features && <FeatureMonitoringSection features={data.features} />}
