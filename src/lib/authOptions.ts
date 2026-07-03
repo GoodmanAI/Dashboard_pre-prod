@@ -70,10 +70,18 @@ export const authOptions: NextAuthOptions  = {
 
   /**
    * Gestion de session :
-   * - Utilise des JWT stateless côté client/serveur (pas de persistance session DB).
+   * - JWT stateless côté client/serveur (pas de persistance session DB).
+   * - `maxAge` : durée de vie absolue du token = 24h. Réduit le risque en cas
+   *   de vol de cookie (par défaut NextAuth = 30 jours, énorme sur des
+   *   comptes ADMIN).
+   * - `updateAge` : renouvelle le token à chaque requête si actif depuis > 1h.
+   *   Un utilisateur actif ne se voit jamais déconnecté ; un inactif l'est
+   *   au bout de 24h.
    */
   session: {
     strategy: "jwt",
+    maxAge: 24 * 60 * 60,   // 24 heures
+    updateAge: 60 * 60,     // 1 heure
   },
 
   /**
@@ -129,8 +137,9 @@ export const authOptions: NextAuthOptions  = {
 
   /**
    * Mode debug :
-   * - Active les logs NextAuth utiles en développement.
-   * - À désactiver en production pour limiter la verbosité.
+   * - Active les logs NextAuth utiles en développement (verbose).
+   * - Désactivé en production pour ne pas leaker de données sensibles dans
+   *   les logs PM2 accessibles par SSH (JWT partiels, erreurs internes…).
    */
-  debug: true,
+  debug: process.env.NODE_ENV !== "production",
 };

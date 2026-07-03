@@ -4,16 +4,11 @@ import bcrypt from "bcryptjs";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { z } from "zod";
+import { passwordSchema } from "@/lib/passwordSchema";
 
 const ChangePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Le mot de passe actuel est requis"),
-  newPassword: z
-    .string()
-    .min(8, "Le mot de passe doit contenir au moins 8 caractères")
-    .regex(/[A-Z]/, "Le mot de passe doit contenir au moins une majuscule")
-    .regex(/[a-z]/, "Le mot de passe doit contenir au moins une minuscule")
-    .regex(/[0-9]/, "Le mot de passe doit contenir au moins un chiffre")
-    .regex(/[@$!%*?&]/, "Le mot de passe doit contenir au moins un caractère spécial (@$!%*?&)"),
+  newPassword: passwordSchema,
 });
 
 export async function POST(request: NextRequest) {

@@ -9,16 +9,18 @@ import { authOptions } from "@/lib/authOptions";
 import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
+import { passwordSchema } from "@/lib/passwordSchema";
 
 const CreateUserSchema = z.object({
   email: z
     .string()
     .min(3, "Username must be at least 3 characters"),
 
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(/[a-z]/, "Password must contain at least one lowercase letter"),
+  // Politique unifiée (cf. src/lib/passwordSchema.ts). Avant, ce endpoint
+  // acceptait un mot de passe faible (juste 8 chars + une minuscule) alors que
+  // le client ne pouvait ensuite pas le changer sans policy complète →
+  // incohérence corrigée.
+  password: passwordSchema,
 
   name: z.string().min(1, "Name is required"),
 
