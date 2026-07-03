@@ -27,7 +27,18 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableContainer,
+  Paper,
+  ToggleButtonGroup,
+  ToggleButton,
+  Tooltip,
 } from "@mui/material";
+import { IconInfoCircle, IconLink } from "@tabler/icons-react";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -52,6 +63,26 @@ type DayHours = {
 };
 
 const emptyDay: DayHours = { enabled: false, ranges: [] };
+
+/**
+ * Toutes les combinaisons d'examens doubles gérables. Ordonnées "logiquement"
+ * (par modalité principale) pour faciliter la lecture du tableau.
+ */
+const DOUBLE_EXAMS: { key: string; label: string }[] = [
+  { key: "echographie_echographie", label: "Échographie + Échographie" },
+  { key: "echographie_mammographie", label: "Échographie + Mammographie" },
+  { key: "echographie_radio", label: "Échographie + Radio" },
+  { key: "echographie_irm", label: "Échographie + IRM" },
+  { key: "echographie_scanner", label: "Échographie + Scanner" },
+  { key: "mammographie_radio", label: "Mammographie + Radio" },
+  { key: "mammographie_irm", label: "Mammographie + IRM" },
+  { key: "mammographie_scanner", label: "Mammographie + Scanner" },
+  { key: "mammographie_echomammaire", label: "Mammographie + Échographie mammaire" },
+  { key: "radio_radio", label: "Radio + Radio" },
+  { key: "radio_irm", label: "Radio + IRM" },
+  { key: "radio_scanner", label: "Radio + Scanner" },
+  { key: "irm_scanner", label: "IRM + Scanner" },
+];
 
 type PlanningAction = {
   type: "fin_appel" | "redirection";
@@ -366,8 +397,41 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   const [loading, setLoading] = useState<boolean>(false);
   const [loaded, setLoaded] = useState<boolean>(false);
 
+  /**
+   * Mapping des combinaisons d'examens doubles gérées par le centre + mode de
+   * traitement Xplore. Déplacé ici depuis l'ancienne page dédiée
+   * `/parametrage/mapping_exam/double_exam` — sauvegardé en même temps que les
+   * autres paramètres via `proceedSave`.
+   */
+  const [doubleExamsMapping, setDoubleExamsMapping] = useState<
+    Record<string, { enabled: boolean; mode: "single" | "double" }>
+  >({});
+
+  // Fetch dédié pour les doubles examens (endpoint séparé du reste).
   useEffect(() => {
-    
+    if (!userProductId) return;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/configuration/mapping/double_exam?userProductId=${userProductId}`
+        );
+        const data = await res.json();
+        const formatted: Record<string, { enabled: boolean; mode: "single" | "double" }> = {};
+        for (const exam of DOUBLE_EXAMS) {
+          formatted[exam.key] = {
+            enabled: data?.[exam.key]?.enabled ?? false,
+            mode: data?.[exam.key]?.mode ?? "single",
+          };
+        }
+        setDoubleExamsMapping(formatted);
+      } catch (err) {
+        console.error("Erreur fetch double_exam mapping :", err);
+      }
+    })();
+  }, [userProductId]);
+
+  useEffect(() => {
+
     async function fetchSettings() {
       setLoaded(true);
       try {
@@ -492,6 +556,20 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         );
       } catch (error) {
         console.error("Error updating setting:", error);
+      }
+
+      // Save des doubles examens (endpoint dédié).
+      try {
+        await fetch(
+          `/api/configuration/mapping/double_exam?userProductId=${userProductId}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(doubleExamsMapping),
+          }
+        );
+      } catch (error) {
+        console.error("Error updating double_exam mapping:", error);
       }
 
       setSnack({
@@ -1172,6 +1250,170 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
             </Button>
           </AccordionDetails>
         }
+      </Accordion>
+
+      {/* Gestion des doubles examens */}
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <IconLink size={20} color="#48C8AF" />
+            <Typography variant="h6">Gestion des doubles examens</Typography>
+            <Chip
+              size="small"
+              label={`${
+                Object.values(doubleExamsMapping).filter((v) => v?.enabled).length
+              } / ${DOUBLE_EXAMS.length} activés`}
+              sx={{
+                bgcolor: "rgba(72,200,175,0.15)",
+                color: "#2a6f64",
+                fontWeight: 700,
+              }}
+            />
+          </Stack>
+        </AccordionSummary>
+        {!loading && (
+          <AccordionDetails>
+            <Alert
+              severity="info"
+              variant="outlined"
+              icon={<IconInfoCircle size={18} />}
+              sx={{ mb: 2, borderColor: "rgba(72,200,175,0.4)" }}
+            >
+              Indiquez quelles combinaisons de deux examens votre centre gère, et
+              comment votre système Xplore doit les traiter :
+              <br />
+              <strong>Single</strong> : 1 seul examen Xplore avec commentaire —
+              <strong> Double</strong> : 2 examens distincts créés dans Xplore.
+            </Alert>
+
+            <TableContainer
+              component={Paper}
+              elevation={0}
+              sx={{
+                border: "1px solid #e5e7eb",
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <Table size="small">
+                <TableHead>
+                  <TableRow
+                    sx={{
+                      bgcolor: "rgba(72,200,175,0.08)",
+                      "& th": {
+                        fontWeight: 700,
+                        fontSize: 12,
+                        letterSpacing: 0.5,
+                        color: "#2a6f64",
+                        textTransform: "uppercase",
+                        borderBottom: "2px solid rgba(72,200,175,0.4)",
+                      },
+                    }}
+                  >
+                    <TableCell>Combinaison</TableCell>
+                    <TableCell align="center" sx={{ width: 120 }}>Activé</TableCell>
+                    <TableCell align="center" sx={{ width: 260 }}>Mode Xplore</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {DOUBLE_EXAMS.map((exam, i) => {
+                    const config = doubleExamsMapping[exam.key];
+                    const enabled = config?.enabled ?? false;
+                    const mode = config?.mode ?? "single";
+                    return (
+                      <TableRow
+                        key={exam.key}
+                        sx={{
+                          bgcolor: i % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)",
+                          transition: "background-color 200ms",
+                          "&:hover": { bgcolor: "rgba(72,200,175,0.04)" },
+                        }}
+                      >
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: 600,
+                              color: enabled ? "text.primary" : "text.secondary",
+                              transition: "color 200ms",
+                            }}
+                          >
+                            {exam.label}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Switch
+                            checked={enabled}
+                            disabled={readOnly}
+                            onChange={(e) =>
+                              setDoubleExamsMapping((prev) => ({
+                                ...prev,
+                                [exam.key]: {
+                                  ...prev[exam.key],
+                                  enabled: e.target.checked,
+                                  mode: prev[exam.key]?.mode ?? "single",
+                                },
+                              }))
+                            }
+                            sx={{
+                              "& .MuiSwitch-switchBase.Mui-checked": {
+                                color: "#48C8AF",
+                              },
+                              "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                                bgcolor: "#48C8AF",
+                              },
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <ToggleButtonGroup
+                            size="small"
+                            exclusive
+                            value={mode}
+                            disabled={!enabled || readOnly}
+                            onChange={(_, newMode) => {
+                              if (!newMode) return; // ne pas laisser désélectionner
+                              setDoubleExamsMapping((prev) => ({
+                                ...prev,
+                                [exam.key]: {
+                                  ...prev[exam.key],
+                                  enabled: prev[exam.key]?.enabled ?? false,
+                                  mode: newMode as "single" | "double",
+                                },
+                              }));
+                            }}
+                            sx={{
+                              "& .MuiToggleButton-root": {
+                                textTransform: "none",
+                                fontSize: 11,
+                                fontWeight: 600,
+                                py: 0.5,
+                                px: 1.5,
+                                borderColor: "rgba(72,200,175,0.3)",
+                              },
+                              "& .Mui-selected": {
+                                bgcolor: "rgba(72,200,175,0.18) !important",
+                                color: "#2a6f64 !important",
+                                borderColor: "#48C8AF !important",
+                              },
+                            }}
+                          >
+                            <Tooltip title="1 seul RDV Xplore, les 2 examens dans le commentaire" arrow>
+                              <ToggleButton value="single">Single</ToggleButton>
+                            </Tooltip>
+                            <Tooltip title="2 RDV Xplore distincts, un par examen" arrow>
+                              <ToggleButton value="double">Double</ToggleButton>
+                            </Tooltip>
+                          </ToggleButtonGroup>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </AccordionDetails>
+        )}
       </Accordion>
 
       {/* Désactiver le service */}

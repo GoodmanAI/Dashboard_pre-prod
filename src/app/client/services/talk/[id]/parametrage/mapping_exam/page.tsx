@@ -359,17 +359,9 @@ export default function MappingExam({ params }: TalkPageProps) {
           </Box>
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ position: "sticky", bottom: 10 }}>
-            <Button
-              variant="contained"
-              startIcon={<InsertLinkIcon />}
-              onClick={() =>
-                router.push(`${basePath}/parametrage/mapping_exam/double_exam`)
-              }
-              disabled={saving}
-              sx={{ backgroundColor: "#48C8AF" }}
-            >
-              Gestion Doubles Examens
-            </Button>
+            {/* La gestion des doubles examens est désormais dans
+                "Paramètres généraux" → section dédiée en dessous du
+                questionnaire par examen. */}
 
             <Button
               variant="contained"
