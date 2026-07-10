@@ -1,8 +1,15 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-// import { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import {
+  extractClientIp,
+  checkIpRateLimit,
+  recordLoginAttempt,
+  getLockRemainingSeconds,
+  handleFailedLogin,
+  handleSuccessfulLogin,
+} from "@/lib/loginSecurity";
 
 /**
  * Client Prisma utilisé pour les opérations d’authentification.
@@ -31,31 +38,74 @@ export const authOptions: NextAuthOptions  = {
         password: { label: "Password", type: "password" },
       },
       /**
-       * Logique métier d’autorisation :
-       * 1) Valide la présence des identifiants.
-       * 2) Récupère l’utilisateur par email.
-       * 3) Compare le mot de passe fourni avec le hash stocké (bcrypt).
-       * 4) Retourne un objet utilisateur minimal pour sérialisation dans le JWT.
-       * En cas d’échec, une erreur est levée pour interrompre le flux.
+       * Logique métier d'autorisation avec protections anti-bruteforce :
+       *  1) Extrait l'IP depuis les headers (via reverse-proxy si dispo)
+       *  2) Vérifie le rate limit IP (> 5 échecs / 15 min → refus)
+       *  3) Récupère l'utilisateur par email
+       *  4) Vérifie que le compte n'est pas verrouillé (échecs récents)
+       *  5) Compare le mot de passe bcrypt
+       *  6) En cas d'échec : journalise + incrémente le compteur du compte
+       *  7) En cas de succès : journalise + reset compteur
+       *
+       * Messages d'erreur volontairement génériques ("Invalid credentials") pour
+       * ne pas révéler l'existence d'un compte (attaque de reconnaissance).
        */
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials) {
-          throw new Error("No credentials provided");
+          throw new Error("Invalid credentials");
+        }
+        const email = credentials.email?.trim().toLowerCase();
+        const password = credentials.password;
+        if (!email || !password) {
+          throw new Error("Invalid credentials");
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        });
+        // 1) Extraction IP — req.headers est fourni par NextAuth (v4) en second arg.
+        const ip = extractClientIp((req?.headers as any) ?? {});
+
+        // 2) Rate limit par IP (avant même de toucher au user en DB).
+        const rate = await checkIpRateLimit(ip);
+        if (rate.limited) {
+          const mins = Math.ceil(rate.retryAfterSeconds / 60);
+          throw new Error(
+            `Trop de tentatives. Réessayez dans ${mins} minute${mins > 1 ? "s" : ""}.`
+          );
+        }
+
+        // 3) Récupération user
+        const user = await prisma.user.findUnique({ where: { email } });
 
         if (!user || !user.password) {
-          throw new Error("Invalid email or password");
+          // Journaliser même l'échec sur email inexistant (pour rate limit IP).
+          await recordLoginAttempt(ip, email, false);
+          throw new Error("Invalid credentials");
         }
 
-        const isValid = await bcrypt.compare(credentials.password, user.password);
+        // 4) Account lockout — vérifier AVANT de comparer le mot de passe pour
+        //    ne pas dépenser de CPU bcrypt inutilement sur un compte verrouillé.
+        const lockRemaining = getLockRemainingSeconds({
+          failedLoginAttempts: user.failedLoginAttempts,
+          lockedUntil: user.lockedUntil,
+        });
+        if (lockRemaining !== null) {
+          await recordLoginAttempt(ip, email, false);
+          const mins = Math.ceil(lockRemaining / 60);
+          throw new Error(
+            `Compte temporairement verrouillé. Réessayez dans ${mins} minute${mins > 1 ? "s" : ""}.`
+          );
+        }
 
+        // 5) Vérif bcrypt
+        const isValid = await bcrypt.compare(password, user.password);
         if (!isValid) {
-          throw new Error("Invalid email or password");
+          await recordLoginAttempt(ip, email, false);
+          await handleFailedLogin(user.id);
+          throw new Error("Invalid credentials");
         }
+
+        // 6) Succès : journaliser + reset état de lock
+        await recordLoginAttempt(ip, email, true);
+        await handleSuccessfulLogin(user.id, user.failedLoginAttempts, user.lockedUntil);
 
         return {
           id: user.id,
