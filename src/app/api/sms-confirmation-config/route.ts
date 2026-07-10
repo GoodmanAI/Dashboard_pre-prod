@@ -7,29 +7,40 @@ import {
 import {
   EXAM_TYPE_KEYS,
   normalizeEnabled,
+  normalizePostesByType,
+  normalizeReminderDays,
+  normalizeCutoffHours,
   DEFAULT_SMS_CONFIRMATION_ENABLED,
-  ExamTypeKey,
+  DEFAULT_POSTES_BY_TYPE,
+  SmsConfirmationEnabled,
+  PostesByType,
 } from "@/lib/smsConfirmationConfig";
 
 /**
- * GET — récupère la config "envoi SMS de confirmation" par type d'examen.
+ * GET — récupère la config "SMS de confirmation / relance no-show".
  *
  * Deux modes, discriminés par la query string :
  *  1. `?externalCenterCode=XYZ` → mode public (aucune auth requise).
- *     Renvoie la config du UserProduct "LyraeTalk" du centre identifié.
- *     ⚠️ La donnée renvoyée n'est pas sensible (juste des booléens par type
- *     d'examen), mais quiconque connaît un externalCenterCode peut la lire.
+ *     Utilisé par le cron AI2Xplore pour connaître, par centre :
+ *       - quels types d'examens sont activés,
+ *       - pour chacun, les NumeroPoste Xplore à surveiller,
+ *       - la cadence des relances et la fenêtre de coupure.
  *
  *  2. `?userProductId=N` → mode UI (session NextAuth + ownership check).
  *
  * Réponse :
  *   {
  *     userProductId: number,
- *     enabledExamTypes: { radiographie, irm, echographie, scanner, mammo: boolean }
+ *     enabledExamTypes: { radiographie, irm, echographie, scanner, mammo: boolean },
+ *     postesByType: Partial<Record<ExamTypeKey, string[]>>,  // uniquement types activés
+ *     reminderDays: number[] | null,                          // ex: [3, 2]
+ *     cutoffHours: number | null                              // ex: 3
  *   }
  *
- * Si aucune config n'a encore été enregistrée pour ce UserProduct, renvoie
- * toutes les valeurs à `false` (opt-in explicite).
+ * Note : `postesByType` est filtré côté serveur pour ne renvoyer que les
+ * postes des types actuellement activés. Les postes des types désactivés
+ * restent stockés en DB (pas de purge) — désactiver / réactiver un type
+ * ne perd pas la config des postes.
  */
 export async function GET(req: NextRequest) {
   const externalCenterCode = req.nextUrl.searchParams.get("externalCenterCode");
@@ -71,23 +82,55 @@ export async function GET(req: NextRequest) {
     userProductId = parsed;
   }
 
-  const res = await db.query<{ enabledExamTypes: unknown }>(
-    `SELECT "enabledExamTypes" FROM "SmsConfirmationConfig" WHERE "userProductId" = $1 LIMIT 1`,
+  const res = await db.query<{
+    enabledExamTypes: unknown;
+    postesByType: unknown;
+    reminderDays: unknown;
+    cutoffHours: number | null;
+  }>(
+    `SELECT "enabledExamTypes", "postesByType", "reminderDays", "cutoffHours"
+       FROM "SmsConfirmationConfig"
+      WHERE "userProductId" = $1
+      LIMIT 1`,
     [userProductId]
   );
 
-  const enabledExamTypes =
-    res.rowCount === 0
-      ? DEFAULT_SMS_CONFIRMATION_ENABLED
-      : normalizeEnabled(res.rows[0].enabledExamTypes);
+  let enabledExamTypes: SmsConfirmationEnabled = DEFAULT_SMS_CONFIRMATION_ENABLED;
+  let postesByType: PostesByType = DEFAULT_POSTES_BY_TYPE;
+  let reminderDays: number[] | null = null;
+  let cutoffHours: number | null = null;
 
-  return NextResponse.json({ userProductId, enabledExamTypes });
+  if ((res.rowCount ?? 0) > 0) {
+    const row = res.rows[0];
+    enabledExamTypes = normalizeEnabled(row.enabledExamTypes);
+    // Filtre côté serveur : uniquement les postes des types activés.
+    const enabledKeys = EXAM_TYPE_KEYS.filter((k) => enabledExamTypes[k]);
+    postesByType = normalizePostesByType(row.postesByType, enabledKeys);
+    reminderDays = normalizeReminderDays(row.reminderDays);
+    cutoffHours = normalizeCutoffHours(row.cutoffHours);
+  }
+
+  return NextResponse.json({
+    userProductId,
+    enabledExamTypes,
+    postesByType,
+    reminderDays,
+    cutoffHours,
+  });
 }
 
 /**
- * POST — sauvegarde la config (UI dashboard uniquement, session requise).
+ * POST — mise à jour partielle de la config (session UI requise).
  *
- * Body : { userProductId: number, enabledExamTypes: { radiographie, irm, ... } }
+ * Body : { userProductId: number } + au moins un des champs :
+ *   - enabledExamTypes: Record<ExamTypeKey, boolean>
+ *   - postesByType:     Record<ExamTypeKey, string[]>
+ *   - reminderDays:     number[] | null   // null = effacer, tableau = remplacer
+ *   - cutoffHours:      number   | null   // null = effacer, entier = remplacer
+ *
+ * Les champs absents du body ne sont pas modifiés (merge avec l'état courant).
+ * Les postes des types désactivés sont **conservés en DB** — un aller-retour
+ * activation/désactivation ne les perd pas ; ils sont juste masqués au GET.
  */
 export async function POST(req: NextRequest) {
   const auth = await requireAuth();
@@ -100,37 +143,105 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { userProductId, enabledExamTypes } = body ?? {};
+  const { userProductId } = body ?? {};
   if (!Number.isFinite(userProductId)) {
     return NextResponse.json(
       { error: "Missing or invalid userProductId" },
       { status: 400 }
     );
   }
-  if (!enabledExamTypes || typeof enabledExamTypes !== "object") {
+
+  const hasEnabled = body && "enabledExamTypes" in body;
+  const hasPostes = body && "postesByType" in body;
+  const hasReminderDays = body && "reminderDays" in body;
+  const hasCutoffHours = body && "cutoffHours" in body;
+
+  if (!hasEnabled && !hasPostes && !hasReminderDays && !hasCutoffHours) {
     return NextResponse.json(
-      { error: "Missing enabledExamTypes object" },
+      { error: "Body must contain at least one field to update" },
       { status: 400 }
     );
   }
 
-  const ownErr = await assertUserProductOwnership(auth.session, Number(userProductId));
+  const ownErr = await assertUserProductOwnership(
+    auth.session,
+    Number(userProductId)
+  );
   if (ownErr) return ownErr;
 
-  const sanitized: Record<ExamTypeKey, boolean> = { ...DEFAULT_SMS_CONFIRMATION_ENABLED };
-  for (const k of EXAM_TYPE_KEYS) {
-    if (k in enabledExamTypes) sanitized[k] = Boolean(enabledExamTypes[k]);
-  }
+  // Lit l'état courant pour merger les champs non fournis.
+  const current = await db.query<{
+    enabledExamTypes: unknown;
+    postesByType: unknown;
+    reminderDays: unknown;
+    cutoffHours: number | null;
+  }>(
+    `SELECT "enabledExamTypes", "postesByType", "reminderDays", "cutoffHours"
+       FROM "SmsConfirmationConfig"
+      WHERE "userProductId" = $1
+      LIMIT 1`,
+    [userProductId]
+  );
+  const currentRow = (current.rowCount ?? 0) > 0 ? current.rows[0] : null;
+
+  // Merge : si le champ n'est pas dans le body, on garde ce qui est en DB.
+  const nextEnabled: SmsConfirmationEnabled = hasEnabled
+    ? normalizeEnabled(body.enabledExamTypes)
+    : currentRow
+    ? normalizeEnabled(currentRow.enabledExamTypes)
+    : { ...DEFAULT_SMS_CONFIRMATION_ENABLED };
+
+  // Pour postes, on ne restreint PAS aux types activés — on garde tout ce que
+  // l'utilisateur a saisi (les types désactivés seront filtrés à la lecture).
+  const nextPostes: PostesByType = hasPostes
+    ? normalizePostesByType(body.postesByType)
+    : currentRow
+    ? normalizePostesByType(currentRow.postesByType)
+    : { ...DEFAULT_POSTES_BY_TYPE };
+
+  const nextReminderDays: number[] | null = hasReminderDays
+    ? body.reminderDays === null
+      ? null
+      : normalizeReminderDays(body.reminderDays)
+    : currentRow
+    ? normalizeReminderDays(currentRow.reminderDays)
+    : null;
+
+  const nextCutoffHours: number | null = hasCutoffHours
+    ? body.cutoffHours === null
+      ? null
+      : normalizeCutoffHours(body.cutoffHours)
+    : currentRow
+    ? normalizeCutoffHours(currentRow.cutoffHours)
+    : null;
 
   await db.query(
     `
-    INSERT INTO "SmsConfirmationConfig" ("userProductId", "enabledExamTypes")
-    VALUES ($1, $2::jsonb)
-    ON CONFLICT ("userProductId") DO UPDATE
-      SET "enabledExamTypes" = EXCLUDED."enabledExamTypes"
+    INSERT INTO "SmsConfirmationConfig"
+      ("userProductId", "enabledExamTypes", "postesByType", "reminderDays", "cutoffHours")
+    VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5)
+    ON CONFLICT ("userProductId") DO UPDATE SET
+      "enabledExamTypes" = EXCLUDED."enabledExamTypes",
+      "postesByType"     = EXCLUDED."postesByType",
+      "reminderDays"     = EXCLUDED."reminderDays",
+      "cutoffHours"      = EXCLUDED."cutoffHours"
     `,
-    [userProductId, JSON.stringify(sanitized)]
+    [
+      userProductId,
+      JSON.stringify(nextEnabled),
+      JSON.stringify(nextPostes),
+      nextReminderDays === null ? null : JSON.stringify(nextReminderDays),
+      nextCutoffHours,
+    ]
   );
 
-  return NextResponse.json({ userProductId, enabledExamTypes: sanitized });
+  // Réponse : postes filtrés par types activés, pour rester cohérent avec le GET.
+  const enabledKeys = EXAM_TYPE_KEYS.filter((k) => nextEnabled[k]);
+  return NextResponse.json({
+    userProductId,
+    enabledExamTypes: nextEnabled,
+    postesByType: normalizePostesByType(nextPostes, enabledKeys),
+    reminderDays: nextReminderDays,
+    cutoffHours: nextCutoffHours,
+  });
 }
