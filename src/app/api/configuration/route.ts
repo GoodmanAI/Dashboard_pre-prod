@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
+import { db } from "@/lib/db";
 import { requireAuth, requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-helpers";
+import {
+  normalizeSendConfirmationSms,
+  DEFAULT_SEND_CONFIRMATION_SMS,
+} from "@/lib/smsConfirmationConfig";
 
 /**
  * GET /api/configuration?userProductId=XX
@@ -41,6 +46,19 @@ export async function GET(req: NextRequest) {
     const mappings = await prisma.examMapping.findMany({
       where: { userProductId },
     });
+
+    // 2️⃣.b — Flag "Confirmation de RDV par SMS" (opt-in) depuis
+    // SmsConfirmationConfig (table gérée hors Prisma, cf. lib/db.ts).
+    // Défaut = false si aucune ligne trouvée pour ce UserProduct.
+    const smsCfgRes = await db.query<{ sendConfirmationSms: boolean | null }>(
+      `SELECT "sendConfirmationSms" FROM "SmsConfirmationConfig"
+        WHERE "userProductId" = $1 LIMIT 1`,
+      [userProductId]
+    );
+    const sendConfirmationSms =
+      (smsCfgRes.rowCount ?? 0) > 0
+        ? normalizeSendConfirmationSms(smsCfgRes.rows[0].sendConfirmationSms)
+        : DEFAULT_SEND_CONFIRMATION_SMS;
 
     // 3️⃣ Mapping FR -> Code
     const examCodeMap: Record<string, string> = {
@@ -185,6 +203,10 @@ export async function GET(req: NextRequest) {
         // Si false, tous les appels doivent être transférés sans passer par LyraeTalk.
         serviceEnabled:
           (settings.options as any)?.serviceEnabled === false ? false : true,
+
+        // Flag "Confirmation de RDV par SMS" : le bot doit envoyer un SMS de
+        // confirmation au patient dès la prise de RDV. Défaut = false (opt-in).
+        sendConfirmationSms,
       },
       { status: 200 }
     );
