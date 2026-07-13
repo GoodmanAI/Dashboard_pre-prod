@@ -46,6 +46,13 @@ model User {
   centreRole  CentreRole?
   isSecretary Boolean     @default(false)
 
+  // ---- Sécurité login (Phase 2 auth hardening) ----
+  /// Compteur d'échecs consécutifs. Reset à 0 après un login réussi.
+  failedLoginAttempts Int       @default(0)
+  /// Timestamp jusqu'auquel le compte est bloqué (NULL = pas bloqué).
+  /// Set automatiquement après ACCOUNT_LOCK_THRESHOLD échecs.
+  lockedUntil         DateTime?
+
   managerId    Int?
   manager      User?  @relation("UserManager", fields: [managerId], references: [id], onDelete: Cascade)
   managedUsers User[] @relation("UserManager")
@@ -283,4 +290,18 @@ model CallConversation {
   createdAt     DateTime @default(now())
 
   userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
+}
+
+/// Historique des tentatives de connexion (Phase 2 auth hardening).
+/// Utilisé pour le rate limiting par IP : > 5 échecs / 15 min → 429.
+/// Une ligne par tentative (succès ou échec). Purge : cf. cron ou cleanup.
+model LoginAttempt {
+  id        Int      @id @default(autoincrement())
+  ip        String
+  email     String?
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([ip, createdAt])
+  @@index([email, createdAt])
 }
