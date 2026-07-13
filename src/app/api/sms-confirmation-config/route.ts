@@ -10,8 +10,10 @@ import {
   normalizePostesByType,
   normalizeReminderDays,
   normalizeCutoffHours,
+  normalizeSendConfirmationSms,
   DEFAULT_SMS_CONFIRMATION_ENABLED,
   DEFAULT_POSTES_BY_TYPE,
+  DEFAULT_SEND_CONFIRMATION_SMS,
   SmsConfirmationEnabled,
   PostesByType,
 } from "@/lib/smsConfirmationConfig";
@@ -34,7 +36,8 @@ import {
  *     enabledExamTypes: { radiographie, irm, echographie, scanner, mammo: boolean },
  *     postesByType: Partial<Record<ExamTypeKey, string[]>>,  // uniquement types activés
  *     reminderDays: number[] | null,                          // ex: [3, 2]
- *     cutoffHours: number | null                              // ex: 3
+ *     cutoffHours: number | null,                             // ex: 3
+ *     sendConfirmationSms: boolean                            // "Confirmation de RDV par SMS" (opt-in)
  *   }
  *
  * Note : `postesByType` est filtré côté serveur pour ne renvoyer que les
@@ -87,8 +90,10 @@ export async function GET(req: NextRequest) {
     postesByType: unknown;
     reminderDays: unknown;
     cutoffHours: number | null;
+    sendConfirmationSms: boolean | null;
   }>(
-    `SELECT "enabledExamTypes", "postesByType", "reminderDays", "cutoffHours"
+    `SELECT "enabledExamTypes", "postesByType", "reminderDays", "cutoffHours",
+            "sendConfirmationSms"
        FROM "SmsConfirmationConfig"
       WHERE "userProductId" = $1
       LIMIT 1`,
@@ -99,6 +104,7 @@ export async function GET(req: NextRequest) {
   let postesByType: PostesByType = DEFAULT_POSTES_BY_TYPE;
   let reminderDays: number[] | null = null;
   let cutoffHours: number | null = null;
+  let sendConfirmationSms: boolean = DEFAULT_SEND_CONFIRMATION_SMS;
 
   if ((res.rowCount ?? 0) > 0) {
     const row = res.rows[0];
@@ -108,6 +114,7 @@ export async function GET(req: NextRequest) {
     postesByType = normalizePostesByType(row.postesByType, enabledKeys);
     reminderDays = normalizeReminderDays(row.reminderDays);
     cutoffHours = normalizeCutoffHours(row.cutoffHours);
+    sendConfirmationSms = normalizeSendConfirmationSms(row.sendConfirmationSms);
   }
 
   return NextResponse.json({
@@ -116,6 +123,7 @@ export async function GET(req: NextRequest) {
     postesByType,
     reminderDays,
     cutoffHours,
+    sendConfirmationSms,
   });
 }
 
@@ -123,10 +131,11 @@ export async function GET(req: NextRequest) {
  * POST — mise à jour partielle de la config (session UI requise).
  *
  * Body : { userProductId: number } + au moins un des champs :
- *   - enabledExamTypes: Record<ExamTypeKey, boolean>
- *   - postesByType:     Record<ExamTypeKey, string[]>
- *   - reminderDays:     number[] | null   // null = effacer, tableau = remplacer
- *   - cutoffHours:      number   | null   // null = effacer, entier = remplacer
+ *   - enabledExamTypes:    Record<ExamTypeKey, boolean>
+ *   - postesByType:        Record<ExamTypeKey, string[]>
+ *   - reminderDays:        number[] | null   // null = effacer, tableau = remplacer
+ *   - cutoffHours:         number   | null   // null = effacer, entier = remplacer
+ *   - sendConfirmationSms: boolean           // "Confirmation de RDV par SMS" (opt-in)
  *
  * Les champs absents du body ne sont pas modifiés (merge avec l'état courant).
  * Les postes des types désactivés sont **conservés en DB** — un aller-retour
@@ -155,8 +164,15 @@ export async function POST(req: NextRequest) {
   const hasPostes = body && "postesByType" in body;
   const hasReminderDays = body && "reminderDays" in body;
   const hasCutoffHours = body && "cutoffHours" in body;
+  const hasSendConfirmationSms = body && "sendConfirmationSms" in body;
 
-  if (!hasEnabled && !hasPostes && !hasReminderDays && !hasCutoffHours) {
+  if (
+    !hasEnabled &&
+    !hasPostes &&
+    !hasReminderDays &&
+    !hasCutoffHours &&
+    !hasSendConfirmationSms
+  ) {
     return NextResponse.json(
       { error: "Body must contain at least one field to update" },
       { status: 400 }
@@ -175,8 +191,10 @@ export async function POST(req: NextRequest) {
     postesByType: unknown;
     reminderDays: unknown;
     cutoffHours: number | null;
+    sendConfirmationSms: boolean | null;
   }>(
-    `SELECT "enabledExamTypes", "postesByType", "reminderDays", "cutoffHours"
+    `SELECT "enabledExamTypes", "postesByType", "reminderDays", "cutoffHours",
+            "sendConfirmationSms"
        FROM "SmsConfirmationConfig"
       WHERE "userProductId" = $1
       LIMIT 1`,
@@ -215,16 +233,24 @@ export async function POST(req: NextRequest) {
     ? normalizeCutoffHours(currentRow.cutoffHours)
     : null;
 
+  const nextSendConfirmationSms: boolean = hasSendConfirmationSms
+    ? normalizeSendConfirmationSms(body.sendConfirmationSms)
+    : currentRow
+    ? normalizeSendConfirmationSms(currentRow.sendConfirmationSms)
+    : DEFAULT_SEND_CONFIRMATION_SMS;
+
   await db.query(
     `
     INSERT INTO "SmsConfirmationConfig"
-      ("userProductId", "enabledExamTypes", "postesByType", "reminderDays", "cutoffHours")
-    VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5)
+      ("userProductId", "enabledExamTypes", "postesByType", "reminderDays",
+       "cutoffHours", "sendConfirmationSms")
+    VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5, $6)
     ON CONFLICT ("userProductId") DO UPDATE SET
-      "enabledExamTypes" = EXCLUDED."enabledExamTypes",
-      "postesByType"     = EXCLUDED."postesByType",
-      "reminderDays"     = EXCLUDED."reminderDays",
-      "cutoffHours"      = EXCLUDED."cutoffHours"
+      "enabledExamTypes"    = EXCLUDED."enabledExamTypes",
+      "postesByType"        = EXCLUDED."postesByType",
+      "reminderDays"        = EXCLUDED."reminderDays",
+      "cutoffHours"         = EXCLUDED."cutoffHours",
+      "sendConfirmationSms" = EXCLUDED."sendConfirmationSms"
     `,
     [
       userProductId,
@@ -232,6 +258,7 @@ export async function POST(req: NextRequest) {
       JSON.stringify(nextPostes),
       nextReminderDays === null ? null : JSON.stringify(nextReminderDays),
       nextCutoffHours,
+      nextSendConfirmationSms,
     ]
   );
 
@@ -243,5 +270,6 @@ export async function POST(req: NextRequest) {
     postesByType: normalizePostesByType(nextPostes, enabledKeys),
     reminderDays: nextReminderDays,
     cutoffHours: nextCutoffHours,
+    sendConfirmationSms: nextSendConfirmationSms,
   });
 }

@@ -248,15 +248,15 @@ export default function SmsConfirmationConfigCard({
   return (
     <Accordion>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Typography variant="h6">Confirmation de rendez-vous par SMS</Typography>
+        <Typography variant="h6">Rappel de RDV par SMS (No-show)</Typography>
       </AccordionSummary>
       <AccordionDetails>
         <Stack spacing={2}>
           <Typography variant="body2" color="text.secondary">
             Sélectionnez les types d&apos;examens pour lesquels un SMS de
-            confirmation sera envoyé au patient avant son rendez-vous, et
-            indiquez les numéros de poste Xplore concernés pour chaque type
-            activé.
+            rappel sera envoyé au patient avant son rendez-vous (pour limiter
+            les no-show), et indiquez les numéros de poste Xplore concernés
+            pour chaque type activé.
           </Typography>
 
           {loading ? (

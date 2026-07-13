@@ -53,6 +53,7 @@ import { useCentre } from "@/app/context/CentreContext";
 import { useTalkBasePath } from "@/utils/talkRoutes";
 import { useSession } from "next-auth/react";
 import SmsConfirmationConfigCard from "./SmsConfirmationConfigCard";
+import SmsBookingConfirmationCard from "./SmsBookingConfirmationCard";
 
 type ExamKey = "radiographie" | "irm" | "echographie" | "scanner" | "mammo";
 type VoiceKey = "femme" | "homme" | "neutre";
@@ -1084,7 +1085,10 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         </AccordionDetails>
       </Accordion>
 
-      {/* Confirmation de rendez-vous par SMS */}
+      {/* Confirmation de RDV par SMS (à la prise de RDV via bot) */}
+      <SmsBookingConfirmationCard userProductId={Number(params.id)} />
+
+      {/* Rappel de RDV par SMS (no-show) */}
       <SmsConfirmationConfigCard userProductId={Number(params.id)} />
 
       {/* Options */}

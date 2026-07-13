@@ -26,6 +26,13 @@ export type PostesByType = Partial<Record<ExamTypeKey, string[]>>;
 
 export const DEFAULT_POSTES_BY_TYPE: PostesByType = {};
 
+/**
+ * Flag "envoyer un SMS de confirmation au patient dès la prise de RDV par le
+ * bot" (à ne pas confondre avec la config no-show / rappels de RDV).
+ * Défaut : `false` — opt-in explicite par centre.
+ */
+export const DEFAULT_SEND_CONFIRMATION_SMS = false;
+
 // Bornes de validation — évitent des valeurs délirantes qui casseraient le cron.
 export const REMINDER_DAY_MAX = 30;
 export const CUTOFF_HOURS_MAX = 168; // 7 jours
@@ -118,4 +125,13 @@ export function normalizeCutoffHours(raw: unknown): number | null {
   const i = Math.trunc(n);
   if (i < 0 || i > CUTOFF_HOURS_MAX) return null;
   return i;
+}
+
+/**
+ * Normalise sendConfirmationSms : coerce en booléen strict.
+ * Toute valeur non booléenne retombe sur `DEFAULT_SEND_CONFIRMATION_SMS`.
+ */
+export function normalizeSendConfirmationSms(raw: unknown): boolean {
+  if (typeof raw === "boolean") return raw;
+  return DEFAULT_SEND_CONFIRMATION_SMS;
 }
