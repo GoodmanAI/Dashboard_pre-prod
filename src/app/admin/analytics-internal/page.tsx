@@ -14,6 +14,7 @@ import {
   Divider,
   FormControl,
   Grid,
+  IconButton,
   InputLabel,
   ListItemText,
   MenuItem,
@@ -47,6 +48,7 @@ import {
   IconTimeline,
   IconBolt,
   IconInfoCircle,
+  IconDownload,
 } from "@tabler/icons-react";
 import {
   ResponsiveContainer,
@@ -74,6 +76,18 @@ import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import { useCentre } from "@/app/context/CentreContext";
 import { startOfDay, endOfDay, subDays } from "date-fns";
 import { CATEGORY_META, TransferCategory } from "@/lib/transferReasons";
+import {
+  ExportMeta,
+  FeatureMetaLite,
+  exportTimeseriesMd,
+  exportIdentificationMd,
+  exportTransfersMd,
+  exportFeatureMd,
+  exportDetailedSectionsMd,
+  exportFullMd,
+  downloadMarkdown,
+  buildFilename,
+} from "@/lib/analyticsInternalExport";
 
 // ---------- Types ----------
 type TimeseriesPoint = {
@@ -212,6 +226,38 @@ type AnalyticsInternal = {
 };
 
 // ---------- Composants utilitaires ----------
+
+/**
+ * Petit bouton d'export en haut à droite d'une section. Désactivé tant que
+ * les données ne sont pas prêtes (le parent passe onExport=undefined). Cliquer
+ * télécharge un .md avec la période, les centres filtrés et le contenu de la
+ * section, prêt à être collé dans une conversation Claude Code.
+ */
+function ExportIconButton({
+  onExport,
+  tooltip = "Exporter cette section en markdown",
+}: {
+  onExport?: () => void;
+  tooltip?: string;
+}) {
+  return (
+    <MuiTooltip title={onExport ? tooltip : "Chargement en cours…"}>
+      <span>
+        <IconButton
+          size="small"
+          onClick={onExport}
+          disabled={!onExport}
+          sx={{
+            color: "#2a6f64",
+            "&:hover": { bgcolor: "rgba(72,200,175,0.12)" },
+          }}
+        >
+          <IconDownload size={18} />
+        </IconButton>
+      </span>
+    </MuiTooltip>
+  );
+}
 
 /** KPI compact : icône teal + label + valeur. */
 function KpiCard({
@@ -455,7 +501,13 @@ function getCategoryUI(key: string): { color: string; label: string } {
   return { color: meta.color, label: meta.label };
 }
 
-function TransfersSection({ transfers }: { transfers: AnalyticsInternal["transfers"] }) {
+function TransfersSection({
+  transfers,
+  onExport,
+}: {
+  transfers: AnalyticsInternal["transfers"];
+  onExport?: () => void;
+}) {
   const { total, categoryDistribution, topFailedSteps, serviceDisabledCount, timeseries, categoryKeys } = transfers;
 
   // Catégories réellement présentes (>0) sur la période — pour ne pas tracer
@@ -502,6 +554,7 @@ function TransfersSection({ transfers }: { transfers: AnalyticsInternal["transfe
             Catégories de redirection et étapes les plus génératrices d&apos;incompréhension
           </Typography>
         </Box>
+        <ExportIconButton onExport={onExport} />
       </Box>
 
       <Divider sx={{ mb: 2.5 }} />
@@ -912,8 +965,10 @@ const RECONSTRUCT_LABELS: Record<string, string> = {
 
 function IdentificationSection({
   identification,
+  onExport,
 }: {
   identification: AnalyticsInternal["identification"];
+  onExport?: () => void;
 }) {
   const { finalStatusDistribution, errorsByStep, avgTotalAttempts, birthdate, spell, crossSpellByFinalStatus } = identification;
 
@@ -969,6 +1024,7 @@ function IdentificationSection({
             Résolution date de naissance · Épellation · Statut final
           </Typography>
         </Box>
+        <ExportIconButton onExport={onExport} />
       </Box>
 
       <Divider sx={{ mb: 2.5 }} />
@@ -1519,8 +1575,10 @@ function ScatterTooltip({ meta, ...props }: any) {
  */
 function FeatureMonitoringSection({
   features,
+  onExport,
 }: {
   features: AnalyticsInternal["features"];
+  onExport?: (activeKey: FeatureKey) => void;
 }) {
   const [activeKey, setActiveKey] = useState<FeatureKey>("eager");
   const meta = FEATURES_BY_KEY[activeKey];
@@ -1565,6 +1623,10 @@ function FeatureMonitoringSection({
             Évaluation du gain potentiel des features candidates par étape métier
           </Typography>
         </Box>
+        <ExportIconButton
+          onExport={onExport ? () => onExport(activeKey) : undefined}
+          tooltip="Exporter la feature affichée en markdown"
+        />
       </Box>
 
       {/* ---------- Sélecteur de feature ---------- */}
@@ -2141,7 +2203,13 @@ const METRICS: {
 ];
 
 /** Carte d'évolution temporelle : Tabs pour choisir la métrique + LineChart. */
-function TimeseriesCard({ timeseries }: { timeseries: TimeseriesPoint[] }) {
+function TimeseriesCard({
+  timeseries,
+  onExport,
+}: {
+  timeseries: TimeseriesPoint[];
+  onExport?: () => void;
+}) {
   const [metric, setMetric] = useState<MetricKey>("calls");
   const current = METRICS.find((m) => m.key === metric)!;
 
@@ -2180,6 +2248,7 @@ function TimeseriesCard({ timeseries }: { timeseries: TimeseriesPoint[] }) {
             Tendance par jour sur la période sélectionnée
           </Typography>
         </Box>
+        <ExportIconButton onExport={onExport} />
       </Box>
 
       <Tabs
@@ -2367,8 +2436,102 @@ const AnalyticsInternalPage = () => {
     [allCentres]
   );
 
-  // Note : la préparation des données identification est maintenant interne à
-  // `IdentificationSection` (carte pleine largeur en haut de page).
+  // Métadonnées communes à tous les exports (période + centres + statut RDV +
+  // compteurs macro). null tant que `data` n'est pas chargé — dans ce cas les
+  // boutons d'export sont désactivés côté sections.
+  const exportMeta: ExportMeta | null = useMemo(() => {
+    if (!data) return null;
+    const centresScope: "all" | number[] =
+      selectedUserProductIds.length === 0 ? "all" : selectedUserProductIds;
+    let centresLabels: string;
+    let centresSlug: string;
+    if (selectedUserProductIds.length === 0) {
+      centresLabels = `Tous les centres (${centreOptions.length})`;
+      centresSlug = "all-centres";
+    } else if (selectedUserProductIds.length === 1) {
+      const id = selectedUserProductIds[0];
+      const c = centreOptions.find((x) => x.userProductId === id);
+      centresLabels = c?.name || c?.email || `#${id}`;
+      centresSlug = `centre-${id}`;
+    } else {
+      const names = selectedUserProductIds
+        .map((id) => centreOptions.find((x) => x.userProductId === id))
+        .map((c) => (c ? c.name || c.email : ""))
+        .filter(Boolean);
+      centresLabels = `${selectedUserProductIds.length} centres : ${names.join(", ")}`;
+      centresSlug = "centres-multi";
+    }
+    return {
+      periodFrom: range.from,
+      periodTo: range.to,
+      centresScope,
+      centresLabels,
+      centresSlug,
+      rdvStatus,
+      totalCalls: data.totalCalls,
+      callsWithInternal: data.callsWithInternal,
+    };
+  }, [data, range, selectedUserProductIds, centreOptions, rdvStatus]);
+
+  // Handlers d'export par section (undefined tant que data ou meta pas prêts,
+  // ce qui désactive automatiquement les boutons).
+  const canExport = data !== null && exportMeta !== null;
+
+  const handleExportTimeseries =
+    canExport && data && exportMeta
+      ? () => {
+          const md = exportTimeseriesMd(data, exportMeta);
+          downloadMarkdown(md, buildFilename("timeseries", exportMeta));
+        }
+      : undefined;
+
+  const handleExportIdentification =
+    canExport && data && exportMeta
+      ? () => {
+          const md = exportIdentificationMd(data, exportMeta);
+          downloadMarkdown(md, buildFilename("identification", exportMeta));
+        }
+      : undefined;
+
+  const handleExportTransfers =
+    canExport && data && exportMeta
+      ? () => {
+          const md = exportTransfersMd(data, exportMeta);
+          downloadMarkdown(md, buildFilename("transfers", exportMeta));
+        }
+      : undefined;
+
+  const handleExportFeature =
+    canExport && data && exportMeta
+      ? (activeKey: FeatureKey) => {
+          const featureMeta = FEATURES_BY_KEY[activeKey] as FeatureMetaLite;
+          const md = exportFeatureMd(data, activeKey, featureMeta, exportMeta);
+          downloadMarkdown(
+            md,
+            buildFilename("feature", exportMeta, activeKey)
+          );
+        }
+      : undefined;
+
+  const handleExportDetailed =
+    canExport && data && exportMeta
+      ? () => {
+          const md = exportDetailedSectionsMd(data, exportMeta);
+          downloadMarkdown(md, buildFilename("detailed", exportMeta));
+        }
+      : undefined;
+
+  const handleExportFull =
+    canExport && data && exportMeta
+      ? () => {
+          const md = exportFullMd(
+            data,
+            exportMeta,
+            FEATURES_REGISTRY as FeatureMetaLite[]
+          );
+          downloadMarkdown(md, buildFilename("full", exportMeta));
+        }
+      : undefined;
 
   if (status === "loading") {
     return (
@@ -2528,6 +2691,32 @@ const AnalyticsInternalPage = () => {
                   <MenuItem value="transferred">Transféré</MenuItem>
                 </Select>
               </FormControl>
+
+              <MuiTooltip
+                title={
+                  handleExportFull
+                    ? "Exporter toutes les sections en un seul fichier markdown, adapté à un partage direct avec Claude Code."
+                    : "Chargement des données en cours…"
+                }
+              >
+                <span>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<IconDownload size={16} />}
+                    onClick={handleExportFull}
+                    disabled={!handleExportFull}
+                    sx={{
+                      backgroundColor: "#48C8AF",
+                      "&:hover": { backgroundColor: "#3bb49d" },
+                      textTransform: "none",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Exporter tout
+                  </Button>
+                </span>
+              </MuiTooltip>
             </Stack>
           </Stack>
 
@@ -2580,17 +2769,35 @@ const AnalyticsInternalPage = () => {
 
         {/* ---------- Évolution temporelle ---------- */}
         {data && data.timeseries?.length > 0 && (
-          <TimeseriesCard timeseries={data.timeseries} />
+          <TimeseriesCard
+            timeseries={data.timeseries}
+            onExport={handleExportTimeseries}
+          />
         )}
 
         {/* ---------- Identification patient (birthdate + spell + crossover) ---------- */}
-        {data?.identification && <IdentificationSection identification={data.identification} />}
+        {data?.identification && (
+          <IdentificationSection
+            identification={data.identification}
+            onExport={handleExportIdentification}
+          />
+        )}
 
         {/* ---------- Transferts vers secrétariat (catégorie + top étapes incompréhension) ---------- */}
-        {data?.transfers && <TransfersSection transfers={data.transfers} />}
+        {data?.transfers && (
+          <TransfersSection
+            transfers={data.transfers}
+            onExport={handleExportTransfers}
+          />
+        )}
 
         {/* ---------- Monitoring features candidates (eager / tts / buffered) ---------- */}
-        {data?.features && <FeatureMonitoringSection features={data.features} />}
+        {data?.features && (
+          <FeatureMonitoringSection
+            features={data.features}
+            onExport={handleExportFeature}
+          />
+        )}
 
         {loading && !data ? (
           <Box
@@ -2613,10 +2820,56 @@ const AnalyticsInternalPage = () => {
             ))}
           </Box>
         ) : data ? (
-          // Masonry CSS natif : 2 colonnes sur desktop, 1 sur mobile.
-          // `breakInside: avoid` empêche une section d'être coupée entre 2 colonnes,
-          // et le browser balance automatiquement la hauteur — fini les espaces vides
-          // sous une section plus courte que sa voisine.
+          <>
+          {/* ---------- Bandeau au-dessus du masonry : export commun des 5
+              sections détaillées (Steps + API + STT + Slot + Middlewares).
+              Chacune n'a pas de bouton dédié pour ne pas surcharger l'UI. ---------- */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 2,
+              px: 0.5,
+            }}
+          >
+            <Typography variant="caption" color="text.secondary">
+              Sections détaillées ci-dessous — un export commun couvre les 5.
+            </Typography>
+            <MuiTooltip
+              title={
+                handleExportDetailed
+                  ? "Exporter en un fichier : Qualité par étape · Performance API · STT · Slot · Middlewares."
+                  : "Chargement des données en cours…"
+              }
+            >
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<IconDownload size={16} />}
+                  onClick={handleExportDetailed}
+                  disabled={!handleExportDetailed}
+                  sx={{
+                    borderColor: "#48C8AF",
+                    color: "#2a6f64",
+                    textTransform: "none",
+                    "&:hover": {
+                      borderColor: "#3bb49d",
+                      backgroundColor: "rgba(72,200,175,0.08)",
+                    },
+                  }}
+                >
+                  Exporter sections détaillées
+                </Button>
+              </span>
+            </MuiTooltip>
+          </Box>
+
+          {/* Masonry CSS natif : 2 colonnes sur desktop, 1 sur mobile.
+              `breakInside: avoid` empêche une section d'être coupée entre 2 colonnes,
+              et le browser balance automatiquement la hauteur — fini les espaces vides
+              sous une section plus courte que sa voisine. */}
           <Box
             sx={{
               columnCount: { xs: 1, md: 2 },
@@ -3047,6 +3300,7 @@ const AnalyticsInternalPage = () => {
               </SectionCard>
             </Box>
           </Box>
+          </>
         ) : null}
       </Box>
     </PageContainer>
