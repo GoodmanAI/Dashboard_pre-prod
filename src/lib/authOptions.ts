@@ -9,6 +9,7 @@ import {
   getLockRemainingSeconds,
   handleFailedLogin,
   handleSuccessfulLogin,
+  ACCOUNT_LOCK_DURATION_MS,
 } from "@/lib/loginSecurity";
 
 /**
@@ -41,23 +42,33 @@ export const authOptions: NextAuthOptions  = {
        * Logique métier d'autorisation avec protections anti-bruteforce :
        *  1) Extrait l'IP depuis les headers (via reverse-proxy si dispo)
        *  2) Vérifie le rate limit IP (> 5 échecs / 15 min → refus)
-       *  3) Récupère l'utilisateur par email
+       *  3) Récupère l'utilisateur par identifiant (lowercase)
        *  4) Vérifie que le compte n'est pas verrouillé (échecs récents)
        *  5) Compare le mot de passe bcrypt
-       *  6) En cas d'échec : journalise + incrémente le compteur du compte
+       *  6) En cas d'échec : journalise + incrémente le compteur du compte,
+       *     puis renvoie un message FR qui indique les tentatives restantes
+       *     (à partir de 2 restantes) OU le lockout (à 0 restantes).
        *  7) En cas de succès : journalise + reset compteur
        *
-       * Messages d'erreur volontairement génériques ("Invalid credentials") pour
-       * ne pas révéler l'existence d'un compte (attaque de reconnaissance).
+       * Choix UX (2026-07-15) : on affiche les tentatives restantes pour les
+       * comptes EXISTANTS. Ça casse partiellement l'anti-enumeration (un
+       * attaquant peut inférer qu'un identifiant existe si le compteur
+       * apparaît), mais l'expérience utilisateur légitime prime — le user
+       * savait qu'il allait avoir de vrais utilisateurs qui oublient leur
+       * mot de passe. Les identifiants inconnus reçoivent le message
+       * générique sans compteur pour limiter la fuite.
        */
       async authorize(credentials, req) {
+        const GENERIC_MSG = "Mot de passe ou identifiant incorrect, veuillez réessayer.";
+        const lockDurationMinutes = Math.ceil(ACCOUNT_LOCK_DURATION_MS / 60000);
+
         if (!credentials) {
-          throw new Error("Invalid credentials");
+          throw new Error(GENERIC_MSG);
         }
         const email = credentials.email?.trim().toLowerCase();
         const password = credentials.password;
         if (!email || !password) {
-          throw new Error("Invalid credentials");
+          throw new Error(GENERIC_MSG);
         }
 
         // 1) Extraction IP — req.headers est fourni par NextAuth (v4) en second arg.
@@ -68,7 +79,7 @@ export const authOptions: NextAuthOptions  = {
         if (rate.limited) {
           const mins = Math.ceil(rate.retryAfterSeconds / 60);
           throw new Error(
-            `Trop de tentatives. Réessayez dans ${mins} minute${mins > 1 ? "s" : ""}.`
+            `Trop de tentatives depuis cette adresse. Réessayez dans ${mins} minute${mins > 1 ? "s" : ""}.`
           );
         }
 
@@ -77,8 +88,10 @@ export const authOptions: NextAuthOptions  = {
 
         if (!user || !user.password) {
           // Journaliser même l'échec sur email inexistant (pour rate limit IP).
+          // Message générique (pas de compteur) pour ne pas révéler que
+          // l'identifiant n'existe pas.
           await recordLoginAttempt(ip, email, false);
-          throw new Error("Invalid credentials");
+          throw new Error(GENERIC_MSG);
         }
 
         // 4) Account lockout — vérifier AVANT de comparer le mot de passe pour
@@ -89,9 +102,9 @@ export const authOptions: NextAuthOptions  = {
         });
         if (lockRemaining !== null) {
           await recordLoginAttempt(ip, email, false);
-          const mins = Math.ceil(lockRemaining / 60);
+          const mins = Math.max(1, Math.ceil(lockRemaining / 60));
           throw new Error(
-            `Compte temporairement verrouillé. Réessayez dans ${mins} minute${mins > 1 ? "s" : ""}.`
+            `Compte bloqué suite à trop de tentatives. Réessayez dans ${mins} minute${mins > 1 ? "s" : ""}.`
           );
         }
 
@@ -99,8 +112,20 @@ export const authOptions: NextAuthOptions  = {
         const isValid = await bcrypt.compare(password, user.password);
         if (!isValid) {
           await recordLoginAttempt(ip, email, false);
-          await handleFailedLogin(user.id);
-          throw new Error("Invalid credentials");
+          const result = await handleFailedLogin(user.id);
+
+          if (result.justLocked) {
+            throw new Error(
+              `Compte bloqué suite à trop de tentatives. Réessayez dans ${lockDurationMinutes} minute${lockDurationMinutes > 1 ? "s" : ""}.`
+            );
+          }
+          // Warning à partir de 2 tentatives restantes.
+          if (result.remainingAttempts <= 2 && result.remainingAttempts > 0) {
+            throw new Error(
+              `Mot de passe ou identifiant incorrect. Il vous reste ${result.remainingAttempts} tentative${result.remainingAttempts > 1 ? "s" : ""} avant blocage.`
+            );
+          }
+          throw new Error(GENERIC_MSG);
         }
 
         // 6) Succès : journaliser + reset état de lock

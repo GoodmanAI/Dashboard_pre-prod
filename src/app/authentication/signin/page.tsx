@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { signIn, getSession, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
+  Alert,
   Box,
   Typography,
   Stack,
@@ -28,6 +29,10 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Message d'erreur remonté par NextAuth (result.error). Contient le message
+  // FR construit dans authOptions.authorize (identifiant/mot de passe
+  // incorrect, tentatives restantes, compte bloqué, rate limit IP).
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   /* -------------------------------------------------------------------------- */
   /*                             Contexte & Navigation                           */
@@ -52,6 +57,7 @@ export default function SignIn() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(null);
 
     const result = await signIn("credentials", {
       email,
@@ -61,6 +67,14 @@ export default function SignIn() {
 
     if (result?.error) {
       console.error("Erreur d’authentification:", result);
+      // Le message FR est fourni par authOptions.authorize (cf. src/lib/authOptions.ts).
+      // Fallback générique si NextAuth remplace le message par un code (rare en v4 avec redirect:false).
+      const isGenericCode = result.error === "CredentialsSignin";
+      setErrorMsg(
+        isGenericCode
+          ? "Mot de passe ou identifiant incorrect, veuillez réessayer."
+          : result.error
+      );
       setLoading(false);
       return;
     }
@@ -153,13 +167,26 @@ export default function SignIn() {
       <Box sx={{ width: "90%", maxWidth: 348, p: 2 }}>
         <form onSubmit={handleSubmit}>
           <Stack spacing={2}>
+            {errorMsg && (
+              <Alert
+                severity="error"
+                onClose={() => setErrorMsg(null)}
+                sx={{ borderRadius: "8px", alignItems: "center" }}
+              >
+                {errorMsg}
+              </Alert>
+            )}
+
             <TextField
               fullWidth
               variant="outlined"
               label="Identifiant"
               type="text"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (errorMsg) setErrorMsg(null);
+              }}
               disabled={loading}
               autoComplete="username"
               placeholder="votre identifiant"
@@ -182,7 +209,10 @@ export default function SignIn() {
               label="Mot de passe"
               type={showPassword ? "text" : "password"}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (errorMsg) setErrorMsg(null);
+              }}
               disabled={loading}
               autoComplete="current-password"
               InputProps={{
