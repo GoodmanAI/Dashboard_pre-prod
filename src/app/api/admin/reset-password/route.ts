@@ -5,6 +5,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { z } from "zod";
 import { passwordSchema } from "@/lib/passwordSchema";
+import {
+  extractClientIp,
+  checkIpRateLimit,
+  recordLoginAttempt,
+} from "@/lib/loginSecurity";
 
 // Schéma de validation des données entrantes
 const ResetPasswordSchema = z.object({
@@ -23,6 +28,22 @@ const ResetPasswordSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit IP en tout premier — protège contre une session admin
+    // compromise qui bruteforcerait la triplette (clientId, name, email)
+    // requise pour reset le mot de passe d'un client. Réutilise le compteur
+    // global LoginAttempt : 5 échecs / 15 min / IP tous endpoints confondus.
+    const ip = extractClientIp(request.headers);
+    const rate = await checkIpRateLimit(ip);
+    if (rate.limited) {
+      const mins = Math.ceil(rate.retryAfterSeconds / 60);
+      return NextResponse.json(
+        {
+          error: `Trop de tentatives depuis cette adresse. Réessayez dans ${mins} minute${mins > 1 ? "s" : ""}.`,
+        },
+        { status: 429 }
+      );
+    }
+
     // Vérifier la session et les permissions
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "ADMIN") {
@@ -31,6 +52,7 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
+    const adminEmail = session.user.email ?? "unknown-admin";
 
     const body = await request.json();
 
@@ -52,6 +74,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!client) {
+      await recordLoginAttempt(ip, adminEmail, false);
       return NextResponse.json(
         { error: "Invalid credentials." }, // Masque si l'ID est invalide
         { status: 400 }
@@ -60,6 +83,7 @@ export async function POST(request: NextRequest) {
 
     // Vérifier si les informations correspondent
     if (client.name !== name) {
+      await recordLoginAttempt(ip, adminEmail, false);
       return NextResponse.json(
         { error: "The provided name does not match our records." },
         { status: 400 }
@@ -67,6 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (client.email !== email) {
+      await recordLoginAttempt(ip, adminEmail, false);
       return NextResponse.json(
         { error: "The provided email does not match our records." },
         { status: 400 }
@@ -98,6 +123,9 @@ export async function POST(request: NextRequest) {
       where: { id: clientId },
       data: { password: hashedPassword },
     });
+
+    // Trace le succès (utile pour l'audit — reporting connexion pro futur).
+    await recordLoginAttempt(ip, adminEmail, true);
 
     return NextResponse.json(
       { message: "Password reset successfully." },
