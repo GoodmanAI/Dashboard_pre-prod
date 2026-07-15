@@ -22,8 +22,14 @@ export const RATE_LIMIT_MAX_FAILURES = 5;
 
 /** Nb d'échecs consécutifs par compte au-delà duquel on lock. */
 export const ACCOUNT_LOCK_THRESHOLD = 5;
-/** Durée du lock (à partir du dépassement du seuil). */
-export const ACCOUNT_LOCK_DURATION_MS = 15 * 60 * 1000; // 15 min
+/**
+ * Durée du lock (à partir du dépassement du seuil).
+ * Baissée de 15 → 5 min (2026-07-15) pour améliorer l'UX : un utilisateur
+ * légitime qui a juste oublié son mot de passe n'est pas puni pendant un
+ * quart d'heure. La protection reste efficace (5 tentatives + 5 min = un
+ * bruteforce naïf plafonne à ~60 tentatives/heure/compte).
+ */
+export const ACCOUNT_LOCK_DURATION_MS = 5 * 60 * 1000; // 5 min
 
 // ---------- Types ----------
 
@@ -125,11 +131,23 @@ export function getLockRemainingSeconds(user: UserLockInfo): number | null {
   return Math.ceil(remaining / 1000);
 }
 
+/** Résultat de `handleFailedLogin` — utilisé pour construire le message renvoyé au user. */
+export type FailedLoginResult = {
+  /** Compteur d'échecs après incrément (0 si l'update a échoué). */
+  failedAttempts: number;
+  /** true si l'incrément a fait dépasser le seuil et a locké le compte. */
+  justLocked: boolean;
+  /** Tentatives restantes avant lock (0 si déjà locké). */
+  remainingAttempts: number;
+};
+
 /**
  * À appeler après un login échoué. Incrémente le compteur et verrouille le
- * compte s'il atteint le seuil. Atomique via update.
+ * compte s'il atteint le seuil. Atomique via update. Retourne l'état post-
+ * incrément pour permettre à l'appelant (authOptions) de construire un message
+ * clair pour l'utilisateur ("il vous reste 2 tentatives" / "compte bloqué").
  */
-export async function handleFailedLogin(userId: number): Promise<void> {
+export async function handleFailedLogin(userId: number): Promise<FailedLoginResult> {
   try {
     const updated = await prisma.user.update({
       where: { id: userId },
@@ -138,7 +156,8 @@ export async function handleFailedLogin(userId: number): Promise<void> {
       },
       select: { failedLoginAttempts: true },
     });
-    if (updated.failedLoginAttempts >= ACCOUNT_LOCK_THRESHOLD) {
+    const justLocked = updated.failedLoginAttempts >= ACCOUNT_LOCK_THRESHOLD;
+    if (justLocked) {
       await prisma.user.update({
         where: { id: userId },
         data: {
@@ -146,8 +165,16 @@ export async function handleFailedLogin(userId: number): Promise<void> {
         },
       });
     }
+    return {
+      failedAttempts: updated.failedLoginAttempts,
+      justLocked,
+      remainingAttempts: Math.max(0, ACCOUNT_LOCK_THRESHOLD - updated.failedLoginAttempts),
+    };
   } catch (err) {
     console.error("[loginSecurity] failed to handle failed login:", err);
+    // Fail-open : on n'a pas pu tracer l'échec, on renvoie un état neutre pour
+    // ne pas bloquer plus le user que nécessaire.
+    return { failedAttempts: 0, justLocked: false, remainingAttempts: ACCOUNT_LOCK_THRESHOLD };
   }
 }
 
