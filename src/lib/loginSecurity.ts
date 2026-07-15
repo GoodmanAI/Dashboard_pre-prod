@@ -15,8 +15,13 @@ import { prisma } from "@/lib/prisma";
 
 // ---------- Constantes ajustables ----------
 
-/** Fenêtre de temps sur laquelle on compte les échecs par IP. */
-export const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 min
+/**
+ * Fenêtre de temps sur laquelle on compte les échecs par IP.
+ * Alignée sur ACCOUNT_LOCK_DURATION_MS (5 min) — un user bloqué par IP
+ * après trop d'échecs attend le même délai qu'un compte locké, ce qui
+ * évite l'incohérence "compte débloqué mais IP encore rate-limitée".
+ */
+export const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000; // 5 min
 /** Nb d'échecs par IP dans la fenêtre au-delà duquel on bloque. */
 export const RATE_LIMIT_MAX_FAILURES = 5;
 
