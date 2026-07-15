@@ -10,7 +10,14 @@ import { passwordSchema } from "@/lib/passwordSchema";
 const ResetPasswordSchema = z.object({
   clientId: z.number().int("Client ID must be an integer"),
   name: z.string().min(1, "Name is required"),
-  email: z.string().email("Invalid email format"),
+  // Historiquement nommé "email" mais en réalité un identifiant libre : les
+  // vieux clients ont des identifiants type "Montchanin" sans @. On accepte
+  // n'importe quelle string >= 1 char, avec trim + lowercase pour matcher les
+  // enregistrements dont l'email est normalisé en lowercase côté DB.
+  email: z
+    .string()
+    .min(1, "Identifiant is required")
+    .transform((v) => v.trim().toLowerCase()),
   newPassword: passwordSchema,
 });
 
