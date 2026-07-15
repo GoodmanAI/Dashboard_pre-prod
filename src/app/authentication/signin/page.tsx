@@ -156,12 +156,13 @@ export default function SignIn() {
             <TextField
               fullWidth
               variant="outlined"
-              label="Email"
+              label="Identifiant"
               type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
               autoComplete="username"
+              placeholder="votre identifiant"
               sx={{
                 backgroundColor: "#FFFFFF",
                 borderRadius: "8px",
@@ -178,7 +179,7 @@ export default function SignIn() {
             <TextField
               fullWidth
               variant="outlined"
-              label="Password"
+              label="Mot de passe"
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -235,7 +236,7 @@ export default function SignIn() {
                 ":hover": { backgroundColor: "#3AB19B" },
               }}
             >
-              {loading ? "Signing In..." : "Login"}
+              {loading ? "Connexion..." : "Se connecter"}
             </Button>
           </Stack>
         </form>
