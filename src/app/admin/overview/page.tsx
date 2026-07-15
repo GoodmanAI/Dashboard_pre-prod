@@ -52,6 +52,7 @@ import { useCentre, ManagedUser } from "@/app/context/CentreContext";
 import DateRangePresets from "@/components/DateRangePresets";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import { startOfDay, endOfDay, differenceInCalendarDays } from "date-fns";
+import FunnelMiniChart from "@/components/admin/FunnelMiniChart";
 
 type TodayStats = {
   totalCalls: number;
@@ -371,6 +372,14 @@ function CentreTodayCard({
           />
         </Stack>
       ) : null}
+
+      {/* Mini-funnel de conversion "prise de RDV" — montre le principal point
+          de fuite du parcours utilisateur pour ce centre / cette période.
+          Affiché même quand il n'y a aucun call prise_rdv (l'état vide est
+          géré à l'intérieur du composant). */}
+      {!loading && !error && calls.length > 0 && (
+        <FunnelMiniChart calls={calls} />
+      )}
 
       {/* Sparkline en bas — donne une vue rapide de la temporalité */}
       {!loading && !error && calls.length > 0 && (
