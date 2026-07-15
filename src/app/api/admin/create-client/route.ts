@@ -12,9 +12,14 @@ import path from "path";
 import { passwordSchema } from "@/lib/passwordSchema";
 
 const CreateUserSchema = z.object({
+  // Historiquement nommé "email" mais c'est en fait un identifiant libre (peut
+  // ne PAS contenir de @). On accepte n'importe quelle string >= 3 chars,
+  // trim + lowercase systématique pour éviter les doublons de casse et pour
+  // que le login match toujours (authorize() lookup en lowercase).
   email: z
     .string()
-    .min(3, "Username must be at least 3 characters"),
+    .min(3, "Identifiant must be at least 3 characters")
+    .transform((v) => v.trim().toLowerCase()),
 
   // Politique unifiée (cf. src/lib/passwordSchema.ts). Avant, ce endpoint
   // acceptait un mot de passe faible (juste 8 chars + une minuscule) alors que
@@ -65,6 +70,9 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, password, name, products, isSecretary } = parseResult.data;
+    // Le schema Zod applique déjà trim + lowercase à `email` (cf. transform
+    // ci-dessus). On garde le nom `normalizedEmail` pour ne pas toucher au
+    // reste du fichier.
     const normalizedEmail = email;
 
     // Vérifier si un utilisateur avec cet email ou nom existe déjà
