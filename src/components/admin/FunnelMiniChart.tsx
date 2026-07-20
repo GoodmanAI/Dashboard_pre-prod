@@ -62,7 +62,10 @@ export default function FunnelMiniChart({ calls }: Props) {
   // État vide global (aucun appel avec funnel sur la période)
   if (!funnel) {
     return (
-      <Box sx={{ mt: 2, pt: 2, borderTop: "1px dashed #e5e7eb" }}>
+      <Box
+        onClick={(e) => e.stopPropagation()}
+        sx={{ mt: 2, pt: 2, borderTop: "1px dashed #e5e7eb", cursor: "default" }}
+      >
         <Typography
           variant="caption"
           color="text.secondary"
@@ -85,12 +88,20 @@ export default function FunnelMiniChart({ calls }: Props) {
 
   return (
     <Box
+      // La card parente (CentreTodayCard) porte un onClick qui navigue vers
+      // la page stats du centre. Sans stopPropagation, cliquer sur les tabs
+      // ou n'importe où dans le funnel déclencherait cette nav — l'utilisateur
+      // ne peut alors pas changer de sous-funnel. On coupe le bubbling ici,
+      // pour toute la zone du funnel, et on remet un cursor default pour ne
+      // pas laisser croire que la zone est cliquable pour naviguer.
+      onClick={(e) => e.stopPropagation()}
       sx={{
         mt: 2,
         pt: 2,
         borderTop: "1px dashed #e5e7eb",
         opacity: lowSample ? 0.55 : 1,
         transition: "opacity 250ms ease",
+        cursor: "default",
       }}
     >
       {/* ---------- Header : titre + volume ---------- */}
