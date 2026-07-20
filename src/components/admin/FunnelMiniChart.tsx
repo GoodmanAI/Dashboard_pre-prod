@@ -139,6 +139,13 @@ export default function FunnelMiniChart({ calls }: Props) {
           const prevPercent = idx === 0 ? 100 : funnel.percents[FUNNEL_STAGES[idx - 1]];
           const dropFromPrev = idx === 0 ? 0 : prevPercent - percent;
 
+          // La transition "Accueil → Intention" n'est pas une fuite (parcours
+          // interrompu) mais un filtre de scope : on passe de "tous les
+          // appels reçus" à "seulement ceux qui expriment une prise de RDV".
+          // Message tooltip adapté pour éviter que le user croie que c'est
+          // une chute problématique.
+          const isScopeFilterStep = stage === "intent_captured";
+
           const tooltipTitle = (
             <Box sx={{ py: 0.25 }}>
               <Typography variant="caption" sx={{ display: "block", fontWeight: 700 }}>
@@ -147,7 +154,15 @@ export default function FunnelMiniChart({ calls }: Props) {
               <Typography variant="caption" sx={{ display: "block", opacity: 0.85 }}>
                 {count} appel{count > 1 ? "s" : ""} ({percent.toFixed(0)}%)
               </Typography>
-              {idx > 0 && dropFromPrev > 0 && (
+              {isScopeFilterStep && dropFromPrev > 0 && (
+                <Typography
+                  variant="caption"
+                  sx={{ display: "block", color: "#c7d2fe", mt: 0.25 }}
+                >
+                  Filtre : {dropFromPrev.toFixed(0)} pts des appels n&apos;étaient pas une prise de RDV
+                </Typography>
+              )}
+              {idx > 0 && !isScopeFilterStep && dropFromPrev > 0 && (
                 <Typography
                   variant="caption"
                   sx={{ display: "block", color: "#fdba74", mt: 0.25 }}
