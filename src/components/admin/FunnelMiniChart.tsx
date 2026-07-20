@@ -1,79 +1,87 @@
 "use client";
 
-import { Box, Chip, Stack, Tooltip as MuiTooltip, Typography } from "@mui/material";
+import { useMemo, useState } from "react";
 import {
-  FUNNEL_LABELS,
+  Box,
+  Chip,
+  Stack,
+  Tab,
+  Tabs,
+  Tooltip as MuiTooltip,
+  Typography,
+} from "@mui/material";
+import {
+  AggregatedFunnel,
+  COMMON_STAGES,
   FUNNEL_LOW_SAMPLE_THRESHOLD,
-  FUNNEL_STAGES,
-  FunnelStage,
+  INTENT_LABELS,
+  IntentKey,
+  STAGE_LABELS,
+  SubFunnelData,
+  TRACKED_INTENTS,
   computeFunnel,
-  computeIntentCounts,
 } from "@/lib/callFunnel";
 
 /**
- * Mini-funnel de conversion "prise de RDV" pour une card centre de l'overview
- * admin. Rendu compact : 7 barres horizontales empilées, largeur = % du total,
- * dégradé neutre → teal → vert, badge orange sur la fuite principale.
+ * Mini-funnel hiérarchique par centre :
+ *   - 2 barres communes en tête (Accueil, Intention) — base = tous les appels
+ *   - KPI de conversion globale
+ *   - Tabs par intent tracké (Prise / Modif / Confirm / …) affichant leur
+ *     sous-funnel détaillé (uniquement les intents avec ≥ 1 appel sur la
+ *     période, triés par volume décroissant)
  *
- * Cliquer sur la card parent doit rester la seule zone d'interaction :
- * ce composant n'a que des tooltips au survol (pas d'onClick).
+ * Composant read-only : aucun clic (la card parent porte la nav).
  */
 
-// Palette : dégradé neutre (haut de funnel) vers teal brand (milieu) puis
-// vert succès sur "RDV pris". Une couleur = un stage, cohérent avec l'ordre.
-const STAGE_COLORS: Record<FunnelStage, string> = {
-  answered: "#cbd5e1",        // slate-300 — neutre, tout le monde arrive
-  intent_captured: "#94a3b8",  // slate-400
-  exam_identified: "#6b8ba7",  // bleu-gris
-  slot_proposed: "#48C8AF",    // teal brand
-  slot_accepted: "#3bb49d",    // teal brand -1
-  identified: "#2fa091",       // teal brand -2
-  booked: "#22c55e",           // vert succès
-};
+const STAGE_COLOR = "#48C8AF"; // teal brand
+const DROP_ACCENT = "#f97316";
+const DROP_ACCENT_BG = "#fff7ed";
 
-const DROP_ACCENT = "#f97316";       // orange 500 — la fuite principale
-const DROP_ACCENT_BG = "#fff7ed";    // orange 50 — fond de la barre en fuite
-
-type Props = {
-  /** Liste d'appels bruts (avec `stats.funnel`) sur la période/centre. */
-  calls: unknown[];
-};
+type Props = { calls: unknown[] };
 
 export default function FunnelMiniChart({ calls }: Props) {
-  const funnel = computeFunnel(calls);
-  const intentCounts = computeIntentCounts(calls);
-  const hasAnnexCounts =
-    intentCounts.modifications + intentCounts.annulations + intentCounts.confirmations > 0;
+  const funnel = useMemo(() => computeFunnel(calls), [calls]);
 
-  // État vide — aucun appel prise_rdv sur la période
+  // Sous-funnels présents (au moins 1 appel), triés par volume décroissant
+  // pour que la tab la plus "grosse" soit ouverte par défaut.
+  const sortedIntents: IntentKey[] = useMemo(() => {
+    if (!funnel) return [];
+    return TRACKED_INTENTS.filter((k) => funnel.subFunnels[k]).sort(
+      (a, b) =>
+        (funnel.subFunnels[b]?.totalCalls ?? 0) -
+        (funnel.subFunnels[a]?.totalCalls ?? 0)
+    );
+  }, [funnel]);
+
+  const [activeIntent, setActiveIntent] = useState<IntentKey | null>(null);
+  const currentIntent: IntentKey | null =
+    activeIntent && sortedIntents.includes(activeIntent)
+      ? activeIntent
+      : sortedIntents[0] ?? null;
+
+  // État vide global (aucun appel avec funnel sur la période)
   if (!funnel) {
     return (
-      <Box
-        sx={{
-          mt: 2,
-          pt: 2,
-          borderTop: "1px dashed #e5e7eb",
-        }}
-      >
+      <Box sx={{ mt: 2, pt: 2, borderTop: "1px dashed #e5e7eb" }}>
         <Typography
           variant="caption"
           color="text.secondary"
           sx={{ display: "block", fontSize: 10, letterSpacing: 0.5, mb: 0.5 }}
         >
-          PARCOURS PRISE RDV
+          FUNNEL DE CONVERSION
         </Typography>
-        <Typography variant="caption" color="text.disabled" sx={{ fontStyle: "italic" }}>
-          Aucun appel de prise de RDV sur la période.
+        <Typography
+          variant="caption"
+          color="text.disabled"
+          sx={{ fontStyle: "italic" }}
+        >
+          Aucun appel avec funnel disponible sur la période.
         </Typography>
-        {hasAnnexCounts && (
-          <AnnexCounts counts={intentCounts} sx={{ mt: 1 }} />
-        )}
       </Box>
     );
   }
 
-  const lowSample = funnel.total < FUNNEL_LOW_SAMPLE_THRESHOLD;
-  const dropStage = funnel.biggestDrop?.stage;
+  const lowSample = funnel.totalCalls < FUNNEL_LOW_SAMPLE_THRESHOLD;
 
   return (
     <Box
@@ -81,12 +89,11 @@ export default function FunnelMiniChart({ calls }: Props) {
         mt: 2,
         pt: 2,
         borderTop: "1px dashed #e5e7eb",
-        // Grisage global pour signaler un échantillon faible — les data
-        // restent visibles mais avec un opacity réduit pour ne pas tromper.
-        opacity: lowSample ? 0.5 : 1,
+        opacity: lowSample ? 0.55 : 1,
         transition: "opacity 250ms ease",
       }}
     >
+      {/* ---------- Header : titre + volume ---------- */}
       <Box
         sx={{
           display: "flex",
@@ -100,7 +107,7 @@ export default function FunnelMiniChart({ calls }: Props) {
           color="text.secondary"
           sx={{ fontSize: 10, letterSpacing: 0.5, fontWeight: 600 }}
         >
-          PARCOURS PRISE RDV
+          FUNNEL DE CONVERSION
         </Typography>
         <Stack direction="row" spacing={0.5} alignItems="center">
           {lowSample && (
@@ -121,165 +128,30 @@ export default function FunnelMiniChart({ calls }: Props) {
             color="text.secondary"
             sx={{ fontSize: 10, fontWeight: 600 }}
           >
-            {funnel.total} appel{funnel.total > 1 ? "s" : ""}
+            {funnel.totalCalls} appel{funnel.totalCalls > 1 ? "s" : ""}
           </Typography>
         </Stack>
       </Box>
 
-      {/* 7 barres */}
+      {/* ---------- 2 barres communes : Accueil, Intention ---------- */}
       <Stack spacing={0.5}>
-        {FUNNEL_STAGES.map((stage, idx) => {
-          const count = funnel.counts[stage];
-          const percent = funnel.percents[stage];
-          const isDropStage = dropStage === stage;
-          const color = STAGE_COLORS[stage];
-          const label = FUNNEL_LABELS[stage];
-
-          // Chute par rapport à l'étape précédente (0 pour la première).
-          const prevPercent = idx === 0 ? 100 : funnel.percents[FUNNEL_STAGES[idx - 1]];
-          const dropFromPrev = idx === 0 ? 0 : prevPercent - percent;
-
-          // La transition "Accueil → Intention" n'est pas une fuite (parcours
-          // interrompu) mais un filtre de scope : on passe de "tous les
-          // appels reçus" à "seulement ceux qui expriment une prise de RDV".
-          // Message tooltip adapté pour éviter que le user croie que c'est
-          // une chute problématique.
-          const isScopeFilterStep = stage === "intent_captured";
-
-          const tooltipTitle = (
-            <Box sx={{ py: 0.25 }}>
-              <Typography variant="caption" sx={{ display: "block", fontWeight: 700 }}>
-                {label}
-              </Typography>
-              <Typography variant="caption" sx={{ display: "block", opacity: 0.85 }}>
-                {count} appel{count > 1 ? "s" : ""} ({percent.toFixed(0)}%)
-              </Typography>
-              {isScopeFilterStep && dropFromPrev > 0 && (
-                <Typography
-                  variant="caption"
-                  sx={{ display: "block", color: "#c7d2fe", mt: 0.25 }}
-                >
-                  Filtre : {dropFromPrev.toFixed(0)} pts des appels n&apos;étaient pas une prise de RDV
-                </Typography>
-              )}
-              {idx > 0 && !isScopeFilterStep && dropFromPrev > 0 && (
-                <Typography
-                  variant="caption"
-                  sx={{ display: "block", color: "#fdba74", mt: 0.25 }}
-                >
-                  Chute de {dropFromPrev.toFixed(0)} pts depuis {FUNNEL_LABELS[FUNNEL_STAGES[idx - 1]]}
-                </Typography>
-              )}
-            </Box>
-          );
-
+        {COMMON_STAGES.map((stage, idx) => {
+          const count = stage === "answered" ? funnel.answeredCount : funnel.intentCapturedCount;
+          const percent = stage === "answered" ? funnel.answeredPct : funnel.intentCapturedPct;
           return (
-            <MuiTooltip key={stage} title={tooltipTitle} arrow placement="left">
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  cursor: "default",
-                  bgcolor: isDropStage ? DROP_ACCENT_BG : "transparent",
-                  borderRadius: 0.5,
-                  px: isDropStage ? 0.5 : 0,
-                  py: isDropStage ? 0.25 : 0,
-                  transition: "background-color 200ms ease",
-                }}
-              >
-                {/* Label à gauche */}
-                <Typography
-                  variant="caption"
-                  sx={{
-                    width: 88,
-                    fontSize: 10,
-                    color: "text.secondary",
-                    fontWeight: 500,
-                    flexShrink: 0,
-                  }}
-                  noWrap
-                >
-                  {label}
-                </Typography>
-
-                {/* Barre avec largeur = percent% */}
-                <Box
-                  sx={{
-                    flex: 1,
-                    height: 12,
-                    bgcolor: "rgba(0,0,0,0.05)",
-                    borderRadius: 0.75,
-                    overflow: "hidden",
-                    position: "relative",
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: `${Math.max(1, percent)}%`,
-                      height: "100%",
-                      bgcolor: color,
-                      borderRadius: 0.75,
-                      // Animation d'entrée sur la largeur (staggered via delay)
-                      animation: `funnelBarGrow 500ms ease-out ${idx * 60}ms both`,
-                      transformOrigin: "left",
-                      "@keyframes funnelBarGrow": {
-                        from: { transform: "scaleX(0)" },
-                        to: { transform: "scaleX(1)" },
-                      },
-                    }}
-                  />
-                </Box>
-
-                {/* Valeur numérique (% + count entre parenthèses) */}
-                <Typography
-                  variant="caption"
-                  sx={{
-                    width: 62,
-                    textAlign: "right",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: "text.primary",
-                    fontVariantNumeric: "tabular-nums",
-                    flexShrink: 0,
-                  }}
-                >
-                  {percent.toFixed(0)}%{" "}
-                  <Typography
-                    component="span"
-                    sx={{
-                      fontSize: 9,
-                      fontWeight: 500,
-                      color: "text.secondary",
-                    }}
-                  >
-                    ({count})
-                  </Typography>
-                </Typography>
-
-                {/* Badge fuite */}
-                {isDropStage && funnel.biggestDrop && (
-                  <Chip
-                    size="small"
-                    label={`−${funnel.biggestDrop.dropPct.toFixed(0)}%`}
-                    sx={{
-                      height: 16,
-                      fontSize: 9,
-                      fontWeight: 700,
-                      bgcolor: DROP_ACCENT,
-                      color: "#fff",
-                      flexShrink: 0,
-                      "& .MuiChip-label": { px: 0.75 },
-                    }}
-                  />
-                )}
-              </Box>
-            </MuiTooltip>
+            <StageBar
+              key={stage}
+              label={STAGE_LABELS[stage]}
+              count={count}
+              percent={percent}
+              color={STAGE_COLOR}
+              index={idx}
+            />
           );
         })}
       </Stack>
 
-      {/* Footer : conversion + fuite */}
+      {/* ---------- KPI Conversion globale ---------- */}
       <Box
         sx={{
           mt: 1.5,
@@ -289,87 +161,347 @@ export default function FunnelMiniChart({ calls }: Props) {
           alignItems: "baseline",
           justifyContent: "space-between",
           gap: 1,
-          flexWrap: "wrap",
         }}
       >
-        <Box>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3, display: "block" }}
-          >
-            CONVERSION
-          </Typography>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}
+        >
+          CONVERSION GLOBALE
+        </Typography>
+        <Stack direction="row" spacing={0.75} alignItems="baseline">
           <Typography
             variant="h6"
             sx={{
               fontWeight: 800,
               lineHeight: 1,
-              color: funnel.conversionRate >= 50 ? "#15803d" : funnel.conversionRate >= 25 ? "#92400e" : "#b91c1c",
+              color:
+                funnel.globalConversionPct >= 50
+                  ? "#15803d"
+                  : funnel.globalConversionPct >= 25
+                  ? "#92400e"
+                  : "#b91c1c",
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {funnel.conversionRate.toFixed(0)}%
+            {funnel.globalConversionPct.toFixed(0)}%
           </Typography>
-        </Box>
-
-        {funnel.biggestDrop && (
-          <Box sx={{ textAlign: "right", minWidth: 0, flex: 1 }}>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3, display: "block" }}
-            >
-              PRINCIPALE FUITE
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ fontSize: 11, color: DROP_ACCENT, fontWeight: 700 }}
-              noWrap
-              title={`${FUNNEL_LABELS[funnel.biggestDrop.prevStage]} → ${FUNNEL_LABELS[funnel.biggestDrop.stage]}`}
-            >
-              {FUNNEL_LABELS[funnel.biggestDrop.stage]} (−{funnel.biggestDrop.dropPct.toFixed(0)}%)
-            </Typography>
-          </Box>
-        )}
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontSize: 10 }}
+          >
+            ({funnel.totalGoalsAchieved}/{funnel.totalCalls})
+          </Typography>
+        </Stack>
       </Box>
 
-      {hasAnnexCounts && <AnnexCounts counts={intentCounts} sx={{ mt: 1 }} />}
+      {/* ---------- Tabs par intent + sous-funnel ---------- */}
+      {sortedIntents.length > 0 && currentIntent && funnel.subFunnels[currentIntent] ? (
+        <Box sx={{ mt: 2 }}>
+          <Tabs
+            value={currentIntent}
+            onChange={(_, v) => setActiveIntent(v as IntentKey)}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              minHeight: 32,
+              mb: 1,
+              borderBottom: 1,
+              borderColor: "divider",
+              "& .MuiTab-root": {
+                minHeight: 32,
+                py: 0.5,
+                px: 1,
+                textTransform: "none",
+                fontSize: 10.5,
+                fontWeight: 600,
+              },
+              "& .Mui-selected": { color: "#2a6f64 !important" },
+              "& .MuiTabs-indicator": { backgroundColor: STAGE_COLOR },
+            }}
+          >
+            {sortedIntents.map((intent) => {
+              const sub = funnel.subFunnels[intent]!;
+              return (
+                <Tab
+                  key={intent}
+                  value={intent}
+                  label={
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <span>{INTENT_LABELS[intent]}</span>
+                      <Chip
+                        size="small"
+                        label={sub.totalCalls}
+                        sx={{
+                          height: 15,
+                          fontSize: 9,
+                          fontWeight: 700,
+                          bgcolor: "rgba(72,200,175,0.15)",
+                          color: "#2a6f64",
+                          "& .MuiChip-label": { px: 0.6 },
+                        }}
+                      />
+                    </Stack>
+                  }
+                />
+              );
+            })}
+          </Tabs>
+
+          <SubFunnelView sub={funnel.subFunnels[currentIntent]!} />
+        </Box>
+      ) : (
+        <Typography
+          variant="caption"
+          color="text.disabled"
+          sx={{ display: "block", mt: 1.5, fontStyle: "italic" }}
+        >
+          Aucun intent capté avec sous-funnel disponible.
+        </Typography>
+      )}
     </Box>
   );
 }
 
 /**
- * Compteurs annexes pour les intents autres que prise_rdv, affichés sous le
- * funnel comme "3 modifs · 1 annulation · 2 confirmations". N'affiche qu'un
- * intent s'il a au moins 1 hit — sinon on masque pour ne pas surcharger.
+ * Vue d'un sous-funnel : barres des étapes de l'intent actif + KPI "goal
+ * atteint pour cet intent" + badge sur la plus grosse fuite.
  */
-function AnnexCounts({
-  counts,
-  sx,
-}: {
-  counts: { modifications: number; annulations: number; confirmations: number };
-  sx?: object;
-}) {
-  const parts: string[] = [];
-  if (counts.modifications > 0) {
-    parts.push(`${counts.modifications} modif${counts.modifications > 1 ? "s" : ""}`);
-  }
-  if (counts.annulations > 0) {
-    parts.push(`${counts.annulations} annulation${counts.annulations > 1 ? "s" : ""}`);
-  }
-  if (counts.confirmations > 0) {
-    parts.push(`${counts.confirmations} confirmation${counts.confirmations > 1 ? "s" : ""}`);
-  }
-  if (parts.length === 0) return null;
+function SubFunnelView({ sub }: { sub: SubFunnelData }) {
+  const stages = Object.keys(sub.stageCounts);
+  const dropStage = sub.biggestDrop?.stage;
 
   return (
-    <Typography
-      variant="caption"
-      color="text.secondary"
-      sx={{ fontSize: 10, display: "block", ...sx }}
-    >
-      + {parts.join(" · ")}
-    </Typography>
+    <Box>
+      <Stack spacing={0.5}>
+        {stages.map((stage, idx) => {
+          const count = sub.stageCounts[stage] ?? 0;
+          const percent = sub.stagePercents[stage] ?? 0;
+          const isDrop = dropStage === stage;
+          const prevPercent =
+            idx === 0 ? 100 : sub.stagePercents[stages[idx - 1]] ?? 100;
+          const dropFromPrev = idx === 0 ? 0 : prevPercent - percent;
+
+          return (
+            <StageBar
+              key={stage}
+              label={STAGE_LABELS[stage] ?? stage}
+              count={count}
+              percent={percent}
+              color={STAGE_COLOR}
+              index={idx}
+              isDrop={isDrop}
+              dropPctFromPrev={dropFromPrev}
+              dropBadgePct={isDrop ? sub.biggestDrop?.dropPct : undefined}
+              prevLabel={
+                idx > 0 ? STAGE_LABELS[stages[idx - 1]] ?? stages[idx - 1] : ""
+              }
+            />
+          );
+        })}
+      </Stack>
+
+      {/* Sous-conversion */}
+      <Box
+        sx={{
+          mt: 1,
+          pt: 1,
+          borderTop: "1px dotted #f3f4f6",
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          gap: 1,
+        }}
+      >
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}
+        >
+          OBJECTIF ATTEINT
+        </Typography>
+        <Stack direction="row" spacing={0.5} alignItems="baseline">
+          <Typography
+            variant="caption"
+            sx={{
+              fontSize: 11,
+              fontWeight: 700,
+              color:
+                sub.goalAchievedPct >= 50
+                  ? "#15803d"
+                  : sub.goalAchievedPct >= 25
+                  ? "#92400e"
+                  : "#b91c1c",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {sub.goalAchievedPct.toFixed(0)}%
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontSize: 10 }}
+          >
+            ({sub.goalAchievedCount}/{sub.totalCalls})
+          </Typography>
+        </Stack>
+      </Box>
+
+      {sub.biggestDrop && (
+        <Typography
+          variant="caption"
+          sx={{
+            display: "block",
+            mt: 0.5,
+            fontSize: 10,
+            color: DROP_ACCENT,
+            fontWeight: 600,
+          }}
+        >
+          Fuite : {STAGE_LABELS[sub.biggestDrop.stage] ?? sub.biggestDrop.stage}{" "}
+          (−{sub.biggestDrop.dropPct.toFixed(0)}%)
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+/**
+ * Une barre horizontale d'étape : label, jauge animée, valeur numérique,
+ * badge orange si c'est la fuite max. Extrait pour réutilisation dans les
+ * étapes communes et dans le sous-funnel.
+ */
+function StageBar({
+  label,
+  count,
+  percent,
+  color,
+  index,
+  isDrop = false,
+  dropPctFromPrev = 0,
+  dropBadgePct,
+  prevLabel = "",
+}: {
+  label: string;
+  count: number;
+  percent: number;
+  color: string;
+  index: number;
+  isDrop?: boolean;
+  dropPctFromPrev?: number;
+  dropBadgePct?: number;
+  prevLabel?: string;
+}) {
+  const tooltip = (
+    <Box sx={{ py: 0.25 }}>
+      <Typography variant="caption" sx={{ display: "block", fontWeight: 700 }}>
+        {label}
+      </Typography>
+      <Typography variant="caption" sx={{ display: "block", opacity: 0.85 }}>
+        {count} appel{count > 1 ? "s" : ""} ({percent.toFixed(0)}%)
+      </Typography>
+      {index > 0 && dropPctFromPrev > 0 && (
+        <Typography
+          variant="caption"
+          sx={{ display: "block", color: "#fdba74", mt: 0.25 }}
+        >
+          Chute de {dropPctFromPrev.toFixed(0)} pts depuis {prevLabel}
+        </Typography>
+      )}
+    </Box>
+  );
+
+  return (
+    <MuiTooltip title={tooltip} arrow placement="left">
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          cursor: "default",
+          bgcolor: isDrop ? DROP_ACCENT_BG : "transparent",
+          borderRadius: 0.5,
+          px: isDrop ? 0.5 : 0,
+          py: isDrop ? 0.25 : 0,
+          transition: "background-color 200ms ease",
+        }}
+      >
+        <Typography
+          variant="caption"
+          sx={{
+            width: 100,
+            fontSize: 10,
+            color: "text.secondary",
+            fontWeight: 500,
+            flexShrink: 0,
+          }}
+          noWrap
+        >
+          {label}
+        </Typography>
+        <Box
+          sx={{
+            flex: 1,
+            height: 10,
+            bgcolor: "rgba(0,0,0,0.05)",
+            borderRadius: 0.75,
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          <Box
+            sx={{
+              width: `${Math.max(1, percent)}%`,
+              height: "100%",
+              bgcolor: color,
+              borderRadius: 0.75,
+              animation: `funnelBarGrow 500ms ease-out ${index * 60}ms both`,
+              transformOrigin: "left",
+              "@keyframes funnelBarGrow": {
+                from: { transform: "scaleX(0)" },
+                to: { transform: "scaleX(1)" },
+              },
+            }}
+          />
+        </Box>
+        <Typography
+          variant="caption"
+          sx={{
+            width: 60,
+            textAlign: "right",
+            fontSize: 10,
+            fontWeight: 700,
+            color: "text.primary",
+            fontVariantNumeric: "tabular-nums",
+            flexShrink: 0,
+          }}
+        >
+          {percent.toFixed(0)}%{" "}
+          <Typography
+            component="span"
+            sx={{ fontSize: 9, fontWeight: 500, color: "text.secondary" }}
+          >
+            ({count})
+          </Typography>
+        </Typography>
+        {isDrop && dropBadgePct !== undefined && (
+          <Chip
+            size="small"
+            label={`−${dropBadgePct.toFixed(0)}%`}
+            sx={{
+              height: 14,
+              fontSize: 9,
+              fontWeight: 700,
+              bgcolor: DROP_ACCENT,
+              color: "#fff",
+              flexShrink: 0,
+              "& .MuiChip-label": { px: 0.5 },
+            }}
+          />
+        )}
+      </Box>
+    </MuiTooltip>
   );
 }
