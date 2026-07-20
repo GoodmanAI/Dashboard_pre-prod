@@ -1,141 +1,231 @@
 /**
- * Agrégation du funnel de conversion "prise de RDV" par centre.
+ * Agrégation du funnel hiérarchique de conversion par centre.
  *
- * Le bot LyraeTalk pousse pour chaque appel un objet `stats.funnel` avec :
- *   - intents          : LISTE d'intents détectés pendant l'appel dans l'ordre
- *                        chronologique (ex: ["prise_rdv","confirmation_rdv"]).
- *                        Nouveau champ ; le champ historique `intent` reste
- *                        présent pour rétrocompat et vaut le DERNIER intent.
- *   - intent           : (rétrocompat) dernier intent détecté. Utilisé si
- *                        `intents` est absent.
- *   - stages           : 7 booléens cumulatifs (atteindre N implique 1..N-1)
- *   - drop_stage       : 1re étape non atteinte (le "point de fuite")
- *   - completed        : objectif atteint (booked pour prise_rdv)
- *   - outcome          : completed | transfer | hangup | abandoned
+ * Modèle (2026-07-20) :
  *
- * Sémantique du funnel (mise à jour 2026-07-20) :
- *   - Étape "Accueil" (answered) = TOUS les appels reçus, quel que soit
- *     l'intent (avant : uniquement prise_rdv). Permet de voir la vraie
- *     conversion "appels reçus → RDV pris".
- *   - Étapes suivantes = uniquement les appels dont `intents` contient
- *     "prise_rdv" (un appel multi-intent peut donc entrer dans le funnel).
- *   - Les % sont exprimés relatifs au total d'appels reçus (pas à
- *     counts.answered), ce qui rend la conversion globale honnête.
+ *   Accueil (tous les appels)
+ *     └─ Intention (intent capturé, tous types)
+ *          ├─ Sous-funnel prise_rdv       → goal = booked
+ *          ├─ Sous-funnel modification_rdv → goal = modified
+ *          ├─ Sous-funnel annulation_rdv   → goal = cancelled
+ *          ├─ Sous-funnel confirmation_rdv → goal = confirmed
+ *          ├─ Sous-funnel consultation_rdv → goal = rdv_info_provided
+ *          └─ Sous-funnel renseignement    → goal = answer_provided
  *
- * On expose ici deux helpers purs :
- *   - computeFunnel(calls)      → agrégation avec base "tous les appels"
- *   - computeIntentCounts(calls) → compteurs par intent pour l'annexe.
- *     Un appel multi-intent est compté dans PLUSIEURS compteurs (ex:
- *     prise + confirmation → dans les 2 compteurs).
+ *   Conversion globale = somme(goals aboutis tous intents) / total appels
  *
- * Rétrocompat : les vieux appels n'ont pas de `stats.funnel` — on les ignore
- * silencieusement dans les agrégations.
+ * Contrat bot attendu (nouveau) :
+ *   funnel: {
+ *     intents:      string[]       // liste ordonnée d'intents captés
+ *     intent:       string         // legacy = dernier intent (rétrocompat)
+ *     common_stages: { answered, intent_captured }
+ *     intent_stages: {
+ *       prise_rdv: { exam_identified, slot_proposed, ..., booked, goal_achieved }
+ *       modification_rdv: { patient_identified, rdv_found, ..., modified, goal_achieved }
+ *       ...
+ *     }
+ *     completed, outcome, furthest_stage, drop_stage    // meta
+ *   }
+ *
+ * Rétrocompat lecture (vieux payload) :
+ *   - `stages: { answered, intent_captured, exam_identified, ..., booked }`
+ *     est lu comme common_stages (answered + intent_captured) plus
+ *     intent_stages.prise_rdv (les 5 étapes suivantes + goal_achieved =
+ *     stages.booked). Les vieux appels d'un intent non-prise se voient
+ *     attribuer `goal_achieved = funnel.completed === true` faute d'étapes
+ *     détaillées disponibles.
  */
 
 // ============================================================================
-// Types
+// Constantes & Types
 // ============================================================================
 
-/**
- * Ordre canonique des 7 étapes du funnel prise_rdv, du plus haut (100 %) au
- * plus bas (objectif atteint). L'ordre est utilisé partout : agrégation,
- * calcul des chutes, rendu visuel.
- */
-export const FUNNEL_STAGES = [
-  "answered",
-  "intent_captured",
-  "exam_identified",
-  "slot_proposed",
-  "slot_accepted",
-  "identified",
-  "booked",
+/** Les 6 intents "métier" que le bot peut détecter, plus "unknown" (fallback). */
+export const INTENT_KEYS = [
+  "prise_rdv",
+  "modification_rdv",
+  "annulation_rdv",
+  "confirmation_rdv",
+  "consultation_rdv",
+  "renseignement",
+  "unknown",
 ] as const;
 
-export type FunnelStage = (typeof FUNNEL_STAGES)[number];
+export type IntentKey = (typeof INTENT_KEYS)[number];
 
-/** Libellés FR courts pour l'UI (7 étapes). */
-export const FUNNEL_LABELS: Record<FunnelStage, string> = {
-  answered: "Accueil",
-  intent_captured: "Intention",
-  exam_identified: "Examen",
-  slot_proposed: "Créneau proposé",
-  slot_accepted: "Créneau accepté",
-  identified: "Identifié",
-  booked: "RDV pris",
+/** Intents qu'on modélise avec un sous-funnel (unknown est exclu). */
+export const TRACKED_INTENTS: readonly IntentKey[] = INTENT_KEYS.filter(
+  (k) => k !== "unknown"
+) as readonly IntentKey[];
+
+/** Libellés FR des intents. */
+export const INTENT_LABELS: Record<IntentKey, string> = {
+  prise_rdv: "Prise de RDV",
+  modification_rdv: "Modification",
+  annulation_rdv: "Annulation",
+  confirmation_rdv: "Confirmation",
+  consultation_rdv: "Consultation",
+  renseignement: "Renseignement",
+  unknown: "Inconnu",
 };
 
-export type FunnelIntent =
-  | "prise_rdv"
-  | "modification_rdv"
-  | "annulation_rdv"
-  | "confirmation_rdv"
-  | "consultation_rdv"
-  | "unknown";
+/** Étapes communes en haut de tous les funnels (peu importe l'intent). */
+export const COMMON_STAGES = ["answered", "intent_captured"] as const;
+export type CommonStage = (typeof COMMON_STAGES)[number];
+
+/**
+ * Étapes propres à chaque sous-funnel, dans l'ordre chronologique du parcours.
+ * L'étape terminale (la dernière de la liste) marque l'objectif atteint,
+ * et est doublée par le flag `goal_achieved` que le bot pousse (redondance
+ * voulue : `goal_achieved` fait autorité, la liste sert au rendu visuel).
+ */
+export const INTENT_STAGES: Record<IntentKey, readonly string[]> = {
+  prise_rdv: [
+    "exam_identified",
+    "slot_proposed",
+    "slot_accepted",
+    "identified",
+    "booked",
+  ],
+  modification_rdv: [
+    "patient_identified",
+    "rdv_found",
+    "new_slot_proposed",
+    "new_slot_accepted",
+    "modified",
+  ],
+  annulation_rdv: [
+    "patient_identified",
+    "rdv_found",
+    "cancellation_confirmed",
+    "cancelled",
+  ],
+  confirmation_rdv: ["patient_identified", "rdv_found", "confirmed"],
+  consultation_rdv: ["patient_identified", "rdv_found", "rdv_info_provided"],
+  renseignement: ["question_understood", "answer_provided"],
+  unknown: [],
+};
+
+/** Nom de l'étape terminale qui valide "goal_achieved" pour chaque intent. */
+export const GOAL_STAGE: Record<IntentKey, string | null> = {
+  prise_rdv: "booked",
+  modification_rdv: "modified",
+  annulation_rdv: "cancelled",
+  confirmation_rdv: "confirmed",
+  consultation_rdv: "rdv_info_provided",
+  renseignement: "answer_provided",
+  unknown: null,
+};
+
+/**
+ * Libellés FR courts de chaque étape, pour le rendu barre + tooltip.
+ * Regroupés dans un seul map (les mêmes noms de stages peuvent apparaître
+ * dans plusieurs intents — ex. `patient_identified` — on garde le libellé
+ * cohérent).
+ */
+export const STAGE_LABELS: Record<string, string> = {
+  // Communes
+  answered: "Accueil",
+  intent_captured: "Intention",
+  // Prise de RDV
+  exam_identified: "Examen identifié",
+  slot_proposed: "Créneau proposé",
+  slot_accepted: "Créneau accepté",
+  identified: "Patient identifié",
+  booked: "RDV pris",
+  // Modification
+  patient_identified: "Patient identifié",
+  rdv_found: "RDV trouvé",
+  new_slot_proposed: "Nouveau créneau proposé",
+  new_slot_accepted: "Nouveau créneau accepté",
+  modified: "RDV modifié",
+  // Annulation
+  cancellation_confirmed: "Annulation confirmée",
+  cancelled: "RDV annulé",
+  // Confirmation
+  confirmed: "RDV confirmé",
+  // Consultation
+  rdv_info_provided: "Infos RDV données",
+  // Renseignement
+  question_understood: "Question comprise",
+  answer_provided: "Réponse donnée",
+};
 
 export type FunnelOutcome = "completed" | "transfer" | "hangup" | "abandoned";
 
-/** Payload brut envoyé par le bot dans `stats.funnel`. */
+/**
+ * Payload brut envoyé par le bot dans `stats.funnel`.
+ * Deux formats acceptés : le nouveau (intent_stages) et le legacy (stages plat).
+ */
 export type RawFunnel = {
-  /**
-   * Liste des intents détectés pendant l'appel dans l'ordre chronologique.
-   * Nouveau contrat (2026-07-20) : le bot peut envoyer plusieurs intents pour
-   * un même appel (ex: le patient prend un RDV puis confirme un RDV
-   * existant → ["prise_rdv","confirmation_rdv"]).
-   * Si absent, `intent` est utilisé en fallback (mode single-intent legacy).
-   */
-  intents?: Array<FunnelIntent | string>;
-  intent?: FunnelIntent | string;
-  stages?: Partial<Record<FunnelStage, boolean>>;
+  /** Nouveau : liste d'intents dans l'ordre chronologique. */
+  intents?: Array<IntentKey | string>;
+  /** Legacy : dernier intent (rétrocompat). */
+  intent?: IntentKey | string;
+
+  /** Nouveau : les 2 étapes communes (Accueil, Intention). */
+  common_stages?: Partial<Record<CommonStage, boolean>>;
+  /** Nouveau : étapes détaillées par intent + goal_achieved. */
+  intent_stages?: Partial<Record<IntentKey, Record<string, boolean>>>;
+
+  /** Legacy : tout à plat (7 étapes de prise_rdv). Toujours lu en fallback. */
+  stages?: Partial<Record<string, boolean>>;
+
   completed?: boolean;
-  furthest_stage?: FunnelStage | string | null;
-  drop_stage?: FunnelStage | string | null;
   outcome?: FunnelOutcome | string;
+  furthest_stage?: string | null;
+  drop_stage?: string | null;
 };
 
-/** Résultat de l'agrégation prise_rdv sur une période/centre. */
-export type AggregatedFunnel = {
-  /**
-   * Nb TOTAL d'appels reçus (avec `stats.funnel` défini), tous intents
-   * confondus. Base de calcul des pourcentages. Peut être > counts.answered
-   * dans le cas rare où un appel a échoué avant même l'étape "answered".
-   */
-  total: number;
-  /**
-   * Nb d'appels prise_rdv (contenant "prise_rdv" dans leurs intents). Sous-
-   * ensemble de `total` — utile pour afficher "sur X appels prise_rdv, N ont
-   * abouti".
-   */
-  priseRdvCount: number;
-  /** Nb d'appels ayant atteint chaque étape (cumulatif). */
-  counts: Record<FunnelStage, number>;
-  /** % du total pour chaque étape (0 à 100). */
-  percents: Record<FunnelStage, number>;
-  /** Taux de conversion global = booked / answered × 100. */
-  conversionRate: number;
-  /**
-   * Étape avec la plus grande chute par rapport à la précédente (en points
-   * de pourcentage). `null` si aucun drop mesurable (total = 0 ou pas de
-   * chute observée).
-   */
+/** Sous-funnel agrégé pour un intent donné. */
+export type SubFunnelData = {
+  intent: IntentKey;
+  label: string;
+  /** Nb d'appels ayant cet intent dans leurs `intents[]`. */
+  totalCalls: number;
+  /** Nb d'appels ayant validé `goal_achieved` pour cet intent. */
+  goalAchievedCount: number;
+  /** % de goalAchieved sur totalCalls (0..100). */
+  goalAchievedPct: number;
+  /** Compteur par étape (nb d'appels ayant atteint chaque étape). */
+  stageCounts: Record<string, number>;
+  /** % par étape, base = totalCalls du sous-funnel (0..100). */
+  stagePercents: Record<string, number>;
+  /** Étape qui a chuté le plus fort (ou null si aucune fuite significative). */
   biggestDrop: {
-    /** Étape ratée (celle qui reçoit moins d'appels que la précédente). */
-    stage: FunnelStage;
-    /** Étape précédente (celle après laquelle ça chute). */
-    prevStage: FunnelStage;
-    /** Ampleur de la chute en points de pourcentage du total (0 à 100). */
+    stage: string;
+    prevStage: string;
     dropPct: number;
-    /** Nb d'appels perdus entre prevStage et stage. */
     dropCount: number;
   } | null;
-  /** Répartition des `drop_stage` (pour tooltip / drill-down futur). */
-  dropDistribution: Partial<Record<FunnelStage, number>>;
 };
 
+/** Agrégat complet du funnel pour une période / un centre. */
+export type AggregatedFunnel = {
+  /** Total d'appels sur la période (avec funnel défini). */
+  totalCalls: number;
+  /** Nb d'appels avec `common_stages.answered = true`. */
+  answeredCount: number;
+  /** Nb d'appels avec `common_stages.intent_captured = true`. */
+  intentCapturedCount: number;
+  answeredPct: number;
+  intentCapturedPct: number;
+
+  /** Sous-funnel par intent — null si 0 appel de cet intent sur la période. */
+  subFunnels: Partial<Record<IntentKey, SubFunnelData>>;
+
+  /** Somme des goals aboutis tous intents confondus. */
+  totalGoalsAchieved: number;
+  /** Conversion globale = totalGoalsAchieved / totalCalls * 100. */
+  globalConversionPct: number;
+};
+
+export const FUNNEL_LOW_SAMPLE_THRESHOLD = 5;
+
 // ============================================================================
-// Helpers
+// Helpers d'extraction
 // ============================================================================
 
-/** Extrait le funnel typé depuis un objet `stats` arbitraire, ou `null`. */
 function extractFunnel(stats: unknown): RawFunnel | null {
   if (!stats || typeof stats !== "object") return null;
   const f = (stats as Record<string, unknown>).funnel;
@@ -143,148 +233,180 @@ function extractFunnel(stats: unknown): RawFunnel | null {
   return f as RawFunnel;
 }
 
-/**
- * Extrait la liste des intents d'un funnel donné. Priorité au champ `intents`
- * (nouveau, array). Fallback sur `intent` (legacy, string wrappé en tableau).
- * Retourne toujours un array (possiblement vide) — évite les tests null
- * partout dans l'appelant.
- */
-function extractIntents(f: RawFunnel): string[] {
-  if (Array.isArray(f.intents)) {
-    return f.intents.filter((s): s is string => typeof s === "string");
-  }
-  if (typeof f.intent === "string") return [f.intent];
-  return [];
+/** Liste d'intents typés (intents[] > intent legacy > []). */
+function extractIntents(f: RawFunnel): IntentKey[] {
+  const raw = Array.isArray(f.intents)
+    ? f.intents
+    : typeof f.intent === "string"
+    ? [f.intent]
+    : [];
+  return raw.filter((s): s is IntentKey =>
+    (INTENT_KEYS as readonly string[]).includes(s as string)
+  );
 }
 
-/** Coerce une étape unknown en `FunnelStage` valide, ou `null`. */
-function asStage(v: unknown): FunnelStage | null {
-  return typeof v === "string" && (FUNNEL_STAGES as readonly string[]).includes(v)
-    ? (v as FunnelStage)
-    : null;
-}
-
-/**
- * Agrège le funnel de conversion sur un lot d'appels.
- *
- * Sémantique (2026-07-20) :
- *  - Étape "answered" (Accueil) = TOUS les appels avec `stages.answered=true`,
- *    quel que soit leur intent. Base = total d'appels reçus.
- *  - Étapes suivantes = uniquement les appels dont `intents` contient
- *    "prise_rdv" et qui ont ce stage à true.
- *  - Un appel multi-intent contenant "prise_rdv" (ex: prise + confirmation)
- *    est INCLUS dans le funnel prise_rdv.
- *  - Les pourcentages sont exprimés relatifs au `total` d'appels reçus,
- *    ce qui rend le conversionRate global "vrai" (booked / total).
- *  - La transition Accueil → Intention est EXCLUE du calcul de `biggestDrop` :
- *    c'est un filtre de scope (on retire les non-prise_rdv), pas une fuite
- *    dans le parcours utilisateur.
- *
- * Retourne `null` si aucun appel avec funnel valide sur la période (le
- * composant UI affiche un état vide).
- */
-export function computeFunnel(calls: unknown[]): AggregatedFunnel | null {
-  const counts: Record<FunnelStage, number> = {
-    answered: 0,
-    intent_captured: 0,
-    exam_identified: 0,
-    slot_proposed: 0,
-    slot_accepted: 0,
-    identified: 0,
-    booked: 0,
+/** Étapes communes (nouveau format prioritaire, sinon rétrocompat `stages`). */
+function extractCommonStages(f: RawFunnel): Record<CommonStage, boolean> {
+  const src = f.common_stages ?? f.stages ?? {};
+  return {
+    answered: src.answered === true,
+    intent_captured: src.intent_captured === true,
   };
-  const dropDistribution: Partial<Record<FunnelStage, number>> = {};
-  let total = 0;
-  let priseRdvCount = 0;
+}
+
+/**
+ * Étapes détaillées d'un intent donné. Nouveau format : lit
+ * `f.intent_stages[intent]`. Legacy : pour prise_rdv, remonte les 5 étapes
+ * depuis le `f.stages` plat + `goal_achieved = stages.booked`. Pour les
+ * autres intents en legacy, on n'a pas les étapes → objet vide, mais
+ * goal_achieved dérivé de `f.completed`.
+ */
+function extractIntentStages(
+  f: RawFunnel,
+  intent: IntentKey
+): Record<string, boolean> {
+  // 1) Nouveau format : accès direct
+  const fromNew = f.intent_stages?.[intent];
+  if (fromNew && typeof fromNew === "object") {
+    const out: Record<string, boolean> = {};
+    for (const stage of INTENT_STAGES[intent]) {
+      out[stage] = fromNew[stage] === true;
+    }
+    // goal_achieved : depuis payload, ou dérivé de l'étape terminale
+    const goalStage = GOAL_STAGE[intent];
+    const goalFromPayload = fromNew["goal_achieved"];
+    if (typeof goalFromPayload === "boolean") {
+      out["goal_achieved"] = goalFromPayload;
+    } else if (goalStage) {
+      out["goal_achieved"] = out[goalStage] === true;
+    } else {
+      out["goal_achieved"] = false;
+    }
+    return out;
+  }
+
+  // 2) Legacy : pour prise_rdv uniquement, on peut mapper `stages` plat
+  if (intent === "prise_rdv" && f.stages) {
+    const s = f.stages;
+    const out: Record<string, boolean> = {};
+    for (const stage of INTENT_STAGES.prise_rdv) {
+      out[stage] = s[stage] === true;
+    }
+    out["goal_achieved"] = s.booked === true;
+    return out;
+  }
+
+  // 3) Legacy autres intents : pas d'étapes, mais `completed` sert de goal
+  const out: Record<string, boolean> = {};
+  for (const stage of INTENT_STAGES[intent]) out[stage] = false;
+  out["goal_achieved"] = f.completed === true;
+  return out;
+}
+
+// ============================================================================
+// Agrégation principale
+// ============================================================================
+
+export function computeFunnel(calls: unknown[]): AggregatedFunnel | null {
+  let totalCalls = 0;
+  let answeredCount = 0;
+  let intentCapturedCount = 0;
+
+  // Prépare un accumulateur par intent tracké.
+  type Acc = {
+    totalCalls: number;
+    goalAchievedCount: number;
+    stageCounts: Record<string, number>;
+  };
+  const accs: Partial<Record<IntentKey, Acc>> = {};
+  for (const intent of TRACKED_INTENTS) {
+    accs[intent] = {
+      totalCalls: 0,
+      goalAchievedCount: 0,
+      stageCounts: Object.fromEntries(
+        INTENT_STAGES[intent].map((s) => [s, 0])
+      ),
+    };
+  }
 
   for (const c of calls) {
-    const stats = (c as any)?.stats;
-    const f = extractFunnel(stats);
+    const f = extractFunnel((c as any)?.stats);
     if (!f) continue;
-    total++;
-    const stages = f.stages ?? {};
+    totalCalls++;
+
+    const common = extractCommonStages(f);
+    if (common.answered) answeredCount++;
+    if (common.intent_captured) intentCapturedCount++;
+
     const intents = extractIntents(f);
-    const isPriseRdv = intents.includes("prise_rdv");
-
-    // Étape "Accueil" : tous les appels avec stages.answered=true, indépendamment
-    // de l'intent (on veut le vrai total des appels reçus, pas seulement les
-    // prise_rdv).
-    if (stages.answered === true) counts.answered++;
-
-    // Étapes 2 à 7 : uniquement les appels contenant "prise_rdv" dans leurs
-    // intents (un appel multi-intent avec prise_rdv est bien inclus).
-    if (isPriseRdv) {
-      priseRdvCount++;
-      for (const s of FUNNEL_STAGES) {
-        if (s === "answered") continue; // déjà compté ci-dessus
-        if (stages[s] === true) counts[s]++;
+    for (const intent of intents) {
+      if (intent === "unknown") continue;
+      const acc = accs[intent];
+      if (!acc) continue;
+      acc.totalCalls++;
+      const stages = extractIntentStages(f, intent);
+      for (const stage of INTENT_STAGES[intent]) {
+        if (stages[stage] === true) acc.stageCounts[stage]++;
       }
-      const drop = asStage(f.drop_stage);
-      if (drop) dropDistribution[drop] = (dropDistribution[drop] ?? 0) + 1;
+      if (stages["goal_achieved"] === true) acc.goalAchievedCount++;
     }
   }
 
-  if (total === 0) return null;
+  if (totalCalls === 0) return null;
 
-  const base = total;
-  const percents = Object.fromEntries(
-    FUNNEL_STAGES.map((s) => [s, base > 0 ? (counts[s] / base) * 100 : 0])
-  ) as Record<FunnelStage, number>;
+  const subFunnels: Partial<Record<IntentKey, SubFunnelData>> = {};
+  let totalGoalsAchieved = 0;
 
-  // Biggest drop : on exclut la transition answered → intent_captured
-  // (c'est un filtre de scope "tous les appels" → "prise_rdv uniquement",
-  // pas une fuite dans le parcours d'un même utilisateur).
-  let biggestDrop: AggregatedFunnel["biggestDrop"] = null;
-  for (let i = 1; i < FUNNEL_STAGES.length; i++) {
-    const prev = FUNNEL_STAGES[i - 1];
-    const curr = FUNNEL_STAGES[i];
-    if (prev === "answered" && curr === "intent_captured") continue;
-    const dropCount = counts[prev] - counts[curr];
-    if (dropCount <= 0) continue;
-    const dropPct = percents[prev] - percents[curr];
-    if (biggestDrop === null || dropPct > biggestDrop.dropPct) {
-      biggestDrop = { stage: curr, prevStage: prev, dropPct, dropCount };
+  for (const intent of TRACKED_INTENTS) {
+    const acc = accs[intent];
+    if (!acc || acc.totalCalls === 0) continue;
+
+    const stagePercents: Record<string, number> = {};
+    for (const stage of INTENT_STAGES[intent]) {
+      stagePercents[stage] =
+        acc.totalCalls > 0 ? (acc.stageCounts[stage] / acc.totalCalls) * 100 : 0;
     }
+
+    // Biggest drop entre 2 étapes consécutives du sous-funnel.
+    let biggestDrop: SubFunnelData["biggestDrop"] = null;
+    const stages = INTENT_STAGES[intent];
+    for (let i = 1; i < stages.length; i++) {
+      const prev = stages[i - 1];
+      const curr = stages[i];
+      const dropCount = acc.stageCounts[prev] - acc.stageCounts[curr];
+      if (dropCount <= 0) continue;
+      const dropPct = stagePercents[prev] - stagePercents[curr];
+      if (biggestDrop === null || dropPct > biggestDrop.dropPct) {
+        biggestDrop = { stage: curr, prevStage: prev, dropPct, dropCount };
+      }
+    }
+
+    subFunnels[intent] = {
+      intent,
+      label: INTENT_LABELS[intent],
+      totalCalls: acc.totalCalls,
+      goalAchievedCount: acc.goalAchievedCount,
+      goalAchievedPct:
+        acc.totalCalls > 0
+          ? (acc.goalAchievedCount / acc.totalCalls) * 100
+          : 0,
+      stageCounts: acc.stageCounts,
+      stagePercents,
+      biggestDrop,
+    };
+    totalGoalsAchieved += acc.goalAchievedCount;
   }
 
   return {
-    total,
-    priseRdvCount,
-    counts,
-    percents,
-    conversionRate: percents.booked,
-    biggestDrop,
-    dropDistribution,
+    totalCalls,
+    answeredCount,
+    intentCapturedCount,
+    answeredPct: (answeredCount / totalCalls) * 100,
+    intentCapturedPct: (intentCapturedCount / totalCalls) * 100,
+    subFunnels,
+    totalGoalsAchieved,
+    // Conversion globale = goals aboutis / total appels (choix user Q3-b) :
+    // dénominateur "tous appels", pas "appels avec intent capturé".
+    globalConversionPct: (totalGoalsAchieved / totalCalls) * 100,
   };
 }
-
-/**
- * Compteurs annexes pour les intents autres que prise_rdv, à afficher sous
- * le funnel principal. Ne compte que les appels ABOUTIS (`completed === true`).
- *
- * Multi-intent : un appel avec `intents = ["prise_rdv", "confirmation_rdv"]`
- * et `completed === true` sera compté dans le funnel prise_rdv ET dans le
- * compteur "confirmations". C'est voulu : chaque intent représente une action
- * réellement effectuée par le bot pendant l'appel.
- */
-export function computeIntentCounts(calls: unknown[]): {
-  modifications: number;
-  annulations: number;
-  confirmations: number;
-} {
-  let modifications = 0;
-  let annulations = 0;
-  let confirmations = 0;
-  for (const c of calls) {
-    const f = extractFunnel((c as any)?.stats);
-    if (!f || f.completed !== true) continue;
-    const intents = extractIntents(f);
-    if (intents.includes("modification_rdv")) modifications++;
-    if (intents.includes("annulation_rdv")) annulations++;
-    if (intents.includes("confirmation_rdv")) confirmations++;
-  }
-  return { modifications, annulations, confirmations };
-}
-
-/** Seuil sous lequel on grise le funnel pour signaler un échantillon faible. */
-export const FUNNEL_LOW_SAMPLE_THRESHOLD = 5;
