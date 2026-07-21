@@ -4,8 +4,13 @@ import { requireApiKey } from "@/lib/auth-helpers";
 import {
   buildAppointmentToken,
   defaultExpiresAt,
+  generateShortCode,
   parseBirthdate,
 } from "@/lib/appointmentToken";
+
+/** Nb max de retries si un shortCode nouvellement généré collisionne
+ *  (extrêmement rare avec 60 bits d'entropie, mais on gère proprement). */
+const SHORT_CODE_MAX_RETRIES = 5;
 
 /**
  * Appelé par l'API métier (derrière VPN) pour créer un RDV en attente de confirmation
@@ -96,53 +101,89 @@ export async function POST(req: NextRequest) {
   const appointmentDtValid =
     appointmentDt && !isNaN(appointmentDt.getTime()) ? appointmentDt : null;
 
-  const upsertRes = await db.query<{
-    id: number;
-    token: string;
-    status: string;
-    expiresAt: Date;
-  }>(
-    `
-    INSERT INTO "AppointmentConfirmation"
-      ("rdvId", "centerId", "phone", "firstname", "lastname",
-       "birthdate", "appointmentDate", "token", "expiresAt",
-       "externalCenterCode")
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-    ON CONFLICT ("rdvId", "centerId") DO UPDATE
-      SET "phone"              = EXCLUDED."phone",
-          "firstname"          = EXCLUDED."firstname",
-          "lastname"           = EXCLUDED."lastname",
-          "birthdate"          = EXCLUDED."birthdate",
-          "appointmentDate"    = EXCLUDED."appointmentDate",
-          "token"              = EXCLUDED."token",
-          "expiresAt"          = EXCLUDED."expiresAt",
-          "externalCenterCode" = EXCLUDED."externalCenterCode"
-    RETURNING "id", "token", "status", "expiresAt"
-    `,
-    [
-      rdvId,
-      centerId,
-      phone,
-      firstname,
-      lastname,
-      birthdateDt,
-      appointmentDtValid,
-      token,
-      expiresAt,
-      externalCenterCode,
-    ]
-  );
+  // UPSERT avec retry sur collision de shortCode. Sur ON CONFLICT (rdvId,
+  // centerId) on garde le shortCode existant (COALESCE) : ne pas invalider
+  // l'URL déjà envoyée au patient par SMS si l'API métier réinit le RDV.
+  let record: { id: number; token: string; status: string; expiresAt: Date; shortCode: string } | null = null;
+  for (let attempt = 0; attempt < SHORT_CODE_MAX_RETRIES; attempt++) {
+    const newShortCode = generateShortCode();
+    try {
+      const upsertRes = await db.query<{
+        id: number;
+        token: string;
+        status: string;
+        expiresAt: Date;
+        shortCode: string;
+      }>(
+        `
+        INSERT INTO "AppointmentConfirmation"
+          ("rdvId", "centerId", "phone", "firstname", "lastname",
+           "birthdate", "appointmentDate", "token", "shortCode", "expiresAt",
+           "externalCenterCode")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ON CONFLICT ("rdvId", "centerId") DO UPDATE
+          SET "phone"              = EXCLUDED."phone",
+              "firstname"          = EXCLUDED."firstname",
+              "lastname"           = EXCLUDED."lastname",
+              "birthdate"          = EXCLUDED."birthdate",
+              "appointmentDate"    = EXCLUDED."appointmentDate",
+              "token"              = EXCLUDED."token",
+              -- Ne PAS remplacer un shortCode existant : l'URL SMS déjà envoyée
+              -- au patient doit rester valide même si l'API métier rappelle init.
+              "shortCode"          = COALESCE("AppointmentConfirmation"."shortCode", EXCLUDED."shortCode"),
+              "expiresAt"          = EXCLUDED."expiresAt",
+              "externalCenterCode" = EXCLUDED."externalCenterCode"
+        RETURNING "id", "token", "status", "expiresAt", "shortCode"
+        `,
+        [
+          rdvId,
+          centerId,
+          phone,
+          firstname,
+          lastname,
+          birthdateDt,
+          appointmentDtValid,
+          token,
+          newShortCode,
+          expiresAt,
+          externalCenterCode,
+        ]
+      );
+      record = upsertRes.rows[0];
+      break;
+    } catch (err: any) {
+      // Postgres 23505 = unique_violation. Uniquement possible sur "shortCode"
+      // (les autres UNIQUE sont couverts par ON CONFLICT). On retry.
+      const isDuplicate = err?.code === "23505";
+      if (!isDuplicate || attempt === SHORT_CODE_MAX_RETRIES - 1) throw err;
+    }
+  }
+  if (!record) {
+    return NextResponse.json(
+      { error: "Failed to generate unique shortCode after retries" },
+      { status: 500 }
+    );
+  }
 
-  const record = upsertRes.rows[0];
-  const baseUrl =
+  // URL du SMS : format court (rdv.neuracorp.ai) si RDV_SHORT_URL_BASE est
+  // configurée ; sinon fallback sur l'ancien format long (PUBLIC_APP_URL/
+  // confirm/{token}). Permet un déploiement progressif : tant que
+  // RDV_SHORT_URL_BASE n'est pas set côté prod, les URLs longues continuent
+  // d'être générées et le nouveau système de shortCode reste dormant.
+  const shortBase = process.env.RDV_SHORT_URL_BASE?.replace(/\/$/, "");
+  const fallbackBase =
     process.env.PUBLIC_APP_URL?.replace(/\/$/, "") ??
     `${req.nextUrl.protocol}//${req.nextUrl.host}`;
+  const url = shortBase
+    ? `${shortBase}/c/${record.shortCode}`
+    : `${fallbackBase}/confirm/${record.token}`;
 
   return NextResponse.json(
     {
       id: record.id,
       token: record.token,
-      url: `${baseUrl}/confirm/${record.token}`,
+      shortCode: record.shortCode,
+      url,
       status: record.status,
       expiresAt: record.expiresAt,
     },
