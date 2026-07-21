@@ -5,6 +5,7 @@ import {
   buildAppointmentToken,
   defaultExpiresAt,
   generateShortCode,
+  generateVerificationCode,
   parseBirthdate,
 } from "@/lib/appointmentToken";
 
@@ -95,6 +96,7 @@ export async function POST(req: NextRequest) {
 
   const token = buildAppointmentToken(rdvId, phone, centerId);
   const expiresAt = defaultExpiresAt();
+  const verificationCode = generateVerificationCode();
 
   const appointmentDt =
     typeof appointmentDate === "string" ? new Date(appointmentDate) : null;
@@ -104,7 +106,14 @@ export async function POST(req: NextRequest) {
   // UPSERT avec retry sur collision de shortCode. Sur ON CONFLICT (rdvId,
   // centerId) on garde le shortCode existant (COALESCE) : ne pas invalider
   // l'URL déjà envoyée au patient par SMS si l'API métier réinit le RDV.
-  let record: { id: number; token: string; status: string; expiresAt: Date; shortCode: string } | null = null;
+  let record: {
+    id: number;
+    token: string;
+    status: string;
+    expiresAt: Date;
+    shortCode: string;
+    verificationCode: string;
+  } | null = null;
   for (let attempt = 0; attempt < SHORT_CODE_MAX_RETRIES; attempt++) {
     const newShortCode = generateShortCode();
     try {
@@ -114,13 +123,14 @@ export async function POST(req: NextRequest) {
         status: string;
         expiresAt: Date;
         shortCode: string;
+        verificationCode: string;
       }>(
         `
         INSERT INTO "AppointmentConfirmation"
           ("rdvId", "centerId", "phone", "firstname", "lastname",
-           "birthdate", "appointmentDate", "token", "shortCode", "expiresAt",
-           "externalCenterCode")
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+           "birthdate", "appointmentDate", "token", "shortCode",
+           "verificationCode", "expiresAt", "externalCenterCode")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         ON CONFLICT ("rdvId", "centerId") DO UPDATE
           SET "phone"              = EXCLUDED."phone",
               "firstname"          = EXCLUDED."firstname",
@@ -128,12 +138,15 @@ export async function POST(req: NextRequest) {
               "birthdate"          = EXCLUDED."birthdate",
               "appointmentDate"    = EXCLUDED."appointmentDate",
               "token"              = EXCLUDED."token",
-              -- Ne PAS remplacer un shortCode existant : l'URL SMS déjà envoyée
-              -- au patient doit rester valide même si l'API métier rappelle init.
+              -- Ne PAS remplacer les identifiants patient déjà envoyés dans
+              -- l'ancien SMS (shortCode dans l'URL et verificationCode dans
+              -- le texte). Sur re-init, ils sont préservés pour ne pas
+              -- invalider le SMS déjà reçu par le patient.
               "shortCode"          = COALESCE("AppointmentConfirmation"."shortCode", EXCLUDED."shortCode"),
+              "verificationCode"   = COALESCE("AppointmentConfirmation"."verificationCode", EXCLUDED."verificationCode"),
               "expiresAt"          = EXCLUDED."expiresAt",
               "externalCenterCode" = EXCLUDED."externalCenterCode"
-        RETURNING "id", "token", "status", "expiresAt", "shortCode"
+        RETURNING "id", "token", "status", "expiresAt", "shortCode", "verificationCode"
         `,
         [
           rdvId,
@@ -145,6 +158,7 @@ export async function POST(req: NextRequest) {
           appointmentDtValid,
           token,
           newShortCode,
+          verificationCode,
           expiresAt,
           externalCenterCode,
         ]
@@ -183,6 +197,7 @@ export async function POST(req: NextRequest) {
       id: record.id,
       token: record.token,
       shortCode: record.shortCode,
+      verificationCode: record.verificationCode,
       url,
       status: record.status,
       expiresAt: record.expiresAt,

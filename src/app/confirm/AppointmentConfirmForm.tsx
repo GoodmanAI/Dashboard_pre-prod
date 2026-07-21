@@ -16,9 +16,12 @@ import {
  *  - /confirm/[token]/page.tsx  (URL longue historique — rétrocompat)
  *  - /c/[shortCode]/page.tsx    (URL courte SMS-friendly, actuelle)
  *
- * Reçoit en prop le `token` HMAC déjà résolu (le shortCode a été traduit en
- * token côté serveur dans la page /c/[shortCode]). Toute la logique métier
- * reste inchangée : GET /api/rdv/{token} + POST /api/rdv/{token}/respond.
+ * Reçoit en prop le `token` HMAC déjà résolu par le server component parent.
+ * Le patient saisit le code à 6 chiffres reçu par SMS, choisit
+ * Confirmer/Annuler, on POST `/api/rdv/{token}/respond` avec { code, action }.
+ * L'ancien flow d'identité (prénom/nom/DDN) a été retiré : trop de RDV avec
+ * des infos fiche patient erronées cassaient le filtre pour des patients
+ * légitimes.
  */
 
 type Status = "PENDING" | "CONFIRMED" | "CANCELLED" | "EXPIRED" | "LOCKED";
@@ -35,9 +38,7 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
   const [info, setInfo] = useState<RdvInfo | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [firstname, setFirstname] = useState("");
-  const [lastname, setLastname] = useState("");
-  const [birthdate, setBirthdate] = useState("");
+  const [code, setCode] = useState("");
 
   const [submitting, setSubmitting] = useState<"CONFIRMED" | "CANCELLED" | null>(
     null
@@ -76,7 +77,7 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
       const res = await fetch(`/api/rdv/${token}/respond`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstname, lastname, birthdate, action }),
+        body: JSON.stringify({ code, action }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -102,6 +103,12 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
     [info?.center.name, info?.center.city].filter(Boolean).join(" — ") ||
     "votre centre";
 
+  // On considère le code prêt à envoyer dès qu'il fait exactement 6 chiffres.
+  // Le trim absorbe un espace de fin par exemple si le patient copie depuis
+  // le SMS ; le regex empêche les lettres tapées par erreur.
+  const codeTrimmed = code.trim();
+  const codeReady = /^\d{6}$/.test(codeTrimmed);
+
   return (
     <Box
       sx={{
@@ -118,7 +125,7 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
           mx: "auto",
           backgroundColor: "#FFFFFF",
           borderRadius: 3,
-          p: 4,
+          p: { xs: 3, sm: 4 },
           boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
         }}
       >
@@ -195,39 +202,37 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
         {info && !finalStatus && (
           <Stack spacing={2}>
             <TextField
-              label="Prénom"
+              label="Code reçu par SMS"
               fullWidth
-              value={firstname}
-              onChange={(e) => setFirstname(e.target.value)}
+              value={code}
+              onChange={(e) => {
+                // Ne garde que les chiffres, borne à 6 caractères. Évite les
+                // lettres tapées par accident sur mobile.
+                const next = e.target.value.replace(/\D/g, "").slice(0, 6);
+                setCode(next);
+              }}
               disabled={submitting !== null}
-              autoComplete="given-name"
-            />
-            <TextField
-              label="Nom"
-              fullWidth
-              value={lastname}
-              onChange={(e) => setLastname(e.target.value)}
-              disabled={submitting !== null}
-              autoComplete="family-name"
-            />
-            <TextField
-              label="Date de naissance"
-              type="date"
-              fullWidth
-              value={birthdate}
-              onChange={(e) => setBirthdate(e.target.value)}
-              disabled={submitting !== null}
-              InputLabelProps={{ shrink: true }}
+              placeholder="123456"
+              autoComplete="one-time-code"
+              inputProps={{
+                inputMode: "numeric",
+                pattern: "[0-9]*",
+                maxLength: 6,
+                style: {
+                  fontSize: 22,
+                  letterSpacing: "0.35em",
+                  textAlign: "center",
+                  fontVariantNumeric: "tabular-nums",
+                },
+              }}
             />
 
             {submitError && <Alert severity="error">{submitError}</Alert>}
 
-            <Stack direction="row" spacing={1.5}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
               <Button
                 fullWidth
-                disabled={
-                  submitting !== null || !firstname || !lastname || !birthdate
-                }
+                disabled={submitting !== null || !codeReady}
                 onClick={() => submit("CONFIRMED")}
                 sx={{
                   backgroundColor: "#48C8AF",
@@ -237,15 +242,17 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
                   textTransform: "none",
                   py: 1.2,
                   ":hover": { backgroundColor: "#3AB19B" },
+                  "&.Mui-disabled": {
+                    backgroundColor: "#C5E9DF",
+                    color: "#FFFFFF",
+                  },
                 }}
               >
                 {submitting === "CONFIRMED" ? "Envoi…" : "Confirmer"}
               </Button>
               <Button
                 fullWidth
-                disabled={
-                  submitting !== null || !firstname || !lastname || !birthdate
-                }
+                disabled={submitting !== null || !codeReady}
                 onClick={() => submit("CANCELLED")}
                 sx={{
                   backgroundColor: "#FFFFFF",
@@ -256,6 +263,10 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
                   textTransform: "none",
                   py: 1.2,
                   ":hover": { backgroundColor: "#FFF0F0" },
+                  "&.Mui-disabled": {
+                    borderColor: "#F1B4B3",
+                    color: "#F1B4B3",
+                  },
                 }}
               >
                 {submitting === "CANCELLED" ? "Envoi…" : "Annuler"}
