@@ -94,6 +94,55 @@ export async function POST(req: NextRequest) {
   }
   const centerId = centerRes.rows[0].id;
 
+  // Short-circuit : si un RDV existe déjà pour (rdvId, centerId) ET qu'il est
+  // dans un statut final (CONFIRMED / CANCELLED / EXPIRED / LOCKED), on ne
+  // touche à rien et on renvoie l'état existant. Évite de réémettre une URL
+  // et un verificationCode pour un RDV que le patient a déjà traité (ou qui
+  // est trop vieux). AI2Xplore reçoit une réponse cohérente : "cet event
+  // sera visible dans pending-events, ré-appelle plus tard ou ack-le".
+  const existingRes = await db.query<{
+    id: number;
+    token: string;
+    shortCode: string | null;
+    verificationCode: string | null;
+    status: string;
+    expiresAt: Date;
+  }>(
+    `SELECT "id", "token", "shortCode", "verificationCode", "status", "expiresAt"
+       FROM "AppointmentConfirmation"
+      WHERE "rdvId" = $1 AND "centerId" = $2
+      LIMIT 1`,
+    [rdvId, centerId]
+  );
+  if ((existingRes.rowCount ?? 0) > 0) {
+    const existing = existingRes.rows[0];
+    if (existing.status !== "PENDING") {
+      const shortBase = process.env.RDV_SHORT_URL_BASE?.replace(/\/$/, "");
+      const fallbackBase =
+        process.env.PUBLIC_APP_URL?.replace(/\/$/, "") ??
+        `${req.nextUrl.protocol}//${req.nextUrl.host}`;
+      const url =
+        shortBase && existing.shortCode
+          ? `${shortBase}/c/${existing.shortCode}`
+          : `${fallbackBase}/confirm/${existing.token}`;
+      return NextResponse.json(
+        {
+          id: existing.id,
+          token: existing.token,
+          shortCode: existing.shortCode,
+          verificationCode: existing.verificationCode,
+          url,
+          status: existing.status,
+          expiresAt: existing.expiresAt,
+          alreadyFinalized: true,
+        },
+        { status: 200 }
+      );
+    }
+    // Statut PENDING → on continue le flux UPSERT (idempotent, COALESCE
+    // préserve shortCode + verificationCode déjà envoyés au patient).
+  }
+
   const token = buildAppointmentToken(rdvId, phone, centerId);
   const expiresAt = defaultExpiresAt();
   const verificationCode = generateVerificationCode();
