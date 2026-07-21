@@ -46,6 +46,11 @@ const RDV_SUBDOMAIN_ALLOWED_PATTERNS: RegExp[] = [
   /^\/confirm\/[^/]+\/?$/,      // /confirm/{token} — URL longue (rétrocompat)
   /^\/api\/rdv\/[^/]+\/?$/,     // /api/rdv/{token} — GET infos RDV
   /^\/api\/rdv\/[^/]+\/respond\/?$/,  // /api/rdv/{token}/respond — POST réponse patient
+  // Assets statiques publics nécessaires au rendu de la page patient.
+  // Sans ces règles le logo et les images inline renvoient 404 sur ce host.
+  /^\/images\//,                // /images/logos/*, autres images publiques
+  /^\/fonts\//,                 // /fonts/*.ttf (police Inter locale)
+  /^\/_next\/data\//,            // payload React Server Components dynamiques
 ];
 
 function isAllowedOnRdvSubdomain(pathname: string): boolean {
