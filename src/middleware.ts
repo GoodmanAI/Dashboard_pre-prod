@@ -31,8 +31,45 @@ function isPublicApi(pathname: string): boolean {
   return PUBLIC_API_PATTERNS.some((re) => re.test(pathname));
 }
 
+/**
+ * Sous-domaine dédié aux liens SMS patient (rdv.neuracorp.ai).
+ * Sur ce host on n'expose QUE les 2 pages publiques + leurs APIs internes,
+ * pour éviter qu'un visiteur (ou un scanner) puisse atteindre le dashboard
+ * admin en tapant simplement `rdv.neuracorp.ai/admin` ou `/client`.
+ *
+ * Tout chemin en dehors de cette whitelist renvoie une 404 immédiate.
+ */
+const RDV_SUBDOMAIN_HOST = 'rdv.neuracorp.ai';
+
+const RDV_SUBDOMAIN_ALLOWED_PATTERNS: RegExp[] = [
+  /^\/c\/[^/]+\/?$/,            // /c/{shortCode} — URL courte du SMS
+  /^\/confirm\/[^/]+\/?$/,      // /confirm/{token} — URL longue (rétrocompat)
+  /^\/api\/rdv\/[^/]+\/?$/,     // /api/rdv/{token} — GET infos RDV
+  /^\/api\/rdv\/[^/]+\/respond\/?$/,  // /api/rdv/{token}/respond — POST réponse patient
+];
+
+function isAllowedOnRdvSubdomain(pathname: string): boolean {
+  return RDV_SUBDOMAIN_ALLOWED_PATTERNS.some((re) => re.test(pathname));
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // ---- Isolation du sous-domaine rdv.neuracorp.ai ----
+  // Vérifié EN PREMIER : indépendant de l'auth, s'applique même aux assets.
+  // Le host peut inclure un port (rare en prod, courant en dev) — on strip.
+  const host = req.headers.get('host')?.split(':')[0].toLowerCase();
+  if (host === RDV_SUBDOMAIN_HOST) {
+    if (!isAllowedOnRdvSubdomain(pathname)) {
+      // Renvoie 404 (pas 403) pour ne pas révéler qu'un dashboard existe
+      // derrière le sous-domaine.
+      return new NextResponse('Not Found', { status: 404 });
+    }
+    // Path autorisé sur rdv.neuracorp.ai → laisse passer sans checks admin/API.
+    // (les endpoints /api/rdv/* ont leur propre auth par token côté handler)
+    return NextResponse.next();
+  }
+
   const token = await getToken({ req, secret: process.env.JWT_SECRET });
 
   // ---- Protection des routes UI ----
@@ -70,6 +107,15 @@ export async function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
+/**
+ * Matcher élargi : on doit intercepter TOUTES les requêtes (y compris `/`,
+ * les pages statiques, les assets, etc.) sur rdv.neuracorp.ai pour appliquer
+ * l'isolation host. Sur les autres hosts, le middleware ne fait rien pour
+ * les paths hors admin/client/api (donc coût négligeable).
+ *
+ * On exclut explicitement les assets Next.js internes et le favicon pour
+ * éviter d'exécuter le middleware sur chaque fichier CSS/JS/image du build.
+ */
 export const config = {
-  matcher: ['/admin/:path*', '/client/:path*', '/api/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

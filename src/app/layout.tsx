@@ -59,16 +59,29 @@ export default function RootLayout({
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  /** Détection des pages d’authentification pour retirer le chrome global. */
+  /**
+   * Détection des pages "sans chrome" — celles qui doivent apparaître nues,
+   * sans Sidebar ni Header du dashboard :
+   *   - /authentication/*  : pages de login (déjà historique)
+   *   - /c/*               : URL courte du SMS de rappel RDV (patient)
+   *   - /confirm/*         : URL longue du SMS de rappel RDV (patient, rétrocompat)
+   *
+   * Les 2 dernières servent notamment via le sous-domaine rdv.neuracorp.ai
+   * (isolé côté middleware) et doivent rester ultra-simples : un patient qui
+   * clique un lien SMS ne doit pas voir la nav admin du dashboard.
+   */
   const pathname: any = usePathname();
-  const isAuthPage = pathname?.startsWith("/authentication");
+  const isPublicPage =
+    pathname?.startsWith("/authentication") ||
+    pathname?.startsWith("/c/") ||
+    pathname?.startsWith("/confirm/");
 
   return (
     <html lang="fr" className={myFont.variable}>
       <body style={{ margin: 0, padding: 0, overflowX: "hidden", overflowY: "auto" }}>
         {/* Contexte d’authentification NextAuth disponible partout. */}
         <SessionProvider>
-        {!isAuthPage && (
+        {!isPublicPage && (
           <>
           {/* Thème MUI global + reset CSS + contexte “centre” (multi-centres). */}
           <ThemeProvider theme={baselightTheme}>
@@ -100,8 +113,9 @@ export default function RootLayout({
           </ThemeProvider>
           </>
           )}
-          {/* Pour les pages d’authentification, on évite d’afficher Sidebar/Header. */}
-          {isAuthPage && children}
+          {/* Pages publiques (auth / patient RDV) : on rend directement sans
+              Sidebar ni Header. Le composant enfant gère son propre layout. */}
+          {isPublicPage && children}
         </SessionProvider>
       </body>
   </html>
