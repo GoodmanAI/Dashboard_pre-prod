@@ -3,6 +3,28 @@ import crypto from "crypto";
 export const APPOINTMENT_MAX_ATTEMPTS = 3;
 export const APPOINTMENT_LINK_TTL_DAYS = 7;
 
+/**
+ * Longueur du shortCode généré pour l'URL courte du SMS. 10 caractères
+ * base64url = ~60 bits d'entropie, collision négligeable jusqu'à ~1 milliard
+ * de RDV. Reste très court (URL type https://rdv.neuracorp.ai/c/xxxxxxxxxx
+ * = ~34 chars, tient largement dans un SMS UCS-2 de 70 chars).
+ */
+export const APPOINTMENT_SHORT_CODE_LENGTH = 10;
+
+/**
+ * Génère un shortCode aléatoire URL-safe pour l'URL courte du SMS.
+ * Base64url ⇒ alphabet [A-Za-z0-9_-], donc pas de char à % encoder.
+ * L'unicité est garantie par le UNIQUE INDEX en DB ; en cas de collision
+ * (extrêmement rare avec 60 bits d'entropie), l'appelant doit retry.
+ */
+export function generateShortCode(
+  length: number = APPOINTMENT_SHORT_CODE_LENGTH
+): string {
+  // ceil(length * 3/4) bytes → au moins `length` chars base64url après slice
+  const bytesNeeded = Math.ceil((length * 3) / 4);
+  return crypto.randomBytes(bytesNeeded).toString("base64url").slice(0, length);
+}
+
 function getSecret(): string {
   const secret = process.env.APPOINTMENT_HMAC_SECRET;
   if (!secret) {
