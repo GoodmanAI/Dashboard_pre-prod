@@ -1,18 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { APPOINTMENT_MAX_ATTEMPTS, checkIdentity } from "@/lib/appointmentToken";
+import { APPOINTMENT_MAX_ATTEMPTS } from "@/lib/appointmentToken";
 
 /**
- * Endpoint public appelé par la page /confirm/[token] à la soumission.
+ * Endpoint public appelé par la page /c/[shortCode] (ou /confirm/[token]) à
+ * la soumission du patient.
  *
- * Body : { firstname, lastname, birthdate, action: "CONFIRMED" | "CANCELLED" }
+ * Body : { code: string, action: "CONFIRMED" | "CANCELLED" }
  *
  * Règles :
  *  - Lien introuvable / mauvais token → 404.
  *  - Statut non PENDING → 409 (déjà traité / expiré / verrouillé).
  *  - Expiration dépassée → statut passé à EXPIRED, 409.
- *  - Identité non vérifiée → incrémente attempts ; si attempts ≥ MAX → LOCKED.
- *  - Identité OK → status = action, respondedAt = now.
+ *  - Code faux → incrémente attempts ; si attempts ≥ MAX → LOCKED.
+ *  - Code OK → status = action, respondedAt = now.
+ *
+ * Le code est un 6 chiffres généré à init et envoyé au patient par SMS.
+ * Ne PAS confondre avec le token HMAC de l'URL — celui-ci prouve juste que
+ * l'URL vient bien de nous, il ne suffit pas à confirmer/annuler seul.
+ * Un attaquant qui devine le shortCode d'un patient tomberait sur le
+ * formulaire mais serait bloqué au code (3/1M avec 3 essais = 0.0003%).
  */
 export async function POST(
   req: NextRequest,
@@ -25,11 +32,9 @@ export async function POST(
     return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
   }
 
-  const { firstname, lastname, birthdate, action } = body ?? {};
+  const { code, action } = body ?? {};
   if (
-    typeof firstname !== "string" ||
-    typeof lastname !== "string" ||
-    typeof birthdate !== "string" ||
+    typeof code !== "string" ||
     (action !== "CONFIRMED" && action !== "CANCELLED")
   ) {
     return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
@@ -40,13 +45,9 @@ export async function POST(
     status: string;
     attempts: number;
     expiresAt: Date;
-    firstname: string;
-    lastname: string;
-    birthdate: string;
+    verificationCode: string;
   }>(
-    `SELECT "id", "status", "attempts", "expiresAt",
-            "firstname", "lastname",
-            TO_CHAR("birthdate", 'YYYY-MM-DD') AS "birthdate"
+    `SELECT "id", "status", "attempts", "expiresAt", "verificationCode"
        FROM "AppointmentConfirmation"
       WHERE "token" = $1
       LIMIT 1`,
@@ -76,16 +77,13 @@ export async function POST(
     );
   }
 
-  const identityOk = checkIdentity(
-    { firstname, lastname, birthdate },
-    {
-      firstname: record.firstname,
-      lastname: record.lastname,
-      birthdate: record.birthdate,
-    }
-  );
+  // Comparaison stricte (trim pour absorber un espace en fin quand le
+  // patient copie-colle depuis le SMS, mais pas de tolérance de casse : les
+  // codes ne contiennent que des chiffres).
+  const submittedCode = code.trim();
+  const codeOk = submittedCode === record.verificationCode;
 
-  if (!identityOk) {
+  if (!codeOk) {
     const nextAttempts = record.attempts + 1;
     const locked = nextAttempts >= APPOINTMENT_MAX_ATTEMPTS;
     await db.query(
@@ -97,7 +95,7 @@ export async function POST(
     );
     return NextResponse.json(
       {
-        error: "Les informations saisies ne correspondent pas.",
+        error: "Code incorrect.",
         status: locked ? "LOCKED" : "PENDING",
         attemptsLeft: locked ? 0 : APPOINTMENT_MAX_ATTEMPTS - nextAttempts,
       },

@@ -25,6 +25,22 @@ export function generateShortCode(
   return crypto.randomBytes(bytesNeeded).toString("base64url").slice(0, length);
 }
 
+/**
+ * Génère un code de vérification à 6 chiffres pour le SMS patient.
+ * Format string (padStart) plutôt que number : les codes '000123' ou '012345'
+ * sont valides, on ne veut pas qu'ils deviennent '123' ou '12345' à cause
+ * d'un JS number quelque part dans la chaîne.
+ *
+ * Entropie : 10^6 = 1 000 000 combinaisons. Combiné au rate limit à 3 essais
+ * (LOCKED au-delà), la probabilité de forcer un code au hasard est 3 / 1M ≈
+ * 0.0003%. Suffisant pour cet usage — pas un secret cryptographique, juste
+ * une preuve que le patient a bien reçu SON SMS.
+ */
+export function generateVerificationCode(): string {
+  const n = crypto.randomInt(0, 1_000_000);
+  return n.toString().padStart(6, "0");
+}
+
 function getSecret(): string {
   const secret = process.env.APPOINTMENT_HMAC_SECRET;
   if (!secret) {
