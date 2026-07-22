@@ -25,7 +25,10 @@ const SHORT_CODE_MAX_RETRIES = 5;
  *     lastname: string,
  *     birthdate: "YYYY-MM-DD" | "DD/MM/YYYY",
  *     appointmentDate?: ISO string,
- *     externalCenterCode: string      // code centre côté logiciel métier (mappé sur User.externalCenterCode)
+ *     externalCenterCode: string,     // code centre côté logiciel métier
+ *     examType?: "scanner" | "irm" | "mammo" | "radiographie" | "echographie"
+ *                                     // ← optionnel, permet aux stats no-show
+ *                                     //   de ventiler par type d'examen
  *   }
  *
  * Idempotent sur (rdvId, centerId) : un second appel met à jour les infos
@@ -50,6 +53,7 @@ export async function POST(req: NextRequest) {
     birthdate,
     appointmentDate,
     externalCenterCode,
+    examType: examTypeRaw,
   } = body ?? {};
 
   if (
@@ -65,6 +69,21 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+
+  // examType est OPTIONNEL — rétrocompat avec les inits qui n'en envoient pas.
+  // On accepte les 5 types canoniques ; toute autre valeur est ignorée (mise
+  // à null), plutôt que rejeter le call, pour ne pas casser un vieux client.
+  const ALLOWED_EXAM_TYPES = [
+    "scanner",
+    "irm",
+    "mammo",
+    "radiographie",
+    "echographie",
+  ];
+  const examType: string | null =
+    typeof examTypeRaw === "string" && ALLOWED_EXAM_TYPES.includes(examTypeRaw)
+      ? examTypeRaw
+      : null;
 
   const birthdateDt = parseBirthdate(birthdate);
   if (!birthdateDt) {
@@ -162,6 +181,7 @@ export async function POST(req: NextRequest) {
     expiresAt: Date;
     shortCode: string;
     verificationCode: string;
+    examType: string | null;
   } | null = null;
   for (let attempt = 0; attempt < SHORT_CODE_MAX_RETRIES; attempt++) {
     const newShortCode = generateShortCode();
@@ -173,13 +193,14 @@ export async function POST(req: NextRequest) {
         expiresAt: Date;
         shortCode: string;
         verificationCode: string;
+        examType: string | null;
       }>(
         `
         INSERT INTO "AppointmentConfirmation"
           ("rdvId", "centerId", "phone", "firstname", "lastname",
            "birthdate", "appointmentDate", "token", "shortCode",
-           "verificationCode", "expiresAt", "externalCenterCode")
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+           "verificationCode", "expiresAt", "externalCenterCode", "examType")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         ON CONFLICT ("rdvId", "centerId") DO UPDATE
           SET "phone"              = EXCLUDED."phone",
               "firstname"          = EXCLUDED."firstname",
@@ -194,8 +215,12 @@ export async function POST(req: NextRequest) {
               "shortCode"          = COALESCE("AppointmentConfirmation"."shortCode", EXCLUDED."shortCode"),
               "verificationCode"   = COALESCE("AppointmentConfirmation"."verificationCode", EXCLUDED."verificationCode"),
               "expiresAt"          = EXCLUDED."expiresAt",
-              "externalCenterCode" = EXCLUDED."externalCenterCode"
-        RETURNING "id", "token", "status", "expiresAt", "shortCode", "verificationCode"
+              "externalCenterCode" = EXCLUDED."externalCenterCode",
+              -- examType : on écrase avec la nouvelle valeur si l'appelant
+              -- en fournit une (permet de corriger un type manquant sur
+              -- un ancien init), sinon on préserve l'existant.
+              "examType"           = COALESCE(EXCLUDED."examType", "AppointmentConfirmation"."examType")
+        RETURNING "id", "token", "status", "expiresAt", "shortCode", "verificationCode", "examType"
         `,
         [
           rdvId,
@@ -210,6 +235,7 @@ export async function POST(req: NextRequest) {
           verificationCode,
           expiresAt,
           externalCenterCode,
+          examType,
         ]
       );
       record = upsertRes.rows[0];
@@ -247,6 +273,7 @@ export async function POST(req: NextRequest) {
       token: record.token,
       shortCode: record.shortCode,
       verificationCode: record.verificationCode,
+      examType: record.examType,
       url,
       status: record.status,
       expiresAt: record.expiresAt,

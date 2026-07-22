@@ -46,8 +46,11 @@ export async function POST(
     attempts: number;
     expiresAt: Date;
     verificationCode: string;
+    externalCenterCode: string | null;
+    examType: string | null;
   }>(
-    `SELECT "id", "status", "attempts", "expiresAt", "verificationCode"
+    `SELECT "id", "status", "attempts", "expiresAt", "verificationCode",
+            "externalCenterCode", "examType"
        FROM "AppointmentConfirmation"
       WHERE "token" = $1
       LIMIT 1`,
@@ -112,6 +115,47 @@ export async function POST(
       RETURNING "status", "respondedAt"`,
     [record.id, action]
   );
+
+  // Hook stats no-show : incrémenter le compteur ReminderStats (agrégat non
+  // purgé) pour (externalCenterCode, examType, jour civil Europe/Paris).
+  // Le fait qu'un rappel ait ou non ete envoye avant est independant : le
+  // patient peut confirmer/annuler meme sans SMS, et on veut tracker toutes
+  // les reponses. Si externalCenterCode est NULL (edge case, ne devrait
+  // jamais arriver en prod), on skip pour ne pas polluer les stats.
+  if (record.externalCenterCode) {
+    const respondedAt = upd.rows[0]?.respondedAt ?? new Date();
+    const isConfirmed = action === "CONFIRMED";
+    try {
+      await db.query(
+        `
+        INSERT INTO "ReminderStats"
+          ("externalCenterCode", "examType", "day",
+           "smsSent", "confirmed", "cancelled", "updatedAt")
+        VALUES (
+          $1, $2,
+          ($3::timestamptz AT TIME ZONE 'Europe/Paris')::date,
+          0, $4, $5, NOW()
+        )
+        ON CONFLICT ("externalCenterCode", (COALESCE("examType", 'unknown')), "day")
+        DO UPDATE
+          SET "confirmed" = "ReminderStats"."confirmed" + EXCLUDED."confirmed",
+              "cancelled" = "ReminderStats"."cancelled" + EXCLUDED."cancelled",
+              "updatedAt" = NOW()
+        `,
+        [
+          record.externalCenterCode,
+          record.examType,
+          respondedAt.toISOString(),
+          isConfirmed ? 1 : 0,
+          isConfirmed ? 0 : 1,
+        ]
+      );
+    } catch (err) {
+      // On ne veut PAS que l'echec d'un compteur invalide la reponse patient
+      // (elle est deja UPDATE-ee au-dessus). On log et on continue.
+      console.error("[rdv/respond] ReminderStats upsert failed:", err);
+    }
+  }
 
   return NextResponse.json(upd.rows[0]);
 }
