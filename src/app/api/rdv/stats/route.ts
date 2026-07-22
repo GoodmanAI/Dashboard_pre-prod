@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiKey } from "@/lib/auth-helpers";
+import { assertUserProductOwnership, requireAuthOrApiKey } from "@/lib/auth-helpers";
 
 /**
  * GET /api/rdv/stats
@@ -9,14 +9,18 @@ import { requireApiKey } from "@/lib/auth-helpers";
  * liste), sur une plage de jours civils. Alimente la page stats du
  * dashboard. Aucune donnée patient exposée, uniquement des cumuls.
  *
- * Auth : header x-api-key (APPOINTMENT_API_KEY) — pour l'instant, en
- * attendant une couche session UI dédiée. Cohérent avec le reste des
- * routes /api/rdv/*.
+ * Auth mixte :
+ *   - `x-api-key` (APPOINTMENT_API_KEY) → mode M2M, sélection par
+ *     `externalCenterCode` (unique ou CSV). Utilisé par AI2Xplore.
+ *   - Session NextAuth → mode UI, sélection par `userProductId`. Le code
+ *     centre est résolu côté serveur via ExternalCenterMapping et
+ *     l'ownership est vérifié.
  *
  * Query params :
- *   - `externalCenterCode` (requis) : code centre (unique ou CSV)
- *   - `from` (optionnel)            : "YYYY-MM-DD" (inclus) — défaut J-30
- *   - `to`   (optionnel)            : "YYYY-MM-DD" (inclus) — défaut aujourd'hui
+ *   - `externalCenterCode` (requis en mode API key) : code centre (unique ou CSV)
+ *   - `userProductId`     (requis en mode session)  : id UserProduct
+ *   - `from` (optionnel)                             : "YYYY-MM-DD" (inclus) — défaut J-30
+ *   - `to`   (optionnel)                             : "YYYY-MM-DD" (inclus) — défaut aujourd'hui
  *
  * Réponse :
  * {
@@ -66,29 +70,86 @@ function formatIsoDay(d: Date): string {
 }
 
 export async function GET(req: NextRequest) {
-  const keyErr = requireApiKey(req, "APPOINTMENT_API_KEY");
-  if (keyErr) return keyErr;
+  const auth = await requireAuthOrApiKey(req, "APPOINTMENT_API_KEY");
+  if (auth.error) return auth.error;
 
-  const codeParam = req.nextUrl.searchParams.get("externalCenterCode");
-  if (!codeParam) {
-    return NextResponse.json(
-      { error: "externalCenterCode is required" },
-      { status: 400 }
+  // Résolution des codes centre selon le mode d'auth.
+  // - Mode API key : accepté tel quel (unique ou CSV).
+  // - Mode session : userProductId → ownership check → codes centre depuis
+  //   ExternalCenterMapping. On récupère TOUS les codes rattachés à ce
+  //   UserProduct (un centre peut en avoir plusieurs).
+  let codes: string[] = [];
+
+  if (auth.bot) {
+    const codeParam = req.nextUrl.searchParams.get("externalCenterCode");
+    if (!codeParam) {
+      return NextResponse.json(
+        { error: "externalCenterCode is required" },
+        { status: 400 }
+      );
+    }
+    codes = Array.from(
+      new Set(
+        codeParam
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+      )
     );
-  }
-  const codes = Array.from(
-    new Set(
-      codeParam
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0)
-    )
-  );
-  if (codes.length === 0) {
-    return NextResponse.json(
-      { error: "externalCenterCode is required" },
-      { status: 400 }
+    if (codes.length === 0) {
+      return NextResponse.json(
+        { error: "externalCenterCode is required" },
+        { status: 400 }
+      );
+    }
+  } else {
+    const upParam = req.nextUrl.searchParams.get("userProductId");
+    const userProductId = upParam ? parseInt(upParam, 10) : NaN;
+    if (!Number.isFinite(userProductId)) {
+      return NextResponse.json(
+        { error: "userProductId is required" },
+        { status: 400 }
+      );
+    }
+    const ownErr = await assertUserProductOwnership(auth.session, userProductId);
+    if (ownErr) return ownErr;
+
+    const mapRes = await db.query<{ externalCenterCode: string }>(
+      `SELECT "externalCenterCode"
+         FROM "ExternalCenterMapping"
+        WHERE "userProductId" = $1`,
+      [userProductId]
     );
+    codes = Array.from(
+      new Set(mapRes.rows.map((r) => r.externalCenterCode).filter(Boolean))
+    );
+    // Aucun mapping → réponse valide avec compteurs à zéro (pas une erreur :
+    // un centre qui n'a jamais activé le no-show ne doit pas voir 404).
+    if (codes.length === 0) {
+      const to =
+        parseDateOrNull(req.nextUrl.searchParams.get("to")) ?? formatIsoDay(new Date());
+      let from = parseDateOrNull(req.nextUrl.searchParams.get("from"));
+      if (!from) {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        from = formatIsoDay(d);
+      }
+      return NextResponse.json({
+        externalCenterCode: [] as string[],
+        from,
+        to,
+        totals: emptyBucket(),
+        byType: {
+          scanner: emptyBucket(),
+          irm: emptyBucket(),
+          mammo: emptyBucket(),
+          radiographie: emptyBucket(),
+          echographie: emptyBucket(),
+          unknown: emptyBucket(),
+        },
+        byDay: [] as Array<{ day: string } & Bucket>,
+      });
+    }
   }
 
   const to = parseDateOrNull(req.nextUrl.searchParams.get("to")) ?? formatIsoDay(new Date());
