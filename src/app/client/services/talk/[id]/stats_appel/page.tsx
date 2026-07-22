@@ -306,6 +306,7 @@ function StatTile({
   icon,
   delta,
   previousLabel,
+  subDetail,
 }: {
   title: string;
   value: string | number;
@@ -314,6 +315,8 @@ function StatTile({
   delta?: DeltaResult;
   /** Suffixe humain pour le tooltip du badge (ex: "sur la semaine précédente"). */
   previousLabel?: string;
+  /** Ligne de détail sous la valeur (ex: "2 + 8 (Rappel SMS)"). */
+  subDetail?: string;
 }) {
   return (
     <Paper
@@ -322,7 +325,7 @@ function StatTile({
         display: "flex",
         alignItems: "center",
         gap: 2,
-        height: 96,
+        minHeight: 96,
       }}
       elevation={1}
     >
@@ -346,6 +349,16 @@ function StatTile({
         <Typography variant="h5" fontWeight={700} noWrap>
           {value}
         </Typography>
+        {subDetail && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", lineHeight: 1.2 }}
+            noWrap
+          >
+            {subDetail}
+          </Typography>
+        )}
         {delta && <DeltaBadge delta={delta} previousLabel={previousLabel ?? ""} />}
       </Box>
     </Paper>
@@ -362,6 +375,8 @@ function StatTileDouble({
     /** Si fourni, badge delta affiché sous la valeur de cet item. */
     delta?: DeltaResult;
     previousLabel?: string;
+    /** Ligne de détail sous la valeur (ex: "2 + 8 (Rappel SMS)"). */
+    subDetail?: string;
   }[];
   icon: React.ReactNode;
 }) {
@@ -372,7 +387,7 @@ function StatTileDouble({
         display: "flex",
         alignItems: "center",
         gap: 2,
-        height: 96,
+        minHeight: 96,
       }}
       elevation={1}
     >
@@ -399,6 +414,16 @@ function StatTileDouble({
             <Typography variant="h5" fontWeight={700} noWrap>
               {item.value}
             </Typography>
+            {item.subDetail && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", lineHeight: 1.2 }}
+                noWrap
+              >
+                {item.subDetail}
+              </Typography>
+            )}
             {item.delta && (
               <DeltaBadge delta={item.delta} previousLabel={item.previousLabel ?? ""} />
             )}
@@ -778,6 +803,94 @@ export default function StatsAppelPage({ params }: any) {
       }
     })();
   }, []);
+
+  /* ========== Stats no-show (rappels SMS AI2Xplore) ==========
+   * Fetch /api/rdv/stats?userProductId=X&from=YYYY-MM-DD&to=YYYY-MM-DD pour
+   * la période courante ET la période précédente (deltas). Les compteurs sont
+   * ensuite ajoutés aux tuiles Annulation / Confirmation RDV pour afficher le
+   * total (bot + rappel SMS) avec la ventilation en sub-detail. */
+  const [noshowStats, setNoshowStats] = useState<{
+    totals: { smsSent: number; confirmed: number; cancelled: number };
+  } | null>(null);
+  const [previousNoshowStats, setPreviousNoshowStats] = useState<{
+    totals: { smsSent: number; confirmed: number; cancelled: number };
+  } | null>(null);
+
+  const rangeIsoDays = useMemo(() => {
+    const f = new Date(dateRange.from);
+    const t = new Date(dateRange.to);
+    const iso = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+        d.getDate()
+      ).padStart(2, "0")}`;
+    return { from: iso(f), to: iso(t) };
+  }, [dateRange]);
+
+  useEffect(() => {
+    if (!effectiveUserId) {
+      setNoshowStats(null);
+      return;
+    }
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const url =
+          `/api/rdv/stats?userProductId=${userProductId}` +
+          `&from=${rangeIsoDays.from}&to=${rangeIsoDays.to}`;
+        const res = await fetch(url, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          setNoshowStats(null);
+          return;
+        }
+        const data = await res.json();
+        setNoshowStats(data);
+      } catch (e) {
+        if (!isAbortError(e)) {
+          console.error("Erreur fetch no-show stats:", e);
+        }
+      }
+    })();
+    return () => controller.abort();
+  }, [effectiveUserId, userProductId, rangeIsoDays.from, rangeIsoDays.to]);
+
+  useEffect(() => {
+    if (!effectiveUserId || !previousRange) {
+      setPreviousNoshowStats(null);
+      return;
+    }
+    const iso = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+        d.getDate()
+      ).padStart(2, "0")}`;
+    const from = iso(previousRange.from);
+    const to = iso(previousRange.to);
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const url =
+          `/api/rdv/stats?userProductId=${userProductId}` +
+          `&from=${from}&to=${to}`;
+        const res = await fetch(url, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          setPreviousNoshowStats(null);
+          return;
+        }
+        const data = await res.json();
+        setPreviousNoshowStats(data);
+      } catch (e) {
+        if (!isAbortError(e)) {
+          console.error("Erreur fetch no-show stats (période précédente):", e);
+        }
+      }
+    })();
+    return () => controller.abort();
+  }, [effectiveUserId, userProductId, previousRange]);
   
   // Fetch sous-centres (ADMIN)
   useEffect(() => {
@@ -916,6 +1029,19 @@ export default function StatsAppelPage({ params }: any) {
     }, 0);
   }, [calls]);
 
+  /* ========== Enrichissement Annulation / Confirmation avec rappels SMS ==========
+   * On additionne les compteurs bot LyraeTalk (calculés ci-dessus depuis
+   * `calls`) et les compteurs no-show AI2Xplore (fetchés depuis /api/rdv/stats).
+   * La tuile affiche le TOTAL en grand ; le breakdown "bot + SMS" est passé en
+   * subDetail. Les deltas plus bas comparent bien totals ↔ totals N-1. */
+  const smsCancelled = noshowStats?.totals?.cancelled ?? 0;
+  const smsConfirmed = noshowStats?.totals?.confirmed ?? 0;
+  const totalAnnulation = annulation + smsCancelled;
+  const totalConfirmRDV = confirmRDV + smsConfirmed;
+
+  const prevSmsCancelled = previousNoshowStats?.totals?.cancelled ?? 0;
+  const prevSmsConfirmed = previousNoshowStats?.totals?.confirmed ?? 0;
+
   /* ========== KPI période précédente + deltas ==========
    * Mêmes calculs que ci-dessus appliqués à `previousCalls`, puis on dérive
    * les deltas vs courant via `computeDelta` (direction métier par KPI). */
@@ -972,12 +1098,23 @@ export default function StatsAppelPage({ params }: any) {
       nbUrgence: computeDelta(nbUrgence, previousKpis.nbUrgence, "neutral"),
       nbInfo: computeDelta(nbInfo, previousKpis.nbInfo, "neutral"),
       heures: computeDelta(currentHeuresSec, previousKpis.heuresSec, "higher_is_better"),
-      annulation: computeDelta(annulation, previousKpis.annulation, "neutral"),
+      // Annulation & Confirmation : les tuiles affichent le TOTAL (bot + SMS
+      // rappel), donc le delta doit comparer total ↔ total N-1 pour rester
+      // cohérent avec la valeur affichée.
+      annulation: computeDelta(
+        totalAnnulation,
+        previousKpis.annulation + prevSmsCancelled,
+        "neutral"
+      ),
       modification: computeDelta(modification, previousKpis.modification, "neutral"),
       notPerformed: computeDelta(notPerformed, previousKpis.notPerformed, "lower_is_better"),
       radioInter: computeDelta(radioInter, previousKpis.radioInter, "neutral"),
       noSlotApi: computeDelta(noSlotApi, previousKpis.noSlotApi, "lower_is_better"),
-      confirmRDV: computeDelta(confirmRDV, previousKpis.confirmRDV, "higher_is_better"),
+      confirmRDV: computeDelta(
+        totalConfirmRDV,
+        previousKpis.confirmRDV + prevSmsConfirmed,
+        "higher_is_better"
+      ),
     };
   }, [
     previousRange,
@@ -987,12 +1124,14 @@ export default function StatsAppelPage({ params }: any) {
     nbUrgence,
     nbInfo,
     currentHeuresSec,
-    annulation,
+    totalAnnulation,
+    prevSmsCancelled,
     modification,
     notPerformed,
     radioInter,
     noSlotApi,
-    confirmRDV,
+    totalConfirmRDV,
+    prevSmsConfirmed,
   ]);
 
   /** Suffixe humain pour le tooltip des deltas (ex: "du 12 mai au 18 mai"). */
@@ -1092,12 +1231,16 @@ export default function StatsAppelPage({ params }: any) {
     rows.push(["Urgences détectées", nbUrgence, formatDeltaForCsv(deltas?.nbUrgence)]);
     rows.push(["Informations", nbInfo, formatDeltaForCsv(deltas?.nbInfo)]);
     rows.push(["Heures prises en charge", heuresPrisEnCharge, formatDeltaForCsv(deltas?.heures)]);
-    rows.push(["Annulations", annulation, formatDeltaForCsv(deltas?.annulation)]);
+    rows.push(["Annulations (total)", totalAnnulation, formatDeltaForCsv(deltas?.annulation)]);
+    rows.push(["Annulations (bot LyraeTalk)", annulation]);
+    rows.push(["Annulations (rappel SMS)", smsCancelled]);
     rows.push(["Modifications", modification, formatDeltaForCsv(deltas?.modification)]);
     rows.push(["Examens non pris en charge", notPerformed, formatDeltaForCsv(deltas?.notPerformed)]);
     rows.push(["Planning complet", noSlotApi, formatDeltaForCsv(deltas?.noSlotApi)]);
     rows.push(["Radio interventionnelle", radioInter, formatDeltaForCsv(deltas?.radioInter)]);
-    rows.push(["Confirmations RDV", confirmRDV, formatDeltaForCsv(deltas?.confirmRDV)]);
+    rows.push(["Confirmations RDV (total)", totalConfirmRDV, formatDeltaForCsv(deltas?.confirmRDV)]);
+    rows.push(["Confirmations RDV (bot LyraeTalk)", confirmRDV]);
+    rows.push(["Confirmations RDV (rappel SMS)", smsConfirmed]);
     rows.push(["Indice de performance", `${indicePerformance}/100`]);
     rows.push(null);
 
@@ -1801,9 +1944,13 @@ export default function StatsAppelPage({ params }: any) {
                 items={[
                   {
                     title: "Annulation",
-                    value: annulation,
+                    value: totalAnnulation,
                     delta: deltas?.annulation,
                     previousLabel,
+                    subDetail:
+                      smsCancelled > 0
+                        ? `${annulation} + ${smsCancelled} (Rappel SMS)`
+                        : undefined,
                   },
                   {
                     title: "Modification",
@@ -1841,10 +1988,15 @@ export default function StatsAppelPage({ params }: any) {
             ) : (
               <StatTile
                 title="Confirmation RDV"
-                value={confirmRDV == 0 ? "-" : confirmRDV}
+                value={totalConfirmRDV === 0 ? "-" : totalConfirmRDV}
                 icon={<IconConfirmRDV />}
                 delta={deltas?.confirmRDV}
                 previousLabel={previousLabel}
+                subDetail={
+                  smsConfirmed > 0
+                    ? `${confirmRDV} + ${smsConfirmed} (Rappel SMS)`
+                    : undefined
+                }
               />
             )}
           </Grid>
