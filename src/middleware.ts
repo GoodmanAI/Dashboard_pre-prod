@@ -25,6 +25,11 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   /^\/api\/rdv(\/|$)/,
   // Config "envoi SMS par type d'examen" — auth mixte (API key OU session) côté handler.
   /^\/api\/sms-confirmation-config$/,
+  // Dépôt d'ordonnance patient :
+  //  - /api/prescriptions/init, /pending, /[id]/download, /[id]/ack → API key (handler)
+  //  - /api/prescriptions/[token]/status, /upload → public, protégés par le token
+  //  - /api/prescriptions/config → auth mixte (API key OU session) côté handler
+  /^\/api\/prescriptions(\/|$)/,
 ];
 
 function isPublicApi(pathname: string): boolean {
@@ -57,13 +62,39 @@ function isAllowedOnRdvSubdomain(pathname: string): boolean {
   return RDV_SUBDOMAIN_ALLOWED_PATTERNS.some((re) => re.test(pathname));
 }
 
+/**
+ * Sous-domaine dédié au dépôt d'ordonnance patient (depot-ordonnances.neuracorp.ai).
+ * Même logique d'isolation que rdv.neuracorp.ai : seules les 2 routes patient
+ * (page upload + endpoints du token) sont accessibles, tout le reste → 404.
+ *
+ * IMPORTANT : les endpoints M2M (/init, /pending, /[id]/download, /[id]/ack,
+ * /config) ne sont PAS whitelistés ici — ils sont réservés à dashboard.neuracorp.ai
+ * pour minimiser la surface d'attaque du sous-domaine patient.
+ */
+const DEPOT_ORDONNANCES_SUBDOMAIN_HOST = 'depot-ordonnances.neuracorp.ai';
+
+const DEPOT_ORDONNANCES_ALLOWED_PATTERNS: RegExp[] = [
+  /^\/d\/[^/]+\/?$/,                              // /d/{shortCode} — page upload patient
+  /^\/api\/prescriptions\/[^/]+\/status\/?$/,     // GET statut public (via token)
+  /^\/api\/prescriptions\/[^/]+\/upload\/?$/,     // POST upload PDF (via token)
+  // Assets statiques publics pour le rendu de la page upload.
+  /^\/images\//,
+  /^\/fonts\//,
+  /^\/_next\/data\//,
+];
+
+function isAllowedOnDepotOrdonnancesSubdomain(pathname: string): boolean {
+  return DEPOT_ORDONNANCES_ALLOWED_PATTERNS.some((re) => re.test(pathname));
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // ---- Isolation du sous-domaine rdv.neuracorp.ai ----
+  // ---- Isolation des sous-domaines patient ----
   // Vérifié EN PREMIER : indépendant de l'auth, s'applique même aux assets.
   // Le host peut inclure un port (rare en prod, courant en dev) — on strip.
   const host = req.headers.get('host')?.split(':')[0].toLowerCase();
+
   if (host === RDV_SUBDOMAIN_HOST) {
     if (!isAllowedOnRdvSubdomain(pathname)) {
       // Renvoie 404 (pas 403) pour ne pas révéler qu'un dashboard existe
@@ -72,6 +103,16 @@ export async function middleware(req: NextRequest) {
     }
     // Path autorisé sur rdv.neuracorp.ai → laisse passer sans checks admin/API.
     // (les endpoints /api/rdv/* ont leur propre auth par token côté handler)
+    return NextResponse.next();
+  }
+
+  if (host === DEPOT_ORDONNANCES_SUBDOMAIN_HOST) {
+    if (!isAllowedOnDepotOrdonnancesSubdomain(pathname)) {
+      return new NextResponse('Not Found', { status: 404 });
+    }
+    // Path autorisé sur depot-ordonnances.neuracorp.ai → laisse passer.
+    // (les endpoints /api/prescriptions/[token]/* ont leur propre auth par
+    //  token + verificationCode côté handler)
     return NextResponse.next();
   }
 
@@ -114,7 +155,8 @@ export async function middleware(req: NextRequest) {
 
 /**
  * Matcher élargi : on doit intercepter TOUTES les requêtes (y compris `/`,
- * les pages statiques, les assets, etc.) sur rdv.neuracorp.ai pour appliquer
+ * les pages statiques, les assets, etc.) sur les sous-domaines patient
+ * (rdv.neuracorp.ai, depot-ordonnances.neuracorp.ai) pour appliquer
  * l'isolation host. Sur les autres hosts, le middleware ne fait rien pour
  * les paths hors admin/client/api (donc coût négligeable).
  *
