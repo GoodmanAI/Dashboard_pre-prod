@@ -64,6 +64,9 @@ const PAGE_BG_BOTTOM = "#FAFCFB";
 
 const MAX_FILE_SIZE_MB = 10;
 
+const ACCEPTED_MIMES = ["application/pdf", "image/jpeg", "image/png"];
+const ACCEPTED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"];
+
 function formatFrDate(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -128,8 +131,27 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
-    if (!f.name.toLowerCase().endsWith(".pdf") && f.type !== "application/pdf") {
-      setSubmitError("Seuls les fichiers PDF sont acceptes.");
+    // Verif basique cote client : extension + MIME. La verif reelle est
+    // cote serveur via magic bytes (extension manipulable). On donne un
+    // feedback rapide au patient pour eviter un upload inutile de HEIC.
+    const nameLower = f.name.toLowerCase();
+    const extOk = ACCEPTED_EXTENSIONS.some((ext) => nameLower.endsWith(ext));
+    const mimeOk = ACCEPTED_MIMES.includes(f.type);
+    if (!extOk && !mimeOk) {
+      // Detection HEIC/WebP courants pour message d'aide dedie
+      if (nameLower.endsWith(".heic") || nameLower.endsWith(".heif") || f.type === "image/heic") {
+        setSubmitError(
+          "Format HEIC iPhone non supporte. Reglages iOS > Appareil photo > Formats > Le plus compatible, puis reprenez la photo."
+        );
+      } else if (nameLower.endsWith(".webp") || f.type === "image/webp") {
+        setSubmitError(
+          "Format WebP non supporte. Convertissez en JPG ou PNG."
+        );
+      } else {
+        setSubmitError(
+          "Format non accepte. Formats acceptes : PDF, JPG, PNG."
+        );
+      }
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
@@ -308,12 +330,12 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
                   "&:hover": { borderColor: BRAND_TEAL_DARK, bgcolor: BRAND_TEAL_SOFT },
                 }}
               >
-                {file ? "Changer le PDF" : "Selectionner votre ordonnance (PDF)"}
+                {file ? "Changer le fichier" : "Selectionner votre ordonnance (PDF, JPG, PNG)"}
                 <input
                   ref={fileInputRef}
                   type="file"
                   hidden
-                  accept="application/pdf,.pdf"
+                  accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"
                   onChange={handleFileChange}
                 />
               </Button>

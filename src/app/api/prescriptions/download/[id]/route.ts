@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { db } from "@/lib/db";
 import { requireApiKey } from "@/lib/auth-helpers";
+import { mimeTypeFromStoragePath } from "@/lib/prescriptionFileType";
 
 /**
  * GET /api/prescriptions/download/[id]
@@ -17,11 +19,15 @@ import { requireApiKey } from "@/lib/auth-helpers";
  * ack, ex. si la copie locale AI2Xplore a ete perdue).
  * Refuse sur PENDING (rien a telecharger), EXPIRED, LOCKED.
  *
- * Reponse 200 : le PDF brut, avec headers :
- *   Content-Type: application/pdf
+ * Reponse 200 : le fichier brut (PDF, JPEG ou PNG selon ce que le patient
+ * a uploade), avec headers :
+ *   Content-Type: application/pdf | image/jpeg | image/png  (deduit du storagePath)
  *   Content-Length: taille exacte
- *   Content-Disposition: attachment; filename="prescription-{id}.pdf"
+ *   Content-Disposition: attachment; filename="prescription-{id}.{pdf|jpg|png}"
  *   X-File-Sha256: hex SHA256 pour verification integrite cote client
+ *
+ * Cote AI2Xplore : lire Content-Type pour router vers le handler Xplore
+ * approprie (Xplore accepte les 3 formats).
  *
  * Chaque download est loggue dans PrescriptionAccessLog (RGPD : trace
  * qui/quand a accede au PDF patient).
@@ -126,12 +132,17 @@ export async function GET(
 
   await auditLog({ uploadId: record.id, actorIp, success: true });
 
+  // Content-Type + extension déduits du storagePath (PDF, JPG ou PNG).
+  // AI2Xplore lit ce Content-Type pour router vers son handler Xplore approprié.
+  const mimeType = mimeTypeFromStoragePath(record.storagePath);
+  const extension = path.extname(record.storagePath).replace(".", "") || "bin";
+
   return new NextResponse(buffer, {
     status: 200,
     headers: {
-      "Content-Type": "application/pdf",
+      "Content-Type": mimeType,
       "Content-Length": String(buffer.length),
-      "Content-Disposition": `attachment; filename="prescription-${record.id}.pdf"`,
+      "Content-Disposition": `attachment; filename="prescription-${record.id}.${extension}"`,
       "X-File-Sha256": record.fileSha256 ?? "",
       "Cache-Control": "no-store",
     },
