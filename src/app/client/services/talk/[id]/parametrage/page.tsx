@@ -54,6 +54,7 @@ import { useTalkBasePath } from "@/utils/talkRoutes";
 import { useSession } from "next-auth/react";
 import SmsConfirmationConfigCard from "./SmsConfirmationConfigCard";
 import SmsBookingConfirmationCard from "./SmsBookingConfirmationCard";
+import PrescriptionConfigCard from "./PrescriptionConfigCard";
 
 type ExamKey = "radiographie" | "irm" | "echographie" | "scanner" | "mammo";
 type VoiceKey = "femme" | "homme" | "neutre";
@@ -1090,6 +1091,9 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
 
       {/* Rappel de RDV par SMS (no-show) */}
       <SmsConfirmationConfigCard userProductId={Number(params.id)} />
+
+      {/* Depot d'ordonnance patient (lien dans le SMS de confirmation) */}
+      <PrescriptionConfigCard userProductId={Number(params.id)} />
 
       {/* Options */}
       <Accordion>
