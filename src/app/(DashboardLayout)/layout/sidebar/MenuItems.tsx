@@ -15,6 +15,7 @@ import {
   IconChartHistogram,
   IconCalendarOff,
   IconMessage2,
+  IconFileAlert,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -112,6 +113,12 @@ const Menuitems: SidebarItem[] = [
     title: "Stats No-Show",
     icon: IconMessage2,
     href: "/client/services/talk/{TALK_ID}/stats-no-show",
+  },
+  {
+    id: uniqueId(),
+    title: "Ordonnances manquantes",
+    icon: IconFileAlert,
+    href: "/client/services/talk/{TALK_ID}/ordonnances-manquantes",
   },
   {
     id: uniqueId(),
@@ -229,6 +236,12 @@ export const AdminMenuitems: SidebarItem[] = [
     title: "Stats No-Show",
     icon: IconMessage2,
     href: "/client/services/talk/{TALK_ID}/stats-no-show",
+  },
+  {
+    id: uniqueId(),
+    title: "Ordonnances manquantes",
+    icon: IconFileAlert,
+    href: "/client/services/talk/{TALK_ID}/ordonnances-manquantes",
   },
   {
     id: uniqueId(),
