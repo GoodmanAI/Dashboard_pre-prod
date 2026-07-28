@@ -7,6 +7,10 @@ import {
   generateVerificationCode,
 } from "@/lib/appointmentToken";
 import { hashVerificationCode } from "@/lib/verificationCodeHash";
+import {
+  normalizeAlertAfterHours,
+  DEFAULT_ALERT_AFTER_HOURS,
+} from "@/lib/prescriptionConfig";
 
 /** Nb max de retries si un shortCode nouvellement genere collisionne. */
 const SHORT_CODE_MAX_RETRIES = 5;
@@ -92,6 +96,11 @@ function extractClientIp(req: NextRequest): string | null {
  *     url: string,
  *     status: string,
  *     expiresAt: ISO,
+ *     alertAfterHours: number,               // delai config avant alerte
+ *                                            //  secretaire (defaut 48h),
+ *                                            //  permet a LyraeTalk de
+ *                                            //  personnaliser le SMS
+ *                                            //  ("a deposer sous Nh")
  *     alreadyInitialized: boolean            // true = re-init d'un PENDING
  *   }
  */
@@ -177,6 +186,25 @@ export async function POST(req: NextRequest) {
   }
   const centerId = centerRes.rows[0].id;
 
+  // Lecture alertAfterHours du centre (via userProductId → PrescriptionConfig)
+  // Renvoye dans la reponse pour que LyraeTalk puisse personnaliser le SMS
+  // ("a deposer sous Nh") avec la vraie valeur configuree. Defaut 48h si
+  // aucune config specifique pour ce centre.
+  const alertHoursRes = await db.query<{ alertAfterHours: number | null }>(
+    `
+    SELECT pc."alertAfterHours"
+      FROM "ExternalCenterMapping" ecm
+      LEFT JOIN "PrescriptionConfig" pc ON pc."userProductId" = ecm."userProductId"
+     WHERE ecm."externalCenterCode" = $1
+     LIMIT 1
+    `,
+    [externalCenterCode]
+  );
+  const alertAfterHours =
+    (alertHoursRes.rowCount ?? 0) > 0
+      ? normalizeAlertAfterHours(alertHoursRes.rows[0].alertAfterHours)
+      : DEFAULT_ALERT_AFTER_HOURS;
+
   // URL de base : sous-domaine dedie prefere, sinon fallback dashboard
   const shortBase = process.env.DEPOT_ORDONNANCES_URL_BASE?.replace(/\/$/, "");
   const fallbackBase =
@@ -214,6 +242,7 @@ export async function POST(req: NextRequest) {
           url: buildUrl(existing.shortCode),
           status: existing.status,
           expiresAt: existing.expiresAt,
+          alertAfterHours,
           alreadyInitialized: true,
         },
         { status: 200 }
@@ -384,6 +413,7 @@ export async function POST(req: NextRequest) {
       url: buildUrl(record.shortCode),
       status: record.status,
       expiresAt: record.expiresAt,
+      alertAfterHours,
       alreadyInitialized: !isFirstInit,
     },
     { status: 200 }
