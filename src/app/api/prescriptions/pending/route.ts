@@ -2,132 +2,143 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireApiKey } from "@/lib/auth-helpers";
 
+const MAX_LIMIT = 100;
+const DEFAULT_LIMIT = 50;
+
 /**
  * GET /api/prescriptions/pending
  *
  * Queue FIFO des ordonnances uploadees en attente de recuperation par
- * AI2Xplore (statut UPLOADED, ackedAt IS NULL). Meme pattern que
- * /api/rdv/pending-events.
+ * AI2Xplore (statut UPLOADED, ackedAt IS NULL). Alignee sur le pattern
+ * de /api/rdv/pending-events pour que la meme VM AI2Xplore multi-tenant
+ * consomme les 2 endpoints identiquement.
  *
  * Auth : header x-api-key (APPOINTMENT_API_KEY).
  *
- * Scoping — 2 modes, exclusifs ou combinables :
- *   - externalCenterCode : code centre (unique ou CSV, ex "N01,N02")
- *   - userProductId     : id UserProduct (resout tous les codes centres
- *     du produit via ExternalCenterMapping). Symmetrique avec
- *     /api/rdv/pending-events pour permettre a AI2Xplore d'avoir UNE
- *     SEULE config de scoping par instance (le userProductId).
+ * Query params (au moins l'un des 2 filtres requis) :
+ *   - externalCenterCode : filtre par code centre. Valeur unique ou CSV
+ *     (ex: "N01,MEN,A04"). Filtre applique directement sur
+ *     PrescriptionUpload.externalCenterCode.
+ *   - userProductId : filtre par UserProduct dashboard. Valeur unique ou
+ *     CSV (ex: "2,15,12"). Resolu vers la liste d'externalCenterCode
+ *     via ExternalCenterMapping.
+ *   - limit : 1..100 (defaut 50)
  *
- * Au moins l'un des deux est requis. Si les deux sont fournis, on prend
- * l'INTERSECTION (uniquement les items qui matchent ET le filtre
- * externalCenterCode ET l'appartenance au userProductId — utile pour
- * verifier defensivement qu'un code appartient bien au produit demande).
- *
- * Query :
- *   externalCenterCode : optionnel si userProductId fourni
- *   userProductId      : optionnel si externalCenterCode fourni
- *   limit             : optionnel, defaut 50, max 100
+ * Combiner les 2 filtres est autorise (intersection defensive).
  *
  * Reponse 200 :
- *   {
- *     externalCenterCode: string | string[] | null,   // null si scope par uPId seul
- *     userProductId: number | null,
- *     items: [
- *       {
- *         id, rdvId, externalCenterCode, examType,
- *         uploadedAt, fileSize, fileSha256
- *       }
- *     ]
- *   }
+ * {
+ *   count: <items dans cette page>,
+ *   total: <total en attente matching le filtre — permet a AI2Xplore de
+ *          savoir s'il doit re-poller immediatement>,
+ *   hasMore: <count < total>,
+ *   items: [
+ *     { id, rdvId, externalCenterCode, examType,
+ *       uploadedAt, fileSize, fileSha256 }
+ *   ]
+ * }
  *
- * Aucune PII patient renvoyee (pas de phone/nom/prenom). AI2Xplore matche
- * les rdvId contre son propre logiciel metier pour retrouver le patient.
- * L'audit trail (PrescriptionAccessLog) n'est PAS alimente sur cette route
- * pour eviter la pollution — les crons AI2Xplore polleront a intervalle
- * regulier (~5 min), un log par appel = 288 rows/jour/centre pour rien.
- * On log au download() ou l'acces aux donnees patient est effectif.
+ * Ordre : uploadedAt ASC, id ASC (FIFO stricte, stable). Garantit qu'aucun
+ * item ne peut etre "noye" sous des uploads plus recents meme si la file
+ * depasse `limit`.
+ *
+ * Aucune PII patient (pas de phone/nom/prenom). AI2Xplore matche par rdvId
+ * contre son logiciel metier. L'audit trail n'est PAS alimente sur cette
+ * route (polling toutes les 5 min = trop verbeux). Log au download() ou
+ * l'acces aux donnees patient est effectif.
  */
-
-const DEFAULT_LIMIT = 50;
-const MAX_LIMIT = 100;
-
 export async function GET(req: NextRequest) {
   const keyErr = requireApiKey(req, "APPOINTMENT_API_KEY");
   if (keyErr) return keyErr;
 
-  // ------- Parse des 2 filtres possibles -------
-  const codeParam = req.nextUrl.searchParams.get("externalCenterCode");
-  const codes = codeParam
-    ? Array.from(
-        new Set(
-          codeParam
-            .split(",")
-            .map((s) => s.trim())
-            .filter((s) => s.length > 0)
-        )
-      )
-    : [];
+  const limitRaw = req.nextUrl.searchParams.get("limit");
+  const limit = Math.min(
+    Math.max(parseInt(limitRaw ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT, 1),
+    MAX_LIMIT
+  );
 
-  const upParam = req.nextUrl.searchParams.get("userProductId");
-  const userProductId = upParam ? parseInt(upParam, 10) : null;
-  if (upParam !== null && (!Number.isFinite(userProductId) || userProductId === null)) {
-    return NextResponse.json(
-      { error: "Invalid userProductId (expected integer)" },
-      { status: 400 }
-    );
-  }
+  // ---- Parsing des 2 filtres (chacun CSV) ----
+  const externalCenterCodes = parseCsvParam(
+    req.nextUrl.searchParams.get("externalCenterCode")
+  );
 
-  if (codes.length === 0 && userProductId === null) {
+  const userProductIdsRaw = parseCsvParam(
+    req.nextUrl.searchParams.get("userProductId")
+  );
+  const userProductIds = userProductIdsRaw
+    ? userProductIdsRaw
+        .map((s) => parseInt(s, 10))
+        .filter((n) => Number.isFinite(n) && n > 0)
+    : null;
+
+  if (
+    (!externalCenterCodes || externalCenterCodes.length === 0) &&
+    (!userProductIds || userProductIds.length === 0)
+  ) {
     return NextResponse.json(
       { error: "At least one of externalCenterCode or userProductId is required" },
       { status: 400 }
     );
   }
 
-  const limitParam = req.nextUrl.searchParams.get("limit");
-  const parsedLimit = limitParam ? parseInt(limitParam, 10) : DEFAULT_LIMIT;
-  const limit =
-    Number.isFinite(parsedLimit) && parsedLimit > 0
-      ? Math.min(parsedLimit, MAX_LIMIT)
-      : DEFAULT_LIMIT;
-
-  // ------- Construction dynamique de la query selon les filtres -------
-  //
-  // Cas :
-  //   externalCenterCode seul : filtre ANY($codes)
-  //   userProductId seul      : filtre via JOIN ExternalCenterMapping
-  //   Les deux                : INTERSECTION (JOIN + ANY)
-  //
-  // On stack les predicats dynamiquement pour ne pas dupliquer 3 queries.
-  const filters: string[] = ['pu."status" = \'UPLOADED\'', 'pu."ackedAt" IS NULL', 'pu."uploadedAt" IS NOT NULL'];
-  const params: any[] = [];
-  let joinClause = "";
-
-  if (userProductId !== null) {
-    joinClause = `JOIN "ExternalCenterMapping" ecm ON ecm."externalCenterCode" = pu."externalCenterCode"`;
-    params.push(userProductId);
-    filters.push(`ecm."userProductId" = $${params.length}`);
+  // Resolution userProductId(s) → externalCenterCode(s) via ExternalCenterMapping.
+  // Un userProductId peut avoir N externalCenterCode. On agrege puis on filtre.
+  // Si la resolution retourne 0 code (userProductId invalide ou pas de mapping) :
+  // reponse vide, comme pending-events.
+  let resolvedCenterCodes: string[] | null = null;
+  if (userProductIds && userProductIds.length > 0) {
+    const mapRes = await db.query<{ externalCenterCode: string }>(
+      `SELECT DISTINCT m."externalCenterCode"
+         FROM "ExternalCenterMapping" m
+         JOIN "UserProduct" up ON up."id" = m."userProductId"
+        WHERE m."userProductId" = ANY($1::int[])
+          AND up."removedAt" IS NULL`,
+      [userProductIds]
+    );
+    resolvedCenterCodes = mapRes.rows.map((r) => r.externalCenterCode);
+    if (resolvedCenterCodes.length === 0) {
+      return NextResponse.json({
+        count: 0,
+        total: 0,
+        hasMore: false,
+        items: [],
+      });
+    }
   }
 
-  if (codes.length > 0) {
-    params.push(codes);
-    filters.push(`pu."externalCenterCode" = ANY($${params.length}::text[])`);
+  // Construction dynamique du WHERE.
+  const conditions: string[] = [
+    `"status" = 'UPLOADED'`,
+    `"ackedAt" IS NULL`,
+    `"uploadedAt" IS NOT NULL`,
+  ];
+  const bindings: any[] = [];
+  let idx = 1;
+
+  if (externalCenterCodes && externalCenterCodes.length > 0) {
+    conditions.push(`"externalCenterCode" = ANY($${idx}::text[])`);
+    bindings.push(externalCenterCodes);
+    idx++;
+  }
+  if (resolvedCenterCodes && resolvedCenterCodes.length > 0) {
+    conditions.push(`"externalCenterCode" = ANY($${idx}::text[])`);
+    bindings.push(resolvedCenterCodes);
+    idx++;
   }
 
-  params.push(limit);
-  const limitParamIndex = params.length;
+  const whereClause = conditions.join(" AND ");
 
-  const sql = `
-    SELECT pu."id", pu."rdvId", pu."externalCenterCode", pu."examType",
-           pu."uploadedAt", pu."fileSize", pu."fileSha256"
-      FROM "PrescriptionUpload" pu
-      ${joinClause}
-     WHERE ${filters.join(" AND ")}
-     ORDER BY pu."uploadedAt" ASC
-     LIMIT $${limitParamIndex}
-  `;
+  // 1) Total en attente matching le filtre
+  const totalRes = await db.query<{ count: string }>(
+    `SELECT COUNT(*)::text AS "count"
+       FROM "PrescriptionUpload"
+      WHERE ${whereClause}`,
+    bindings
+  );
+  const total = parseInt(totalRes.rows[0]?.count ?? "0", 10);
 
-  const res = await db.query<{
+  // 2) Page d'items, FIFO stricte
+  const itemsRes = await db.query<{
     id: number;
     rdvId: string;
     externalCenterCode: string;
@@ -135,12 +146,37 @@ export async function GET(req: NextRequest) {
     uploadedAt: Date;
     fileSize: number;
     fileSha256: string;
-  }>(sql, params);
+  }>(
+    `SELECT "id", "rdvId", "externalCenterCode", "examType",
+            "uploadedAt", "fileSize", "fileSha256"
+       FROM "PrescriptionUpload"
+      WHERE ${whereClause}
+      ORDER BY "uploadedAt" ASC, "id" ASC
+      LIMIT $${idx}`,
+    [...bindings, limit]
+  );
 
   return NextResponse.json({
-    externalCenterCode:
-      codes.length === 0 ? null : codes.length === 1 ? codes[0] : codes,
-    userProductId,
-    items: res.rows,
+    count: itemsRes.rowCount ?? 0,
+    total,
+    hasMore: (itemsRes.rowCount ?? 0) < total,
+    items: itemsRes.rows,
   });
+}
+
+/**
+ * Parse un query param CSV : trim + drop empty + dedup. Retourne null si
+ * absent/vide.
+ */
+function parseCsvParam(raw: string | null): string[] | null {
+  if (!raw) return null;
+  const arr = Array.from(
+    new Set(
+      raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+    )
+  );
+  return arr.length > 0 ? arr : null;
 }
