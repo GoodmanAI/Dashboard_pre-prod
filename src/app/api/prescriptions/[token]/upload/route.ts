@@ -7,6 +7,7 @@ import { APPOINTMENT_MAX_ATTEMPTS } from "@/lib/appointmentToken";
 import { verifyVerificationCode } from "@/lib/verificationCodeHash";
 import { scanBuffer } from "@/lib/clamavScan";
 import { checkRateLimit } from "@/lib/prescriptionRateLimit";
+import { detectFileType } from "@/lib/prescriptionFileType";
 
 /**
  * Endpoint patient public (auth = shortCode dans l'URL + verificationCode
@@ -16,7 +17,11 @@ import { checkRateLimit } from "@/lib/prescriptionRateLimit";
  *
  * Body attendu (multipart/form-data) :
  *   code: string    — 6 chiffres du SMS
- *   file: File      — PDF ordonnance (100 B .. 10 MB)
+ *   file: File      — ordonnance en PDF/JPG/PNG (100 B .. 10 MB)
+ *
+ * Formats acceptes (compatibles Xplore RIS/PACS) : PDF, JPEG, PNG.
+ * HEIC (iPhone) et WebP (Android) rejetes avec message d'aide dedie
+ * (patient invite a reprendre en JPG ou envoyer un PDF).
  *
  * Chaine de validation (fail au 1er echec) :
  *   1. Token existe                    → 404 sinon
@@ -24,7 +29,7 @@ import { checkRateLimit } from "@/lib/prescriptionRateLimit";
  *   3. Pas expire                      → 409 sinon (status → EXPIRED)
  *   4. Code correct                    → 422 + attempts++ sinon (LOCKED a 3)
  *   5. Fichier present, taille bornee  → 400/413 sinon
- *   6. MIME PDF (magic %PDF- + trailer %%EOF) → 415 sinon
+ *   6. Magic bytes PDF/JPEG/PNG        → 415 sinon (message dedie HEIC/WebP)
  *   7. Antivirus ClamAV clean          → 422 sinon (log alerte)
  *
  * Si tout passe : ecrit sur disque, met a jour la ligne, log l'audit,
@@ -47,15 +52,9 @@ function extractClientIp(req: NextRequest): string | null {
   return first && first.length > 0 ? first : null;
 }
 
-/** Verifie que le buffer est un PDF (magic bytes + trailer). */
-function isValidPdf(buffer: Buffer): boolean {
-  if (buffer.length < MIN_FILE_SIZE) return false;
-  // Header %PDF- dans les 5 premiers bytes
-  if (buffer.subarray(0, 5).toString("ascii") !== "%PDF-") return false;
-  // Trailer %%EOF quelque part dans les 1024 derniers bytes
-  const tail = buffer.subarray(-1024).toString("binary");
-  return tail.includes("%%EOF");
-}
+// La detection de format (PDF / JPEG / PNG / HEIC-rejete / WebP-rejete) est
+// deleguee au helper src/lib/prescriptionFileType.ts qui verifie les magic
+// bytes independamment du Content-Type client (manipulable).
 
 /**
  * Log dans PrescriptionAccessLog. Ne throw jamais : un echec de log ne doit
@@ -267,17 +266,25 @@ export async function POST(
     );
   }
 
-  if (!isValidPdf(buffer)) {
+  // Detection par magic bytes : PDF, JPEG, PNG acceptes.
+  // HEIC (iPhone) et WebP (Android) rejetes avec message d'aide dedie.
+  const validation = detectFileType(buffer);
+  if (!validation.ok) {
     await auditLog({
       uploadId: record.id,
       action: "upload",
       actorIp,
       actorUserAgent,
       success: false,
-      errorReason: "invalid PDF format",
+      errorReason: validation.rejectedFormat
+        ? `rejected format: ${validation.rejectedFormat}`
+        : `invalid file: ${validation.reason}`,
     });
     return NextResponse.json(
-      { error: "Le fichier doit etre un PDF valide." },
+      {
+        error: validation.reason,
+        rejectedFormat: validation.rejectedFormat,
+      },
       { status: 415 }
     );
   }
@@ -336,7 +343,7 @@ export async function POST(
   }
 
   const uuid = randomUUID();
-  const storagePath = path.join(STORAGE_DIR, `${uuid}.pdf`);
+  const storagePath = path.join(STORAGE_DIR, `${uuid}.${validation.extension}`);
   const fileSha256 = createHash("sha256").update(buffer).digest("hex");
   try {
     await writeFile(storagePath, buffer, { mode: 0o600 });
