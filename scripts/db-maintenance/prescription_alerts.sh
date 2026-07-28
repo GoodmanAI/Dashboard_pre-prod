@@ -36,12 +36,13 @@ if [ -z "${DATABASE_URL:-}" ]; then
   exit 1
 fi
 
-# Le tout dans une seule transaction : UPDATE + logs + stats.
+# Le tout dans une seule requete atomique : UPDATE + logs + stats via CTE
+# chainees. Postgres traite le WITH ... comme UN seul statement donc c'est
+# deja atomique — pas besoin de BEGIN/COMMIT explicites (qui pollueraient
+# la sortie de psql -tAc avec les lignes "BEGIN" et "COMMIT").
 # CTE "raised" fait l'UPDATE et retourne les rows touches, ce qui alimente
 # les INSERT suivants. Si aucun row a raiser, INSERT ne fait rien.
 RAISED=$(psql "$DATABASE_URL" -tAc "
-BEGIN;
-
 -- 1. Mark PENDING uploads qui ont depasse alertAfterHours sans upload
 WITH raised AS (
   UPDATE \"PrescriptionUpload\" pu
@@ -84,8 +85,6 @@ stats_upserted AS (
   RETURNING 1
 )
 SELECT COUNT(*) FROM raised;
-
-COMMIT;
 ")
 
 OPEN_ALERTS=$(psql "$DATABASE_URL" -tAc "
