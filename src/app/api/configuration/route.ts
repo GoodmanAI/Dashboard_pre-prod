@@ -6,6 +6,13 @@ import {
   normalizeSendConfirmationSms,
   DEFAULT_SEND_CONFIRMATION_SMS,
 } from "@/lib/smsConfirmationConfig";
+import {
+  normalizePrescriptionEnabled,
+  normalizeAlertAfterHours,
+  DEFAULT_PRESCRIPTION_ENABLED,
+  DEFAULT_ALERT_AFTER_HOURS,
+  PrescriptionEnabledExamTypes,
+} from "@/lib/prescriptionConfig";
 
 /**
  * GET /api/configuration?userProductId=XX
@@ -59,6 +66,29 @@ export async function GET(req: NextRequest) {
       (smsCfgRes.rowCount ?? 0) > 0
         ? normalizeSendConfirmationSms(smsCfgRes.rows[0].sendConfirmationSms)
         : DEFAULT_SEND_CONFIRMATION_SMS;
+
+    // 2️⃣.c — Config prescription (opt-in par centre × type d'examen).
+    // Utilisé par LyraeTalk pour DÉCIDER s'il faut ajouter le lien de dépôt
+    // d'ordonnance dans le SMS de confirmation de RDV. Si aucune config
+    // pour ce centre → tous les types à false (feature inerte, comportement
+    // par défaut sûr = pas de lien envoyé).
+    const prescCfgRes = await db.query<{
+      enabledExamTypes: unknown;
+      alertAfterHours: number | null;
+    }>(
+      `SELECT "enabledExamTypes", "alertAfterHours"
+         FROM "PrescriptionConfig"
+        WHERE "userProductId" = $1
+        LIMIT 1`,
+      [userProductId]
+    );
+    let prescriptionByType: PrescriptionEnabledExamTypes = DEFAULT_PRESCRIPTION_ENABLED;
+    let prescriptionAlertAfterHours: number = DEFAULT_ALERT_AFTER_HOURS;
+    if ((prescCfgRes.rowCount ?? 0) > 0) {
+      const row = prescCfgRes.rows[0];
+      prescriptionByType = normalizePrescriptionEnabled(row.enabledExamTypes);
+      prescriptionAlertAfterHours = normalizeAlertAfterHours(row.alertAfterHours);
+    }
 
     // 3️⃣ Mapping FR -> Code
     const examCodeMap: Record<string, string> = {
@@ -207,6 +237,13 @@ export async function GET(req: NextRequest) {
         // Flag "Confirmation de RDV par SMS" : le bot doit envoyer un SMS de
         // confirmation au patient dès la prise de RDV. Défaut = false (opt-in).
         sendConfirmationSms,
+
+        // Config dépôt d'ordonnance patient : quels types d'examens
+        // nécessitent une ordonnance (le bot ajoute un lien de dépôt dans
+        // le SMS de confirmation si true), et délai avant alerte secrétaire
+        // (utilisé par le bot pour personnaliser le SMS "à déposer sous Nh").
+        prescriptionByType,
+        prescriptionAlertAfterHours,
       },
       { status: 200 }
     );
