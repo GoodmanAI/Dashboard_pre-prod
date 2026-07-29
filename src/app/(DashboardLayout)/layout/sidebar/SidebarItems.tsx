@@ -8,6 +8,7 @@ import Menuitems, { AdminMenuitems } from "./MenuItems";
 import NavItem from "./NavItem";
 import NavGroup from "./NavGroup";
 import { useCentre } from "@/app/context/CentreContext";
+import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
 
 /** Modèle minimal d’un item de menu latéral. */
 type SideNavItem = {
@@ -19,6 +20,7 @@ type SideNavItem = {
   href?: string;
   disabled?: boolean;
   external?: boolean;
+  badgeCount?: number;
 };
 
 /** Propriétés du composant SidebarItems. */
@@ -52,6 +54,18 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
   }, [userId]);
 
   const isAdmin = session?.user.role === "ADMIN";
+
+  // userProductId a passer au hook count :
+  //  - ADMIN : userProductId du centre selectionne dans le CentreContext
+  //  - CLIENT : id du produit "LyraeTalk" trouve dans les products du user
+  const prescriptionScopeUserProductId: number | null = (() => {
+    if (isAdmin) return selectedCentre?.userProductId ?? null;
+    const talk: any = products.find((el: any) => el?.name === "LyraeTalk");
+    return talk?.id ?? null;
+  })();
+
+  const { count: prescriptionAlertsCount, thresholdHours } =
+    usePrescriptionAlertsCount(prescriptionScopeUserProductId);
 
   /**
    * Résout le href d'un item contenant `{TALK_ID}` selon le rôle :
@@ -118,7 +132,13 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
 
           const href = getDynamicHref(item);
           if (href === null) return null;
-          const updatedItem = { ...item, href: href ?? undefined };
+          const updatedItem: SideNavItem = { ...item, href: href ?? undefined };
+
+          // Injecte le badge count pour l'item "Ordonnances manquantes"
+          // (identifie via son titre car href resolu dynamiquement)
+          if (item.title === "Ordonnances manquantes" && prescriptionAlertsCount > 0) {
+            updatedItem.badgeCount = prescriptionAlertsCount;
+          }
 
           // Élément de navigation cliquable
           return (
