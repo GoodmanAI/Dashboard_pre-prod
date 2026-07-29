@@ -65,16 +65,19 @@ export default function RootLayout({
    *   - /authentication/*  : pages de login (déjà historique)
    *   - /c/*               : URL courte du SMS de rappel RDV (patient)
    *   - /confirm/*         : URL longue du SMS de rappel RDV (patient, rétrocompat)
+   *   - /d/*               : URL courte du SMS de dépôt d'ordonnance (patient)
    *
-   * Les 2 dernières servent notamment via le sous-domaine rdv.neuracorp.ai
-   * (isolé côté middleware) et doivent rester ultra-simples : un patient qui
-   * clique un lien SMS ne doit pas voir la nav admin du dashboard.
+   * Ces routes servent notamment via les sous-domaines patient (rdv.neuracorp.ai
+   * et depot-ordonnances.neuracorp.ai — isolés côté middleware) et doivent
+   * rester ultra-simples : un patient qui clique un lien SMS ne doit jamais
+   * voir la nav admin du dashboard, même s'il tape l'URL sur le mauvais host.
    */
   const pathname: any = usePathname();
   const isPublicPage =
     pathname?.startsWith("/authentication") ||
     pathname?.startsWith("/c/") ||
-    pathname?.startsWith("/confirm/");
+    pathname?.startsWith("/confirm/") ||
+    pathname?.startsWith("/d/");
 
   return (
     <html lang="fr" className={myFont.variable}>
