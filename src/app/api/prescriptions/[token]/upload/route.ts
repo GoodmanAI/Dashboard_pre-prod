@@ -17,7 +17,7 @@ import { detectFileType } from "@/lib/prescriptionFileType";
  *
  * Body attendu (multipart/form-data) :
  *   code: string    — 6 chiffres du SMS
- *   file: File      — ordonnance en PDF/JPG/PNG (100 B .. 10 MB)
+ *   file: File      — ordonnance en PDF/JPG/PNG (100 B .. 8 MB)
  *
  * Formats acceptes (compatibles Xplore RIS/PACS) : PDF, JPEG, PNG.
  * HEIC (iPhone) et WebP (Android) rejetes avec message d'aide dedie
@@ -42,7 +42,12 @@ import { detectFileType } from "@/lib/prescriptionFileType";
 
 const STORAGE_DIR = process.env.PRESCRIPTIONS_STORAGE_DIR ?? "/var/www/ordonnances";
 const MIN_FILE_SIZE = 100;              // < ca c'est pas un PDF utilisable
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB, aligne sur nginx client_max_body_size
+// Cap fichier fixe a 8 MB (au lieu de 10 MB initialement) : contrainte Xplore
+// qui refuse toute ordonnance dont le base64 depasse 12 MB (le PDF binaire
+// est encode base64 dans le payload SendOrdonnance). 8 MB * 1.33 = 10.7 MB
+// base64, sous les 12 MB avec marge. Nginx reste a 10 MB (client_max_body_size)
+// pour absorber les headers multipart, le blocage strict est ici.
+const MAX_FILE_SIZE = 8 * 1024 * 1024;
 
 /** Extrait la premiere IP de x-forwarded-for. */
 function extractClientIp(req: NextRequest): string | null {
@@ -250,8 +255,11 @@ export async function POST(
     );
   }
   if (fileRaw.size > MAX_FILE_SIZE) {
+    const maxMb = MAX_FILE_SIZE / 1024 / 1024;
     return NextResponse.json(
-      { error: `Fichier trop volumineux (max ${MAX_FILE_SIZE / 1024 / 1024} MB).` },
+      {
+        error: `Fichier trop lourd, max ${maxMb} Mo — reduisez la qualite de la photo ou scannez en noir & blanc.`,
+      },
       { status: 413 }
     );
   }
