@@ -62,7 +62,10 @@ const CARD_BG = "#FFFFFF";
 const PAGE_BG_TOP = "#F0F7F5";
 const PAGE_BG_BOTTOM = "#FAFCFB";
 
-const MAX_FILE_SIZE_MB = 10;
+// Cap fichier fixe a 8 MB : contrainte Xplore (refuse tout base64 > 12 MB,
+// soit ~9 MB de fichier reel). 8 MB * 1.33 = 10.7 MB base64, sous les 12 MB
+// avec marge. Aligne avec MAX_FILE_SIZE cote serveur (upload/route.ts).
+const MAX_FILE_SIZE_MB = 8;
 
 const ACCEPTED_MIMES = ["application/pdf", "image/jpeg", "image/png"];
 const ACCEPTED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"];
@@ -126,7 +129,9 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
       return;
     }
     if (f.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-      setSubmitError(`Fichier trop volumineux (max ${MAX_FILE_SIZE_MB} MB).`);
+      setSubmitError(
+        `Fichier trop lourd, max ${MAX_FILE_SIZE_MB} Mo — reduisez la qualite de la photo ou scannez en noir & blanc.`
+      );
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
