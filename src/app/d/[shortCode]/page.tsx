@@ -14,8 +14,15 @@ import PrescriptionUploadForm from "./PrescriptionUploadForm";
  *   - Cette route resout cote serveur `shortCode -> token`, puis passe le
  *     token au client component qui gere le formulaire d'upload + saisie
  *     du verificationCode.
- *   - Si le shortCode n'existe pas -> 404 standard Next.js (evite de reveler
- *     l'existence ou non d'un shortCode donne).
+ *   - Si le shortCode n'existe pas -> notFound() qui rend not-found.tsx
+ *     (evite de reveler l'existence ou non d'un shortCode donne).
+ *
+ * Quirk Next.js 14 App Router : avec `dynamic = "force-dynamic"`, notFound()
+ * rend correctement not-found.tsx (le body contient `digest:NEXT_NOT_FOUND`)
+ * mais garde le status HTTP a 200 au lieu de 404, car les headers partent en
+ * streaming avant que notFound() ne soit throw. Impact : uptime monitors qui
+ * checkent le code HTTP ne detecteront pas la 404 (fallback : grep du body
+ * "Lien invalide" est fiable). Fixe upstream dans Next.js 15+.
  */
 
 // La table PrescriptionUpload change constamment (uploads, ack, expirations,
