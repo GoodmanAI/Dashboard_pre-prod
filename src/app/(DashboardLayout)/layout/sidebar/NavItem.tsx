@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import {
+  Badge,
   List,
   ListItem,
   ListItemButton,
@@ -13,6 +14,9 @@ import {
  * Contrat de configuration pour un élément de navigation latérale.
  * - `icon` est un composant d’icône (ex. Tabler) recevant les props `stroke` et `size`.
  * - `href` peut être interne (Next.js) ou externe (avec `external: true`).
+ * - `badgeCount` (optionnel) : si > 0, affiche un badge rouge à droite du libellé.
+ *   Utilisé par exemple pour "Ordonnances manquantes" — le nombre est injecté
+ *   par SidebarItems via un hook de polling.
  */
 export type NavItemConfig = {
   id?: string;
@@ -21,6 +25,7 @@ export type NavItemConfig = {
   href?: string;
   disabled?: boolean;
   external?: boolean;
+  badgeCount?: number;
 };
 
 /**
@@ -97,6 +102,24 @@ const NavItem = ({ item, level, pathDirect, onClick }: NavItemProps) => {
           )}
 
           <ListItemText primary={item.title} />
+          {typeof item.badgeCount === "number" && item.badgeCount > 0 && (
+            <Badge
+              badgeContent={item.badgeCount > 99 ? "99+" : item.badgeCount}
+              color="error"
+              sx={{
+                mr: 1,
+                "& .MuiBadge-badge": {
+                  position: "relative",
+                  transform: "none",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  height: 20,
+                  minWidth: 20,
+                  borderRadius: 10,
+                },
+              }}
+            />
+          )}
         </ListItemButton>
       </ListItemStyled>
     </List>

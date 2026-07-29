@@ -16,10 +16,11 @@
     MenuItem as MuiMenuItem,
   } from "@mui/material";
   import { useSession } from "next-auth/react";
-  import { usePathname } from "next/navigation";
-  import { IconBellRinging, IconMenu, IconX } from "@tabler/icons-react";
+  import { usePathname, useRouter } from "next/navigation";
+  import { IconBellRinging, IconFileAlert, IconMenu, IconX } from "@tabler/icons-react";
   import Profile from "./Profile";
   import { useCentre, ManagedUser } from "../../../context/CentreContext";
+  import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
 
   /**
    * Header d’application (barre supérieure).
@@ -57,13 +58,57 @@
     // --- Contexte session & navigation
     const { data: session, status } = useSession();
     const pathname = usePathname();
+    const router = useRouter();
+    const isAdmin = session?.user?.role === "ADMIN";
 
     // --- État local (UI notifications)
     const [anchorNotif, setAnchorNotif] = useState<null | HTMLElement>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [talkProductId, setTalkProductId] = useState<number | null>(null);
 
     // --- Contexte centres (ADMIN_USER) : liste + centre sélectionné
     const { centres, selectedCentre, setSelectedCentreById } = useCentre();
+
+    /**
+     * Résolution du userProductId dont on veut afficher le compteur
+     * d'alertes ordonnances :
+     *  - ADMIN : centre courant sélectionné dans le header
+     *  - CLIENT : produit LyraeTalk du user connecté (chargé une fois au mount)
+     */
+    useEffect(() => {
+      if (status !== "authenticated" || isAdmin) return;
+      const userId = session?.user?.id;
+      if (!userId) return;
+      fetch(`/api/users/${userId}/products`)
+        .then((r) => r.json())
+        .then((products) => {
+          const talk = Array.isArray(products)
+            ? products.find((p: any) => p?.name === "LyraeTalk")
+            : null;
+          setTalkProductId(talk?.id ?? null);
+        })
+        .catch(() => setTalkProductId(null));
+    }, [status, isAdmin, session?.user?.id]);
+
+    const prescriptionScopeUserProductId: number | null = isAdmin
+      ? selectedCentre?.userProductId ?? null
+      : talkProductId;
+
+    const { count: prescriptionAlertsCount, thresholdHours } =
+      usePrescriptionAlertsCount(prescriptionScopeUserProductId);
+
+    /**
+     * Naviguer vers la page ordonnances-manquantes en un clic depuis l'icone
+     * du header, en préservant la structure d'URL selon le rôle.
+     */
+    const goToOrdonnances = () => {
+      if (isAdmin) {
+        const upid = selectedCentre?.userProductId;
+        if (upid) router.push(`/admin/clients/${upid}/ordonnances-manquantes`);
+      } else if (talkProductId) {
+        router.push(`/client/services/talk/${talkProductId}/ordonnances-manquantes`);
+      }
+    };
 
     /**
      * Chargement des notifications non lues à l’authentification.
@@ -136,6 +181,37 @@
 
           {/* Zone à droite : notifications, sélecteur de centre, profil */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            {/* Compteur ordonnances manquantes — clic = raccourci vers la page */}
+            {prescriptionScopeUserProductId !== null && (
+              <IconButton
+                size="large"
+                color="inherit"
+                onClick={goToOrdonnances}
+                aria-label={
+                  prescriptionAlertsCount > 0
+                    ? `${prescriptionAlertsCount} ordonnance(s) manquante(s) depassant le seuil de ${thresholdHours}h`
+                    : "Aucune ordonnance en attente"
+                }
+                title={
+                  prescriptionAlertsCount > 0
+                    ? `${prescriptionAlertsCount} patient(s) sans ordonnance depuis > ${thresholdHours}h — clic pour voir la liste`
+                    : `Aucun patient en attente au-delà du seuil de ${thresholdHours}h`
+                }
+              >
+                <Badge
+                  badgeContent={
+                    prescriptionAlertsCount > 99
+                      ? "99+"
+                      : prescriptionAlertsCount || undefined
+                  }
+                  color="error"
+                  overlap="circular"
+                >
+                  <IconFileAlert size={21} stroke={1.5} />
+                </Badge>
+              </IconButton>
+            )}
+
             {/* Notifications */}
             <IconButton
               size="large"
