@@ -9,8 +9,11 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  MenuItem,
+  Select,
   Snackbar,
   Stack,
+  TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -18,17 +21,29 @@ import { ContentCopy, WarningAmber, CheckCircle } from "@mui/icons-material";
 import { IconInfoCircle } from "@tabler/icons-react";
 import SectionHeader from "@/components/admin/SectionHeader";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
+import {
+  ALERT_AFTER_HOURS_MAX,
+  ALERT_AFTER_HOURS_MIN,
+  DEFAULT_ALERT_AFTER_HOURS,
+} from "@/lib/prescriptionConfig";
 
 /* =============================================================================
    Page "Ordonnances manquantes"
    -----------------------------------------------------------------------------
-   Liste les alertes actives : RDVs pour lesquels un lien de depot d'ordonnance
-   a ete envoye au patient mais aucun PDF n'a ete recu apres le delai configure
-   (defaut 48h). La secretaire voit :
-     - Nom + telephone patient (copiable)
-     - Date de RDV + type d'examen
-     - Depuis combien de temps le lien SMS a ete envoye
-   Elle appelle le patient, puis "Marquer traite" fait disparaitre la carte.
+   Affiche les patients dont le lien de depot d'ordonnance a ete envoye il y a
+   plus de X heures et qui n'ont toujours pas depose leur PDF (status=PENDING,
+   alertResolvedAt IS NULL).
+
+   Timeline dynamique :
+     - Selecteur (dropdown des presets 24/48/72/96/168h + input libre borne)
+     - Valeur par defaut = alertAfterHours de la config centre
+     - Le changement recharge la liste immediatement
+     - Ne persiste pas cote serveur (juste un filtre UI)
+
+   Actions secretaire :
+     - Cliquer sur le numero pour le copier
+     - Appeler tel:xxx via le lien direct
+     - "Marquer traite" -> POST /alerts/{id}/resolve (fait disparaitre la carte)
 ============================================================================= */
 
 const EXAM_LABELS: Record<string, string> = {
@@ -38,6 +53,9 @@ const EXAM_LABELS: Record<string, string> = {
   radiographie: "Radiographie",
   echographie: "Echographie",
 };
+
+/** Presets d'heures pour le selecteur rapide. */
+const PRESET_HOURS = [24, 48, 72, 96, 168];
 
 type AlertItem = {
   id: number;
@@ -49,9 +67,9 @@ type AlertItem = {
   examType: string | null;
   status: string;
   createdAt: string;
-  alertRaisedAt: string;
+  alertRaisedAt: string | null;
   hoursSinceCreated: number;
-  hoursSinceAlert: number;
+  hoursSinceAlert: number | null;
 };
 
 function formatFrDate(iso: string | null): string {
@@ -69,7 +87,6 @@ function formatFrDate(iso: string | null): string {
 }
 
 function formatPhoneFr(raw: string): string {
-  // Format "06 12 34 56 78" pour lisibilite
   const digits = raw.replace(/\D/g, "");
   if (digits.length === 10) {
     return digits.replace(/(\d{2})(?=\d)/g, "$1 ").trim();
@@ -91,30 +108,94 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
     { open: false, msg: "", sev: "success" }
   );
 
-  const load = useCallback(async () => {
-    if (!userProductId) return;
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await fetch(`/api/prescriptions/alerts?userProductId=${userProductId}`, {
-        cache: "no-store",
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setItems(Array.isArray(data.items) ? data.items : []);
-    } catch (err: any) {
-      setError(err?.message || "Impossible de charger les alertes");
-    } finally {
-      setLoading(false);
-    }
-  }, [userProductId]);
+  // ---- Timeline UI ---------------------------------------------------------
+  // thresholdHours = seuil actuellement applique (envoye au serveur)
+  // defaultHours   = alertAfterHours du centre (retourne par le serveur au 1er load)
+  // customInput    = valeur libre saisie par l'utilisateur (pour l'input "Autre")
+  const [thresholdHours, setThresholdHours] = useState<number>(DEFAULT_ALERT_AFTER_HOURS);
+  const [defaultHours, setDefaultHours] = useState<number>(DEFAULT_ALERT_AFTER_HOURS);
+  const [customInput, setCustomInput] = useState<string>("");
+  const [selectValue, setSelectValue] = useState<string>(String(DEFAULT_ALERT_AFTER_HOURS));
+
+  const load = useCallback(
+    async (hoursOverride?: number) => {
+      if (!userProductId) return;
+      const hours = hoursOverride ?? thresholdHours;
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch(
+          `/api/prescriptions/alerts?userProductId=${userProductId}&hoursThreshold=${hours}`,
+          { cache: "no-store" }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setItems(Array.isArray(data.items) ? data.items : []);
+        if (Number.isFinite(data?.defaultHours)) {
+          setDefaultHours(data.defaultHours);
+        }
+        // Le serveur peut clamp/ignorer le param si hors bornes, on realigne
+        // le state UI sur la valeur effectivement appliquee
+        if (Number.isFinite(data?.thresholdHours) && data.thresholdHours !== hours) {
+          setThresholdHours(data.thresholdHours);
+        }
+      } catch (err: any) {
+        setError(err?.message || "Impossible de charger les alertes");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [userProductId, thresholdHours]
+  );
 
   useEffect(() => {
     load();
-    // Rafraichissement automatique toutes les 5 min pour voir arriver les nouvelles alertes
-    const interval = setInterval(load, 5 * 60 * 1000);
+    // Rafraichissement automatique toutes les 60s (aligne sur le badge navbar)
+    const interval = setInterval(() => load(), 60_000);
     return () => clearInterval(interval);
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProductId, thresholdHours]);
+
+  // Sync selectValue avec thresholdHours au premier load pour reflechir la config centre
+  useEffect(() => {
+    // Si le defaultHours du serveur n'est pas dans les presets, ajuste la selection
+    const val = String(thresholdHours);
+    if (PRESET_HOURS.includes(thresholdHours)) {
+      setSelectValue(val);
+    } else {
+      setSelectValue("custom");
+      setCustomInput(val);
+    }
+  }, [thresholdHours]);
+
+  const handleSelectChange = useCallback((newVal: string) => {
+    setSelectValue(newVal);
+    if (newVal === "custom") {
+      // On attend la saisie de l'utilisateur avant de trigger un reload
+      return;
+    }
+    const hours = Number.parseInt(newVal, 10);
+    if (Number.isFinite(hours)) {
+      setThresholdHours(hours);
+    }
+  }, []);
+
+  const handleCustomApply = useCallback(() => {
+    const n = Number.parseInt(customInput, 10);
+    if (
+      !Number.isFinite(n) ||
+      n < ALERT_AFTER_HOURS_MIN ||
+      n > ALERT_AFTER_HOURS_MAX
+    ) {
+      setSnack({
+        open: true,
+        msg: `Valeur invalide (${ALERT_AFTER_HOURS_MIN}-${ALERT_AFTER_HOURS_MAX}h)`,
+        sev: "error",
+      });
+      return;
+    }
+    setThresholdHours(n);
+  }, [customInput]);
 
   const handleCopy = useCallback((phone: string) => {
     navigator.clipboard.writeText(phone).then(
@@ -152,7 +233,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
   );
 
   const orderedItems = useMemo(
-    () => [...items].sort((a, b) => b.hoursSinceAlert - a.hoursSinceAlert),
+    () => [...items].sort((a, b) => b.hoursSinceCreated - a.hoursSinceCreated),
     [items]
   );
 
@@ -164,7 +245,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
       <Box>
         <SectionHeader
           title="Ordonnances manquantes"
-          subtitle="Alertes actives : patients a rappeler pour recuperer leur ordonnance"
+          subtitle="Patients dont le lien de depot a ete envoye il y a plus de X heures sans upload"
           actions={
             <Chip
               size="small"
@@ -177,6 +258,64 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
             />
           }
         />
+
+        {/* Selecteur timeline */}
+        <Card elevation={0} sx={{ p: 2, mb: 2, bgcolor: "#F0F7F5", border: "1px solid #d0e6df" }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            alignItems={{ xs: "stretch", sm: "center" }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600, color: "#2a6f64", minWidth: 200 }}>
+              Afficher les patients en attente depuis :
+            </Typography>
+            <Select
+              size="small"
+              value={selectValue}
+              onChange={(e) => handleSelectChange(e.target.value as string)}
+              sx={{ minWidth: 140, bgcolor: "#FFF" }}
+            >
+              {PRESET_HOURS.map((h) => (
+                <MenuItem key={h} value={String(h)}>
+                  {h}h{h === defaultHours ? " (defaut centre)" : ""}
+                </MenuItem>
+              ))}
+              <MenuItem value="custom">Autre…</MenuItem>
+            </Select>
+            {selectValue === "custom" && (
+              <Stack direction="row" spacing={1} alignItems="center">
+                <TextField
+                  size="small"
+                  type="number"
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  inputProps={{
+                    min: ALERT_AFTER_HOURS_MIN,
+                    max: ALERT_AFTER_HOURS_MAX,
+                    step: 1,
+                    style: { width: 70 },
+                  }}
+                  sx={{ bgcolor: "#FFF" }}
+                  placeholder="heures"
+                />
+                <Typography variant="body2" color="text.secondary">
+                  h
+                </Typography>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={handleCustomApply}
+                  sx={{ bgcolor: "#48C8AF", "&:hover": { bgcolor: "#3AB19B" } }}
+                >
+                  Appliquer
+                </Button>
+              </Stack>
+            )}
+            <Typography variant="caption" color="text.secondary" sx={{ ml: { sm: "auto" } }}>
+              Bornes {ALERT_AFTER_HOURS_MIN}-{ALERT_AFTER_HOURS_MAX}h · defaut du centre : {defaultHours}h
+            </Typography>
+          </Stack>
+        </Card>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -195,8 +334,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               Aucune alerte en cours
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Tous les RDVs necessitant une ordonnance sont a jour, ou aucun delai n&apos;a
-              encore ete depasse.
+              Aucun patient n&apos;a depasse le seuil de {thresholdHours}h sans deposer son ordonnance.
             </Typography>
           </Card>
         ) : (
@@ -213,7 +351,8 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
             </Alert>
 
             {orderedItems.map((item) => {
-              const critical = item.hoursSinceAlert > 24; // 24h+ depuis alerte = tres en retard
+              // Critical = 2x le seuil configure (ex: 48h de seuil -> critical > 96h)
+              const critical = item.hoursSinceCreated > thresholdHours * 2;
               const examLabel = item.examType
                 ? EXAM_LABELS[item.examType] ?? item.examType
                 : "Examen non specifie";
@@ -242,7 +381,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                         </Typography>
                         <Chip
                           size="small"
-                          label={`${Math.round(item.hoursSinceAlert)}h depuis alerte`}
+                          label={`${Math.round(item.hoursSinceCreated)}h sans upload`}
                           sx={{
                             bgcolor: critical ? "rgba(185,28,28,0.15)" : "rgba(234,88,12,0.15)",
                             color: critical ? "#b91c1c" : "#c2410c",
@@ -287,7 +426,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                         🩻 {examLabel} · RDV du {formatFrDate(item.appointmentDate)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Lien SMS envoye il y a {Math.round(item.hoursSinceCreated)}h · RDV ref.{" "}
+                        Lien SMS envoye le {formatFrDate(item.createdAt)} · RDV ref.{" "}
                         {item.rdvId}
                       </Typography>
                     </Box>
