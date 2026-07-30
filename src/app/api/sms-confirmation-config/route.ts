@@ -17,6 +17,7 @@ import {
   SmsConfirmationEnabled,
   PostesByType,
 } from "@/lib/smsConfirmationConfig";
+import { normalizePrescriptionEnabled } from "@/lib/prescriptionConfig";
 
 /**
  * GET — récupère la config "SMS de confirmation / relance no-show".
@@ -184,6 +185,49 @@ export async function POST(req: NextRequest) {
     Number(userProductId)
   );
   if (ownErr) return ownErr;
+
+  // -----------------------------------------------------------------------
+  // Garde metier : bloquer sendConfirmationSms=false si au moins une
+  // ordonnance est activee pour ce centre.
+  //
+  // Justification : le lien de depot d'ordonnance est envoye au patient
+  // DANS le SMS de confirmation de RDV (via LyraeTalk qui consulte
+  // /api/configuration.sendConfirmationSms). Si on desactive le SMS, le
+  // lien ne part pas et le patient ne pourra jamais deposer son ordonnance
+  // -> la feature est cassee silencieusement, alertes secretaire vont
+  // s'accumuler pour rien.
+  //
+  // Message d'erreur explicite pour que la secretaire sache quoi faire
+  // (desactiver les ordonnances d'abord dans la carte dediee).
+  // -----------------------------------------------------------------------
+  if (hasSendConfirmationSms && body.sendConfirmationSms === false) {
+    const prescCfg = await db.query<{ enabledExamTypes: unknown }>(
+      `SELECT "enabledExamTypes"
+         FROM "PrescriptionConfig"
+        WHERE "userProductId" = $1
+        LIMIT 1`,
+      [userProductId]
+    );
+    if ((prescCfg.rowCount ?? 0) > 0) {
+      const prescriptionEnabled = normalizePrescriptionEnabled(
+        prescCfg.rows[0].enabledExamTypes
+      );
+      const activeTypes = Object.entries(prescriptionEnabled)
+        .filter(([, v]) => v === true)
+        .map(([k]) => k);
+      if (activeTypes.length > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "Impossible de desactiver la confirmation SMS : des ordonnances sont actives pour ce centre. Desactivez d'abord les ordonnances dans la carte \"Depot d'ordonnance patient\".",
+            code: "SMS_CONFIRM_REQUIRED_BY_PRESCRIPTION",
+            prescriptionActiveTypes: activeTypes,
+          },
+          { status: 409 }
+        );
+      }
+    }
+  }
 
   // Lit l'état courant pour merger les champs non fournis.
   const current = await db.query<{
