@@ -8,6 +8,7 @@ import {
   Alert,
   Box,
   Checkbox,
+  Chip,
   CircularProgress,
   Snackbar,
   Stack,
@@ -248,7 +249,29 @@ export default function SmsConfirmationConfigCard({
   return (
     <Accordion>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Typography variant="h6">Rappel de RDV par SMS (No-show)</Typography>
+        <Stack direction="row" alignItems="center" spacing={1.5}>
+          <Typography variant="h6">Rappel de RDV par SMS (No-show)</Typography>
+          {(() => {
+            const enabledCount = Object.values(enabled).filter(Boolean).length;
+            const total = EXAM_TYPES.length;
+            return (
+              <Chip
+                size="small"
+                label={
+                  enabledCount === 0
+                    ? "aucun type actif"
+                    : `${enabledCount} / ${total} types actifs`
+                }
+                sx={{
+                  bgcolor:
+                    enabledCount > 0 ? "rgba(72,200,175,0.15)" : "rgba(0,0,0,0.06)",
+                  color: enabledCount > 0 ? "#2a6f64" : "text.secondary",
+                  fontWeight: 700,
+                }}
+              />
+            );
+          })()}
+        </Stack>
       </AccordionSummary>
       <AccordionDetails>
         <Stack spacing={2}>
