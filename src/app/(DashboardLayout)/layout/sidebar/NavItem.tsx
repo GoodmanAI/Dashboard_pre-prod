@@ -108,9 +108,10 @@ const NavItem = ({ item, level, pathDirect, onClick }: NavItemProps) => {
           <ListItemText primary={item.title} />
         </ListItemButton>
         {/*
-         * Badge positionne en top-right de l'item (pas dans le flux du texte
-         * pour ne pas rogner le libelle). pointerEvents:none pour que le clic
-         * traverse et cible bien le ListItemButton en dessous.
+         * Badge en debord du coin top-right de l'item (top/right negatifs).
+         * pointerEvents:none pour laisser passer le clic vers le
+         * ListItemButton en dessous. zIndex:2 pour rester au-dessus du fond
+         * bleu "selected" sans etre coupe par overflow parent.
          */}
         {hasBadge && (
           <Badge
@@ -118,18 +119,20 @@ const NavItem = ({ item, level, pathDirect, onClick }: NavItemProps) => {
             color="error"
             sx={{
               position: "absolute",
-              top: 6,
-              right: 8,
+              top: -8,
+              right: -8,
               pointerEvents: "none",
+              zIndex: 2,
               "& .MuiBadge-badge": {
                 position: "relative",
                 transform: "none",
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 700,
-                height: 18,
-                minWidth: 18,
-                borderRadius: 9,
-                padding: "0 6px",
+                height: 24,
+                minWidth: 24,
+                borderRadius: 12,
+                padding: "0 8px",
+                boxShadow: "0 0 0 2px #FFF",
               },
             }}
           />
