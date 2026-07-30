@@ -15,7 +15,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { WarningAmber, CheckCircle } from "@mui/icons-material";
+import { WarningAmber, CheckCircle, Phone, Event, MedicalServices } from "@mui/icons-material";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { io as ioClient, Socket } from "socket.io-client";
 import SectionHeader from "@/components/admin/SectionHeader";
@@ -71,7 +71,34 @@ type AlertItem = {
   hoursSinceAlert: number | null;
 };
 
-function formatFrDate(iso: string | null): string {
+/**
+ * Split date + heure : la date est mise en valeur dans la card (typo forte)
+ * alors que l'heure est presentee comme un chip discret a cote. Rend la
+ * hierarchie visuelle plus lisible qu'un unique "lun. 30 juil. 2026, 14:30".
+ */
+function formatFrDateOnly(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatFrTimeOnly(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatFrDateShort(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "—";
@@ -79,7 +106,6 @@ function formatFrDate(iso: string | null): string {
     weekday: "short",
     day: "numeric",
     month: "short",
-    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -327,7 +353,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               >
                 {PRESET_HOURS.map((h) => (
                   <MenuItem key={h} value={String(h)}>
-                    {h}h{h === defaultHours ? " (defaut centre)" : ""}
+                    {h}h{h === defaultHours ? " (defaut)" : ""}
                   </MenuItem>
                 ))}
                 <MenuItem value="custom">Autre…</MenuItem>
@@ -452,7 +478,13 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                     alignItems={{ xs: "stretch", md: "center" }}
                   >
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
+                      {/* Ligne 1 : nom + chip urgence */}
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        spacing={1.5}
+                        sx={{ mb: 1.5, flexWrap: "wrap", rowGap: 1 }}
+                      >
                         <WarningAmber sx={{ color: critical ? "#b91c1c" : "#EA580C" }} />
                         <Typography variant="h6" fontWeight={700}>
                           {item.firstname} {item.lastname.toUpperCase()}
@@ -468,29 +500,64 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                         />
                       </Stack>
 
-                      <Box sx={{ mb: 1 }}>
+                      {/* Ligne 2 : icone tel + numero (non cliquable, selectable au clavier) */}
+                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+                        <Phone sx={{ fontSize: 20, color: "#2a6f64" }} />
                         <Typography
                           variant="body1"
-                          component="a"
-                          href={`tel:${item.phone.replace(/\D/g, "")}`}
                           sx={{
                             fontWeight: 700,
                             color: "#2a6f64",
-                            textDecoration: "none",
-                            "&:hover": { textDecoration: "underline" },
                             fontFamily: "monospace",
                             letterSpacing: 0.5,
+                            userSelect: "all",
                           }}
                         >
                           {formattedPhone}
                         </Typography>
-                      </Box>
+                      </Stack>
 
-                      <Typography variant="body2" color="text.secondary">
-                        {examLabel} · RDV du {formatFrDate(item.appointmentDate)}
-                      </Typography>
+                      {/* Ligne 3 : type examen mis en avant + date RDV + heure en chip */}
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        spacing={1}
+                        sx={{ mb: 0.5, flexWrap: "wrap", rowGap: 0.5 }}
+                      >
+                        <MedicalServices sx={{ fontSize: 20, color: "#48C8AF" }} />
+                        <Typography
+                          variant="subtitle1"
+                          sx={{ fontWeight: 700, color: "#1F3448" }}
+                        >
+                          {examLabel}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: "#7A8FA6" }}>
+                          ·
+                        </Typography>
+                        <Event sx={{ fontSize: 18, color: "#7A8FA6" }} />
+                        <Typography
+                          variant="body2"
+                          sx={{ fontWeight: 600, color: "#1F3448" }}
+                        >
+                          {formatFrDateOnly(item.appointmentDate)}
+                        </Typography>
+                        {formatFrTimeOnly(item.appointmentDate) && (
+                          <Chip
+                            size="small"
+                            label={formatFrTimeOnly(item.appointmentDate)}
+                            sx={{
+                              bgcolor: "#E6F7F3",
+                              color: "#2a6f64",
+                              fontWeight: 700,
+                              fontFamily: "monospace",
+                              height: 22,
+                            }}
+                          />
+                        )}
+                      </Stack>
+
                       <Typography variant="caption" color="text.secondary">
-                        Lien SMS envoye le {formatFrDate(item.createdAt)}
+                        Lien SMS envoye {formatFrDateShort(item.createdAt)}
                       </Typography>
                     </Box>
 
