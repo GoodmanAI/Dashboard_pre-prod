@@ -901,7 +901,26 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
 
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6">Horaires & disponibilité</Typography>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Typography variant="h6">Horaires & disponibilité</Typography>
+            {(() => {
+              const openDays = Object.values(settings.weeklyHours ?? {}).filter(
+                (d: any) => d?.enabled && Array.isArray(d?.ranges) && d.ranges.length > 0
+              ).length;
+              const totalDays = Object.keys(settings.weeklyHours ?? {}).length || 7;
+              return (
+                <Chip
+                  size="small"
+                  label={`${openDays} / ${totalDays} jours ouverts`}
+                  sx={{
+                    bgcolor: openDays > 0 ? "rgba(72,200,175,0.15)" : "rgba(0,0,0,0.06)",
+                    color: openDays > 0 ? "#2a6f64" : "text.secondary",
+                    fontWeight: 700,
+                  }}
+                />
+              );
+            })()}
+          </Stack>
         </AccordionSummary>
         <AccordionDetails>
           <Box
@@ -946,7 +965,32 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       {/* Planning rempli */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6">Planning rempli — consignes</Typography>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Typography variant="h6">Planning rempli — consignes</Typography>
+            {(() => {
+              // Consigne consideree definie si le type a un message (fin_appel)
+              // OU un numero de tel (redirection) non vide.
+              const notes = settings.fullPlanningNotes ?? {};
+              const configured = Object.values(notes).filter((n: any) => {
+                if (!n?.type) return false;
+                if (n.type === "fin_appel") return (n.message ?? "").trim().length > 0;
+                if (n.type === "redirection") return (n.phone ?? "").trim().length > 0;
+                return false;
+              }).length;
+              const total = 5;
+              return (
+                <Chip
+                  size="small"
+                  label={`${configured} / ${total} consignes definies`}
+                  sx={{
+                    bgcolor: configured > 0 ? "rgba(72,200,175,0.15)" : "rgba(0,0,0,0.06)",
+                    color: configured > 0 ? "#2a6f64" : "text.secondary",
+                    fontWeight: 700,
+                  }}
+                />
+              );
+            })()}
+          </Stack>
         </AccordionSummary>
 
         <AccordionDetails>
@@ -1055,7 +1099,26 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       {/* Examens acceptés */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6">Examens acceptés</Typography>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Typography variant="h6">Examens acceptés</Typography>
+            {(() => {
+              const accepted = Object.values(settings.examsAccepted ?? {}).filter(
+                Boolean
+              ).length;
+              const total = 5;
+              return (
+                <Chip
+                  size="small"
+                  label={`${accepted} / ${total} examens acceptes`}
+                  sx={{
+                    bgcolor: accepted > 0 ? "rgba(72,200,175,0.15)" : "rgba(0,0,0,0.06)",
+                    color: accepted > 0 ? "#2a6f64" : "text.secondary",
+                    fontWeight: 700,
+                  }}
+                />
+              );
+            })()}
+          </Stack>
         </AccordionSummary>
         <AccordionDetails>
           <FormGroup row>
@@ -1098,7 +1161,27 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       {/* Options */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6">Options</Typography>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Typography variant="h6">Options</Typography>
+            {(() => {
+              const opts = settings.options ?? {};
+              const activeCount = [opts.motif, opts.questions, opts.menstruations].filter(
+                Boolean
+              ).length;
+              const total = 3;
+              return (
+                <Chip
+                  size="small"
+                  label={`${activeCount} / ${total} options actives`}
+                  sx={{
+                    bgcolor: activeCount > 0 ? "rgba(72,200,175,0.15)" : "rgba(0,0,0,0.06)",
+                    color: activeCount > 0 ? "#2a6f64" : "text.secondary",
+                    fontWeight: 700,
+                  }}
+                />
+              );
+            })()}
+          </Stack>
         </AccordionSummary>
 
         <AccordionDetails>
