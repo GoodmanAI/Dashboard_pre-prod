@@ -48,8 +48,16 @@ export async function POST(
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownErr) return ownErr;
 
-  // Verif que l'alerte appartient bien au centre de l'user (via
-  // externalCenterCode → mapping → userProductId).
+  // Verif que la ligne appartient bien au centre de l'user (via
+  // externalCenterCode → mapping → userProductId) et qu'elle est encore
+  // "traitable" : pas deja resolue par la secretaire, et pas deja acquittee
+  // (une ligne acquittee par AI2Xplore = ordonnance recuperee, la secretaire
+  // n'a plus besoin d'intervenir donc pas besoin de la marquer traitee).
+  //
+  // On ne verifie PAS `alertRaisedAt IS NOT NULL` : le cron d'alerte email
+  // peut ne pas avoir encore tourne (pas horaire), mais la secretaire voit
+  // deja la ligne dans son UI (filtre base sur createdAt < threshold, pas
+  // sur alertRaisedAt) et doit pouvoir la traiter immediatement.
   const check = await db.query<{ id: number }>(
     `
     SELECT pu."id"
@@ -57,15 +65,15 @@ export async function POST(
       JOIN "ExternalCenterMapping" ecm ON ecm."externalCenterCode" = pu."externalCenterCode"
      WHERE pu."id" = $1
        AND ecm."userProductId" = $2
-       AND pu."alertRaisedAt" IS NOT NULL
        AND pu."alertResolvedAt" IS NULL
+       AND pu."ackedAt" IS NULL
      LIMIT 1
     `,
     [uploadId, userProductId]
   );
   if (check.rowCount === 0) {
     return NextResponse.json(
-      { error: "Alert not found or not for this centre" },
+      { error: "Alerte introuvable, deja traitee, ou pas dans votre centre" },
       { status: 404 }
     );
   }
@@ -77,6 +85,14 @@ export async function POST(
       RETURNING "alertResolvedAt"`,
     [uploadId]
   );
+
+  // Diffusion websocket : notifie tous les clients connectes (autres pages
+  // du dashboard, autres sessions secretaire du meme centre) pour rafraichir
+  // instantanement le badge navbar/header sans attendre le prochain poll.
+  const io: any = globalThis.io;
+  if (io) {
+    io.emit("prescription-alerts-updated", { userProductId });
+  }
 
   // Audit log
   try {

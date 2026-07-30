@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -19,6 +19,7 @@ import {
 } from "@mui/material";
 import { ContentCopy, WarningAmber, CheckCircle } from "@mui/icons-material";
 import { IconInfoCircle } from "@tabler/icons-react";
+import { io as ioClient, Socket } from "socket.io-client";
 import SectionHeader from "@/components/admin/SectionHeader";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import {
@@ -150,11 +151,43 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
 
   useEffect(() => {
     load();
-    // Rafraichissement automatique toutes les 60s (aligne sur le badge navbar)
-    const interval = setInterval(() => load(), 60_000);
+    // Poll fallback long : les uploads/resolves passent par websocket pour un
+    // refresh instantane (voir hook plus bas), le poll capte seulement les
+    // rows qui deviennent "actives" par vieillissement (createdAt franchit
+    // le threshold sans autre event declenche).
+    const interval = setInterval(() => load(), 5 * 60_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProductId, thresholdHours]);
+
+  // Websocket : refresh instantane sur upload/resolve emis par le backend
+  // (meme event "prescription-alerts-updated" que le hook du badge navbar).
+  const socketRef = useRef<Socket | null>(null);
+  useEffect(() => {
+    if (!userProductId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await fetch("/api/socket");
+        if (cancelled) return;
+        const socket = ioClient({ path: "/api/socket" });
+        socketRef.current = socket;
+        socket.on("prescription-alerts-updated", () => {
+          if (!cancelled) load();
+        });
+      } catch {
+        // Socket KO : le poll 5min sert de fallback
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (socketRef.current) {
+        socketRef.current.off("prescription-alerts-updated");
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [userProductId, load]);
 
   // Sync selectValue avec thresholdHours au premier load pour reflechir la config centre
   useEffect(() => {
@@ -311,9 +344,6 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                 </Button>
               </Stack>
             )}
-            <Typography variant="caption" color="text.secondary" sx={{ ml: { sm: "auto" } }}>
-              Bornes {ALERT_AFTER_HOURS_MIN}-{ALERT_AFTER_HOURS_MAX}h · defaut du centre : {defaultHours}h
-            </Typography>
           </Stack>
         </Card>
 

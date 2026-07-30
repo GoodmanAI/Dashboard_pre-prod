@@ -1,6 +1,6 @@
   "use client";
 
-  import React, { useState, useEffect } from "react";
+  import React, { useEffect, useState } from "react";
   import {
     Box,
     AppBar,
@@ -8,16 +8,13 @@
     styled,
     IconButton,
     Badge,
-    Menu,
-    MenuItem,
-    ListItemText,
     Typography,
     Select,
     MenuItem as MuiMenuItem,
   } from "@mui/material";
   import { useSession } from "next-auth/react";
   import { usePathname, useRouter } from "next/navigation";
-  import { IconBellRinging, IconFileAlert, IconMenu, IconX } from "@tabler/icons-react";
+  import { IconFileAlert, IconMenu } from "@tabler/icons-react";
   import Profile from "./Profile";
   import { useCentre, ManagedUser } from "../../../context/CentreContext";
   import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
@@ -25,22 +22,15 @@
   /**
    * Header d’application (barre supérieure).
    * Responsabilités :
-   *  - Afficher le breadcrumb (placeholder).
-   *  - Gérer les notifications (liste + marquer comme lues).
-   *  - Exposer un sélecteur de centre (pour ADMIN_USER) via CentreContext.
-   *  - Afficher le menu profil utilisateur.
+   *  - Afficher un breadcrumb (placeholder pour l'instant).
+   *  - Compteur d'ordonnances manquantes (raccourci vers la page dediee).
+   *  - Sélecteur de centre (ADMIN_USER) via CentreContext.
+   *  - Menu profil utilisateur.
    */
   type HeaderProps = {
     /** Action transmise par le layout pour ouvrir/fermer la sidebar en mobile. */
     toggleMobileSidebar: () => void;
   };
-
-  /** Modèle de notification renvoyé par `/api/notification/get-unread`. */
-  interface Notification {
-    id: number;
-    message: string;
-    createdAt: string;
-  }
 
   /** Styles locaux, scindés pour limiter le bruit dans le JSX. */
   const AppBarStyled = styled(AppBar)(({ theme }) => ({
@@ -61,9 +51,7 @@
     const router = useRouter();
     const isAdmin = session?.user?.role === "ADMIN";
 
-    // --- État local (UI notifications)
-    const [anchorNotif, setAnchorNotif] = useState<null | HTMLElement>(null);
-    const [notifications, setNotifications] = useState<Notification[]>([]);
+    // --- Etat local
     const [talkProductId, setTalkProductId] = useState<number | null>(null);
 
     // --- Contexte centres (ADMIN_USER) : liste + centre sélectionné
@@ -111,45 +99,6 @@
     };
 
     /**
-     * Chargement des notifications non lues à l’authentification.
-     * - Récupération côté serveur
-     * - Stockage local pour affichage badge + popover
-     */
-    useEffect(() => {
-      if (status !== "authenticated") return;
-
-      fetch("/api/notification/get-unread")
-        .then((res) => res.json())
-        .then((data) => setNotifications(data.notifications || []))
-        .catch(console.error);
-    }, [status]);
-
-    /** Ouvre le popover notifications. */
-    const handleNotifClick = (e: React.MouseEvent<HTMLElement>) => {
-      setAnchorNotif(e.currentTarget);
-    };
-
-    /** Ferme le popover notifications. */
-    const handleNotifClose = () => setAnchorNotif(null);
-
-    /**
-     * Marque une notification comme lue (optimiste).
-     * - Appel API pour mise à jour serveur
-     * - Filtrage local pour mise à jour instantanée
-     */
-    const markAsRead = async (notifId: number) => {
-      try {
-        await fetch("/api/notification/mark-read", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ notificationId: notifId }),
-        });
-      } finally {
-        setNotifications((prev) => prev.filter((n) => n.id !== notifId));
-      }
-    };
-
-    /**
      * Génère le breadcrumb depuis `pathname`.
      * Remplacer par une implémentation métier dès que nécessaire.
      */
@@ -179,7 +128,7 @@
             </Typography>
           </Box>
 
-          {/* Zone à droite : notifications, sélecteur de centre, profil */}
+          {/* Zone à droite : compteur ordonnances, sélecteur de centre, profil */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             {/* Compteur ordonnances manquantes — clic = raccourci vers la page */}
             {prescriptionScopeUserProductId !== null && (
@@ -211,18 +160,6 @@
                 </Badge>
               </IconButton>
             )}
-
-            {/* Notifications */}
-            <IconButton
-              size="large"
-              color="inherit"
-              onClick={handleNotifClick}
-              aria-label="Voir les notifications"
-            >
-              <Badge variant={notifications.length > 0 ? "dot" : undefined} color="primary">
-                <IconBellRinging size={21} stroke={1.5} />
-              </Badge>
-            </IconButton>
 
             {/* Identité + sélecteur de centre si applicable */}
             <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
@@ -278,38 +215,6 @@
             <Profile />
           </Box>
         </ToolbarStyled>
-
-        {/* Popover de notifications */}
-        <Menu
-          anchorEl={anchorNotif}
-          open={Boolean(anchorNotif)}
-          onClose={handleNotifClose}
-          anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-          transformOrigin={{ horizontal: "right", vertical: "top" }}
-          PaperProps={{ sx: { width: 600, maxHeight: 400, p: 1 } }}
-        >
-          {notifications.length === 0 ? (
-            <MenuItem>
-              <ListItemText primary="Aucune notification" />
-            </MenuItem>
-          ) : (
-            notifications.map((notif) => (
-              <MenuItem
-                key={notif.id}
-                sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-              >
-                <ListItemText
-                  primary={notif.message}
-                  secondary={new Date(notif.createdAt).toLocaleString()}
-                  sx={{ pr: 2 }}
-                />
-                <IconButton onClick={() => markAsRead(notif.id)} size="small" aria-label="Marquer comme lue">
-                  <IconX size={16} />
-                </IconButton>
-              </MenuItem>
-            ))
-          )}
-        </Menu>
       </AppBarStyled>
     );
   };
