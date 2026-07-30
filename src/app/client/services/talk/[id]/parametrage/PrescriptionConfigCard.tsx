@@ -136,8 +136,28 @@ export default function PrescriptionConfigCard({
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json().catch(() => ({} as any));
       setDirty(false);
-      setSnack({ open: true, msg: "Configuration enregistree.", sev: "success" });
+
+      // Le backend peut avoir auto-active la confirmation SMS pour les types
+      // qui n'avaient pas encore la SMS. On l'affiche dans le snack pour que
+      // la secretaire comprenne le lien de cause a effet (voir l'Alert info
+      // permanente en tete de la card).
+      const autoEnabled: string[] = Array.isArray(data?.smsAutoEnabledTypes)
+        ? data.smsAutoEnabledTypes
+        : [];
+      if (autoEnabled.length > 0) {
+        const labels = autoEnabled
+          .map((k) => EXAM_TYPES.find((e) => e.key === k)?.label ?? k)
+          .join(", ");
+        setSnack({
+          open: true,
+          msg: `Configuration enregistree. Confirmation SMS auto-activee pour : ${labels}.`,
+          sev: "success",
+        });
+      } else {
+        setSnack({ open: true, msg: "Configuration enregistree.", sev: "success" });
+      }
     } catch (err) {
       console.error("[PrescriptionConfigCard] save failed:", err);
       setSnack({ open: true, msg: "Echec de l'enregistrement.", sev: "error" });
@@ -180,6 +200,17 @@ export default function PrescriptionConfigCard({
               Cochez les types d&apos;examens pour lesquels le patient doit deposer une
               ordonnance. LyraeTalk ajoutera alors un lien de depot dans le SMS de
               confirmation de RDV. Le patient recoit un lien court + un code a 6 chiffres.
+            </Alert>
+
+            <Alert
+              severity="warning"
+              variant="outlined"
+              sx={{ borderColor: "rgba(234,88,12,0.4)" }}
+            >
+              <strong>Important :</strong> activer une ordonnance pour un type d&apos;examen
+              active automatiquement la confirmation SMS pour ce meme type. Le lien de
+              depot est inclus dans le SMS envoye au patient — sans SMS, le patient ne
+              peut pas deposer son ordonnance.
             </Alert>
 
             <Box>
