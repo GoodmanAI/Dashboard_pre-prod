@@ -188,6 +188,15 @@ export async function POST(req: NextRequest) {
     [userProductId, JSON.stringify(nextEnabled), nextAlert]
   );
 
+  // Changement de alertAfterHours = le seuil du compteur badge/page change.
+  // On notifie tous les clients pour un refetch immediat (sinon ils attendent
+  // le poll fallback 5 min). Emit meme si seul enabledExamTypes a change :
+  // l'endpoint /count re-lit la config a chaque appel, cout negligeable.
+  const io: any = globalThis.io;
+  if (io) {
+    io.emit("prescription-alerts-updated", { userProductId });
+  }
+
   return NextResponse.json({
     userProductId,
     enabledExamTypes: nextEnabled,
