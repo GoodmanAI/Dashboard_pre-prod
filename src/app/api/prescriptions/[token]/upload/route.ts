@@ -422,6 +422,22 @@ export async function POST(
     errorReason: isFirstUpload ? null : "re-upload",
   });
 
+  // ------ 12. Notification websocket au dashboard ------
+  // Un upload PENDING -> UPLOADED fait sortir la ligne du compteur d'alertes
+  // (badge navbar/header). On notifie tous les clients dashboard connectes
+  // pour un rafraichissement instantane, sans attendre le poll de fallback.
+  // Payload minimale : externalCenterCode pour permettre au client de filtrer
+  // (utile en multi-tenant, evite le refetch inutile pour des users d'autres
+  // centres).
+  if (isFirstUpload) {
+    const io: any = globalThis.io;
+    if (io) {
+      io.emit("prescription-alerts-updated", {
+        externalCenterCode: record.externalCenterCode,
+      });
+    }
+  }
+
   return NextResponse.json(
     {
       status: "UPLOADED",

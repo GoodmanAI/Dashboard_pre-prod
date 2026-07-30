@@ -51,6 +51,7 @@ const ListItemStyled = styled(ListItem, {
   shouldForwardProp: (prop) => prop !== "$level",
 })<{ $level?: number }>(({ theme, $level }) => ({
   padding: 0,
+  position: "relative", // ancre pour le badge en top-right
   ".MuiButtonBase-root": {
     whiteSpace: "nowrap",
     marginBottom: "2px",
@@ -83,6 +84,9 @@ const ListItemStyled = styled(ListItem, {
 const NavItem = ({ item, level, pathDirect, onClick }: NavItemProps) => {
   const Icon = item.icon as React.ElementType<any> | undefined;
 
+  const hasBadge =
+    typeof item.badgeCount === "number" && item.badgeCount > 0;
+
   return (
     <List component="div" disablePadding key={item.id}>
       <ListItemStyled $level={level}>
@@ -102,25 +106,34 @@ const NavItem = ({ item, level, pathDirect, onClick }: NavItemProps) => {
           )}
 
           <ListItemText primary={item.title} />
-          {typeof item.badgeCount === "number" && item.badgeCount > 0 && (
-            <Badge
-              badgeContent={item.badgeCount > 99 ? "99+" : item.badgeCount}
-              color="error"
-              sx={{
-                mr: 1,
-                "& .MuiBadge-badge": {
-                  position: "relative",
-                  transform: "none",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  height: 20,
-                  minWidth: 20,
-                  borderRadius: 10,
-                },
-              }}
-            />
-          )}
         </ListItemButton>
+        {/*
+         * Badge positionne en top-right de l'item (pas dans le flux du texte
+         * pour ne pas rogner le libelle). pointerEvents:none pour que le clic
+         * traverse et cible bien le ListItemButton en dessous.
+         */}
+        {hasBadge && (
+          <Badge
+            badgeContent={item.badgeCount! > 99 ? "99+" : item.badgeCount}
+            color="error"
+            sx={{
+              position: "absolute",
+              top: 6,
+              right: 8,
+              pointerEvents: "none",
+              "& .MuiBadge-badge": {
+                position: "relative",
+                transform: "none",
+                fontSize: 11,
+                fontWeight: 700,
+                height: 18,
+                minWidth: 18,
+                borderRadius: 9,
+                padding: "0 6px",
+              },
+            }}
+          />
+        )}
       </ListItemStyled>
     </List>
   );
