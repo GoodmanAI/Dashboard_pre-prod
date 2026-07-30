@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -16,6 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { io as ioClient, Socket } from "socket.io-client";
 
 /**
  * Section "Confirmation de RDV par SMS" (à ne pas confondre avec la carte
@@ -59,6 +60,26 @@ export default function SmsBookingConfirmationCard({
     []
   );
 
+  // Refetch de la seule config prescription (utilise apres event websocket
+  // "prescription-alerts-updated" pour re-synchroniser le lock du switch sans
+  // que l'user ait a rafraichir la page manuellement).
+  const refetchPrescriptionState = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/prescriptions/config?userProductId=${userProductId}`,
+        { cache: "no-store" }
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      const enabledTypes: string[] = Object.entries(data.enabledExamTypes ?? {})
+        .filter(([, v]) => v === true)
+        .map(([k]) => k);
+      setPrescriptionActiveTypes(enabledTypes);
+    } catch {
+      // Silencieux : garder l'etat courant plutot que casser l'UI
+    }
+  }, [userProductId]);
+
   // Fetch simultané des 2 configs (SMS + prescription) pour connaître l'état
   // et la dépendance dès le mount.
   useEffect(() => {
@@ -93,6 +114,38 @@ export default function SmsBookingConfirmationCard({
       alive = false;
     };
   }, [userProductId]);
+
+  // Websocket : refresh instantane du lock quand la config prescription
+  // change (meme event que le badge navbar/header). Sans ca, apres avoir
+  // decoche toutes les ordonnances, le user devait recharger la page pour
+  // que le switch se debloque.
+  const socketRef = useRef<Socket | null>(null);
+  useEffect(() => {
+    if (!userProductId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await fetch("/api/socket");
+        if (cancelled) return;
+        const socket = ioClient({ path: "/api/socket" });
+        socketRef.current = socket;
+        socket.on("prescription-alerts-updated", () => {
+          if (!cancelled) refetchPrescriptionState();
+        });
+      } catch {
+        // Socket KO : le user devra refresh manuellement. Comportement
+        // acceptable en degrade.
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (socketRef.current) {
+        socketRef.current.off("prescription-alerts-updated");
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [userProductId, refetchPrescriptionState]);
 
   const prescriptionLocked = prescriptionActiveTypes.length > 0;
   const prescriptionLabels = prescriptionActiveTypes
