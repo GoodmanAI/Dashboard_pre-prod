@@ -11,6 +11,12 @@ import {
   normalizeAlertAfterHours,
   PrescriptionEnabledExamTypes,
 } from "@/lib/prescriptionConfig";
+import {
+  DEFAULT_SMS_CONFIRMATION_ENABLED,
+  ExamTypeKey,
+  normalizeEnabled as normalizeSmsEnabled,
+  SmsConfirmationEnabled,
+} from "@/lib/smsConfirmationConfig";
 
 /**
  * GET /api/prescriptions/config
@@ -188,6 +194,73 @@ export async function POST(req: NextRequest) {
     [userProductId, JSON.stringify(nextEnabled), nextAlert]
   );
 
+  // ------------------------------------------------------------------------
+  // Dependance metier : activer une ordonnance pour un type X implique que
+  // la confirmation SMS soit egalement activee pour X (le lien de depot est
+  // envoye DANS le SMS de confirmation — si le SMS n'est pas envoye, le
+  // patient ne recoit pas le lien).
+  //
+  // Comportement :
+  //   - On calcule la liste des types actives cote ordonnance
+  //   - Pour chacun, on force enabledExamTypes[type] = true dans
+  //     SmsConfirmationConfig (union, pas de reset des types deja actives)
+  //   - Si au moins un type ordonnance actif -> sendConfirmationSms = true
+  //   - Si aucun type ordonnance actif -> on ne touche PAS SmsConfirmation
+  //     (le user pourrait vouloir SMS on/off independamment sans ordo)
+  //
+  // Rationale de la garde applicative (en plus du hint UI) : eviter qu'un
+  // appel API direct ou un ancien client puisse activer une ordonnance sans
+  // la SMS confirmation, ce qui casserait silencieusement le flow patient.
+  // ------------------------------------------------------------------------
+  const prescriptionEnabledKeys = (
+    Object.entries(nextEnabled) as [ExamTypeKey, boolean][]
+  )
+    .filter(([, v]) => v === true)
+    .map(([k]) => k);
+
+  let smsAutoEnabledTypes: ExamTypeKey[] = [];
+
+  if (prescriptionEnabledKeys.length > 0) {
+    const smsRes = await db.query<{ enabledExamTypes: unknown }>(
+      `SELECT "enabledExamTypes"
+         FROM "SmsConfirmationConfig"
+        WHERE "userProductId" = $1
+        LIMIT 1`,
+      [userProductId]
+    );
+
+    const smsCurrentEnabled: SmsConfirmationEnabled = smsRes.rows[0]
+      ? normalizeSmsEnabled(smsRes.rows[0].enabledExamTypes)
+      : { ...DEFAULT_SMS_CONFIRMATION_ENABLED };
+
+    // Union : on garde les types deja actives cote SMS + on ajoute les types
+    // requis par les ordonnances. Trace des types nouvellement actives pour
+    // renvoyer une info UI ("SMS auto-active pour ces types").
+    const smsNextEnabled: SmsConfirmationEnabled = { ...smsCurrentEnabled };
+    for (const k of prescriptionEnabledKeys) {
+      if (!smsCurrentEnabled[k]) {
+        smsAutoEnabledTypes.push(k);
+      }
+      smsNextEnabled[k] = true;
+    }
+
+    // Upsert : ne touche que enabledExamTypes + sendConfirmationSms. Les
+    // autres champs (postesByType, reminderDays, cutoffHours) sont preserves
+    // via la logique ON CONFLICT (le VALUES clause fournit un default seulement
+    // au cas ou la ligne n'existe pas encore).
+    await db.query(
+      `
+      INSERT INTO "SmsConfirmationConfig"
+        ("userProductId", "enabledExamTypes", "postesByType", "sendConfirmationSms")
+      VALUES ($1, $2::jsonb, '{}'::jsonb, true)
+      ON CONFLICT ("userProductId") DO UPDATE SET
+        "enabledExamTypes"    = EXCLUDED."enabledExamTypes",
+        "sendConfirmationSms" = true
+      `,
+      [userProductId, JSON.stringify(smsNextEnabled)]
+    );
+  }
+
   // Changement de alertAfterHours = le seuil du compteur badge/page change.
   // On notifie tous les clients pour un refetch immediat (sinon ils attendent
   // le poll fallback 5 min). Emit meme si seul enabledExamTypes a change :
@@ -201,5 +274,9 @@ export async function POST(req: NextRequest) {
     userProductId,
     enabledExamTypes: nextEnabled,
     alertAfterHours: nextAlert,
+    // Champ informatif : les types pour lesquels la confirmation SMS a ete
+    // auto-activee suite au save (permet a l'UI d'afficher un message
+    // explicatif dans le snackbar).
+    smsAutoEnabledTypes,
   });
 }
