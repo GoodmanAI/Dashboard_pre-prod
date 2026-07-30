@@ -8,16 +8,14 @@ import {
   Card,
   Chip,
   CircularProgress,
-  IconButton,
   MenuItem,
   Select,
   Snackbar,
   Stack,
   TextField,
-  Tooltip,
   Typography,
 } from "@mui/material";
-import { ContentCopy, WarningAmber, CheckCircle } from "@mui/icons-material";
+import { WarningAmber, CheckCircle } from "@mui/icons-material";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { io as ioClient, Socket } from "socket.io-client";
 import SectionHeader from "@/components/admin/SectionHeader";
@@ -117,6 +115,11 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
   const [defaultHours, setDefaultHours] = useState<number>(DEFAULT_ALERT_AFTER_HOURS);
   const [customInput, setCustomInput] = useState<string>("");
   const [selectValue, setSelectValue] = useState<string>(String(DEFAULT_ALERT_AFTER_HOURS));
+
+  // ---- Filtre type d'examen -----------------------------------------------
+  // "all" = pas de filtre. Sinon la valeur brute d'examType (scanner, irm, etc.)
+  // Applique cote client sur les items retournes par l'API.
+  const [examFilter, setExamFilter] = useState<string>("all");
 
   const load = useCallback(
     async (hoursOverride?: number) => {
@@ -230,13 +233,6 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
     setThresholdHours(n);
   }, [customInput]);
 
-  const handleCopy = useCallback((phone: string) => {
-    navigator.clipboard.writeText(phone).then(
-      () => setSnack({ open: true, msg: `Numero copie : ${phone}`, sev: "info" }),
-      () => setSnack({ open: true, msg: "Impossible de copier", sev: "error" })
-    );
-  }, []);
-
   const handleResolve = useCallback(
     async (id: number) => {
       setResolving((prev) => new Set(prev).add(id));
@@ -265,10 +261,26 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
     [userProductId]
   );
 
-  const orderedItems = useMemo(
-    () => [...items].sort((a, b) => b.hoursSinceCreated - a.hoursSinceCreated),
-    [items]
-  );
+  // Liste des types d'examens presents dans les items courants (source de
+  // verite pour peupler le filtre — pas besoin d'aller chercher la config
+  // centre, on ne montre que ce qui est reellement en attente).
+  const availableExamTypes = useMemo(() => {
+    const set = new Set<string>();
+    for (const it of items) {
+      if (it.examType) set.add(it.examType);
+    }
+    return Array.from(set).sort();
+  }, [items]);
+
+  const orderedItems = useMemo(() => {
+    const filtered =
+      examFilter === "all"
+        ? items
+        : items.filter((it) => it.examType === examFilter);
+    return [...filtered].sort(
+      (a, b) => b.hoursSinceCreated - a.hoursSinceCreated
+    );
+  }, [items, examFilter]);
 
   return (
     <PageContainer
@@ -292,58 +304,94 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
           }
         />
 
-        {/* Selecteur timeline */}
-        <Card elevation={0} sx={{ p: 2, mb: 2, bgcolor: "#F0F7F5", border: "1px solid #d0e6df" }}>
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={2}
-            alignItems={{ xs: "stretch", sm: "center" }}
-          >
-            <Typography variant="body2" sx={{ fontWeight: 600, color: "#2a6f64", minWidth: 200 }}>
-              Afficher les patients en attente depuis :
-            </Typography>
-            <Select
-              size="small"
-              value={selectValue}
-              onChange={(e) => handleSelectChange(e.target.value as string)}
-              sx={{ minWidth: 140, bgcolor: "#FFF" }}
+        {/* Barre de filtres : timeline + type d'examen */}
+        <Card
+          elevation={0}
+          sx={{ p: 2, mb: 2, bgcolor: "#F0F7F5", border: "1px solid #d0e6df" }}
+        >
+          <Stack spacing={2}>
+            {/* Timeline */}
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={2}
+              alignItems={{ xs: "stretch", sm: "center" }}
             >
-              {PRESET_HOURS.map((h) => (
-                <MenuItem key={h} value={String(h)}>
-                  {h}h{h === defaultHours ? " (defaut centre)" : ""}
+              <Typography variant="body2" sx={{ fontWeight: 600, color: "#2a6f64", minWidth: 200 }}>
+                Afficher les patients en attente depuis :
+              </Typography>
+              <Select
+                size="small"
+                value={selectValue}
+                onChange={(e) => handleSelectChange(e.target.value as string)}
+                sx={{ minWidth: 140, bgcolor: "#FFF" }}
+              >
+                {PRESET_HOURS.map((h) => (
+                  <MenuItem key={h} value={String(h)}>
+                    {h}h{h === defaultHours ? " (defaut centre)" : ""}
+                  </MenuItem>
+                ))}
+                <MenuItem value="custom">Autre…</MenuItem>
+              </Select>
+              {selectValue === "custom" && (
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <TextField
+                    size="small"
+                    type="number"
+                    value={customInput}
+                    onChange={(e) => setCustomInput(e.target.value)}
+                    inputProps={{
+                      min: ALERT_AFTER_HOURS_MIN,
+                      max: ALERT_AFTER_HOURS_MAX,
+                      step: 1,
+                      style: { width: 70 },
+                    }}
+                    sx={{ bgcolor: "#FFF" }}
+                    placeholder="heures"
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    h
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={handleCustomApply}
+                    sx={{ bgcolor: "#48C8AF", "&:hover": { bgcolor: "#3AB19B" } }}
+                  >
+                    Appliquer
+                  </Button>
+                </Stack>
+              )}
+            </Stack>
+
+            {/* Type d'examen : uniquement les types reellement en attente */}
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={2}
+              alignItems={{ xs: "stretch", sm: "center" }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 600, color: "#2a6f64", minWidth: 200 }}>
+                Filtrer par type d&apos;examen :
+              </Typography>
+              <Select
+                size="small"
+                value={examFilter}
+                onChange={(e) => setExamFilter(e.target.value as string)}
+                sx={{ minWidth: 200, bgcolor: "#FFF" }}
+                disabled={availableExamTypes.length === 0}
+              >
+                <MenuItem value="all">
+                  Tous les examens ({items.length})
                 </MenuItem>
-              ))}
-              <MenuItem value="custom">Autre…</MenuItem>
-            </Select>
-            {selectValue === "custom" && (
-              <Stack direction="row" spacing={1} alignItems="center">
-                <TextField
-                  size="small"
-                  type="number"
-                  value={customInput}
-                  onChange={(e) => setCustomInput(e.target.value)}
-                  inputProps={{
-                    min: ALERT_AFTER_HOURS_MIN,
-                    max: ALERT_AFTER_HOURS_MAX,
-                    step: 1,
-                    style: { width: 70 },
-                  }}
-                  sx={{ bgcolor: "#FFF" }}
-                  placeholder="heures"
-                />
-                <Typography variant="body2" color="text.secondary">
-                  h
-                </Typography>
-                <Button
-                  size="small"
-                  variant="contained"
-                  onClick={handleCustomApply}
-                  sx={{ bgcolor: "#48C8AF", "&:hover": { bgcolor: "#3AB19B" } }}
-                >
-                  Appliquer
-                </Button>
-              </Stack>
-            )}
+                {availableExamTypes.map((t) => {
+                  const count = items.filter((it) => it.examType === t).length;
+                  return (
+                    <MenuItem key={t} value={t}>
+                      {EXAM_LABELS[t] ?? t} ({count})
+                    </MenuItem>
+                  );
+                })}
+              </Select>
+            </Stack>
           </Stack>
         </Card>
 
@@ -420,44 +468,29 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                         />
                       </Stack>
 
-                      <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 1, sm: 3 }} sx={{ mb: 1 }}>
-                        <Stack direction="row" alignItems="center" spacing={0.5}>
-                          <Typography variant="body2" color="text.secondary">
-                            📞
-                          </Typography>
-                          <Typography
-                            variant="body1"
-                            component="a"
-                            href={`tel:${item.phone.replace(/\D/g, "")}`}
-                            sx={{
-                              fontWeight: 700,
-                              color: "#2a6f64",
-                              textDecoration: "none",
-                              "&:hover": { textDecoration: "underline" },
-                              fontFamily: "monospace",
-                              letterSpacing: 0.5,
-                            }}
-                          >
-                            {formattedPhone}
-                          </Typography>
-                          <Tooltip title="Copier le numero">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleCopy(formattedPhone)}
-                              sx={{ color: "text.secondary" }}
-                            >
-                              <ContentCopy fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Stack>
-                      </Stack>
+                      <Box sx={{ mb: 1 }}>
+                        <Typography
+                          variant="body1"
+                          component="a"
+                          href={`tel:${item.phone.replace(/\D/g, "")}`}
+                          sx={{
+                            fontWeight: 700,
+                            color: "#2a6f64",
+                            textDecoration: "none",
+                            "&:hover": { textDecoration: "underline" },
+                            fontFamily: "monospace",
+                            letterSpacing: 0.5,
+                          }}
+                        >
+                          {formattedPhone}
+                        </Typography>
+                      </Box>
 
                       <Typography variant="body2" color="text.secondary">
-                        🩻 {examLabel} · RDV du {formatFrDate(item.appointmentDate)}
+                        {examLabel} · RDV du {formatFrDate(item.appointmentDate)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Lien SMS envoye le {formatFrDate(item.createdAt)} · RDV ref.{" "}
-                        {item.rdvId}
+                        Lien SMS envoye le {formatFrDate(item.createdAt)}
                       </Typography>
                     </Box>
 
