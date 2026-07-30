@@ -7,6 +7,7 @@ import {
   AccordionSummary,
   Alert,
   Box,
+  Chip,
   CircularProgress,
   FormControlLabel,
   Snackbar,
@@ -200,7 +201,18 @@ export default function SmsBookingConfirmationCard({
   return (
     <Accordion>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Typography variant="h6">Confirmation de RDV par SMS</Typography>
+        <Stack direction="row" alignItems="center" spacing={1.5}>
+          <Typography variant="h6">Confirmation de RDV par SMS</Typography>
+          <Chip
+            size="small"
+            label={enabled ? "Active" : "Desactive"}
+            sx={{
+              bgcolor: enabled ? "rgba(72,200,175,0.15)" : "rgba(0,0,0,0.06)",
+              color: enabled ? "#2a6f64" : "text.secondary",
+              fontWeight: 700,
+            }}
+          />
+        </Stack>
       </AccordionSummary>
       <AccordionDetails>
         <Stack spacing={2}>
