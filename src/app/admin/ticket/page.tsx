@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Box,
   Typography,
@@ -99,6 +100,7 @@ function StatusChip({ status, size = "small" }: { status: Status; size?: "small"
 }
 
 export default function AdminTicketsPage() {
+  const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [clients, setClients] = useState<ClientLite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -301,12 +303,7 @@ export default function AdminTicketsPage() {
               <Card
                 key={ticket.id}
                 elevation={1}
-                onClick={() => {
-                  setSelectedTicket(ticket);
-                  setUpdateStatus(ticket.status);
-                  setUpdateError(null);
-                  setUpdateSuccess(null);
-                }}
+                onClick={() => router.push(`/admin/ticket/${ticket.id}`)}
                 sx={{
                   cursor: "pointer",
                   transition: "transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease",

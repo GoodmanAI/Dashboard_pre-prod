@@ -190,11 +190,11 @@ const TicketForm = ({ onSuccess }: { onSuccess: () => void }) => {
  * - Affichage sous forme de cartes cliquables ouvrant un détail en modal.
  */
 const TicketsList = () => {
+  const router = useRouter();
   const { selectedUserId, selectedCentre } = useCentre();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
   /** Récupération des tickets. Se relance au changement de centre sélectionné. */
   useEffect(() => {
@@ -247,7 +247,7 @@ const TicketsList = () => {
             boxShadow: 2,
             "&:hover": { boxShadow: 6 },
           }}
-          onClick={() => setSelectedTicket(ticket)}
+          onClick={() => router.push(`/client/ticket/${ticket.id}`)}
         >
           <CardContent>
             <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
@@ -260,49 +260,6 @@ const TicketsList = () => {
           </CardContent>
         </Card>
       ))}
-
-      {/* Détail du ticket (modal) */}
-      <Dialog
-        open={Boolean(selectedTicket)}
-        onClose={() => setSelectedTicket(null)}
-        maxWidth="sm"
-        fullWidth
-      >
-        {selectedTicket && (
-          <>
-            <DialogTitle>{selectedTicket.subject}</DialogTitle>
-            <DialogContent dividers>
-              <Typography variant="body1" gutterBottom>
-                {selectedTicket.message}
-              </Typography>
-              <Divider sx={{ my: 2 }} />
-              <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
-                Statut: {selectedTicket.status}
-              </Typography>
-              <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
-                Créé le:{" "}
-                <span>
-                  {new Date(selectedTicket.createdAt).toLocaleDateString()} à{" "}
-                  {new Date(selectedTicket.createdAt).toLocaleTimeString()}
-                </span>
-              </Typography>
-            </DialogContent>
-            <DialogActions>
-              <Button
-                onClick={() => setSelectedTicket(null)}
-                sx={{
-                  backgroundColor: "#48C8AF",
-                  color: "white",
-                  "&:hover": { backgroundColor: "#3bb39d" },
-                  textTransform: "none",
-                }}
-              >
-                Fermer
-              </Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
     </Box>
   );
 };
