@@ -11,7 +11,6 @@ import {
   IconDashboard,
   IconBolt,
   IconAlertTriangle,
-  IconActivity,
   IconChartHistogram,
   IconCalendarOff,
   IconMessage2,
@@ -181,13 +180,6 @@ export const AdminMenuitems: SidebarItem[] = [
     icon: IconBolt,
     href: "/admin/actions",
   },
-  {
-    id: uniqueId(),
-    title: "Monitoring",
-    icon: IconActivity,
-    href: "/admin/monitoring",
-  },
-
   { navlabel: true, subheader: "Client" },
   {
     id: uniqueId(),
