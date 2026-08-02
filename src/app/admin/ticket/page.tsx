@@ -169,10 +169,10 @@ export default function AdminTicketsPage() {
   const handleUpdateStatus = async () => {
     if (!selectedTicket) return;
     try {
-      const res = await fetch("/api/admin/tickets/update-status", {
+      const res = await fetch(`/api/tickets/${selectedTicket.id}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticketId: selectedTicket.id, status: updateStatus }),
+        body: JSON.stringify({ status: updateStatus }),
       });
       const data = await res.json();
       if (res.ok) {
