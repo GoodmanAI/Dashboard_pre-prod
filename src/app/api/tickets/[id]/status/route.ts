@@ -177,6 +177,12 @@ export async function POST(
     );
   }
 
+  // Diffusion websocket pour rafraichir instantanement les pages ouvertes
+  const io: any = globalThis.io;
+  if (io) {
+    io.emit("ticket-updated", { ticketId, kind: "status" });
+  }
+
   // Notif email au client uniquement pour RESOLVED et CLOSED
   if (newStatus === "RESOLVED" || newStatus === "CLOSED") {
     notifyTicketClosedToClient({
