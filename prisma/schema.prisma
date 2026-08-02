@@ -20,6 +20,7 @@ enum CentreRole {
 enum TicketStatus {
   PENDING
   IN_PROGRESS
+  RESOLVED
   CLOSED
 }
 
@@ -62,14 +63,16 @@ model User {
   postalCode String?
   country    String?
 
-  userProducts   UserProduct[]
-  userNumbers    UserNumber[]
-  tickets        Ticket[]         @relation("TicketForUser")
-  notifications  Notification[]
-  FileSubmission FileSubmission[]
-  calls          Call[]           @relation("CallForUser")
-  createdTickets Ticket[]         @relation("TicketCreatedBy")
-  createdCalls   Call[]           @relation("CallCreatedBy")
+  userProducts    UserProduct[]
+  userNumbers     UserNumber[]
+  tickets         Ticket[]         @relation("TicketForUser")
+  notifications   Notification[]
+  FileSubmission  FileSubmission[]
+  calls           Call[]           @relation("CallForUser")
+  createdTickets  Ticket[]         @relation("TicketCreatedBy")
+  assignedTickets Ticket[]         @relation("TicketAssignedTo")
+  ticketMessages  TicketMessage[]  @relation("TicketMessageAuthor")
+  createdCalls    Call[]           @relation("CallCreatedBy")
 
   // 👇 this must match the name in ReceivedCalls.center
   receivedCallsAsCenter ReceivedCalls[] @relation("ReceivedCallsCenter")
@@ -105,12 +108,12 @@ model UserProduct {
   receivedCalls       ReceivedCalls[]          @relation("UserProductReceivedCalls")
   informationSettings TalkInformationSettings? @relation("TalkInformationSettingsRelation")
   examMappings        ExamMapping[]
+  tickets             Ticket[]
 
-  CallConversations   CallConversation[]
+  CallConversations CallConversation[]
 
   @@unique([userId, productId])
 }
-
 
 model UserNumber {
   id         Int       @id @default(autoincrement())
@@ -154,19 +157,41 @@ model FileSubmission {
 }
 
 model Ticket {
-  id          Int  @id @default(autoincrement())
-  userId      Int
-  createdById Int?
+  id            Int          @id @default(autoincrement())
+  userId        Int
+  createdById   Int?
+  userProductId Int?
+  assignedToId  Int?
+  subject       String
+  message       String
+  status        TicketStatus @default(PENDING)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  resolvedAt    DateTime?
+  closedAt      DateTime?
 
-  subject   String
-  message   String
-  status    TicketStatus @default(PENDING)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-
-  user          User           @relation("TicketForUser", fields: [userId], references: [id], onDelete: Cascade)
-  createdBy     User?          @relation("TicketCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  user          User            @relation("TicketForUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy     User?           @relation("TicketCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  assignedTo    User?           @relation("TicketAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  userProduct   UserProduct?    @relation(fields: [userProductId], references: [id], onDelete: SetNull)
+  messages      TicketMessage[]
   notifications Notification[]
+
+  @@index([userProductId, status])
+  @@index([assignedToId, status])
+}
+
+model TicketMessage {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  authorId  Int
+  body      String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation("TicketMessageAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, createdAt])
 }
 
 model Notification {
@@ -219,14 +244,14 @@ model TalkSettings {
   examsAccepted     Json? @default("{}")
   examQuestions     Json? @default("{}")
 
-  exams Json @default("[]")
+  exams            Json  @default("[]")
   examInstructions Json? @default("{}")
 
   multiExamMapping Json? @default("{}")
-  options           Json?
+  options          Json?
 
   specificNotes  String?
-  reconnaissance Boolean  @default(false)
+  reconnaissance Boolean @default(false)
 
   centerName String?
   address    String?
@@ -240,7 +265,6 @@ model TalkSettings {
 
   userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
 }
-
 
 model ReceivedCalls {
   id            Int      @id @default(autoincrement())
