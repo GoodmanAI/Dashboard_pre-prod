@@ -171,5 +171,13 @@ export async function POST(
     );
   }
 
+  // Diffusion websocket : notifie tous les clients (les 2 parties dans un
+  // navigateur ouvert sur la page detail) pour un refresh instantane du
+  // thread sans polling.
+  const io: any = globalThis.io;
+  if (io) {
+    io.emit("ticket-updated", { ticketId, kind: "message" });
+  }
+
   return NextResponse.json({ message: result }, { status: 201 });
 }
