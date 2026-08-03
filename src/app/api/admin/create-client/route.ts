@@ -10,6 +10,7 @@ import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
 import { passwordSchema } from "@/lib/passwordSchema";
+import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 
 const CreateUserSchema = z.object({
   // Historiquement nommé "email" mais c'est en fait un identifiant libre (peut
@@ -49,9 +50,12 @@ export async function POST(request: NextRequest) {
   try {
     // Vérifier que la session correspond à un admin
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
+    // Chantier 3 : creation de clients reservee au SUPER_ADMIN.
+    // Les ADMIN ordinaires ont un role de support/consultation (tickets,
+    // stats) mais ne peuvent pas provisionner de nouveaux comptes clients.
+    if (!session || session.user.role !== "SUPER_ADMIN") {
       return NextResponse.json(
-        { error: "Access denied. Only admins can create clients." },
+        { error: "Access denied. Only SUPER_ADMIN can create clients." },
         { status: 403 }
       );
     }
@@ -218,6 +222,18 @@ export async function POST(request: NextRequest) {
         ],
       });
     }
+
+    auditLog("account", "create-client", {
+      actor: {
+        id: session.user.id,
+        email: session.user.email ?? null,
+        role: session.user.role,
+        ip: extractIpFromRequest(request),
+        userAgent: extractUserAgent(request),
+      },
+      target: { type: "user", id: newUser.id, label: newUser.email },
+      metadata: { name: newUser.name, isSecretary: newUser.isSecretary, products: selectedProductIds },
+    });
 
     return NextResponse.json(
       { message: "Client created successfully", user: newUser },

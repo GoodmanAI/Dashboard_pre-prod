@@ -56,7 +56,7 @@ const Profile = () => {
 
   // Redirige vers l’espace profil adapté (admin ou client) puis ferme le menu
   const handleMyProfile = () => {
-    if (session?.user?.role === "ADMIN") {
+    if (session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN") {
       router.push("/admin");
     } else {
       router.push("/client/profile");

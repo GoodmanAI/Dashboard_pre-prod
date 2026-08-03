@@ -4,6 +4,7 @@ import { BlobServiceClient } from "@azure/storage-blob";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
+import { rejectIfSecretary } from "@/lib/authGuards";
 
 async function streamToBuffer(readableStream?: NodeJS.ReadableStream | null) {
   if (!readableStream) return Buffer.alloc(0);
@@ -132,6 +133,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const secretaryErr = await rejectIfSecretary();
+  if (secretaryErr) return secretaryErr;
+
   const auth = await requireAuth();
   if (auth.error) return auth.error;
   const { session } = auth;
