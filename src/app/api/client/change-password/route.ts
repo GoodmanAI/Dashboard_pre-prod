@@ -43,6 +43,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Chantier 3 : le SUPER_ADMIN ne peut PAS changer son mdp via UI.
+    // Un compte a privilege maximum se change par SQL direct / script bootstrap
+    // pour eviter qu'un attaquant qui aurait vole la session puisse persister
+    // son acces en changeant le mdp.
+    if (session.user.role === "SUPER_ADMIN") {
+      return NextResponse.json(
+        {
+          error:
+            "Le mot de passe SUPER_ADMIN ne peut pas etre change via l'interface. Passez par un script serveur ou SQL direct.",
+        },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     const parseResult = ChangePasswordSchema.safeParse(body);
