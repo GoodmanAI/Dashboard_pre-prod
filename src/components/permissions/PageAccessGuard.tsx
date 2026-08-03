@@ -77,8 +77,8 @@ export default function PageAccessGuard({ children }: { children: React.ReactNod
       <Alert severity="warning" sx={{ mb: 2 }}>
         <strong>Acces refuse.</strong>
         <br />
-        Vous n'avez pas les permissions necessaires pour acceder a cette page.
-        Contactez votre administrateur si vous pensez qu'il s'agit d'une erreur.
+        Vous n&apos;avez pas les permissions necessaires pour acceder a cette page.
+        Contactez votre administrateur si vous pensez qu&apos;il s&apos;agit d&apos;une erreur.
       </Alert>
       <Box sx={{ display: "flex", gap: 1 }}>
         <Button variant="contained" onClick={() => router.push(fallbackUrl)}>
