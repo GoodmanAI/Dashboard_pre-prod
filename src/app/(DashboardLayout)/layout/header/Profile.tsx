@@ -54,10 +54,15 @@ const Profile = () => {
     await signOut({ callbackUrl: "/authentication/signin" });
   };
 
-  // Redirige vers l’espace profil adapté (admin ou client) puis ferme le menu
+  // Redirige vers l'espace profil adapte au role puis ferme le menu.
+  // SUPER_ADMIN : pas de page profil dediee (mdp non changeable via UI par
+  // securite, cf. chantier 3), on renvoie sur /admin.
   const handleMyProfile = () => {
-    if (session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN") {
+    const role = session?.user?.role;
+    if (role === "SUPER_ADMIN") {
       router.push("/admin");
+    } else if (role === "ADMIN") {
+      router.push("/admin/profile");
     } else {
       router.push("/client/profile");
     }
