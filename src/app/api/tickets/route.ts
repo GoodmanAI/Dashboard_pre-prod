@@ -117,6 +117,13 @@ export async function GET(request: NextRequest) {
 const TicketCreateSchema = z.object({
   subject: z.string().min(3).max(200),
   message: z.string().min(3).max(10000),
+  /**
+   * Adresse email de contact dediee a ce ticket. Utilisee en priorite pour
+   * les notifications de cloture (RESOLVED / CLOSED). Requis a la creation :
+   * garantit qu'on a toujours un mail actif ou envoyer les updates, meme si
+   * le compte User n'a pas de mail surveille.
+   */
+  contactEmail: z.string().email("Adresse email invalide").max(320),
   /** Optionnel : id du UserProduct concerne. Doit appartenir au user cible. */
   userProductId: z.number().int().positive().optional(),
 });
@@ -151,7 +158,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const { subject, message, userProductId } = parsed.data;
+    const { subject, message, contactEmail, userProductId } = parsed.data;
 
     // Verif : le userProductId (s'il est fourni) doit bien appartenir au
     // user cible (empeche un ADMIN_USER d'attacher un ticket a un centre
@@ -176,6 +183,7 @@ export async function POST(request: NextRequest) {
         userProductId: userProductId ?? null,
         subject,
         message,
+        contactEmail,
       },
       include: {
         user: { select: { name: true, email: true } },
