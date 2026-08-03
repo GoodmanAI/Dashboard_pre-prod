@@ -164,6 +164,7 @@ model Ticket {
   assignedToId  Int?
   subject       String
   message       String
+  contactEmail  String?
   status        TicketStatus @default(PENDING)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt

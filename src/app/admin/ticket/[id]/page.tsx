@@ -264,6 +264,23 @@ export default function AdminTicketDetailPage({ params }: Props) {
                   <Typography variant="body2" color="text.secondary">
                     {ticket.user.email}
                   </Typography>
+                  {ticket.contactEmail && ticket.contactEmail !== ticket.user.email && (
+                    <>
+                      <Divider sx={{ my: 1 }} />
+                      <Typography variant="caption" color="text.secondary">
+                        Email de contact ticket
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontWeight: 600, color: BRAND_TEAL_DARK }}
+                      >
+                        {ticket.contactEmail}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                        C&apos;est cette adresse qui reçoit les notifications de clôture.
+                      </Typography>
+                    </>
+                  )}
                   {ticket.userProduct && (
                     <>
                       <Divider sx={{ my: 1 }} />
