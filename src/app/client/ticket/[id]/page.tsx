@@ -70,6 +70,7 @@ export default function ClientTicketDetailPage({ params }: Props) {
           <TicketConversation
             ticketId={ticketId}
             currentUserId={currentUserId}
+            useDisplayNumber
           />
         </Card>
 

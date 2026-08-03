@@ -324,7 +324,11 @@ export default function NotificationBell() {
                           mb: 0.25,
                         }}
                       >
-                        Ticket #{notif.ticket.id}
+                        {/* On affiche le #id uniquement pour l'admin (reference
+                            partagee entre admins). Pour le client, on montre
+                            juste "Ticket" car le message contient deja le
+                            sujet et on ne veut pas leaker l'id global. */}
+                        {isAdmin ? `Ticket #${notif.ticket.id}` : "Ticket"}
                       </Typography>
                     )}
                     <Typography

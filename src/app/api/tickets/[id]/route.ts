@@ -89,5 +89,18 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  return NextResponse.json({ ticket }, { status: 200 });
+  // displayNumber = position chronologique du ticket parmi ceux du proprio.
+  // Cote client : le 1er ticket cree = #1, meme si son id global vaut 42.
+  // Cote admin : on renvoie aussi mais le frontend l'ignore (utilise id).
+  const displayNumber = await prisma.ticket.count({
+    where: {
+      userId: ticket.userId,
+      createdAt: { lte: ticket.createdAt },
+    },
+  });
+
+  return NextResponse.json(
+    { ticket: { ...ticket, displayNumber } },
+    { status: 200 }
+  );
 }
