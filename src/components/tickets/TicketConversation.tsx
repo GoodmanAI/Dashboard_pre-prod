@@ -84,6 +84,12 @@ export interface ApiTicket {
   assignedTo: ApiUser | null;
   userProduct: ApiUserProduct | null;
   messages: ApiTicketMessage[];
+  /**
+   * Numero d'affichage local au proprietaire du ticket (1 = son 1er ticket).
+   * Renvoye par le backend pour tous les fetch, mais affiche uniquement
+   * cote client. L'admin ignore ce champ et utilise le id global.
+   */
+  displayNumber?: number;
 }
 
 interface Props {
@@ -92,6 +98,11 @@ interface Props {
   /** Callback quand le ticket est loaded/refetch (pour que la page parent
    * ait acces aux info status/assignedTo pour rendre ses boutons). */
   onTicketLoaded?: (ticket: ApiTicket) => void;
+  /**
+   * Si true, affiche le displayNumber local (client) au lieu du id global.
+   * Passer true depuis la page /client/ticket/[id], false depuis /admin.
+   */
+  useDisplayNumber?: boolean;
 }
 
 const STATUS_META: Record<
@@ -128,6 +139,7 @@ export default function TicketConversation({
   ticketId,
   currentUserId,
   onTicketLoaded,
+  useDisplayNumber = false,
 }: Props) {
   const [ticket, setTicket] = useState<ApiTicket | null>(null);
   const [loading, setLoading] = useState(true);
@@ -259,7 +271,7 @@ export default function TicketConversation({
       <Box>
         <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1, flexWrap: "wrap", rowGap: 1 }}>
           <Typography variant="h5" sx={{ color: TEXT_MAIN, fontWeight: 700 }}>
-            #{ticket.id} — {ticket.subject}
+            #{useDisplayNumber && ticket.displayNumber ? ticket.displayNumber : ticket.id} — {ticket.subject}
           </Typography>
           <Chip
             size="small"
