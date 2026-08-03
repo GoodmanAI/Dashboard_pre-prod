@@ -502,6 +502,7 @@ function CreateTicketDialog({
 }) {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -509,11 +510,18 @@ function CreateTicketDialog({
     if (open) {
       setSubject("");
       setMessage("");
+      setContactEmail("");
       setSubmitError(null);
     }
   }, [open]);
 
-  const canSubmit = subject.trim().length >= 3 && message.trim().length >= 3 && !submitting;
+  // Validation email cote client (regex simple, backend fait la vraie validation Zod)
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim());
+  const canSubmit =
+    subject.trim().length >= 3 &&
+    message.trim().length >= 3 &&
+    emailValid &&
+    !submitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -523,7 +531,11 @@ function CreateTicketDialog({
       const res = await fetch(`/api/tickets${asUserIdQuery}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject: subject.trim(), message: message.trim() }),
+        body: JSON.stringify({
+          subject: subject.trim(),
+          message: message.trim(),
+          contactEmail: contactEmail.trim(),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
@@ -602,6 +614,27 @@ function CreateTicketDialog({
               onChange={(e) => setMessage(e.target.value)}
               disabled={submitting}
               inputProps={{ maxLength: 10000 }}
+              sx={{ mt: 0.5 }}
+            />
+          </Box>
+          <Box>
+            <Typography variant="caption" sx={{ color: TEXT_MUTED, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, fontSize: 11 }}>
+              Email pour recevoir les mises à jour
+            </Typography>
+            <TextField
+              fullWidth
+              type="email"
+              placeholder="votre.email@exemple.com"
+              value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)}
+              disabled={submitting}
+              inputProps={{ maxLength: 320 }}
+              error={contactEmail.length > 0 && !emailValid}
+              helperText={
+                contactEmail.length > 0 && !emailValid
+                  ? "Adresse email invalide"
+                  : "Vous recevrez un email quand votre ticket sera résolu ou fermé."
+              }
               sx={{ mt: 0.5 }}
             />
           </Box>

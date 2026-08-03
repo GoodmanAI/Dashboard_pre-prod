@@ -73,6 +73,7 @@ export interface ApiTicket {
   assignedToId: number | null;
   subject: string;
   message: string;
+  contactEmail: string | null;
   status: "PENDING" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
   createdAt: string;
   updatedAt: string;

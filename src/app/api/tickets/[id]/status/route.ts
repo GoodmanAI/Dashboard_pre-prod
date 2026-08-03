@@ -90,6 +90,8 @@ export async function POST(
 
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },
+    // contactEmail est en priorite si defini (voir migration
+    // add_ticket_contact_email). Sinon on retombe sur user.email.
     include: {
       user: { select: { id: true, name: true, email: true } },
     },
@@ -183,13 +185,16 @@ export async function POST(
     io.emit("ticket-updated", { ticketId, kind: "status" });
   }
 
-  // Notif email au client uniquement pour RESOLVED et CLOSED
+  // Notif email au client uniquement pour RESOLVED et CLOSED.
+  // On envoie sur contactEmail (dedie ticket) en priorite, fallback sur
+  // user.email si absent (tickets historiques ou compte avec mail unique).
   if (newStatus === "RESOLVED" || newStatus === "CLOSED") {
+    const recipientEmail = ticket.contactEmail ?? ticket.user.email;
     notifyTicketClosedToClient({
       ticketId: ticket.id,
       subject: ticket.subject,
       newStatus,
-      clientEmail: ticket.user.email,
+      clientEmail: recipientEmail,
       clientName: ticket.user.name,
       resolvedByName: session.user.name ?? null,
       resolutionNote: note ?? null,
