@@ -76,17 +76,19 @@ export async function GET(request: NextRequest) {
 
     /**
      * Requête des notifications non lues pour l’utilisateur effectif.
-     * Inclusion des notifications :
-     *  - explicitement adressées à l’utilisateur (notification.userId)
-     *  - liées à un ticket dont il est propriétaire (notification.ticket.userId)
+     *
+     * IMPORTANT : on filtre STRICTEMENT sur notification.userId. Historiquement
+     * un OR sur `ticket.userId` etait present, mais il causait un bug : le
+     * proprietaire d'un ticket voyait aussi les notifications destinees aux
+     * admins pour son ticket (double affichage). Aujourd'hui toutes nos
+     * notifs sont creees avec un userId explicite (voir POST /api/tickets,
+     * POST /api/tickets/[id]/messages, POST /api/tickets/[id]/status), donc
+     * le filtre direct suffit.
      */
     const notifications = await prisma.notification.findMany({
       where: {
         isRead: false,
-        OR: [
-          { userId: effectiveUserId },
-          { ticket: { userId: effectiveUserId } },
-        ],
+        userId: effectiveUserId,
       },
       select: {
         id: true,
