@@ -76,7 +76,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
 
   // Restaure la préférence ADMIN (centres actifs) depuis localStorage
   useEffect(() => {
-    if (session?.user?.role !== "ADMIN") {
+    if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
       setActiveCentreIdsState(null);
       return;
     }
@@ -132,7 +132,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
    * Sinon : liste complète.
    */
   const centres = useMemo<ManagedUser[]>(() => {
-    if (session?.user?.role !== "ADMIN") return sortedAllCentres;
+    if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") return sortedAllCentres;
     if (!activeCentreIds || activeCentreIds.length === 0) return sortedAllCentres;
     const set = new Set(activeCentreIds);
     return sortedAllCentres.filter((c) => set.has(c.id));
@@ -150,8 +150,8 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
 
     (async () => {
       try {
-        // ADMIN (rôle applicatif) : accès à tous les centres via /api/admin/centres
-        if (session?.user?.role === "ADMIN") {
+        // ADMIN / SUPER_ADMIN (rôle applicatif) : accès à tous les centres via /api/admin/centres
+        if (session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN") {
           const resAll = await fetch("/api/admin/centres", { cache: "no-store" });
           if (cancelled) return;
 
@@ -320,7 +320,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
 
     if (!userProductId) return;
 
-    const isAdmin = session?.user?.role === "ADMIN";
+    const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN";
     const onClientTalkPath = /^\/client\/services\/talk\/\d+/.test(pathname || "");
     const onAdminClientPath = /^\/admin\/clients\/\d+/.test(pathname || "");
     const canInlineReplace = onClientTalkPath || onAdminClientPath;

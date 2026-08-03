@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { z } from "zod";
 import { notifyTicketClosedToClient } from "@/lib/ticketNotifications";
+import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 
 /**
  * POST /api/tickets/[id]/status
@@ -60,7 +61,7 @@ export async function POST(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN") {
     return NextResponse.json(
       { error: "Accès refusé : ADMIN requis" },
       { status: 403 }
@@ -205,6 +206,23 @@ export async function POST(
       )
     );
   }
+
+  auditLog("ticket", "status-change", {
+    actor: {
+      id: sessionUserId,
+      email: session.user.email ?? null,
+      role: session.user.role,
+      ip: extractIpFromRequest(req),
+      userAgent: extractUserAgent(req),
+    },
+    target: { type: "ticket", id: ticketId, label: ticket.subject },
+    metadata: {
+      fromStatus: ticket.status,
+      toStatus: newStatus,
+      hasNote: !!note,
+      clientUserId: ticket.userId,
+    },
+  });
 
   return NextResponse.json({ ticket: updated }, { status: 200 });
 }

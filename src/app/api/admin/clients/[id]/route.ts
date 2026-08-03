@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireAdmin } from "@/lib/auth-helpers";
+import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 
 /**
  * DELETE /api/admin/clients/:id
@@ -61,6 +62,17 @@ export async function DELETE(
 
   try {
     await prisma.user.delete({ where: { id } });
+    auditLog("account", "delete-client", {
+      actor: {
+        id: auth.session.user.id,
+        email: auth.session.user.email ?? null,
+        role: auth.session.user.role,
+        ip: extractIpFromRequest(req),
+        userAgent: extractUserAgent(req),
+      },
+      target: { type: "user", id: user.id, label: user.email },
+      metadata: { name: user.name },
+    });
     return NextResponse.json(
       { success: true, deleted: { id: user.id, name: user.name, email: user.email } },
       { status: 200 }

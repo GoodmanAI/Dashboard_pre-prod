@@ -24,7 +24,7 @@ import type { Prisma } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession({ req: request, ...authOptions });
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN")) {
     return NextResponse.json(
       { error: "Access denied. Only admins can access this route." },
       { status: 403 }

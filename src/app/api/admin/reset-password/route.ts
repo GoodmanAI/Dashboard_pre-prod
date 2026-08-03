@@ -10,6 +10,7 @@ import {
   checkIpRateLimit,
   recordLoginAttempt,
 } from "@/lib/loginSecurity";
+import { auditLog, extractUserAgent } from "@/lib/auditLog";
 
 // Schéma de validation des données entrantes
 const ResetPasswordSchema = z.object({
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     // Vérifier la session et les permissions
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN")) {
       return NextResponse.json(
         { error: "Access denied. Only admins can reset passwords." },
         { status: 403 }
@@ -98,10 +99,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Empêcher la réinitialisation pour les comptes admin
-    if (client.role === "ADMIN") {
+    // Empêcher la réinitialisation pour les comptes admin — sauf si l'appelant
+    // est SUPER_ADMIN (chantier 3), qui doit pouvoir reset les mdp ADMIN.
+    // Un SUPER_ADMIN ne peut pas etre reset par cette route (le compte est
+    // trop sensible ; utiliser la procedure DB manuelle).
+    if (client.role === "SUPER_ADMIN") {
       return NextResponse.json(
-        { error: "Cannot reset password for admin accounts." },
+        { error: "Cannot reset password for SUPER_ADMIN accounts." },
+        { status: 403 }
+      );
+    }
+    if (client.role === "ADMIN" && session.user.role !== "SUPER_ADMIN") {
+      return NextResponse.json(
+        { error: "Only SUPER_ADMIN can reset admin account passwords." },
         { status: 403 }
       );
     }
@@ -118,14 +128,28 @@ export async function POST(request: NextRequest) {
     // Hash du nouveau mot de passe
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Mettre à jour le mot de passe
+    // Mettre à jour le mot de passe + bump tokenVersion (invalider les JWT
+    // actifs du compte reset : evite qu'un attaquant qui aurait une session
+    // valide continue d'y acceder apres le reset).
     await prisma.user.update({
       where: { id: clientId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, tokenVersion: { increment: 1 } },
     });
 
     // Trace le succès (utile pour l'audit — reporting connexion pro futur).
     await recordLoginAttempt(ip, adminEmail, true);
+    auditLog("auth", "reset-password", {
+      success: true,
+      actor: {
+        id: session.user.id,
+        email: adminEmail,
+        role: session.user.role,
+        ip,
+        userAgent: extractUserAgent(request),
+      },
+      target: { type: "user", id: clientId, label: client.email },
+      metadata: { targetRole: client.role, targetName: client.name },
+    });
 
     return NextResponse.json(
       { message: "Password reset successfully." },
