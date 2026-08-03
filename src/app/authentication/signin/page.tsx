@@ -14,6 +14,7 @@ import {
   IconButton,
 } from "@mui/material";
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
+import { getFirstAccessiblePath } from "@/lib/pageAccess";
 
 /**
  * Page de connexion
@@ -81,28 +82,30 @@ export default function SignIn() {
 
     // on attend que NextAuth mette à jour la session
     const session = await getSession();
-    
-    const userId = session?.user.id;
-    const res = await fetch(`/api/users/${userId}/products`);
-
-    const data = await res.json();
-    
-    const product: any = await data.find((product: any) => {
-      if (product.name === "LyraeTalk") {
-        return true;
-      }
-    });
 
     if (session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN") {
       router.push("/admin");
-    } else {
-      if (product && product.id) {
-        router.push(`/client/services/talk/${product.id}`);
-      } else {
-        router.push(`/client/services/talk/`);
-      }
+      router.refresh();
+      return;
     }
 
+    // CLIENT (principal ou sous-compte) : redirect vers la premiere page
+    // accessible selon PAGE_PRIORITY et les permissions du user.
+    //   - Compte principal (permissions=null) : hasPermission=true partout
+    //     -> DASHBOARD (premier de la liste) -> /client/services/talk/{talkId}
+    //   - Sous-compte : premiere page cochee dans PAGE_PRIORITY
+    // L'endpoint /api/users/[id]/products remonte au parent pour les
+    // sous-comptes, donc talkId est correct dans les 2 cas.
+    const userId = session?.user.id;
+    const res = await fetch(`/api/users/${userId}/products`);
+    const data = await res.json();
+    const product: any = Array.isArray(data)
+      ? data.find((p: any) => p?.name === "LyraeTalk")
+      : null;
+    const talkId: number | null = product?.id ?? null;
+
+    const target = getFirstAccessiblePath(session?.user as any, talkId);
+    router.push(target ?? "/client/services/talk/");
     router.refresh();
   };
 
