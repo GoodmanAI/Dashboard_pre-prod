@@ -22,11 +22,13 @@ export async function GET(
     const accessErr = await assertUserAccess(session, userId);
     if (accessErr) return accessErr;
 
-    // Vérification existence user (optionnel mais recommandé)
+    // Verification existence user + recup du managerId (chantier 3 : les
+    // sous-comptes CLIENT n'ont pas de UserProduct en propre — ils heritent
+    // de ceux du compte parent).
     const userExists = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true }
-    })
+      select: { id: true, role: true, managerId: true, permissions: true },
+    });
 
     if (!userExists) {
       return NextResponse.json(
@@ -35,9 +37,19 @@ export async function GET(
       )
     }
 
-    // Récupération des produits liés au user
+    // Determination du userId "effectif" pour lister les products :
+    // - Si le user est un sous-compte (permissions custom set + managerId
+    //   non null), on remonte au parent
+    // - Sinon on garde le user courant
+    const isSubAccount =
+      userExists.role === "CLIENT" &&
+      userExists.managerId != null &&
+      userExists.permissions != null;
+    const effectiveUserId = isSubAccount ? (userExists.managerId as number) : userId;
+
+    // Récupération des produits liés au user (parent si sous-compte)
     const userProducts = await prisma.userProduct.findMany({
-      where: { userId },
+      where: { userId: effectiveUserId },
       select: {
         id: true,
         assignedAt: true,
