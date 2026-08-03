@@ -15,6 +15,7 @@ import {
   IconUsers,
   IconReport,
   IconChevronRight,
+  IconShieldLock,
 } from "@tabler/icons-react";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
@@ -94,7 +95,7 @@ const AdminActionsPage = () => {
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/authentication/signin");
-    } else if (session && session.user.role !== "ADMIN") {
+    } else if (session && session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN") {
       router.push("/client");
     }
   }, [session, status, router]);
@@ -107,23 +108,45 @@ const AdminActionsPage = () => {
     );
   }
 
+  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
+
   return (
     <PageContainer title="Admin Actions" description="Accès rapide aux modules">
       <Box>
-        {/* === Gestion clients === */}
+        {/* === Gestion comptes (SUPER_ADMIN uniquement) === */}
+        {isSuperAdmin && (
+          <>
+            <SectionHeader
+              title="Gestion des comptes"
+              subtitle="Créer / gérer admins, clients et sous-comptes"
+            />
+            <Grid container spacing={3} sx={{ mb: 5 }}>
+              <Grid item xs={12} md={6}>
+                <ActionCard
+                  title="Comptes & permissions"
+                  description="Admins, clients, sous-comptes avec permissions granulaires"
+                  icon={<IconShieldLock size={22} />}
+                  onClick={() => router.push("/admin/users")}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <ActionCard
+                  title="Créer un client"
+                  description="Provisionner un nouveau compte client (LyraeTalk)"
+                  icon={<IconUserPlus size={22} />}
+                  onClick={() => router.push("/admin/create-client")}
+                />
+              </Grid>
+            </Grid>
+          </>
+        )}
+
+        {/* === Gestion clients (ADMIN + SUPER_ADMIN) === */}
         <SectionHeader
           title="Gestion clients"
-          subtitle="Créer et gérer les comptes clients du dashboard"
+          subtitle="Actions courantes sur les comptes clients existants"
         />
         <Grid container spacing={3} sx={{ mb: 5 }}>
-          <Grid item xs={12} md={6}>
-            <ActionCard
-              title="Créer un client"
-              description="Ajouter un nouveau compte et affecter ses produits"
-              icon={<IconUserPlus size={22} />}
-              onClick={() => router.push("/admin/create-client")}
-            />
-          </Grid>
           <Grid item xs={12} md={6}>
             <ActionCard
               title="Gérer les clients"

@@ -5,13 +5,17 @@ import { prisma } from "./prisma";
 
 /**
  * Session authentifiée enrichie avec id + rôle (comme retournée par `authOptions.callbacks.session`).
+ * `permissions` est le JSON granulaire (null = acces complet du role, cf. lib/permissions.ts).
  */
 export type AuthSession = {
   user: {
     id: number;
-    role: "ADMIN" | "CLIENT";
+    role: "SUPER_ADMIN" | "ADMIN" | "CLIENT";
     email?: string | null;
     name?: string | null;
+    isSecretary?: boolean;
+    permissions?: unknown;
+    tokenVersion?: number;
   };
 };
 
@@ -53,12 +57,26 @@ export async function requireAuth(): Promise<AuthResult> {
 }
 
 /**
- * Exige le rôle ADMIN. À appeler après `requireAuth`.
+ * Exige le rôle ADMIN ou SUPER_ADMIN. À appeler après `requireAuth`.
+ * SUPER_ADMIN herite de toutes les capacites ADMIN.
  * Renvoie `null` si OK, une `NextResponse` 403 sinon (à return depuis le handler).
  */
 export function requireAdmin(session: AuthSession): NextResponse | null {
-  if (session.user.role !== "ADMIN") {
+  if (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return null;
+}
+
+/**
+ * Exige STRICTEMENT le rôle SUPER_ADMIN (chantier 3).
+ * Utilise pour la gestion multi-comptes : creer/supprimer ADMIN, creer
+ * sous-comptes CLIENT avec permissions granulaires.
+ * Renvoie `null` si OK, une `NextResponse` 403 sinon.
+ */
+export function requireSuperAdmin(session: AuthSession): NextResponse | null {
+  if (session.user.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ error: "Forbidden — SUPER_ADMIN requis" }, { status: 403 });
   }
   return null;
 }
@@ -86,8 +104,8 @@ export async function assertUserProductOwnership(
     );
   }
 
-  // ADMIN : override total
-  if (session.user.role === "ADMIN") return null;
+  // SUPER_ADMIN / ADMIN : override total
+  if (session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN") return null;
 
   // CLIENT : propriétaire direct
   const direct = await prisma.userProduct.findFirst({
@@ -105,6 +123,22 @@ export async function assertUserProductOwnership(
     select: { id: true },
   });
   if (managed) return null;
+
+  // CLIENT sous-compte (chantier 3) : herite de l'acces au userProduct de
+  // son compte parent (managerId). Un sous-compte ne possede pas son propre
+  // userProduct — il travaille sur celui du compte principal auquel il est
+  // rattache.
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { managerId: true },
+  });
+  if (currentUser?.managerId) {
+    const parent = await prisma.userProduct.findFirst({
+      where: { id: userProductId, userId: currentUser.managerId },
+      select: { id: true },
+    });
+    if (parent) return null;
+  }
 
   // CLIENT paire legacy (hardcodée — voir SPECIAL_CENTRE_PAIRS)
   const pairIds = SPECIAL_CENTRE_PAIRS[session.user.id];
@@ -136,7 +170,7 @@ export async function assertUserAccess(
     return NextResponse.json({ error: "Invalid userId" }, { status: 400 });
   }
 
-  if (session.user.role === "ADMIN") return null;
+  if (session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN") return null;
   if (session.user.id === targetUserId) return null;
 
   const managed = await prisma.user.findFirst({
@@ -144,6 +178,14 @@ export async function assertUserAccess(
     select: { id: true },
   });
   if (managed) return null;
+
+  // CLIENT sous-compte (chantier 3) : peut acceder aux donnees de son
+  // compte parent (l'inverse de la relation manager -> managed).
+  const currentUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { managerId: true },
+  });
+  if (currentUser?.managerId === targetUserId) return null;
 
   // Paire legacy hardcodée (voir SPECIAL_CENTRE_PAIRS)
   const pairIds = SPECIAL_CENTRE_PAIRS[session.user.id];

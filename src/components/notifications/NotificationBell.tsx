@@ -75,7 +75,7 @@ export default function NotificationBell() {
 
   const isOpen = Boolean(anchorEl);
   const unreadCount = notifications.length;
-  const isAdmin = session?.user?.role === "ADMIN";
+  const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN";
 
   const load = useCallback(async () => {
     if (status !== "authenticated") return;

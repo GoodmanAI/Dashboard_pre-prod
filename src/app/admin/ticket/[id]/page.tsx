@@ -209,7 +209,7 @@ export default function AdminTicketDetailPage({ params }: Props) {
       </PageContainer>
     );
   }
-  if (session.user.role !== "ADMIN") {
+  if (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN") {
     return (
       <PageContainer title="Ticket" description="Detail admin">
         <Alert severity="error">Accès refusé — reservé aux administrateurs.</Alert>

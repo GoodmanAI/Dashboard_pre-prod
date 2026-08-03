@@ -2394,7 +2394,7 @@ const AnalyticsInternalPage = () => {
   // Auth guard
   useEffect(() => {
     if (status === "unauthenticated") router.push("/authentication/signin");
-    else if (session && session.user.role !== "ADMIN") router.push("/client");
+    else if (session && session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN") router.push("/client");
   }, [session, status, router]);
 
   // Fetch

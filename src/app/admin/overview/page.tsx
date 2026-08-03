@@ -715,7 +715,7 @@ const AdminOverviewPage = () => {
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/authentication/signin");
-    } else if (session && session.user.role !== "ADMIN") {
+    } else if (session && session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN") {
       router.push("/client");
     }
   }, [session, status, router]);

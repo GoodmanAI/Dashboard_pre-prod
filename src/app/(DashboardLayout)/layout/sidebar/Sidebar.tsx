@@ -93,7 +93,7 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
                   sx={{ width: "210px", height: "auto", cursor: "pointer" }}
                   onClick={() =>
                     router.push(
-                      session?.user.role === "ADMIN"
+                      (session?.user.role === "ADMIN" || session?.user.role === "SUPER_ADMIN")
                         ? "/admin"
                         : `/client/services/talk/${talkId}`
                     )
@@ -102,7 +102,7 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
               </Box>
 
               {/* Navigation latérale */}
-              {(session?.user.role === "ADMIN" || products.length > 0) &&
+              {(session?.user.role === "ADMIN" || session?.user.role === "SUPER_ADMIN" || products.length > 0) &&
                 <SidebarItems />
               }
             </Sidebar>

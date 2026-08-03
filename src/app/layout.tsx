@@ -10,6 +10,7 @@ import { baselightTheme } from "@/utils/theme/DefaultColors";
 import { usePathname } from "next/navigation";
 import localFont from 'next/font/local'
 import { CentreProvider } from "./context/CentreContext";
+import PageAccessGuard from "@/components/permissions/PageAccessGuard";
 
 /**
  * Layout racine de l’espace applicatif (hors pages d’authentification).
@@ -108,7 +109,7 @@ export default function RootLayout({
                         pr: 3,
                       }}
                     >
-                      {children}
+                      <PageAccessGuard>{children}</PageAccessGuard>
                     </Box>
                 </PageWrapper>
               </MainWrapper>

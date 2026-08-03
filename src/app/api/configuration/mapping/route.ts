@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma'
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
+import { rejectIfSecretary } from "@/lib/authGuards";
 
 export async function POST(req: NextRequest) {
   try {
+    const secretaryErr = await rejectIfSecretary();
+    if (secretaryErr) return secretaryErr;
+
     const auth = await requireAuth();
     if (auth.error) return auth.error;
     const { session } = auth;

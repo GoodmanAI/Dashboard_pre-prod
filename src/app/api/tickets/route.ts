@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { z } from "zod";
 import { notifyNewTicketToAdmin } from "@/lib/ticketNotifications";
+import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 
 /**
  * API Tickets (centre-aware, refonte chantier 2)
@@ -229,6 +230,21 @@ export async function POST(request: NextRequest) {
     if (io) {
       io.emit("ticket-updated", { ticketId: ticket.id, kind: "created" });
     }
+
+    auditLog("ticket", "create", {
+      actor: {
+        id: sessionUserId,
+        email: session.user.email ?? null,
+        role: session.user.role,
+        ip: extractIpFromRequest(request),
+        userAgent: extractUserAgent(request),
+      },
+      target: { type: "ticket", id: ticket.id, label: ticket.subject },
+      metadata: {
+        targetUserId: effectiveUserId,
+        userProductId: userProductId ?? null,
+      },
+    });
 
     // Notification email a l'admin support (SUPPORT_ADMIN_EMAIL). Fire and
     // forget : on ne bloque pas la reponse HTTP si l'email echoue.

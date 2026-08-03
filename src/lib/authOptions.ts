@@ -11,6 +11,7 @@ import {
   handleSuccessfulLogin,
   ACCOUNT_LOCK_DURATION_MS,
 } from "@/lib/loginSecurity";
+import { auditLog } from "@/lib/auditLog";
 
 /**
  * Client Prisma utilisé pour les opérations d’authentification.
@@ -73,6 +74,10 @@ export const authOptions: NextAuthOptions  = {
 
         // 1) Extraction IP — req.headers est fourni par NextAuth (v4) en second arg.
         const ip = extractClientIp((req?.headers as any) ?? {});
+        const userAgent =
+          (req?.headers as any)?.["user-agent"] ??
+          (req?.headers as any)?.get?.("user-agent") ??
+          null;
 
         // 2) Rate limit par IP (avant même de toucher au user en DB).
         const rate = await checkIpRateLimit(ip);
@@ -91,6 +96,11 @@ export const authOptions: NextAuthOptions  = {
           // Message générique (pas de compteur) pour ne pas révéler que
           // l'identifiant n'existe pas.
           await recordLoginAttempt(ip, email, false);
+          auditLog("auth", "login", {
+            success: false,
+            errorReason: "unknown-account",
+            actor: { email, ip, userAgent },
+          });
           throw new Error(GENERIC_MSG);
         }
 
@@ -102,6 +112,12 @@ export const authOptions: NextAuthOptions  = {
         });
         if (lockRemaining !== null) {
           await recordLoginAttempt(ip, email, false);
+          auditLog("auth", "login", {
+            success: false,
+            errorReason: "account-locked",
+            actor: { id: user.id, email, role: user.role, ip, userAgent },
+            metadata: { lockRemainingSec: lockRemaining },
+          });
           const mins = Math.max(1, Math.ceil(lockRemaining / 60));
           throw new Error(
             `Compte bloqué suite à trop de tentatives. Réessayez dans ${mins} minute${mins > 1 ? "s" : ""}.`
@@ -113,6 +129,12 @@ export const authOptions: NextAuthOptions  = {
         if (!isValid) {
           await recordLoginAttempt(ip, email, false);
           const result = await handleFailedLogin(user.id);
+          auditLog("auth", "login", {
+            success: false,
+            errorReason: result.justLocked ? "bad-password-just-locked" : "bad-password",
+            actor: { id: user.id, email, role: user.role, ip, userAgent },
+            metadata: { remainingAttempts: result.remainingAttempts },
+          });
 
           if (result.justLocked) {
             throw new Error(
@@ -131,6 +153,10 @@ export const authOptions: NextAuthOptions  = {
         // 6) Succès : journaliser + reset état de lock
         await recordLoginAttempt(ip, email, true);
         await handleSuccessfulLogin(user.id, user.failedLoginAttempts, user.lockedUntil);
+        auditLog("auth", "login", {
+          success: true,
+          actor: { id: user.id, email, role: user.role, ip, userAgent },
+        });
 
         return {
           id: user.id,
@@ -138,6 +164,8 @@ export const authOptions: NextAuthOptions  = {
           email: user.email,
           role: user.role,
           isSecretary: user.isSecretary,
+          permissions: user.permissions ?? null,
+          tokenVersion: user.tokenVersion ?? 0,
         };
       },
     }),
@@ -174,30 +202,67 @@ export const authOptions: NextAuthOptions  = {
    */
   callbacks: {
     async jwt({ token, user }) {
+      // Login initial : hydratation depuis authorize()
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.isSecretary = user.isSecretary ?? false;
-      } else if (token.id && typeof token.isSecretary === "undefined") {
-        // Re-hydrate isSecretary depuis la BDD pour les sessions
-        // créées avant l'ajout du flag (token JWT antérieur).
+        token.permissions = (user as any).permissions ?? null;
+        token.tokenVersion = (user as any).tokenVersion ?? 0;
+        return token;
+      }
+
+      // Refresh : verifier tokenVersion + rehydrate permissions
+      // (permissions peut changer sans reconnexion via edit sous-compte).
+      // On rehydrate a chaque appel jwt (declanche par updateAge=1h ou
+      // updateSession cote client). Faible cout : findUnique par id.
+      if (token.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as number },
-          select: { isSecretary: true },
+          select: {
+            role: true,
+            isSecretary: true,
+            permissions: true,
+            tokenVersion: true,
+          },
         });
-        token.isSecretary = dbUser?.isSecretary ?? false;
+
+        // User supprime -> token invalide
+        if (!dbUser) {
+          return {} as typeof token;
+        }
+
+        // Kick a distance : tokenVersion DB > tokenVersion JWT -> invalide
+        const currentVersion = dbUser.tokenVersion ?? 0;
+        const jwtVersion = (token.tokenVersion as number | undefined) ?? 0;
+        if (currentVersion > jwtVersion) {
+          return {} as typeof token;
+        }
+
+        // Rehydrate role/isSecretary/permissions (peuvent changer sans logout)
+        token.role = dbUser.role;
+        token.isSecretary = dbUser.isSecretary;
+        token.permissions = dbUser.permissions;
+        token.tokenVersion = currentVersion;
       }
+
       return token;
     },
     async session({ session, token }) {
-      if (token) {
-        session.user = {
-          ...session.user,
-          id: token.id as number,
-          role: token.role as "ADMIN" | "CLIENT",
-          isSecretary: (token.isSecretary as boolean | undefined) ?? false,
-        };
+      // Si le jwt callback a vide le token (revocation), on renvoie une
+      // session sans user pour que useSession() cote client bascule en
+      // "unauthenticated" au prochain refresh.
+      if (!token?.id) {
+        return { ...session, user: null as any };
       }
+      session.user = {
+        ...session.user,
+        id: token.id as number,
+        role: token.role as "SUPER_ADMIN" | "ADMIN" | "CLIENT",
+        isSecretary: (token.isSecretary as boolean | undefined) ?? false,
+        permissions: token.permissions ?? null,
+        tokenVersion: (token.tokenVersion as number | undefined) ?? 0,
+      };
       return session;
     },
   },

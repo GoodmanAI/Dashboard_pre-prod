@@ -50,7 +50,7 @@
     const { data: session, status } = useSession();
     const pathname = usePathname();
     const router = useRouter();
-    const isAdmin = session?.user?.role === "ADMIN";
+    const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN";
 
     // --- Etat local
     const [talkProductId, setTalkProductId] = useState<number | null>(null);
@@ -206,7 +206,7 @@
                       value={upid}
                       sx={{ fontWeight: 500, fontSize: "0.85rem" }}
                     >
-                      {session?.user?.role === "ADMIN" ? `${label} · ID: ${upid}` : label}
+                      {(session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN") ? `${label} · ID: ${upid}` : label}
                     </MuiMenuItem>
                   );
                 })}
