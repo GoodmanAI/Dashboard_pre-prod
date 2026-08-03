@@ -59,13 +59,13 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Filtre STRICT sur userId (voir commentaire dans get-unread pour la
+  // rationale : eviter les doublons entre destinataires directs et owners
+  // de ticket).
   const result = await prisma.notification.updateMany({
     where: {
       isRead: false,
-      OR: [
-        { userId: effectiveUserId },
-        { ticket: { userId: effectiveUserId } },
-      ],
+      userId: effectiveUserId,
     },
     data: { isRead: true },
   });

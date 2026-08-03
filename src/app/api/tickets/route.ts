@@ -209,6 +209,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Diffusion websocket : notifie les clients Grafana connectes (les
+    // admins ouverts sur une page dashboard) pour que la cloche
+    // NotificationBell refresh instantanement sans attendre le poll 60s.
+    const io: any = globalThis.io;
+    if (io) {
+      io.emit("ticket-updated", { ticketId: ticket.id, kind: "created" });
+    }
+
     // Notification email a l'admin support (SUPPORT_ADMIN_EMAIL). Fire and
     // forget : on ne bloque pas la reponse HTTP si l'email echoue.
     notifyNewTicketToAdmin({
