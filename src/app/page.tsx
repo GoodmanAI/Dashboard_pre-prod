@@ -5,8 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 import PageContainer from '@/app/(DashboardLayout)/components/container/PageContainer';
-import { getFirstAccessiblePath, getClientPathForPage } from '@/lib/pageAccess';
-import { PAGES } from '@/lib/permissions';
+import { getFirstAccessiblePath } from '@/lib/pageAccess';
 
 /**
  * Page de redirection principale du tableau de bord.
@@ -62,17 +61,11 @@ const Dashboard = () => {
     // CLIENT : attend que le fetch products soit termine pour connaitre le talkId
     if (!productsLoaded) return;
 
-    // Compte principal sans permissions custom : redirect direct vers le
-    // dashboard produit (comportement historique)
-    if (session?.user && !(session.user as any).permissions) {
-      const url = talkId != null
-        ? getClientPathForPage(PAGES.DASHBOARD, talkId)
-        : "/client";
-      router.push(url ?? "/client");
-      return;
-    }
-
-    // Sous-compte : premiere page accessible selon PAGE_PRIORITY
+    // Utilise toujours getFirstAccessiblePath : gere les 2 cas
+    //   - CLIENT principal (permissions=null) : hasPermission=true partout
+    //     -> DASHBOARD (premier dans PAGE_PRIORITY) -> /client/services/talk/{talkId}
+    //   - Sous-compte : premiere page cochee dans PAGE_PRIORITY
+    // Logique unique = plus robuste que la double branche precedente.
     const target = getFirstAccessiblePath(session?.user as any, talkId);
     router.push(target ?? "/client");
   }, [session, status, router, talkId, productsLoaded]);
