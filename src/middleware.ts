@@ -120,20 +120,23 @@ export async function middleware(req: NextRequest) {
 
   // ---- Protection des routes UI ----
   if (pathname.startsWith('/admin') || pathname.startsWith('/client')) {
-    if (!token) {
+    // Token absent OU vide (revoque par tokenVersion bump / user supprime) :
+    // le callback jwt renvoie {} dans ces cas. On force le signin.
+    if (!token || !token.id) {
       const signInUrl = new URL('/authentication/signin', req.url);
       signInUrl.searchParams.set('callbackUrl', pathname);
       return NextResponse.redirect(signInUrl);
     }
 
-    if (pathname.startsWith('/admin') && token.role !== 'ADMIN') {
+    if (pathname.startsWith('/admin') && token.role !== 'ADMIN' && token.role !== 'SUPER_ADMIN') {
       return NextResponse.redirect(new URL('/client', req.url));
     }
 
     if (
       pathname.startsWith('/client') &&
       token.role !== 'CLIENT' &&
-      token.role !== 'ADMIN'
+      token.role !== 'ADMIN' &&
+      token.role !== 'SUPER_ADMIN'
     ) {
       return NextResponse.redirect(new URL('/admin', req.url));
     }
@@ -144,7 +147,10 @@ export async function middleware(req: NextRequest) {
     if (isPublicApi(pathname)) {
       return NextResponse.next();
     }
-    if (!token) {
+    // Token absent OU vide (revoque) : refuse l'API. Comme pour l'UI, un
+    // token vide veut dire que jwt callback a rejete la session (user
+    // supprime ou tokenVersion bump).
+    if (!token || !token.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     // Session valide : le handler peut ensuite appliquer les checks de rôle / ownership.

@@ -18,7 +18,7 @@ const AdminPage = () => {
       return;
     }
     if (status === "authenticated") {
-      if (session?.user?.role !== "ADMIN") {
+      if (session?.user?.role !== "ADMIN" && session?.user?.role !== "SUPER_ADMIN") {
         router.replace("/client");
         return;
       }

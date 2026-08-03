@@ -9,6 +9,8 @@ import NavItem from "./NavItem";
 import NavGroup from "./NavGroup";
 import { useCentre } from "@/app/context/CentreContext";
 import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
+import { hasPermission } from "@/lib/permissions";
+import { getPageFromHref } from "@/lib/pageAccess";
 
 /** Modèle minimal d’un item de menu latéral. */
 type SideNavItem = {
@@ -53,7 +55,7 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
     load();
   }, [userId]);
 
-  const isAdmin = session?.user.role === "ADMIN";
+  const isAdmin = session?.user.role === "ADMIN" || session?.user.role === "SUPER_ADMIN";
 
   // userProductId a passer au hook count :
   //  - ADMIN : userProductId du centre selectionne dans le CentreContext
@@ -96,7 +98,31 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
   const filteredMenuItems = sourceMenu.filter((item: SideNavItem) => {
     // Items LYRAE (démos produits) : masqués pour tous les rôles par défaut.
     if (item.title?.toUpperCase().includes("LYRAE")) return false;
-    return true;
+
+    // Filtre par permissions granulaires (chantier 3, Lot B).
+    // - Les headers de section (navlabel) restent visibles (peuvent contenir
+    //   au moins un item accessible). On les nettoie apres coup.
+    // - Les items sans page mapped (Support, Overview, Actions, etc.) sont
+    //   toujours affiches si le role de base y a acces (ADMIN/SUPER_ADMIN
+    //   ont deja acces a tout par role, CLIENT via la liste Menuitems).
+    // - Les items avec page mapped : hidden si !hasPermission read.
+    if (item.navlabel) return true;
+    if (!item.href || !session?.user) return true;
+    const page = getPageFromHref(item.href);
+    if (!page) return true; // Item hors mapping = affiche par defaut
+    return hasPermission(session.user as any, page, "read");
+  });
+
+  // Nettoyage : retire les headers de section (navlabel) qui n'ont plus
+  // aucun item cliquable en dessous apres filtre permissions.
+  const cleanedMenuItems = filteredMenuItems.filter((item, i, arr) => {
+    if (!item.navlabel) return true;
+    // Regarde s'il y a un item non-navlabel avant le prochain navlabel
+    for (let j = i + 1; j < arr.length; j++) {
+      if (arr[j].navlabel) return false;
+      return true;
+    }
+    return false;
   });
 
   /**
@@ -124,7 +150,7 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
   return (
     <Box sx={{ px: 3 }}>
       <List sx={{ pt: 0 }} className="sidebarNav" component="div">
-        {filteredMenuItems.map((item: SideNavItem) => {
+        {cleanedMenuItems.map((item: SideNavItem) => {
           // En-tête de section (ex: "Home", "Services")
           if (item.subheader) {
             return <NavGroup item={item} key={item.subheader} />;

@@ -10,6 +10,7 @@ import {
   checkIpRateLimit,
   recordLoginAttempt,
 } from "@/lib/loginSecurity";
+import { auditLog, extractUserAgent } from "@/lib/auditLog";
 
 const ChangePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Le mot de passe actuel est requis"),
@@ -71,6 +72,17 @@ export async function POST(request: NextRequest) {
     if (!isCurrentValid) {
       // Trace pour rate limit + audit — même canal que le login.
       await recordLoginAttempt(ip, session.user.email, false);
+      auditLog("auth", "change-password", {
+        success: false,
+        errorReason: "wrong-current-password",
+        actor: {
+          id: user.id,
+          email: session.user.email,
+          role: session.user.role,
+          ip,
+          userAgent: extractUserAgent(request),
+        },
+      });
       return NextResponse.json(
         { error: "Le mot de passe actuel est incorrect." },
         { status: 400 }
@@ -94,6 +106,16 @@ export async function POST(request: NextRequest) {
 
     // Trace le succès (utile pour l'audit — reporting connexion pro futur).
     await recordLoginAttempt(ip, session.user.email, true);
+    auditLog("auth", "change-password", {
+      success: true,
+      actor: {
+        id: user.id,
+        email: session.user.email,
+        role: session.user.role,
+        ip,
+        userAgent: extractUserAgent(request),
+      },
+    });
 
     return NextResponse.json(
       { message: "Mot de passe modifié avec succès." },

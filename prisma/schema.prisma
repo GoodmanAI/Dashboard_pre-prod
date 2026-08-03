@@ -8,6 +8,7 @@ generator client {
 }
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
   CLIENT
 }
@@ -47,6 +48,18 @@ model User {
   centreRole  CentreRole?
   isSecretary Boolean     @default(false)
 
+  /// Override granulaire des permissions (chantier 3).
+  /// null = acces complet selon le role (comportement historique).
+  /// {...} = sous-compte CLIENT avec permissions par page :
+  ///   { "ordonnances": "write", "tickets": "read", "stats": "none" }
+  /// Ignore pour SUPER_ADMIN / ADMIN (acces total quel que soit le contenu).
+  permissions Json?
+
+  /// Compteur de version pour la revocation JWT (kick a distance).
+  /// Bump = tous les JWT existants du compte deviennent invalides au
+  /// prochain refresh (callback jwt les rejette).
+  tokenVersion Int @default(0)
+
   // ---- Sécurité login (Phase 2 auth hardening) ----
   /// Compteur d'échecs consécutifs. Reset à 0 après un login réussi.
   failedLoginAttempts Int       @default(0)
@@ -79,6 +92,8 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([role])
 }
 
 model Product {

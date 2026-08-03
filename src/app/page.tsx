@@ -48,7 +48,7 @@ const Dashboard = () => {
 
     if (status === "unauthenticated") {
       router.push("/authentication/signin");
-    } else if (session?.user?.role === "ADMIN") {
+    } else if (session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN") {
       router.push("/admin");
     } else {
       if(talkId){

@@ -47,7 +47,7 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const sessionUserId = Number(session.user.id);
-  const isAdmin = session.user.role === "ADMIN";
+  const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN";
 
   const ticketId = parseInt(params.id, 10);
   if (!Number.isFinite(ticketId)) {

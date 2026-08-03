@@ -378,7 +378,7 @@ interface BubbleProps {
 
 function MessageBubble({ author, body, createdAt, isCurrentUser, isInitial }: BubbleProps) {
   const label = author.name ?? author.email;
-  const isAdmin = author.role === "ADMIN";
+  const isAdmin = author.role === "ADMIN" || author.role === "SUPER_ADMIN";
   return (
     <Stack
       direction="row"
