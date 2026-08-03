@@ -18,6 +18,7 @@
   import Profile from "./Profile";
   import { useCentre, ManagedUser } from "../../../context/CentreContext";
   import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
+  import NotificationBell from "@/components/notifications/NotificationBell";
 
   /**
    * Header d’application (barre supérieure).
@@ -128,8 +129,11 @@
             </Typography>
           </Box>
 
-          {/* Zone à droite : compteur ordonnances, sélecteur de centre, profil */}
+          {/* Zone à droite : notifications support, compteur ordonnances, sélecteur de centre, profil */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            {/* Cloche notifications support (tickets : nouveau message, prise en charge, resolution) */}
+            <NotificationBell />
+
             {/* Compteur ordonnances manquantes — clic = raccourci vers la page */}
             {prescriptionScopeUserProductId !== null && (
               <IconButton

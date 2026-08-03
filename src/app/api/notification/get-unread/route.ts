@@ -101,7 +101,8 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: { createdAt: 'asc' }, // tri croissant pour lecture chronologique
+      orderBy: { createdAt: 'desc' }, // plus recentes d'abord (popover UI)
+      take: 50, // limite raisonnable pour le popover, evite d'exploser en cas de spam
     })
 
     return NextResponse.json({ notifications }, { status: 200 })
