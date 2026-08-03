@@ -82,7 +82,11 @@ export async function GET(request: NextRequest) {
 
   try {
     const effectiveUserId = await resolveEffectiveUserId(sessionUserId, request);
-    const tickets = await prisma.ticket.findMany({
+    // Fetch en ASC pour attribuer displayNumber = position chronologique
+    // (le 1er ticket du client = displayNumber 1, meme si son Ticket.id
+    // global est 6). Evite au client de voir le volume total de tickets
+    // du dashboard via son propre #id.
+    const ticketsAsc = await prisma.ticket.findMany({
       where: { userId: effectiveUserId },
       select: {
         id: true,
@@ -97,12 +101,13 @@ export async function GET(request: NextRequest) {
         assignedToId: true,
         createdBy: { select: { id: true, name: true, email: true } },
         assignedTo: { select: { id: true, name: true, email: true } },
-        // Compteur de messages pour badge "N nouveaux" (pas encore la logique
-        // read-tracking, mais expose le total pour UI simple)
         _count: { select: { messages: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "asc" },
     });
+    const enriched = ticketsAsc.map((t, i) => ({ ...t, displayNumber: i + 1 }));
+    // Reverse pour rendre desc dans la reponse (UI attend plus recents en tete)
+    const tickets = enriched.reverse();
     return NextResponse.json({ tickets }, { status: 200 });
   } catch (e: any) {
     if (e?.status) return NextResponse.json({ error: e.msg }, { status: e.status });

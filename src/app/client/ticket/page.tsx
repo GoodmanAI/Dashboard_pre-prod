@@ -71,6 +71,8 @@ interface Ticket {
   createdBy: { id: number; name: string | null; email: string } | null;
   assignedTo: { id: number; name: string | null; email: string } | null;
   _count?: { messages: number };
+  /** Numero local au client (1 = son 1er ticket), fourni par le backend. */
+  displayNumber?: number;
 }
 
 const STATUS_META: Record<
@@ -278,12 +280,12 @@ export default function ClientSupportPage() {
         <CreateTicketDialog
           open={createOpen}
           onClose={() => setCreateOpen(false)}
-          onCreated={(ticketId) => {
+          onCreated={() => {
             setCreateOpen(false);
-            setSnack({ open: true, msg: `Ticket #${ticketId} cree avec succes`, sev: "success" });
+            // Pas de #id dans le message pour ne pas leaker l'id global.
+            // Le displayNumber sera visible sur la card apres load().
+            setSnack({ open: true, msg: "Ticket cree avec succes, un email a ete envoye au support", sev: "success" });
             load();
-            // Optionnel : rediriger direct vers le detail
-            // router.push(`/client/ticket/${ticketId}`);
           }}
           asUserIdQuery={asUserIdQuery}
         />
@@ -396,7 +398,7 @@ function TicketRowCard({ ticket, onClick }: { ticket: Ticket; onClick: () => voi
                 fontWeight: 600,
               }}
             >
-              #{ticket.id}
+              #{ticket.displayNumber ?? ticket.id}
             </Typography>
             <Typography variant="subtitle1" sx={{ color: TEXT_MAIN, fontWeight: 700, lineHeight: 1.3 }}>
               {ticket.subject}
