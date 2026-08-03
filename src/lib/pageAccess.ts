@@ -12,7 +12,7 @@
  * ignore dans le matching. Le premier segment apres [id] determine la page.
  */
 
-import { PageKey, PAGES } from "./permissions";
+import { hasPermission, PageKey, PAGES, PermissionSubject } from "./permissions";
 
 /**
  * Ordre : les patterns plus specifiques d'abord (mapping_exam avant
@@ -62,4 +62,94 @@ export function getPageFromPathname(pathname: string): PageKey | null {
 export function getPageFromHref(href: string): PageKey | null {
   // Remplace {TALK_ID} par un id fictif pour matcher les regex
   return getPageFromPathname(href.replace("{TALK_ID}", "0"));
+}
+
+/**
+ * Ordre prioritaire des pages pour choisir une page d'arrivee / fallback
+ * quand plusieurs pages sont accessibles. On prend la premiere dans cet
+ * ordre qui matche les permissions du user.
+ *
+ * Logique : DASHBOARD en premier (la vraie home) puis les pages a forte
+ * valeur metier (ordonnances, tickets), puis les stats, puis la config.
+ */
+export const PAGE_PRIORITY: PageKey[] = [
+  PAGES.DASHBOARD,
+  PAGES.ORDONNANCES,
+  PAGES.TICKETS,
+  PAGES.STATS_APPEL,
+  PAGES.CALLS,
+  PAGES.STATS_NO_SHOW,
+  PAGES.PLANNING_COMPLET,
+  PAGES.INCIDENTS,
+  PAGES.INFORMATIONNEL,
+  PAGES.PARAMETRAGE,
+  PAGES.MAPPING_EXAM,
+  PAGES.QUESTIONS_EXAM,
+  PAGES.STATS,
+];
+
+/**
+ * Construit l'URL absolue d'une page pour un CLIENT ou sous-compte a partir
+ * de la PageKey et de son talkId (userProductId LyraeTalk).
+ *
+ * Retourne null si la page necessite un talkId qui n'est pas fourni
+ * (ex: ORDONNANCES sans talkId -> aucune URL possible).
+ *
+ * Note : pour les ADMIN/SUPER_ADMIN, le path est different (/admin/clients/...)
+ * mais ce fallback n'a de sens que pour les CLIENT ; les admins tombent
+ * naturellement sur /admin/overview via leur redirect racine.
+ */
+export function getClientPathForPage(
+  page: PageKey,
+  talkId: number | null
+): string | null {
+  if (page === PAGES.TICKETS) return "/client/ticket";
+  if (talkId == null) return null;
+  const base = `/client/services/talk/${talkId}`;
+  switch (page) {
+    case PAGES.DASHBOARD:
+      return base;
+    case PAGES.PARAMETRAGE:
+      return `${base}/parametrage`;
+    case PAGES.MAPPING_EXAM:
+      return `${base}/parametrage/mapping_exam`;
+    case PAGES.QUESTIONS_EXAM:
+      return `${base}/parametrage/questions_exam`;
+    case PAGES.INFORMATIONNEL:
+      return `${base}/informationnel`;
+    case PAGES.PLANNING_COMPLET:
+      return `${base}/planning-complet`;
+    case PAGES.ORDONNANCES:
+      return `${base}/ordonnances-manquantes`;
+    case PAGES.INCIDENTS:
+      return `${base}/incidents`;
+    case PAGES.CALLS:
+      return `${base}/calls`;
+    case PAGES.STATS_APPEL:
+      return `${base}/stats_appel`;
+    case PAGES.STATS_NO_SHOW:
+      return `${base}/stats-no-show`;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Retourne l'URL de la premiere page accessible pour ce subject, en suivant
+ * PAGE_PRIORITY. Renvoie null si aucune page n'est accessible OU si toutes
+ * les pages accessibles necessitent un talkId non fourni.
+ *
+ * Fallback ultime si null : "/client" (empty state qui affiche "Aucun
+ * produit trouve").
+ */
+export function getFirstAccessiblePath(
+  subject: PermissionSubject,
+  talkId: number | null
+): string | null {
+  for (const page of PAGE_PRIORITY) {
+    if (!hasPermission(subject, page, "read")) continue;
+    const url = getClientPathForPage(page, talkId);
+    if (url) return url;
+  }
+  return null;
 }
