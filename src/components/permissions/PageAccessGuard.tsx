@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Alert, Box, Button, Container } from "@mui/material";
-import { getPageFromPathname } from "@/lib/pageAccess";
-import { hasPermission, getAccessiblePages, PAGES } from "@/lib/permissions";
+import { getFirstAccessiblePath, getPageFromPathname } from "@/lib/pageAccess";
+import { hasPermission } from "@/lib/permissions";
 
 /**
  * PageAccessGuard (chantier 3, Lot B).
@@ -18,8 +18,10 @@ import { hasPermission, getAccessiblePages, PAGES } from "@/lib/permissions";
  *   - Si aucune page mapped (page utilitaire type /client/profile) : laisse
  *     passer (les permissions granulaires ne s'appliquent pas)
  *   - Si l'user a hasPermission(page, "read") : rend children
- *   - Sinon : affiche un message "acces refuse" + bouton retour vers une page
- *     accessible (premier item disponible)
+ *   - Sinon : affiche un message "acces refuse" + boutons de retour vers une
+ *     page accessible (premiere page selon PAGE_PRIORITY, avec le vrai talkId
+ *     du user resolu via /api/users/[id]/products — qui gere l'heritage
+ *     parent pour les sous-comptes)
  *
  * Enveloppe uniquement les enfants du DashboardLayout (pas les pages publiques
  * /authentication, /c/*, /d/*). Cote root layout, on ne monte le guard que
@@ -29,48 +31,46 @@ export default function PageAccessGuard({ children }: { children: React.ReactNod
   const { data: session, status } = useSession();
   const pathname = usePathname();
   const router = useRouter();
-  const [checked, setChecked] = useState(false);
+  const [talkId, setTalkId] = useState<number | null>(null);
+  const userId = session?.user?.id;
 
   const requiredPage = useMemo(() => getPageFromPathname(pathname ?? ""), [pathname]);
 
+  // Fetch talkId (userProductId LyraeTalk) pour construire le fallbackUrl
+  // dynamiquement. Ne bloque pas l'affichage : on rend children des qu'on
+  // a le verdict permissions, le talkId ne sert qu'au bouton de fallback.
   useEffect(() => {
-    // Session encore en chargement : ne juge pas encore.
-    if (status !== "authenticated") {
-      setChecked(false);
-      return;
-    }
-    setChecked(true);
-  }, [status, requiredPage, pathname]);
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/users/${userId}/products`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (Array.isArray(data)) {
+          const talk = data.find((p: any) => p?.name === "LyraeTalk");
+          setTalkId(talk?.id ?? null);
+        }
+      } catch {
+        // silencieux : fallback pointera juste vers /client
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   // Pas encore de session ou page hors mapping : rend directement les enfants.
-  // Le check de permissions ne s'applique qu'aux pages du mapping.
   if (status !== "authenticated" || !requiredPage) {
     return <>{children}</>;
   }
-
-  // Verification (defensive : session.user devrait etre defini quand status
-  // === "authenticated", mais on garde le check pour eviter un crash TS).
   if (!session?.user) return <>{children}</>;
 
   const allowed = hasPermission(session.user as any, requiredPage, "read");
   if (allowed) return <>{children}</>;
 
-  // Refus : propose une page accessible en fallback. Prefere DASHBOARD si
-  // disponible, sinon la premiere page accessible.
-  const accessible = getAccessiblePages(session.user as any);
-  const fallbackPage = accessible.includes(PAGES.DASHBOARD)
-    ? PAGES.DASHBOARD
-    : accessible[0];
-
-  const fallbackUrl = fallbackPage === PAGES.TICKETS
-    ? "/client/ticket"
-    : "/client";
-
-  // Auto-redirect apres 3s pour ne pas coincer l'user si le clic est deja
-  // fait ailleurs. Ecran de refus reste visible pendant les 3s pour info.
-  if (checked && !allowed) {
-    // Delegue au button click ou au timeout
-  }
+  const fallbackUrl =
+    getFirstAccessiblePath(session.user as any, talkId) ?? "/client";
 
   return (
     <Container maxWidth="sm" sx={{ py: 8 }}>
