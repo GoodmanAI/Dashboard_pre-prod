@@ -12,14 +12,17 @@ import {
   Select,
   Snackbar,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
 import { WarningAmber, CheckCircle, Phone, Event, MedicalServices } from "@mui/icons-material";
-import { IconInfoCircle } from "@tabler/icons-react";
+import { IconInfoCircle, IconAlertTriangle } from "@tabler/icons-react";
 import { io as ioClient, Socket } from "socket.io-client";
 import SectionHeader from "@/components/admin/SectionHeader";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
+import RejectedPrescriptionsPanel from "@/components/prescriptions/RejectedPrescriptionsPanel";
 import {
   ALERT_AFTER_HOURS_MAX,
   ALERT_AFTER_HOURS_MIN,
@@ -129,6 +132,9 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolving, setResolving] = useState<Set<number>>(new Set());
+  // Chantier prescriptions rejected 2026-08-04 : tab actif entre les 2 vues
+  const [tab, setTab] = useState<"pending" | "rejected">("pending");
+  const [rejectedCount, setRejectedCount] = useState<number>(0);
   const [snack, setSnack] = useState<{ open: boolean; msg: string; sev: "success" | "error" | "info" }>(
     { open: false, msg: "", sev: "success" }
   );
@@ -154,20 +160,31 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch(
-          `/api/prescriptions/alerts?userProductId=${userProductId}&hoursThreshold=${hours}`,
-          { cache: "no-store" }
-        );
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+        // Fetch en parallele : alertes pending + count rejected (pour le badge tab)
+        const [alertsRes, countRes] = await Promise.all([
+          fetch(
+            `/api/prescriptions/alerts?userProductId=${userProductId}&hoursThreshold=${hours}`,
+            { cache: "no-store" }
+          ),
+          fetch(`/api/prescriptions/alerts/count?userProductId=${userProductId}`, {
+            cache: "no-store",
+          }),
+        ]);
+        if (!alertsRes.ok) throw new Error(`HTTP ${alertsRes.status}`);
+        const data = await alertsRes.json();
         setItems(Array.isArray(data.items) ? data.items : []);
         if (Number.isFinite(data?.defaultHours)) {
           setDefaultHours(data.defaultHours);
         }
-        // Le serveur peut clamp/ignorer le param si hors bornes, on realigne
-        // le state UI sur la valeur effectivement appliquee
         if (Number.isFinite(data?.thresholdHours) && data.thresholdHours !== hours) {
           setThresholdHours(data.thresholdHours);
+        }
+        // Count rejected pour le badge du tab (non-bloquant)
+        if (countRes.ok) {
+          const cnt = await countRes.json();
+          if (Number.isFinite(cnt?.rejectedCount)) {
+            setRejectedCount(cnt.rejectedCount);
+          }
         }
       } catch (err: any) {
         setError(err?.message || "Impossible de charger les alertes");
@@ -316,19 +333,67 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
       <Box>
         <SectionHeader
           title="Ordonnances manquantes"
-          subtitle="Patients dont le lien de depot a ete envoye il y a plus de X heures sans upload"
+          subtitle="Patients dont le lien de depot a ete envoye il y a plus de X heures sans upload, et ordonnances refusees par Xplore"
           actions={
-            <Chip
-              size="small"
-              label={loading ? "chargement…" : `${orderedItems.length} en attente`}
-              sx={{
-                bgcolor: orderedItems.length > 0 ? "rgba(239,68,68,0.15)" : "rgba(72,200,175,0.15)",
-                color: orderedItems.length > 0 ? "#b91c1c" : "#2a6f64",
-                fontWeight: 700,
-              }}
-            />
+            tab === "pending" ? (
+              <Chip
+                size="small"
+                label={loading ? "chargement…" : `${orderedItems.length} en attente`}
+                sx={{
+                  bgcolor: orderedItems.length > 0 ? "rgba(239,68,68,0.15)" : "rgba(72,200,175,0.15)",
+                  color: orderedItems.length > 0 ? "#b91c1c" : "#2a6f64",
+                  fontWeight: 700,
+                }}
+              />
+            ) : (
+              <Chip
+                size="small"
+                label={`${rejectedCount} refusees Xplore`}
+                sx={{
+                  bgcolor: rejectedCount > 0 ? "rgba(239,68,68,0.15)" : "rgba(72,200,175,0.15)",
+                  color: rejectedCount > 0 ? "#b91c1c" : "#2a6f64",
+                  fontWeight: 700,
+                }}
+              />
+            )
           }
         />
+
+        {/* Tabs : En attente patient / Refusees par Xplore (chantier 2026-08-04) */}
+        <Card sx={{ mb: 2, borderRadius: 2 }}>
+          <Tabs
+            value={tab}
+            onChange={(_, v) => setTab(v)}
+            sx={{
+              px: 2,
+              "& .MuiTab-root": { textTransform: "none", fontWeight: 600, minHeight: 48 },
+              "& .Mui-selected": { color: "#48C8AF" },
+              "& .MuiTabs-indicator": { backgroundColor: "#48C8AF" },
+            }}
+          >
+            <Tab
+              value="pending"
+              icon={<WarningAmber sx={{ fontSize: 18 }} />}
+              iconPosition="start"
+              label={`En attente patient (${orderedItems.length})`}
+            />
+            <Tab
+              value="rejected"
+              icon={<IconAlertTriangle size={18} />}
+              iconPosition="start"
+              label={`Refusees Xplore (${rejectedCount})`}
+            />
+          </Tabs>
+        </Card>
+
+        {/* Contenu du tab REJECTED */}
+        {tab === "rejected" && userProductId && (
+          <RejectedPrescriptionsPanel userProductId={Number(userProductId)} />
+        )}
+
+        {/* Contenu du tab PENDING (comportement historique de la page) */}
+        {tab === "pending" && (
+          <>
 
         {/* Barre de filtres : timeline + type d'examen */}
         <Card
@@ -584,6 +649,8 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               );
             })}
           </Stack>
+        )}
+          </>
         )}
 
         <Snackbar
