@@ -68,6 +68,18 @@ export async function POST(
 
   const rejected = body?.rejected === true;
   const reason = typeof body?.reason === "string" ? body.reason : null;
+  // Champs optionnels (spec chantier prescriptions rejected 2026-08-04) :
+  // AI2Xplore peut envoyer attempts (nb tentatives Xplore) et errorType
+  // (categorie technique, ex: "xplore_500", "xplore_timeout", "file_rejected").
+  // Backward-compat : absents = null.
+  const rejectAttempts =
+    Number.isFinite(body?.attempts) && body.attempts >= 0
+      ? Number(body.attempts)
+      : null;
+  const rejectErrorType =
+    typeof body?.errorType === "string" && body.errorType.length > 0
+      ? body.errorType.slice(0, 64)
+      : null;
 
   const ackedAtParam =
     typeof body?.ackedAt === "string" ? new Date(body.ackedAt) : null;
@@ -78,10 +90,11 @@ export async function POST(
     id: number;
     status: string;
     ackedAt: Date | null;
+    rejectedAt: Date | null;
     externalCenterCode: string;
     examType: string | null;
   }>(
-    `SELECT "id", "status", "ackedAt", "externalCenterCode", "examType"
+    `SELECT "id", "status", "ackedAt", "rejectedAt", "externalCenterCode", "examType"
        FROM "PrescriptionUpload"
       WHERE "id" = $1
       LIMIT 1`,
@@ -95,24 +108,124 @@ export async function POST(
 
   // ---- CAS REJECTED ----
   if (rejected) {
+    // Idempotence : si deja REJECTED, on met a jour le reason/attempts mais
+    // on n'incremente pas les stats une seconde fois. Utile si AI2Xplore
+    // re-appelle le meme ack apres avoir change son message d'erreur.
+    const alreadyRejected =
+      record.status === "REJECTED" || record.rejectedAt !== null;
+
+    if (alreadyRejected) {
+      await db.query(
+        `UPDATE "PrescriptionUpload"
+            SET "rejectReason"    = COALESCE($2, "rejectReason"),
+                "rejectAttempts"  = COALESCE($3, "rejectAttempts"),
+                "rejectErrorType" = COALESCE($4, "rejectErrorType")
+          WHERE "id" = $1`,
+        [record.id, reason, rejectAttempts, rejectErrorType]
+      );
+
+      // Log l'update comme reject_failed pour tracer la re-tentative
+      try {
+        await db.query(
+          `INSERT INTO "PrescriptionAccessLog"
+             ("uploadId", "action", "actorType", "actorIp", "success", "errorReason")
+           VALUES ($1, 'reject_failed', 'bot', $2::inet, false, $3)`,
+          [record.id, actorIp, reason ?? "rejected update"]
+        );
+      } catch (err) {
+        console.error("[prescriptions/ack] re-reject audit log failed:", err);
+      }
+
+      return NextResponse.json(
+        {
+          status: "REJECTED",
+          ackedAt: null,
+          alreadyAcked: false,
+          alreadyRejected: true,
+          rejectionLogged: true,
+        },
+        { status: 200 }
+      );
+    }
+
+    // Refus sur ACKED : incoherent, on log mais on ne bascule pas en REJECTED
+    // (l'ordonnance a deja ete traitee avec succes une fois, un ack rejected
+    // apres coup = bug cote AI2Xplore ou remontee tardive a ignorer)
+    if (record.status === "ACKED") {
+      try {
+        await db.query(
+          `INSERT INTO "PrescriptionAccessLog"
+             ("uploadId", "action", "actorType", "actorIp", "success", "errorReason")
+           VALUES ($1, 'reject_failed', 'bot', $2::inet, false, $3)`,
+          [record.id, actorIp, `rejected apres ACKED: ${reason ?? "(no reason)"}`]
+        );
+      } catch (err) {
+        console.error("[prescriptions/ack] reject after ACKED log failed:", err);
+      }
+      return NextResponse.json(
+        {
+          status: "ACKED",
+          ackedAt: record.ackedAt,
+          alreadyAcked: true,
+          rejectionIgnored: true,
+        },
+        { status: 200 }
+      );
+    }
+
+    // Cas nominal : premiere reception d'un rejected → bascule status
+    await db.query(
+      `UPDATE "PrescriptionUpload"
+          SET "status"          = 'REJECTED',
+              "rejectedAt"      = NOW(),
+              "rejectReason"    = $2,
+              "rejectAttempts"  = $3,
+              "rejectErrorType" = $4
+        WHERE "id" = $1`,
+      [record.id, reason, rejectAttempts, rejectErrorType]
+    );
+
+    // Compteur agregat rejected (par centre × type × jour)
     try {
       await db.query(
         `
-        INSERT INTO "PrescriptionAccessLog"
-          ("uploadId", "action", "actorType", "actorIp", "success", "errorReason")
-        VALUES ($1, 'ack', 'bot', $2::inet, false, $3)
+        INSERT INTO "PrescriptionStats"
+          ("externalCenterCode", "examType", "day",
+           "requested", "uploaded", "acked", "alerted", "rejected", "updatedAt")
+        VALUES (
+          $1, $2,
+          (NOW() AT TIME ZONE 'Europe/Paris')::date,
+          0, 0, 0, 0, 1, NOW()
+        )
+        ON CONFLICT ("externalCenterCode", (COALESCE("examType", 'unknown')), "day")
+        DO UPDATE
+          SET "rejected"  = "PrescriptionStats"."rejected" + 1,
+              "updatedAt" = NOW()
         `,
-        [record.id, actorIp, reason ? `rejected: ${reason}` : "rejected (no reason)"]
+        [record.externalCenterCode, record.examType]
+      );
+    } catch (err) {
+      console.error("[prescriptions/ack] stats rejected upsert failed:", err);
+    }
+
+    // Audit log : reject_failed (nouvelle action)
+    try {
+      await db.query(
+        `INSERT INTO "PrescriptionAccessLog"
+           ("uploadId", "action", "actorType", "actorIp", "success", "errorReason")
+         VALUES ($1, 'reject_failed', 'bot', $2::inet, false, $3)`,
+        [record.id, actorIp, reason ?? "rejected (no reason)"]
       );
     } catch (err) {
       console.error("[prescriptions/ack] audit log rejection failed:", err);
     }
+
     return NextResponse.json(
       {
-        status: record.status,
-        ackedAt: record.ackedAt,
-        alreadyAcked: record.ackedAt !== null,
-        rejectionLogged: true,
+        status: "REJECTED",
+        ackedAt: null,
+        alreadyAcked: false,
+        rejected: true,
       },
       { status: 200 }
     );
