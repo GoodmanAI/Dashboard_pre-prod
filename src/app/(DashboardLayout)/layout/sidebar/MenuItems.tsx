@@ -115,6 +115,12 @@ const Menuitems: SidebarItem[] = [
   },
   {
     id: uniqueId(),
+    title: "Stats ordonnances",
+    icon: IconFileAlert,
+    href: "/client/services/talk/{TALK_ID}/stats-ordonnances",
+  },
+  {
+    id: uniqueId(),
     title: "Ordonnances manquantes",
     icon: IconFileAlert,
     href: "/client/services/talk/{TALK_ID}/ordonnances-manquantes",
@@ -228,6 +234,12 @@ export const AdminMenuitems: SidebarItem[] = [
     title: "Stats No-Show",
     icon: IconMessage2,
     href: "/client/services/talk/{TALK_ID}/stats-no-show",
+  },
+  {
+    id: uniqueId(),
+    title: "Stats ordonnances",
+    icon: IconFileAlert,
+    href: "/client/services/talk/{TALK_ID}/stats-ordonnances",
   },
   {
     id: uniqueId(),
