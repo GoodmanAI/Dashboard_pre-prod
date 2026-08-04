@@ -32,6 +32,7 @@ const PATH_MATCHERS: Array<{ pattern: RegExp; page: PageKey }> = [
   { pattern: /\/services\/talk\/\d+\/ordonnances-manquantes(?:\/|$)/, page: PAGES.ORDONNANCES },
   { pattern: /\/services\/talk\/\d+\/incidents(?:\/|$)/, page: PAGES.INCIDENTS },
   { pattern: /\/services\/talk\/\d+\/stats-no-show(?:\/|$)/, page: PAGES.STATS_NO_SHOW },
+  { pattern: /\/services\/talk\/\d+\/stats-ordonnances(?:\/|$)/, page: PAGES.STATS_ORDONNANCES },
   { pattern: /\/services\/talk\/\d+\/stats_appel(?:\/|$)/, page: PAGES.STATS_APPEL },
   { pattern: /\/services\/talk\/\d+\/calls(?:\/|$)/, page: PAGES.CALLS },
 
@@ -79,6 +80,7 @@ export const PAGE_PRIORITY: PageKey[] = [
   PAGES.STATS_APPEL,
   PAGES.CALLS,
   PAGES.STATS_NO_SHOW,
+  PAGES.STATS_ORDONNANCES,
   PAGES.PLANNING_COMPLET,
   PAGES.INCIDENTS,
   PAGES.INFORMATIONNEL,
@@ -129,6 +131,8 @@ export function getClientPathForPage(
       return `${base}/stats_appel`;
     case PAGES.STATS_NO_SHOW:
       return `${base}/stats-no-show`;
+    case PAGES.STATS_ORDONNANCES:
+      return `${base}/stats-ordonnances`;
     default:
       return null;
   }

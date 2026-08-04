@@ -65,7 +65,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ userProductId, count: 0, thresholdHours });
   }
 
-  const countRes = await db.query<{ count: string }>(
+  // Count uploads PENDING > seuil (alertes "patient n'a rien depose")
+  const pendingRes = await db.query<{ count: string }>(
     `
     SELECT COUNT(*)::text AS count
       FROM "PrescriptionUpload"
@@ -77,7 +78,28 @@ export async function GET(req: NextRequest) {
     [codes, thresholdHours]
   );
 
-  const count = Number(countRes.rows[0]?.count ?? 0);
+  // Count uploads REJECTED non resolus (alertes "Xplore a refuse, a traiter
+  // manuellement", chantier prescriptions rejected 2026-08-04)
+  const rejectedRes = await db.query<{ count: string }>(
+    `
+    SELECT COUNT(*)::text AS count
+      FROM "PrescriptionUpload"
+     WHERE "externalCenterCode" = ANY($1::text[])
+       AND "status" = 'REJECTED'
+       AND "manualResolvedAt" IS NULL
+    `,
+    [codes]
+  );
 
-  return NextResponse.json({ userProductId, count, thresholdHours });
+  const pendingCount = Number(pendingRes.rows[0]?.count ?? 0);
+  const rejectedCount = Number(rejectedRes.rows[0]?.count ?? 0);
+  const count = pendingCount + rejectedCount;
+
+  return NextResponse.json({
+    userProductId,
+    count,           // total (retrocompat : le hook usePrescriptionAlertsCount lit cette cle)
+    pendingCount,    // detail pour tooltip / breakdown UI
+    rejectedCount,
+    thresholdHours,
+  });
 }
