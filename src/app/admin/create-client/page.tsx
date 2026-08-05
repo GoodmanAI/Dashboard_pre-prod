@@ -17,6 +17,12 @@ import {
   Divider,
   Chip,
   FormControlLabel,
+  FormControl,
+  InputLabel,
+  Radio,
+  RadioGroup,
+  Select,
+  MenuItem,
   Switch,
 } from "@mui/material";
 import {
@@ -27,6 +33,7 @@ import {
   IconId,
   IconPackage,
   IconUserShield,
+  IconBuildingCommunity,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elements/CustomTextField";
@@ -46,6 +53,12 @@ export default function CreateClientPage() {
   const [name, setName] = useState("");
   const [isSecretary, setIsSecretary] = useState(false);
   const [talkProductId, setTalkProductId] = useState<number | null>(null);
+
+  // Chantier 2026-08-05 : rattachement multi-centres expose dans l'UI
+  // 3 modes : autonome (defaut) / manager (ADMIN_USER) / rattache (USER + managerId)
+  const [multiCentreMode, setMultiCentreMode] = useState<"autonome" | "manager" | "rattache">("autonome");
+  const [selectedParentId, setSelectedParentId] = useState<number | "">("");
+  const [availableParents, setAvailableParents] = useState<Array<{ id: number; name: string | null; email: string }>>([]);
 
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -70,8 +83,35 @@ export default function CreateClientPage() {
     run();
   }, []);
 
+  // Chantier 2026-08-05 : fetch liste des CLIENT existants (potentiels parents)
+  // pour peupler le dropdown du mode "rattache". Utilise /api/admin/users
+  // (chantier 3) qui est SUPER_ADMIN only, filtre role=CLIENT.
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const res = await fetch("/api/admin/users?role=CLIENT");
+        if (!res.ok) return;
+        const data = await res.json();
+        // Ne garder que les compte "principal" (permissions=null) qui peuvent
+        // etre parents. On exclut les sous-comptes (permissions custom set).
+        const parents = (data.users ?? []).filter(
+          (u: any) => u.permissions == null && u.managerId == null
+        );
+        setAvailableParents(parents);
+      } catch (err) {
+        console.error("Error fetching potential parents:", err);
+      }
+    };
+    run();
+  }, []);
+
   const handleOpenDialog = (e: React.FormEvent) => {
     e.preventDefault();
+    // Chantier 2026-08-05 : validation front pour le mode "rattache"
+    if (multiCentreMode === "rattache" && typeof selectedParentId !== "number") {
+      setErrorMessage("Selectionne un compte parent pour un compte rattache.");
+      return;
+    }
     setOpenDialog(true);
   };
   const handleCloseDialog = () => setOpenDialog(false);
@@ -89,11 +129,31 @@ export default function CreateClientPage() {
       ? [{ productId: talkProductId, assignedAt: new Date().toISOString() }]
       : [];
 
+    // Chantier 2026-08-05 : rattachement multi-centres selon le mode choisi
+    const centreRole =
+      multiCentreMode === "manager"
+        ? "ADMIN_USER"
+        : multiCentreMode === "rattache"
+        ? "USER"
+        : null;
+    const managerId =
+      multiCentreMode === "rattache" && typeof selectedParentId === "number"
+        ? selectedParentId
+        : null;
+
     try {
       const response = await fetch("/api/admin/create-client", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name, products, isSecretary }),
+        body: JSON.stringify({
+          email,
+          password,
+          name,
+          products,
+          isSecretary,
+          centreRole,
+          managerId,
+        }),
       });
       const data = await response.json();
 
@@ -103,6 +163,8 @@ export default function CreateClientPage() {
         setPassword("");
         setName("");
         setIsSecretary(false);
+        setMultiCentreMode("autonome");
+        setSelectedParentId("");
       } else if (data.error && data.details) {
         setErrors(data.details);
         setErrorMessage(data.error);
@@ -281,6 +343,105 @@ export default function CreateClientPage() {
                     }
                     label=""
                   />
+                </Box>
+
+                {/* --- Rattachement multi-centres (chantier 2026-08-05) --- */}
+                <Typography
+                  variant="overline"
+                  sx={{ color: "#2a6f64", fontWeight: 700, letterSpacing: 1 }}
+                >
+                  Rattachement multi-centres
+                </Typography>
+                <Divider sx={{ mb: 2, mt: 0.5 }} />
+
+                <Box sx={{ mb: 3 }}>
+                  <FormControl>
+                    <RadioGroup
+                      value={multiCentreMode}
+                      onChange={(_, v) => setMultiCentreMode(v as any)}
+                    >
+                      <FormControlLabel
+                        value="autonome"
+                        control={<Radio sx={{ color: "#48C8AF", "&.Mui-checked": { color: "#48C8AF" } }} />}
+                        label={
+                          <Box>
+                            <Typography variant="body2" fontWeight={600}>Compte autonome</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Centre independant, sans lien avec d&apos;autres centres (defaut)
+                            </Typography>
+                          </Box>
+                        }
+                        sx={{ alignItems: "flex-start", mb: 1 }}
+                      />
+                      <FormControlLabel
+                        value="manager"
+                        control={<Radio sx={{ color: "#48C8AF", "&.Mui-checked": { color: "#48C8AF" } }} />}
+                        label={
+                          <Box>
+                            <Typography variant="body2" fontWeight={600}>Compte parent d&apos;un groupement multi-sites</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Ce compte gerera d&apos;autres centres (ex: Quimper pour RIM29SUD).
+                              Le selecteur de centre du header affichera les centres rattaches.
+                            </Typography>
+                          </Box>
+                        }
+                        sx={{ alignItems: "flex-start", mb: 1 }}
+                      />
+                      <FormControlLabel
+                        value="rattache"
+                        control={<Radio sx={{ color: "#48C8AF", "&.Mui-checked": { color: "#48C8AF" } }} />}
+                        label={
+                          <Box>
+                            <Typography variant="body2" fontWeight={600}>Compte rattache a un centre parent</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Ce compte fera partie d&apos;un groupement (ex: Fouesnand rattache a Quimper).
+                            </Typography>
+                          </Box>
+                        }
+                        sx={{ alignItems: "flex-start", mb: 1 }}
+                      />
+                    </RadioGroup>
+                  </FormControl>
+
+                  {/* Dropdown compte parent (visible uniquement mode "rattache") */}
+                  {multiCentreMode === "rattache" && (
+                    <Box sx={{ mt: 2, pl: 4 }}>
+                      <FieldLabel icon={<IconBuildingCommunity size={16} />} text="Compte parent" />
+                      <FormControl fullWidth size="small">
+                        <InputLabel id="parent-select-label">Choisir un centre parent</InputLabel>
+                        <Select
+                          labelId="parent-select-label"
+                          label="Choisir un centre parent"
+                          value={selectedParentId}
+                          onChange={(e) => setSelectedParentId(Number(e.target.value) as any)}
+                          disabled={loading || availableParents.length === 0}
+                        >
+                          {availableParents.length === 0 && (
+                            <MenuItem value="" disabled>
+                              Aucun compte parent disponible
+                            </MenuItem>
+                          )}
+                          {availableParents.map((p) => (
+                            <MenuItem key={p.id} value={p.id}>
+                              {p.name ?? p.email}
+                              <Typography
+                                component="span"
+                                sx={{ color: "text.secondary", ml: 1, fontSize: 12 }}
+                              >
+                                (id {p.id})
+                              </Typography>
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      {availableParents.length === 0 && (
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                          Aucun compte CLIENT principal disponible comme parent.
+                          Cree d&apos;abord un compte en mode &laquo; autonome &raquo; ou &laquo; parent multi-sites &raquo;.
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
                 </Box>
 
                 {/* --- Produit affecté (info) --- */}

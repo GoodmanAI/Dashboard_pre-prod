@@ -32,6 +32,15 @@ const CreateUserSchema = z.object({
 
   isSecretary: z.boolean().optional(),
 
+  // Chantier 2026-08-05 : multi-centres exposé dans l'UI create-client.
+  // 3 modes possibles :
+  //   - autonome (defaut) : centreRole=null, managerId=null (comportement historique)
+  //   - manager multi-sites : centreRole='ADMIN_USER', managerId=null
+  //     (le compte cree gerera d'autres centres via managerId inverse)
+  //   - rattache : centreRole='USER', managerId=<id du compte parent CLIENT>
+  centreRole: z.enum(["ADMIN_USER", "USER"]).nullable().optional(),
+  managerId: z.number().int().positive().nullable().optional(),
+
   products: z
     .array(
       z.object({
@@ -73,11 +82,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { email, password, name, products, isSecretary } = parseResult.data;
+    const {
+      email,
+      password,
+      name,
+      products,
+      isSecretary,
+      centreRole,
+      managerId,
+    } = parseResult.data;
     // Le schema Zod applique déjà trim + lowercase à `email` (cf. transform
     // ci-dessus). On garde le nom `normalizedEmail` pour ne pas toucher au
     // reste du fichier.
     const normalizedEmail = email;
+
+    // Chantier 2026-08-05 : validations metier multi-centres
+    //   - USER requiert un managerId (compte parent CLIENT existant)
+    //   - ADMIN_USER n'accepte pas de managerId (c'est LUI le parent)
+    //   - managerId doit pointer vers un CLIENT existant
+    if (centreRole === "USER" && !managerId) {
+      return NextResponse.json(
+        { error: "managerId requis pour un compte USER (rattache a un parent)" },
+        { status: 400 }
+      );
+    }
+    if (centreRole === "ADMIN_USER" && managerId) {
+      return NextResponse.json(
+        { error: "managerId ne doit pas etre fourni pour un compte ADMIN_USER (c'est LUI le parent)" },
+        { status: 400 }
+      );
+    }
+    if (managerId) {
+      const parent = await prisma.user.findUnique({
+        where: { id: managerId },
+        select: { id: true, role: true },
+      });
+      if (!parent || parent.role !== "CLIENT") {
+        return NextResponse.json(
+          { error: "managerId invalide : le compte parent doit etre un CLIENT existant" },
+          { status: 400 }
+        );
+      }
+    }
 
     // Vérifier si un utilisateur avec cet email ou nom existe déjà
     const existingUser = await prisma.user.findFirst({
@@ -105,7 +151,8 @@ export async function POST(request: NextRequest) {
     // Hash du mot de passe
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Création du client
+    // Création du client (chantier 2026-08-05 : + centreRole + managerId
+    // pour le rattachement multi-centres exposé via l'UI create-client)
     const newUser = await prisma.user.create({
       data: {
         email: normalizedEmail,
@@ -113,6 +160,8 @@ export async function POST(request: NextRequest) {
         name,
         role: "CLIENT",
         isSecretary: isSecretary ?? false,
+        centreRole: centreRole ?? null,
+        managerId: managerId ?? null,
       },
     });
 

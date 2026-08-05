@@ -60,7 +60,8 @@ export async function GET(request: NextRequest) {
 
   // 2) Hydrate le contexte d’appelant (id/role) et charge le centreRole si compte “centre”
   const sessionUserId = Number(session.user.id)
-  const sessionRole = session.user.role as 'ADMIN' | 'CLIENT'
+  const sessionRole = session.user.role as 'SUPER_ADMIN' | 'ADMIN' | 'CLIENT'
+  const isAdminLike = sessionRole === 'ADMIN' || sessionRole === 'SUPER_ADMIN'
   const currentUser = await prisma.user.findUnique({
     where: { id: sessionUserId },
     select: { centreRole: true },
@@ -76,9 +77,9 @@ export async function GET(request: NextRequest) {
 
   try {
     // -------------------------------------------------------------------------
-    // Cas A — Rôle ADMIN : visibilité globale, avec ou sans filtre asUserId
+    // Cas A — Rôle ADMIN ou SUPER_ADMIN : visibilité globale, avec ou sans filtre asUserId
     // -------------------------------------------------------------------------
-    if (sessionRole === 'ADMIN') {
+    if (isAdminLike) {
       // A1) Sans asUserId : retourne tous les produits et leurs centres affiliés
       if (!asUserId) {
         const products = await prisma.product.findMany({
