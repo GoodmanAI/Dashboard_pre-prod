@@ -1007,7 +1007,11 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
     ["mammo", "Mammographie"],
   ] as [ExamKey, string][]).map(([key, label]) => {
 
-    const current = settings.fullPlanningNotes[key];
+    // Safe chaining : un centre fraichement provisionne peut avoir
+    // fullPlanningNotes = {} (JSON vide), auquel cas fullPlanningNotes[key]
+    // = undefined et current.type crashait la page (2026-08-05).
+    // Fallback sur {} garantit que current.type = undefined (pas crash).
+    const current = settings.fullPlanningNotes?.[key] ?? {};
 
     return (
       <Box key={key}>
