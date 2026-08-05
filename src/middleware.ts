@@ -16,6 +16,12 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   /^\/api\/configuration\/get\/mapping\/getLibelle$/,
   /^\/api\/configuration\/get\/is_open$/,
   /^\/api\/configuration$/,
+  // Module Info FAQ patient (chantier 2026-08-05) : endpoint public consomme
+  // par la brique Azure Functions module_info. Auth via X-Api-Key
+  // (MODULE_INFO_API_KEY) cote handler.
+  //  - GET /api/module-info/[userProductId] : public + API key
+  //  - /api/module-info/items[/id] : session admin, PAS whitelist ici
+  /^\/api\/module-info\/\d+$/,
   // Confirmation de RDV par SMS :
   //  - /api/rdv/init, /api/rdv/pending-events, /api/rdv/ack → API key (handler)
   //  - /api/rdv/[token], /api/rdv/[token]/respond → public, protégés par le token

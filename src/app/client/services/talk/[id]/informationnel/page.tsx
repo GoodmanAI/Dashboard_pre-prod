@@ -19,6 +19,7 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SaveIcon from "@mui/icons-material/Save";
 import { useSession } from "next-auth/react";
+import ModuleInfoAdmin from "@/components/moduleInfo/ModuleInfoAdmin";
 
 // const emptyDay: DayHours = { enabled: false, ranges: [] };
 
@@ -386,6 +387,24 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
         <Alert severity="info" sx={{ mb: 2 }}>
           Mode lecture seule — votre compte secrétaire ne permet pas de modifier la configuration.
         </Alert>
+      )}
+
+      {/* ==================================================================
+          Module Info FAQ patient (chantier 2026-08-05).
+          Bloc en tete de page : geree separement des autres champs. Sauvegarde
+          immediate par Q/R + webhook Azure fire-and-forget a chaque mutation.
+          ================================================================== */}
+      {!readOnly && Number.isFinite(userProductId) && (
+        <Accordion defaultExpanded sx={{ mb: 3 }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              FAQ patient (bot d&apos;accueil)
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <ModuleInfoAdmin userProductId={userProductId} />
+          </AccordionDetails>
+        </Accordion>
       )}
 
       <Box
