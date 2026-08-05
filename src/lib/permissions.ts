@@ -28,7 +28,6 @@ export const PAGES = {
   STATS: "stats",
   STATS_APPEL: "stats_appel",
   STATS_NO_SHOW: "stats_no_show",
-  STATS_ORDONNANCES: "stats_ordonnances",
   INCIDENTS: "incidents",
   TICKETS: "tickets",
 } as const;
@@ -48,7 +47,6 @@ export const PAGE_LABELS: Record<PageKey, string> = {
   [PAGES.STATS]: "Statistiques",
   [PAGES.STATS_APPEL]: "Stats appels",
   [PAGES.STATS_NO_SHOW]: "Stats no-show",
-  [PAGES.STATS_ORDONNANCES]: "Stats ordonnances",
   [PAGES.INCIDENTS]: "Incidents",
   [PAGES.TICKETS]: "Support (tickets)",
 };
