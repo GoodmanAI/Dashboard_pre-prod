@@ -113,6 +113,11 @@ model UserProduct {
   assignedAt DateTime  @default(now())
   removedAt  DateTime?
 
+  /// Version des Module Info Items (chantier 2026-08-05). Bumpee explicitement
+  /// dans le code applicatif a chaque CRUD sur un ModuleInfoItem du centre.
+  /// Sert de ETag HTTP + payload webhook Azure warm-up.
+  moduleInfoVersion DateTime @default(now())
+
   explainDetails LyraeExplainDetails?
   talkDetails    LyraeTalkDetails?
 
@@ -124,6 +129,7 @@ model UserProduct {
   informationSettings TalkInformationSettings? @relation("TalkInformationSettingsRelation")
   examMappings        ExamMapping[]
   tickets             Ticket[]
+  moduleInfoItems     ModuleInfoItem[]
 
   CallConversations CallConversation[]
 
@@ -330,6 +336,27 @@ model CallConversation {
   createdAt     DateTime @default(now())
 
   userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
+}
+
+/// FAQ patient editee par le client depuis le dashboard (chantier 2026-08-05).
+/// Consommee par la brique Azure Functions module_info via GET public
+/// /api/module-info/[userProductId] avec cache invalidation via ETag / 304.
+/// Une ligne par Q/R. La version agregee vit sur UserProduct.moduleInfoVersion.
+model ModuleInfoItem {
+  id            String   @id
+  userProductId Int
+  question      String
+  reponse       String
+  categorie     String?
+  enabled       Boolean  @default(true)
+  order         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
+
+  @@index([userProductId, enabled, order])
+  @@index([userProductId, categorie])
 }
 
 /// Historique des tentatives de connexion (Phase 2 auth hardening).

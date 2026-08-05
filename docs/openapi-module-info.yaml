@@ -1,0 +1,190 @@
+openapi: 3.1.0
+info:
+  title: Module Info API — Neuracorp Dashboard
+  version: 1.0.0
+  description: |
+    Endpoint public consommé par la brique Azure Functions `module_info`.
+    Fournit la base de Q/R FAQ patient éditée par le client depuis le
+    dashboard Neuracorp.
+
+    Contrat associé à un webhook de warm-up : à chaque mutation d'une Q/R
+    côté dashboard, le dashboard appelle `POST {AZURE_REBUILD_WEBHOOK_URL}`
+    avec `{ userproductID, version }` pour signaler qu'une nouvelle version
+    est disponible et que la base de connaissances doit être reconstruite.
+
+servers:
+  - url: https://dashboard.neuracorp.ai
+    description: Production
+
+paths:
+  /api/module-info/{userProductId}:
+    get:
+      summary: Récupère la base de Q/R d'un centre
+      description: |
+        Retourne les Q/R actives (`enabled=true`) d'un centre identifié
+        par `userProductId`. Supporte le GET conditionnel via `If-None-Match`
+        pour éviter les downloads inutiles quand la version n'a pas changé.
+      operationId: getModuleInfo
+      parameters:
+        - name: userProductId
+          in: path
+          required: true
+          description: |
+            Identifiant du centre côté dashboard (int positif). Clé canonique
+            partagée avec les autres endpoints du dashboard (calls, prescriptions,
+            rdv, etc.).
+          schema:
+            type: integer
+            minimum: 1
+          example: 15
+        - name: X-Api-Key
+          in: header
+          required: true
+          description: |
+            Clé API partagée entre le dashboard et Azure Functions.
+            Valeur = variable d'env `MODULE_INFO_API_KEY` côté dashboard.
+          schema:
+            type: string
+          example: "sk_live_xxxxx"
+        - name: If-None-Match
+          in: header
+          required: false
+          description: |
+            ETag précédemment reçu (format `"<version ISO 8601>"` avec les
+            guillemets doubles). Si égal à la version courante côté
+            dashboard, retourne 304 Not Modified sans body.
+          schema:
+            type: string
+          example: '"2026-08-05T10:22:31.123Z"'
+      responses:
+        "200":
+          description: Base de Q/R actives (version modifiée ou pas d'If-None-Match).
+          headers:
+            ETag:
+              description: |
+                Version courante des Q/R, format `"<ISO 8601>"`. À stocker
+                côté Azure pour le prochain `If-None-Match`.
+              schema:
+                type: string
+              example: '"2026-08-05T10:22:31.123Z"'
+            Cache-Control:
+              schema:
+                type: string
+              example: "no-cache, must-revalidate"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModuleInfoResponse"
+              example:
+                userproductID: "15"
+                site_code: "MEN"
+                version: "2026-08-05T10:22:31.123Z"
+                items:
+                  - id: "urgence-sans-rdv"
+                    question: "En cas d'examen demandé en urgence, est-il possible de se présenter sans rendez-vous ?"
+                    reponse: "Non, tous les examens sont réalisés uniquement sur rendez-vous."
+                    categorie: "Rendez-vous"
+                    enabled: true
+                  - id: "horaires-secretariat"
+                    question: "Quels sont vos horaires d'ouverture ?"
+                    reponse: "Le centre est ouvert du lundi au vendredi de 8h à 19h et le samedi matin de 8h à 12h."
+                    categorie: "Horaires"
+                    enabled: true
+        "304":
+          description: |
+            Version côté dashboard identique à celle passée en `If-None-Match`.
+            Aucun body. L'ETag de la réponse confirme la version courante.
+          headers:
+            ETag:
+              schema:
+                type: string
+              example: '"2026-08-05T10:22:31.123Z"'
+        "400":
+          description: `userProductId` invalide (non-numérique ou <=0).
+        "401":
+          description: Header `X-Api-Key` manquant.
+        "403":
+          description: Clé API invalide.
+        "404":
+          description: Aucun UserProduct correspondant au `userProductId` fourni.
+        "500":
+          description: |
+            Erreur serveur (souvent : `MODULE_INFO_API_KEY` non configurée
+            côté dashboard).
+
+components:
+  schemas:
+    ModuleInfoResponse:
+      type: object
+      required: [userproductID, version, items]
+      properties:
+        userproductID:
+          type: string
+          description: |
+            Identifiant du centre (int converti en string pour cohérence
+            avec les autres briques Lyrae qui manipulent souvent l'id comme
+            string).
+          example: "15"
+        site_code:
+          type: [string, "null"]
+          description: |
+            Code centre externe (RIS/PACS) associé au centre. Correspond au
+            premier `externalCenterCode` de `ExternalCenterMapping` (utilisé
+            aussi par AI2Xplore). Null si aucun mapping.
+          example: "MEN"
+        version:
+          type: string
+          format: date-time
+          description: |
+            Version courante des Q/R (ISO 8601 UTC). Change à chaque
+            mutation (création/édition/suppression/toggle d'un item).
+          example: "2026-08-05T10:22:31.123Z"
+        items:
+          type: array
+          description: |
+            Liste des Q/R actives (enabled=true uniquement). Triée par
+            `order` puis `createdAt` pour stabilité. Peut être vide si
+            aucune Q/R n'a encore été saisie.
+          items:
+            $ref: "#/components/schemas/ModuleInfoItem"
+
+    ModuleInfoItem:
+      type: object
+      required: [id, question, reponse, enabled]
+      properties:
+        id:
+          type: string
+          description: |
+            Slug URL-safe généré à partir de la question (kebab-case,
+            60 chars max, unique par userProductId).
+          example: "urgence-sans-rdv"
+        question:
+          type: string
+          minLength: 1
+          example: "En cas d'examen demandé en urgence, est-il possible de se présenter sans rendez-vous ?"
+        reponse:
+          type: string
+          minLength: 1
+          example: "Non, tous les examens sont réalisés uniquement sur rendez-vous."
+        categorie:
+          type: [string, "null"]
+          description: |
+            Chaîne libre (ex: "Rendez-vous", "Horaires", "Préparation").
+            Sert au regroupement UI côté dashboard, pas au filtrage bot.
+          example: "Rendez-vous"
+        enabled:
+          type: boolean
+          description: |
+            Toujours `true` dans la réponse (les items désactivés sont
+            filtrés côté back). Champ conservé pour clarté et évolution
+            future (ex: query param `?includeDisabled=true`).
+          example: true
+
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+
+security:
+  - apiKeyAuth: []
