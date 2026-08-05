@@ -132,6 +132,10 @@ export async function GET(request: NextRequest) {
                 country: true,
                 userProducts: {
                   select: {
+                    id: true,   // FIX 2026-08-05 : sans le id, le CentreContext ne peut pas
+                                // resoudre le userProductId (talkId) des centres managed
+                                // -> selecteur multi-centres cassait (setSelectedCentreById
+                                // ne trouvait pas le centre par son talkId)
                     assignedAt: true,
                     product: { select: { id: true, name: true, description: true } },
                     explainDetails: {

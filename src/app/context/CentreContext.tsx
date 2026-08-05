@@ -70,7 +70,6 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
   const [allCentres, setAllCentres] = useState<ManagedUser[]>([]);
   const [activeCentreIds, setActiveCentreIdsState] = useState<number[] | null>(null);
   const [selectedCentre, setSelectedCentre] = useState<ManagedUser | null>(null);
-  let currentCentre = (selectedCentre?.userProducts?.find((c: any) => c?.product?.name?.includes("Talk"))?.id || selectedCentre?.id) ?? null;
   const router = useRouter();
   const pathname: any = usePathname();
 
@@ -178,12 +177,14 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
         const res = await fetch("/api/client", { cache: "no-store" });
 
         const data = await res.json();
-        console.log("data", data)
-        currentCentre = data.id;
         if (cancelled) return;
 
         if (data?.centreRole === "ADMIN_USER" && Array.isArray(data?.managedUsers)) {
-          const list: ManagedUser[] = data.managedUsers;
+          // FIX 2026-08-05 : inclure le compte parent (data) EN PLUS des managed.
+          // Sans ca, un ADMIN_USER voit uniquement les centres qu'il manage
+          // mais pas le sien -> impossible de revenir sur son propre centre
+          // via le selecteur multi-centres.
+          const list: ManagedUser[] = [data, ...data.managedUsers];
           setAllCentres(list);
 
           // Restauration d’une sélection précédente si valide, sinon fallback au premier centre.
@@ -292,66 +293,64 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
   }, [pathname, allCentres]);
 
   /**
-   * Change le centre actif et persiste l’ID en localStorage.
+   * Change le centre actif et persiste l'ID en localStorage.
+   *
+   * Le parametre `id` est le userProductId (talkId) du centre cible, envoye
+   * par le <Select> du Header.
+   *
+   * FIX 2026-08-05 : reecriture complete pour supporter proprement le
+   * pattern ADMIN_USER + managerId (multi-centres). L'ancien code faisait
+   * `centres.find((c) => c.userProductId === id)` mais les centres managed
+   * ne exposent pas ce champ directement — juste userProducts[]. On utilise
+   * maintenant getCentreUserProductId() qui gere les 2 cas.
+   *
+   * URL navigation : le talkId courant est lu depuis l'URL (plus fiable que
+   * de dependre du state selectedCentre qui peut etre stale au moment du
+   * clic). Si on est deja sur une page centre (/client/services/talk/N ou
+   * /admin/clients/N), on remplace N par le nouveau talkId. Sinon, on
+   * redirige vers /calls du nouveau centre.
    */
   const setSelectedCentreById = async (id: number) => {
-    let centre: any = centres.find((c) => c.userProductId === id) || null;
-    if (!centre) {
-      centre =
-        centres.find((c: any) =>
-          (c.userProducts ?? []).find((e: any) =>
-            e?.product?.name?.includes("Talk")
-          )
-        ) || centres.find((c: any) => c.userProductId == id);
-    }
-
+    const centre = centres.find((c) => getCentreUserProductId(c) === id) ?? null;
     if (!centre) return;
 
+    const newTalkId = getCentreUserProductId(centre);
+    if (!newTalkId) return;
+
     setSelectedCentre(centre);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, String(centre.id));
+    }
 
-    if (centre) localStorage.setItem(STORAGE_KEY, String(centre.id));
-    else localStorage.removeItem(STORAGE_KEY);
-
-    const userProductId =
-      centre.userProductId ??
-      (centre.userProducts ?? []).find((e: any) =>
-        e?.product?.name?.includes("Talk")
-      )?.id;
-
-    if (!userProductId) return;
-
-    const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN";
+    const isAdmin =
+      session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN";
     const onClientTalkPath = /^\/client\/services\/talk\/\d+/.test(pathname || "");
     const onAdminClientPath = /^\/admin\/clients\/\d+/.test(pathname || "");
     const canInlineReplace = onClientTalkPath || onAdminClientPath;
 
-    // Si l'utilisateur n'est pas déjà sur une page centre (talk/clients), redirection vers la
-    // page d'appels du centre fraîchement sélectionné, en respectant le préfixe lié au rôle.
+    // Cas 1 : pas sur une page centre -> redirect vers /calls du nouveau
     if (!canInlineReplace) {
-      if (userProductId) {
-        const target = isAdmin
-          ? `/admin/clients/${userProductId}/calls`
-          : `/client/services/talk/${userProductId}/calls`;
-        router.push(target);
-        router.refresh();
-      }
+      const target = isAdmin
+        ? `/admin/clients/${newTalkId}/calls`
+        : `/client/services/talk/${newTalkId}/calls`;
+      router.push(target);
+      router.refresh();
       return;
     }
 
-    let regex = new RegExp(`/${currentCentre}(?=/|$)`);
-    let newPath = "";
+    // Cas 2 : deja sur une page centre -> remplacer le talkId dans l'URL.
+    // On lit le talkId courant depuis l'URL (source de verite), pas depuis
+    // le state.
+    const currentUpidMatch = pathname?.match(
+      /^\/(?:admin\/clients|client\/services\/talk)\/(\d+)(?:\/|$)/
+    );
+    const currentTalkId = currentUpidMatch ? currentUpidMatch[1] : null;
+    if (!currentTalkId || currentTalkId === String(newTalkId)) return;
 
-    if (regex.test(pathname)) {
-      newPath = pathname.replace(regex, `/${userProductId}`);
-    } else {
-      console.log("", centre);
-      let toFind  = selectedCentre?.userProductId;
-      regex = new RegExp(`/${toFind}(?=/|$)`);
-      newPath = pathname.replace(regex, `/${userProductId}`);
-    }
-
-    console.log("newPath", newPath);
-
+    const newPath = pathname.replace(
+      new RegExp(`/${currentTalkId}(?=/|$)`),
+      `/${newTalkId}`
+    );
     if (newPath !== pathname) {
       router.replace(newPath);
       router.refresh();
