@@ -83,6 +83,31 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
         .replace("/client/services/talk/", "/admin/clients/")
         .replace("{TALK_ID}", String(id));
     }
+
+    // CLIENT : on utilise en priorite le userProductId du centre selectionne
+    // (via CentreContext) pour supporter les CLIENT ADMIN_USER qui switchent
+    // entre plusieurs centres via le selecteur du header.
+    //
+    // FIX 2026-08-05 : avant on ne regardait que products (fetch de /api/users/
+    // [id]/products, qui retourne toujours les products du user CONNECTE),
+    // donc pour un ADMIN_USER on rebasculait toujours sur son propre centre
+    // (ex: Quimper) meme quand il avait selectionne Fouesnand dans le header.
+    //
+    // Priorite :
+    //   1. selectedCentre.userProductId (venant de /api/admin/centres ADMIN)
+    //   2. selectedCentre.userProducts[LyraeTalk].id (venant de /api/client
+    //      ADMIN_USER — les managed users ont userProducts[] avec l'id)
+    //   3. products[LyraeTalk].id (fallback pour CLIENT non-ADMIN_USER classique)
+    const selectedTalkId =
+      selectedCentre?.userProductId ??
+      selectedCentre?.userProducts?.find(
+        (p: any) => p?.product?.name?.includes("Talk")
+      )?.id ??
+      null;
+    if (selectedTalkId) {
+      return rawHref.replace("{TALK_ID}", String(selectedTalkId));
+    }
+
     const talk: any = products.find((el: any) => el.name === "LyraeTalk");
     if (!talk) return null;
     return rawHref.replace("{TALK_ID}", String(talk.id));
