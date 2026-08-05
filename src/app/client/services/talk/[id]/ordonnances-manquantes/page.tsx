@@ -135,6 +135,14 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
   // Chantier prescriptions rejected 2026-08-04 : tab actif entre les 2 vues
   const [tab, setTab] = useState<"pending" | "rejected">("pending");
   const [rejectedCount, setRejectedCount] = useState<number>(0);
+  // Chantier 2026-08-05 : mini KPI 30j en haut de la page (integres ici
+  // au lieu d'une page stats dediee)
+  const [statsTotals, setStatsTotals] = useState<{
+    requested: number;
+    uploaded: number;
+    acked: number;
+    rejected: number;
+  } | null>(null);
   const [snack, setSnack] = useState<{ open: boolean; msg: string; sev: "success" | "error" | "info" }>(
     { open: false, msg: "", sev: "success" }
   );
@@ -205,6 +213,40 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProductId, thresholdHours]);
+
+  // Chantier 2026-08-05 : fetch stats 30 derniers jours pour les KPI en tete
+  // de page. On ne poll pas (les chiffres changent lentement, refresh au
+  // reload de la page suffit).
+  useEffect(() => {
+    if (!userProductId) return;
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const to = new Date();
+        const from = new Date();
+        from.setDate(from.getDate() - 30);
+        const fmtDay = (d: Date) =>
+          `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const url = `/api/prescriptions/stats?userProductId=${userProductId}&from=${fmtDay(from)}&to=${fmtDay(to)}`;
+        const res = await fetch(url, { signal: controller.signal, cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.totals) {
+          setStatsTotals({
+            requested: Number(data.totals.requested) || 0,
+            uploaded: Number(data.totals.uploaded) || 0,
+            acked: Number(data.totals.acked) || 0,
+            rejected: Number(data.totals.rejected) || 0,
+          });
+        }
+      } catch (err: any) {
+        if (err?.name !== "AbortError") {
+          console.error("Error fetching prescription stats:", err);
+        }
+      }
+    })();
+    return () => controller.abort();
+  }, [userProductId]);
 
   // Websocket : refresh instantane sur upload/resolve emis par le backend
   // (meme event "prescription-alerts-updated" que le hook du badge navbar).
@@ -358,6 +400,99 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
             )
           }
         />
+
+        {/* Mini KPI 30 derniers jours (chantier 2026-08-05) : stats legeres
+            en tete de page a la place d'une page stats dediee */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "repeat(2, 1fr)",
+              sm: "repeat(4, 1fr)",
+            },
+            gap: 1.5,
+            mb: 2,
+          }}
+        >
+          {[
+            {
+              label: "Liens envoyes",
+              value: statsTotals?.requested,
+              color: "#3b82f6",
+              icon: "📤",
+            },
+            {
+              label: "Deposees patient",
+              value: statsTotals?.uploaded,
+              color: "#48C8AF",
+              icon: "📥",
+              sub:
+                statsTotals && statsTotals.requested > 0
+                  ? `${Math.round((statsTotals.uploaded / statsTotals.requested) * 100)}%`
+                  : undefined,
+            },
+            {
+              label: "Acceptees Xplore",
+              value: statsTotals?.acked,
+              color: "#16a34a",
+              icon: "✅",
+              sub:
+                statsTotals && statsTotals.uploaded > 0
+                  ? `${Math.round((statsTotals.acked / statsTotals.uploaded) * 100)}%`
+                  : undefined,
+            },
+            {
+              label: "Refusees Xplore",
+              value: statsTotals?.rejected,
+              color: "#ef4444",
+              icon: "⚠️",
+              sub:
+                statsTotals && statsTotals.uploaded > 0
+                  ? `${Math.round((statsTotals.rejected / statsTotals.uploaded) * 100)}%`
+                  : undefined,
+            },
+          ].map((kpi) => (
+            <Card
+              key={kpi.label}
+              elevation={0}
+              sx={{
+                p: 1.5,
+                border: "1px solid #e5e7eb",
+                borderLeft: `3px solid ${kpi.color}`,
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                minHeight: 68,
+              }}
+            >
+              <Box sx={{ fontSize: 22, opacity: 0.85 }}>{kpi.icon}</Box>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "text.secondary", display: "block", lineHeight: 1.2 }}
+                >
+                  {kpi.label}
+                </Typography>
+                <Stack direction="row" alignItems="baseline" spacing={0.75}>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: "#1F3448" }}>
+                    {kpi.value ?? "—"}
+                  </Typography>
+                  {kpi.sub && (
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "text.secondary", fontSize: 11 }}
+                    >
+                      ({kpi.sub})
+                    </Typography>
+                  )}
+                </Stack>
+              </Box>
+            </Card>
+          ))}
+        </Box>
+        <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 2, ml: 0.5 }}>
+          Bilan sur les 30 derniers jours
+        </Typography>
 
         {/* Tabs : En attente patient / Refusees par Xplore (chantier 2026-08-04) */}
         <Card sx={{ mb: 2, borderRadius: 2 }}>
