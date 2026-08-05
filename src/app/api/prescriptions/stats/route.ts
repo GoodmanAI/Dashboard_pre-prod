@@ -73,14 +73,17 @@ export async function GET(req: NextRequest) {
   }
 
   // Bornes par defaut : 30 derniers jours si aucune date fournie
+  // FIX 2026-08-05 : les placeholders etaient $2/$3 avec un $1=null en param
+  // -> Postgres crashait car $1 n'existait pas dans le query. Reordonnee en
+  // $1/$2 pour matcher les 2 params passes.
   const boundsQuery = `
     SELECT
-      COALESCE($2::date, ((NOW() AT TIME ZONE 'Europe/Paris')::date - INTERVAL '30 days')::date) AS from_date,
-      COALESCE($3::date, (NOW() AT TIME ZONE 'Europe/Paris')::date) AS to_date
+      COALESCE($1::date, ((NOW() AT TIME ZONE 'Europe/Paris')::date - INTERVAL '30 days')::date) AS from_date,
+      COALESCE($2::date, (NOW() AT TIME ZONE 'Europe/Paris')::date) AS to_date
   `;
   const boundsRes = await db.query<{ from_date: Date; to_date: Date }>(
     boundsQuery,
-    [null, from, to]
+    [from, to]
   );
   const fromDate = boundsRes.rows[0].from_date;
   const toDate = boundsRes.rows[0].to_date;
