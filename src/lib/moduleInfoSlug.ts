@@ -44,14 +44,21 @@ export function slugifyQuestion(input: string): string {
  *   const slug = uniqueSlug(slugifyQuestion(question), existing.map(e => e.id));
  */
 export function uniqueSlug(base: string, existingSlugs: string[]): string {
-  if (!base) return "item";
+  if (!base) base = "item";
   const set = new Set(existingSlugs);
   if (!set.has(base)) return base;
-  // Cherche le premier suffix libre 2..N
+  // Reserve la place du suffixe AVANT troncature. Sinon, une base deja
+  // longue de MAX_SLUG_LENGTH voit son suffixe "-2" tronque, et le
+  // candidate reste identique a la base -> boucle infinie.
   for (let i = 2; i < 10_000; i++) {
-    const candidate = `${base}-${i}`.slice(0, MAX_SLUG_LENGTH);
+    const suffix = `-${i}`;
+    const allowed = MAX_SLUG_LENGTH - suffix.length;
+    const candidate = base.slice(0, allowed).replace(/-+$/g, "") + suffix;
     if (!set.has(candidate)) return candidate;
   }
-  // Extreme : fallback aleatoire (ne devrait jamais arriver)
-  return `${base}-${Date.now()}`.slice(0, MAX_SLUG_LENGTH);
+  // Extreme : fallback (ne devrait jamais arriver ; Date.now() interdit
+  // dans du code applicatif teste ? OK ici, c'est un helper server-side).
+  const ts = String(Date.now());
+  const allowed = MAX_SLUG_LENGTH - ts.length - 1;
+  return base.slice(0, allowed).replace(/-+$/g, "") + "-" + ts;
 }
