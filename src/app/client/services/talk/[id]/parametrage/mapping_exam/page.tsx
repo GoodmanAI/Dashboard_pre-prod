@@ -41,6 +41,10 @@ import {
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useTalkBasePath } from "@/utils/talkRoutes";
+import ExamTypeBadge, {
+  EXAM_TYPE_SHORT,
+} from "@/components/shared/ExamTypeBadge";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 
 /**
  * Correspondance des examens (refonte design 2026-08-06).
@@ -68,25 +72,6 @@ const SURFACE_HOVER = "#F5FBFA";
 const SURFACE_DISABLED = "#EEF2F5";
 const DANGER = "#E1573B";
 const WARNING = "#F5A623";
-
-// Palette de couleurs par type d'examen (badges)
-const TYPE_COLORS: Record<string, { bg: string; fg: string }> = {
-  RX: { bg: "#E7F0FA", fg: "#1F5F9B" },      // bleu (radiographie)
-  US: { bg: "#E5F5EE", fg: "#1E8A5B" },      // vert (echographie)
-  CT: { bg: "#FCF0E6", fg: "#B4602A" },      // orange (scanner)
-  MR: { bg: "#F1EAF7", fg: "#6E3E9E" },      // violet (IRM)
-  MG: { bg: "#FCE9EF", fg: "#B33266" },      // rose (mammographie)
-  USMAM: { bg: "#E4F4F5", fg: "#1F7F86" },   // cyan (echo mammaire)
-};
-
-const TYPE_LABEL: Record<string, string> = {
-  RX: "Radio",
-  US: "Écho",
-  CT: "Scanner",
-  MR: "IRM",
-  MG: "Mammo",
-  USMAM: "Écho mam.",
-};
 
 const INJECTABLE_TYPES = new Set(["CT", "MR"]);
 const ROWS_PER_PAGE = 25;
@@ -230,6 +215,13 @@ export default function MappingExam({ params }: TalkPageProps) {
   // ---- KPIs ----
   const attribCount = useMemo(() => data.filter((r) => r.performed).length, [data]);
 
+  // ---- Guard : previens l'utilisateur qui navigue avec des modifs non sauvees
+  const guard = useUnsavedChangesGuard(dirtyCount > 0, {
+    message: `Vous avez ${dirtyCount} modification${
+      dirtyCount > 1 ? "s" : ""
+    } non enregistrée${dirtyCount > 1 ? "s" : ""}. Voulez-vous vraiment quitter cette page sans sauvegarder ?`,
+  });
+
   // ---- Handlers ----
   const handleChange = useCallback((codeExamen: string, key: string, value: any) => {
     setData((prev) =>
@@ -282,7 +274,18 @@ export default function MappingExam({ params }: TalkPageProps) {
         sx={{ mb: 2 }}
       >
         <IconButton
-          onClick={() => router.back()}
+          onClick={() => {
+            if (dirtyCount > 0) {
+              const ok = confirm(
+                `Vous avez ${dirtyCount} modification${
+                  dirtyCount > 1 ? "s" : ""
+                } non enregistrée${dirtyCount > 1 ? "s" : ""}. Quitter sans sauvegarder ?`
+              );
+              if (!ok) return;
+            }
+            guard.disable();
+            router.back();
+          }}
           size="small"
           sx={{
             color: INK_MUTED,
@@ -385,8 +388,8 @@ export default function MappingExam({ params }: TalkPageProps) {
               {availableTypes.map((t) => (
                 <MenuItem key={t} value={t}>
                   <Stack direction="row" alignItems="center" spacing={1}>
-                    <TypeBadge type={t} compact />
-                    <Typography variant="body2">{TYPE_LABEL[t] ?? t}</Typography>
+                    <ExamTypeBadge type={t} variant="compact" />
+                    <Typography variant="body2">{EXAM_TYPE_SHORT[t] ?? t}</Typography>
                   </Stack>
                 </MenuItem>
               ))}
@@ -613,9 +616,21 @@ export default function MappingExam({ params }: TalkPageProps) {
           size="small"
           variant="outlined"
           startIcon={<IconSettings size={15} />}
-          onClick={() =>
-            router.push(`${basePath}/parametrage/mapping_exam/type_exam`)
-          }
+          onClick={() => {
+            // router.push() est programmatique -> pas intercepte par le guard.
+            // On confirme manuellement puis on disable() pour eviter un double
+            // prompt lors de l'unmount.
+            if (dirtyCount > 0) {
+              const ok = confirm(
+                `Vous avez ${dirtyCount} modification${
+                  dirtyCount > 1 ? "s" : ""
+                } non enregistrée${dirtyCount > 1 ? "s" : ""}. Continuer sans sauvegarder ?`
+              );
+              if (!ok) return;
+            }
+            guard.disable();
+            router.push(`${basePath}/parametrage/mapping_exam/type_exam`);
+          }}
           disabled={saving}
           sx={{
             textTransform: "none",
@@ -712,34 +727,6 @@ function HeaderCell({
 }
 
 // ---------------------------------------------------------------------------
-// Type badge
-// ---------------------------------------------------------------------------
-function TypeBadge({ type, compact = false }: { type: string; compact?: boolean }) {
-  const c = TYPE_COLORS[type] ?? { bg: SURFACE_MUTED, fg: INK_MUTED };
-  return (
-    <Box
-      sx={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        bgcolor: c.bg,
-        color: c.fg,
-        fontWeight: 700,
-        fontSize: compact ? 10 : 11,
-        px: compact ? 0.75 : 1,
-        py: 0.25,
-        borderRadius: 1,
-        letterSpacing: "0.03em",
-        minWidth: compact ? 26 : 32,
-        textAlign: "center",
-      }}
-    >
-      {type}
-    </Box>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Ligne de la table (memo-friendly)
 // ---------------------------------------------------------------------------
 interface ExamRowProps {
@@ -763,7 +750,7 @@ function ExamTableRow({ row, disabled, onChange }: ExamRowProps) {
       {/* Examen NEURACORP */}
       <TableCell sx={{ verticalAlign: "top" }}>
         <Stack direction="row" alignItems="center" spacing={1}>
-          <TypeBadge type={row.typeExamen} />
+          <ExamTypeBadge type={row.typeExamen} />
           <Box sx={{ minWidth: 0 }}>
             <Typography
               sx={{

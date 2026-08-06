@@ -12,22 +12,29 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { IconDownload, IconCheck, IconAlertTriangle } from "@tabler/icons-react";
+import { Phone, Event, WarningAmber } from "@mui/icons-material";
+import { IconCheck, IconDownload } from "@tabler/icons-react";
+import ExamTypeBadge, { toExamTypeCode } from "@/components/shared/ExamTypeBadge";
 
 /**
- * RejectedPrescriptionsPanel (chantier prescriptions rejected 2026-08-04).
+ * RejectedPrescriptionsPanel (refonte 2026-08-06).
  * -----------------------------------------------------------------------------
- * Panneau affichant les ordonnances refusees par Xplore (AI2Xplore a echoue
- * apres N tentatives). Chaque item : infos patient + reason + bouton
- * telecharger + bouton "marquer traite manuellement".
+ * Ordonnances rejetees par Xplore (AI2Xplore a echoue apres N tentatives).
  *
- * Alimente par GET /api/prescriptions/rejected?userProductId=X.
- * Actions :
- *   - Telecharger le PDF : GET /api/prescriptions/rejected/[id]/download
- *   - Marquer traite : POST /api/prescriptions/rejected/[id]/resolve
+ * Design cale sur la card "en attente patient" de /ordonnances-manquantes :
+ *   - Borde gauche rouge (au lieu d'orange pour pending)
+ *   - Icone WarningAmber + nom patient + chip "refuse il y a Xh"
+ *   - Ligne telephone (monospace, selectable)
+ *   - Ligne type examen + date RDV + chip heure
+ *   - Actions droite : Telecharger PDF + Marquer traite
  *
- * Design cale sur celui de la page "Ordonnances manquantes" (meme card,
- * meme layout Stack, meme chip pour l'age).
+ * Ne montre PAS :
+ *   - Le rdvId (feedback user : bruit visuel inutile)
+ *   - Le motif Xplore / rejectAttempts / rejectErrorType (info technique
+ *     debug, sortie de l'UI client)
+ *
+ * Endpoints : GET /api/prescriptions/rejected, POST .../resolve,
+ * GET .../download.
  */
 
 const EXAM_LABELS: Record<string, string> = {
@@ -54,24 +61,49 @@ type RejectedItem = {
   hoursSinceRejected: number;
 };
 
-function formatFrDateTime(iso: string | null): string {
+// -- Formatters (repris du pattern PendingPrescriptions) --
+
+function formatFrDateOnly(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "—";
-  return d.toLocaleString("fr-FR", {
+  return d.toLocaleDateString("fr-FR", {
+    weekday: "short",
     day: "2-digit",
     month: "short",
     year: "numeric",
+  });
+}
+
+function formatFrTimeOnly(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("fr-FR", {
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
-function formatFileSize(bytes: number | null): string {
-  if (!bytes || bytes <= 0) return "—";
-  if (bytes < 1024) return `${bytes} o`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+function formatFrDateShort(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatPhoneFr(phone: string): string {
+  if (!phone) return "";
+  // 0612345678 -> 06 12 34 56 78
+  const clean = phone.replace(/\D/g, "");
+  if (clean.length === 10) {
+    return clean.match(/.{1,2}/g)?.join(" ") ?? phone;
+  }
+  return phone;
 }
 
 export default function RejectedPrescriptionsPanel({
@@ -112,15 +144,14 @@ export default function RejectedPrescriptionsPanel({
   }, [load]);
 
   const handleDownload = (id: number) => {
-    // Ouvre dans un nouvel onglet — le browser gere le download via
-    // Content-Disposition: attachment du serveur.
+    // Le browser gere le download via Content-Disposition: attachment.
     window.open(`/api/prescriptions/rejected/${id}/download`, "_blank");
   };
 
   const handleResolve = async (id: number) => {
     if (
       !confirm(
-        "Confirmer que cette ordonnance a bien ete redeposee manuellement dans Xplore ?"
+        "Confirmer que cette ordonnance a bien été redéposée manuellement dans Xplore ?"
       )
     )
       return;
@@ -131,8 +162,7 @@ export default function RejectedPrescriptionsPanel({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      setSnack({ msg: "Ordonnance marquee comme traitee.", kind: "success" });
-      // Retire l'item de la liste immediatement (optimistic)
+      setSnack({ msg: "Ordonnance marquée comme traitée.", kind: "success" });
       setItems((prev) => prev.filter((it) => it.id !== id));
     } catch (e: any) {
       setSnack({ msg: e?.message ?? "Erreur", kind: "error" });
@@ -162,10 +192,10 @@ export default function RejectedPrescriptionsPanel({
       <Card sx={{ p: 4, textAlign: "center", bgcolor: "#F0FDF4" }}>
         <IconCheck size={32} color="#16a34a" />
         <Typography sx={{ mt: 1, color: "#15803d", fontWeight: 600 }}>
-          Aucune ordonnance rejetee a traiter.
+          Aucune ordonnance rejetée à traiter.
         </Typography>
         <Typography variant="body2" sx={{ mt: 0.5, color: "#7A8FA6" }}>
-          Xplore a bien accepte toutes les ordonnances deposees recemment.
+          Xplore a bien accepté toutes les ordonnances déposées récemment.
         </Typography>
       </Card>
     );
@@ -174,107 +204,177 @@ export default function RejectedPrescriptionsPanel({
   return (
     <>
       <Alert severity="warning" sx={{ mb: 2 }}>
-        <strong>{items.length} ordonnance{items.length > 1 ? "s" : ""} refusee{items.length > 1 ? "s" : ""} par Xplore.</strong> Telecharge le PDF, redepose-le
-        manuellement dans Xplore, puis clique &laquo; Marquer traite &raquo;.
+        <strong>
+          {items.length} ordonnance{items.length > 1 ? "s" : ""} refusée
+          {items.length > 1 ? "s" : ""} par Xplore.
+        </strong>{" "}
+        Téléchargez le PDF, redéposez-le manuellement dans Xplore, puis cliquez
+        sur « Marquer traité ».
       </Alert>
 
       <Stack spacing={2}>
-        {items.map((it) => (
-          <Card
-            key={it.id}
-            sx={{
-              p: 2,
-              borderLeft: "4px solid #ef4444",
-              transition: "box-shadow 0.15s",
-              "&:hover": { boxShadow: "0 4px 12px rgba(239,68,68,0.15)" },
-            }}
-          >
-            <Stack
-              direction={{ xs: "column", md: "row" }}
-              spacing={2}
-              justifyContent="space-between"
+        {items.map((it) => {
+          const examLabel = it.examType
+            ? EXAM_LABELS[it.examType] ?? it.examType
+            : "Examen non spécifié";
+          const formattedPhone = formatPhoneFr(it.phone);
+          const hoursSince = Math.round(it.hoursSinceRejected);
+
+          return (
+            <Card
+              key={it.id}
+              elevation={1}
+              sx={{
+                borderLeft: "4px solid #b91c1c",
+                p: { xs: 2, sm: 2.5 },
+              }}
             >
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                  <IconAlertTriangle size={18} color="#ef4444" />
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#1F3448" }}>
-                    {it.firstname} {it.lastname}
-                  </Typography>
-                  {it.examType && (
+              <Stack
+                direction={{ xs: "column", md: "row" }}
+                spacing={2}
+                justifyContent="space-between"
+                alignItems={{ xs: "stretch", md: "center" }}
+              >
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  {/* Ligne 1 : icone warn + nom + chip age */}
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    spacing={1.5}
+                    sx={{ mb: 1.5, flexWrap: "wrap", rowGap: 1 }}
+                  >
+                    <WarningAmber sx={{ color: "#b91c1c" }} />
+                    <Typography variant="h6" fontWeight={700}>
+                      {it.firstname} {it.lastname.toUpperCase()}
+                    </Typography>
                     <Chip
                       size="small"
-                      label={EXAM_LABELS[it.examType] ?? it.examType}
-                      sx={{ bgcolor: "#F1F5F9", color: "#1F3448" }}
+                      label={`refusée il y a ${hoursSince}h`}
+                      sx={{
+                        bgcolor: "rgba(185,28,28,0.15)",
+                        color: "#b91c1c",
+                        fontWeight: 700,
+                      }}
                     />
-                  )}
-                  <Chip
-                    size="small"
-                    label={`refuse il y a ${Math.floor(it.hoursSinceRejected)}h`}
-                    sx={{ bgcolor: "rgba(239,68,68,0.15)", color: "#b91c1c", fontWeight: 700 }}
-                  />
-                </Stack>
+                  </Stack>
 
-                <Typography variant="body2" sx={{ color: "#7A8FA6", mb: 1 }}>
-                  RDV #{it.rdvId} — Telephone : {it.phone} — RDV le{" "}
-                  {formatFrDateTime(it.appointmentDate)}
-                </Typography>
-
-                <Alert severity="error" sx={{ mt: 1, py: 0.5 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>
-                    Motif de refus Xplore :
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: 12 }}>
-                    {it.rejectReason ?? "(aucun motif fourni)"}
-                  </Typography>
-                  {(it.rejectAttempts !== null || it.rejectErrorType) && (
-                    <Typography variant="caption" sx={{ color: "#7A8FA6", mt: 0.5, display: "block" }}>
-                      {it.rejectAttempts !== null && `${it.rejectAttempts} tentative${it.rejectAttempts > 1 ? "s" : ""}`}
-                      {it.rejectAttempts !== null && it.rejectErrorType && " · "}
-                      {it.rejectErrorType && `type: ${it.rejectErrorType}`}
+                  {/* Ligne 2 : icone tel + numero formate */}
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    spacing={1}
+                    sx={{ mb: 1.5 }}
+                  >
+                    <Phone sx={{ fontSize: 20, color: "#2a6f64" }} />
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        fontWeight: 700,
+                        color: "#2a6f64",
+                        fontFamily: "monospace",
+                        letterSpacing: 0.5,
+                        userSelect: "all",
+                      }}
+                    >
+                      {formattedPhone}
                     </Typography>
-                  )}
-                </Alert>
+                  </Stack>
 
-                <Typography variant="caption" sx={{ color: "#7A8FA6", mt: 1, display: "block" }}>
-                  Rejete le {formatFrDateTime(it.rejectedAt)} · Fichier : {formatFileSize(it.fileSize)}
-                </Typography>
-              </Box>
+                  {/* Ligne 3 : type examen + date RDV + chip heure */}
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    spacing={1}
+                    sx={{ mb: 0.5, flexWrap: "wrap", rowGap: 0.5 }}
+                  >
+                    {toExamTypeCode(it.examType) && (
+                      <ExamTypeBadge type={toExamTypeCode(it.examType)!} />
+                    )}
+                    <Typography
+                      variant="subtitle1"
+                      sx={{ fontWeight: 700, color: "#1F3448" }}
+                    >
+                      {examLabel}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "#7A8FA6" }}>
+                      ·
+                    </Typography>
+                    <Event sx={{ fontSize: 18, color: "#7A8FA6" }} />
+                    <Typography
+                      variant="body2"
+                      sx={{ fontWeight: 600, color: "#1F3448" }}
+                    >
+                      {formatFrDateOnly(it.appointmentDate)}
+                    </Typography>
+                    {formatFrTimeOnly(it.appointmentDate) && (
+                      <Chip
+                        size="small"
+                        label={formatFrTimeOnly(it.appointmentDate)}
+                        sx={{
+                          bgcolor: "#E6F7F3",
+                          color: "#2a6f64",
+                          fontWeight: 700,
+                          fontFamily: "monospace",
+                          height: 22,
+                        }}
+                      />
+                    )}
+                  </Stack>
 
-              <Stack
-                direction={{ xs: "row", md: "column" }}
-                spacing={1}
-                sx={{ minWidth: { md: 180 } }}
-              >
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<IconDownload size={16} />}
-                  onClick={() => handleDownload(it.id)}
-                  sx={{ textTransform: "none", fontWeight: 600 }}
-                  fullWidth
+                  <Typography variant="caption" color="text.secondary">
+                    Refusée le {formatFrDateShort(it.rejectedAt)}
+                  </Typography>
+                </Box>
+
+                {/* Actions : Telecharger + Marquer traite */}
+                <Stack
+                  direction={{ xs: "row", md: "column" }}
+                  spacing={1}
+                  sx={{ flexShrink: 0, minWidth: { md: 200 } }}
                 >
-                  Telecharger le PDF
-                </Button>
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<IconCheck size={16} />}
-                  onClick={() => handleResolve(it.id)}
-                  disabled={resolving.has(it.id)}
-                  sx={{
-                    bgcolor: "#48C8AF",
-                    "&:hover": { bgcolor: "#3aa896" },
-                    textTransform: "none",
-                    fontWeight: 600,
-                  }}
-                  fullWidth
-                >
-                  {resolving.has(it.id) ? "..." : "Marquer traite"}
-                </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<IconDownload size={16} />}
+                    onClick={() => handleDownload(it.id)}
+                    fullWidth
+                    sx={{
+                      textTransform: "none",
+                      fontWeight: 600,
+                      borderColor: "#E4EAEE",
+                      color: "#1F3448",
+                      "&:hover": {
+                        borderColor: "#48C8AF",
+                        color: "#48C8AF",
+                        bgcolor: "#F5FDFB",
+                      },
+                    }}
+                  >
+                    Télécharger PDF
+                  </Button>
+                  <Button
+                    variant="contained"
+                    disabled={resolving.has(it.id)}
+                    onClick={() => handleResolve(it.id)}
+                    fullWidth
+                    disableElevation
+                    sx={{
+                      bgcolor: "#48C8AF",
+                      "&:hover": { bgcolor: "#3AB19B" },
+                      textTransform: "none",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {resolving.has(it.id) ? (
+                      <CircularProgress size={20} sx={{ color: "#FFF" }} />
+                    ) : (
+                      "Marquer traité"
+                    )}
+                  </Button>
+                </Stack>
               </Stack>
-            </Stack>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </Stack>
 
       <Snackbar

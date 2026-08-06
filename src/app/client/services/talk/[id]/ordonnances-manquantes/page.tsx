@@ -19,6 +19,7 @@ import {
 } from "@mui/material";
 import { WarningAmber, CheckCircle, Phone, Event, MedicalServices } from "@mui/icons-material";
 import { IconInfoCircle, IconAlertTriangle } from "@tabler/icons-react";
+import ExamTypeBadge, { toExamTypeCode } from "@/components/shared/ExamTypeBadge";
 import { io as ioClient, Socket } from "socket.io-client";
 import SectionHeader from "@/components/admin/SectionHeader";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
@@ -724,7 +725,11 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                         spacing={1}
                         sx={{ mb: 0.5, flexWrap: "wrap", rowGap: 0.5 }}
                       >
-                        <MedicalServices sx={{ fontSize: 20, color: "#48C8AF" }} />
+                        {toExamTypeCode(item.examType) ? (
+                          <ExamTypeBadge type={toExamTypeCode(item.examType)!} />
+                        ) : (
+                          <MedicalServices sx={{ fontSize: 20, color: "#48C8AF" }} />
+                        )}
                         <Typography
                           variant="subtitle1"
                           sx={{ fontWeight: 700, color: "#1F3448" }}
