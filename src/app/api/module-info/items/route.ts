@@ -101,10 +101,13 @@ export async function POST(req: NextRequest) {
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownErr) return ownErr;
 
-  // Slug lisible auto (dedup si collision avec un item existant du centre)
+  // Slug lisible auto. La PK est globale a la table (pas par centre) :
+  // on cherche donc les slugs GLOBALEMENT (LIKE prefixe) pour eviter les
+  // collisions entre centres. Rare mais possible (ex: "urgence-sans-rdv"
+  // question standard qu'on retrouve chez plusieurs clients).
   const baseSlug = slugifyQuestion(question);
   const existing = await prisma.moduleInfoItem.findMany({
-    where: { userProductId },
+    where: { id: { startsWith: baseSlug } },
     select: { id: true },
   });
   const id = uniqueSlug(baseSlug, existing.map((e) => e.id));
