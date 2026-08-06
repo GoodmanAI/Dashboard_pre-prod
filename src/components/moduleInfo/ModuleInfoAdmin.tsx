@@ -250,7 +250,7 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
   };
 
   return (
-    <Box sx={{ maxWidth: 960, mx: "auto" }}>
+    <Box>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Typography
