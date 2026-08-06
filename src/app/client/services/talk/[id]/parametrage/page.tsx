@@ -52,6 +52,7 @@ import { IconChevronLeft } from "@tabler/icons-react";
 import { useCentre } from "@/app/context/CentreContext";
 import { useTalkBasePath } from "@/utils/talkRoutes";
 import { useSession } from "next-auth/react";
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import SmsConfirmationConfigCard from "./SmsConfirmationConfigCard";
 import SmsBookingConfirmationCard from "./SmsBookingConfirmationCard";
 import PrescriptionConfigCard from "./PrescriptionConfigCard";
@@ -384,6 +385,10 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   
   const [settings, setSettings] = useState<TalkSettings>(DEFAULTS);
   const [saving, setSaving] = useState(false);
+  // Snapshot pris apres le premier chargement complet (settings + weeklyHours
+  // + doubleExamsMapping). Set aussi apres chaque save reussi. Sert de base
+  // de comparaison pour le dirty tracking du guard "unsaved changes".
+  const snapshotRef = useRef<string | null>(null);
   const [confirmDisableOpen, setConfirmDisableOpen] = useState(false);
   const [snack, setSnack] = useState<{
     open: boolean;
@@ -579,12 +584,40 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         msg: "Paramètres enregistrés",
         sev: "success",
       });
+      // Refresh du snapshot -> le guard "unsaved" repart a zero
+      snapshotRef.current = JSON.stringify({ settings, doubleExamsMapping });
     } catch {
       setSnack({ open: true, msg: "Échec de l’enregistrement.", sev: "error" });
     } finally {
       setSaving(false);
     }
   };
+
+  // Prise du snapshot initial une seule fois, apres que les 2 loads asynchrones
+  // (settings + weeklyHours) soient termines. On considere que quand loading
+  // repasse a false ET qu'il n'y a pas encore de snapshot, on est au bon
+  // moment. Les 2 loads de weeklyHours et doubleExams peuvent arriver apres
+  // mais dans la pratique tres vite -> on tolere.
+  useEffect(() => {
+    if (!loading && snapshotRef.current === null) {
+      // Petit delai pour laisser les autres useEffect de load pousser leurs
+      // updates dans settings avant qu'on ne fige le snapshot.
+      const t = setTimeout(() => {
+        snapshotRef.current = JSON.stringify({ settings, doubleExamsMapping });
+      }, 400);
+      return () => clearTimeout(t);
+    }
+  }, [loading, settings, doubleExamsMapping]);
+
+  const isDirty = useMemo(() => {
+    if (!snapshotRef.current) return false;
+    return snapshotRef.current !== JSON.stringify({ settings, doubleExamsMapping });
+  }, [settings, doubleExamsMapping]);
+
+  useUnsavedChangesGuard(isDirty, {
+    message:
+      "Vous avez modifié le paramétrage. Voulez-vous vraiment quitter sans sauvegarder ?",
+  });
 
   const handleSave = async () => {
     if (!settings.botName.trim()) {
