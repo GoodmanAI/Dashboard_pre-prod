@@ -1,0 +1,218 @@
+[
+  {
+    "question": "Quel est le nom complet de votre centre ?",
+    "réponse": "Groupe Hospitalier Centre Bretagne (GHCB) – Service d'Imagerie Médicale"
+  },
+  {
+    "question": "Quelle est l'adresse complète de votre centre ?",
+    "réponse": "Kerio – 56920 Noyal-Pontivy"
+  },
+  {
+    "question": "Votre centre possède-t-il un site web et, si oui, quel est son lien ?",
+    "réponse": "Oui, https://www.ch-centre-bretagne.fr/"
+  },
+  {
+    "question": "Quelles sont les modalités d'accès à votre centre (entrée principale, étage, interphone…) ?",
+    "réponse": "Le service dispose d'un accès dédié, accessible directement depuis l'extérieur. Il est situé en rez-de-chaussée."
+  },
+  {
+    "question": "Quelle entrée recommandez-vous aux personnes à mobilité réduite ?",
+    "réponse": "L'accès au service d'imagerie se fait depuis l'entrée extérieure dédiée, à droite du service des urgences."
+  },
+  {
+    "question": "Quelle phrase dites-vous au téléphone au patient pour lui expliquer comment se rendre à votre centre ?",
+    "réponse": "Aucune phrase n'est utilisée actuellement. Si besoin : « L'accès au service d'imagerie se fait depuis l'entrée extérieure dédiée, à droite du service des urgences. »"
+  },
+  {
+    "question": "Quelle phrase dites-vous au téléphone au patient pour lui expliquer comment trouver l'entrée de votre centre ?",
+    "réponse": "L'entrée se situe entre l'entrée des Urgences et la Polyclinique."
+  },
+  {
+    "question": "Existe-t-il des difficultés particulières pour accéder à votre centre ?",
+    "réponse": "Non."
+  },
+  {
+    "question": "Y a-t-il des places de parking réservées aux personnes handicapées (PMR) ?",
+    "réponse": "Oui, juste devant l'entrée du service."
+  },
+  {
+    "question": "Disposez-vous d'un parking pour les patients ?",
+    "réponse": "Oui, devant l'hôpital."
+  },
+  {
+    "question": "Quels transports en commun desservent votre centre ?",
+    "réponse": "Pondibus ligne 5, arrêt Hôpital. BreizhGo, axe Saint-Brieuc / Vannes ou Lorient."
+  },
+  {
+    "question": "Quelles sont les heures d'ouverture de votre centre ?",
+    "réponse": "Le service d'Imagerie Médicale est ouvert de 7h45 à 19h00 sans interruption."
+  },
+  {
+    "question": "Quelles sont les heures de pause ou de fermeture pendant la journée ?",
+    "réponse": "Aucune : il n'y a pas de fermeture sur le temps du midi."
+  },
+  {
+    "question": "Quels sont les horaires de disponibilité téléphonique de vos secrétaires ?",
+    "réponse": "Le secrétariat téléphonique est ouvert de 8h30 à 17h30 sans interruption."
+  },
+  {
+    "question": "Quels sont les jours ou périodes de fermeture régulière ?",
+    "réponse": "Le secrétariat téléphonique est ouvert du lundi au vendredi. Pas de réponse les samedis, dimanches et jours fériés."
+  },
+  {
+    "question": "Quel est le numéro de téléphone de votre secrétariat de radiologie ?",
+    "réponse": "02 97 79 00 10 (radiographie, scanner, IRM, échographie, échodoppler)\n02 97 79 09 39 (mammographie et échographie mammaire)"
+  },
+  {
+    "question": "Quel est le numéro de téléphone et l'adresse email pour contacter un(e) responsable du service ?",
+    "réponse": "Laurence Viallard : 02 97 79 03 92 – Laurence.viallard@gh-centrebretagne.fr"
+  },
+  {
+    "question": "Quelle est l'adresse email du centre pour les demandes d'information générale ?",
+    "réponse": "Secretariat.imagerie@gh-centrebretagne.fr"
+  },
+  {
+    "question": "Quelle est l'adresse email du centre pour les demandes de RDV d'examen ?",
+    "réponse": "Radiographie, scanner, IRM, échographie, échodoppler : Secretariat.imagerie@gh-centrebretagne.fr\nMammographie et échographie mammaire : Secretariat.mammographie@gh-centrebretagne.fr"
+  },
+  {
+    "question": "Quelle est l'adresse email du centre pour l'envoi par le patient d'ordonnances d'examen ?",
+    "réponse": "Radiographie, scanner, IRM, échographie, échodoppler : Secretariat.imagerie@gh-centrebretagne.fr\nMammographie et échographie mammaire : Secretariat.mammographie@gh-centrebretagne.fr"
+  },
+  {
+    "question": "Proposez-vous la prise de rendez-vous en ligne ?",
+    "réponse": "Non (mais cela pourrait être mis en place dans un second temps)."
+  },
+  {
+    "question": "Proposez-vous un rappel ou une confirmation de rendez-vous par SMS ou email ?",
+    "réponse": "SMS de rappel : oui. SMS de confirmation : non. Email : non."
+  },
+  {
+    "question": "Souhaitez-vous accepter les nouveaux patients dans LyraeTalk ?",
+    "réponse": "Oui."
+  },
+  {
+    "question": "Proposez-vous une liste d'attente ou un système de rappel pour remplacer les rendez-vous annulés ?",
+    "réponse": "Oui, via le filtre « SI DÉSISTEMENT » dans Xplore."
+  },
+  {
+    "question": "Existe-t-il des frais en cas d'annulation tardive ou d'absence au rendez-vous ?",
+    "réponse": "Non."
+  },
+  {
+    "question": "En cas d'indisponibilité de créneau dans votre centre, vers quels autres centres proposez-vous d'orienter le patient ?",
+    "réponse": "Aucun : les patients ne sont pas orientés vers d'autres centres."
+  },
+  {
+    "question": "Est-il possible de choisir son radiologue pour un examen ?",
+    "réponse": "Non."
+  },
+  {
+    "question": "Quels sont les examens que vous pratiquez dans votre centre ?",
+    "réponse": "IRM, scanner, mammographie (50-74 ans), échographie mammaire, échographie, échodoppler, radiographie."
+  },
+  {
+    "question": "Combien de temps en moyenne le patient va-t-il passer sur place pour chaque examen ?",
+    "réponse": "IRM : 1h30 ; scanner : 30 minutes ; mammographie : 1h ; échographie mammaire : 45 minutes ; échographie : 1h ; échodoppler : 45 minutes ; radiographie : 45 minutes."
+  },
+  {
+    "question": "Votre centre assure-t-il la réalisation d'examens en urgence ?",
+    "réponse": "Oui, le caractère urgent de l'examen est déterminé par le radiologue."
+  },
+  {
+    "question": "En cas d'examen demandé en urgence, est-il possible de se présenter sans rendez-vous ?",
+    "réponse": "Non."
+  },
+  {
+    "question": "En cas d'urgence médicale, quelle consigne donnez-vous lors de la fermeture du secrétariat ?",
+    "réponse": "En cas d'urgence, et en dehors des heures ouvrables de votre médecin, contactez les urgences au 02 97 79 00 35."
+  },
+  {
+    "question": "Proposez-vous des examens interventionnels ?",
+    "réponse": "Non, sauf pour les biopsies mammaires."
+  },
+  {
+    "question": "Disposez-vous d'un IRM ouvert ou semi-ouvert pour les patients claustrophobes ?",
+    "réponse": "Non."
+  },
+  {
+    "question": "Avez-vous des fiches de consignes pratiques pour la préparation aux examens ?",
+    "réponse": "Oui."
+  },
+  {
+    "question": "Combien de radiologues exercent dans ce centre ?",
+    "réponse": "4 radiologues et 2 angiologues."
+  },
+  {
+    "question": "Quels sont les radiologues qui exercent dans votre centre ?",
+    "réponse": "Radiologues : Dr Ghannam, Dr Estable, Dr Habert, Dr Foudi.\nAngiologues : Dr Nouni, Dr Faugaret."
+  },
+  {
+    "question": "Les radiologues sont-ils surspécialisés par domaine d'imagerie ?",
+    "réponse": "Oui. Dr Ghannam : imagerie abdomino-pelvienne. Dr Estable : neuroradiologie. Dr Habert : mammographie et échographie mammaire. Dr Foudi : imagerie ostéo-articulaire. Dr Nouni et Dr Faugaret : pas de surspécialité renseignée."
+  },
+  {
+    "question": "Le centre dispose-t-il d'un service d'imagerie de garde ?",
+    "réponse": "Non."
+  },
+  {
+    "question": "Quels documents doit-on apporter pour un examen ?",
+    "réponse": "Pièce d'identité, carte Vitale, mutuelle en cours de validité, ordonnance, document lié à un accident du travail le cas échéant, et pour les mineurs le livret de famille."
+  },
+  {
+    "question": "Combien de temps faut-il attendre pour recevoir les résultats ?",
+    "réponse": "Entre 24 et 72 heures ouvrées."
+  },
+  {
+    "question": "Proposez-vous la gravure de CD ?",
+    "réponse": "Non."
+  },
+  {
+    "question": "Proposez-vous l'impression des clichés sur film ?",
+    "réponse": "Oui, uniquement pour la mammographie."
+  },
+  {
+    "question": "Comment accéder aux résultats d'imagerie sur internet ?",
+    "réponse": "Les images sont accessibles avec les codes remis aux patients lors de leur examen."
+  },
+  {
+    "question": "Le compte-rendu de l'examen est-il automatiquement envoyé à mon médecin traitant ?",
+    "réponse": "Oui."
+  },
+  {
+    "question": "Comment puis-je récupérer une copie de mes anciens examens ?",
+    "réponse": "Sur demande par email à : Secretariat.imagerie@gh-centrebretagne.fr"
+  },
+  {
+    "question": "Est-il possible que les images soient envoyées directement à un autre spécialiste si besoin ?",
+    "réponse": "Oui, sur demande du médecin en ayant besoin, à l'adresse : Referentspacs@gh-centrebretagne.fr"
+  },
+  {
+    "question": "Votre centre propose-t-il du Wi-Fi pour les patients ?",
+    "réponse": "Oui."
+  },
+  {
+    "question": "Disposez-vous d'une salle d'attente adaptée aux enfants ?",
+    "réponse": "Non."
+  },
+  {
+    "question": "Quels sont vos modes de paiement acceptés ?",
+    "réponse": "Chèque et carte bancaire."
+  },
+  {
+    "question": "Pratiquez-vous le tiers payant ?",
+    "réponse": "Oui, tiers payant sécurité sociale et mutuelle."
+  },
+  {
+    "question": "Existe-t-il des dépassements d'honoraires dans votre centre ?",
+    "réponse": "Non."
+  },
+  {
+    "question": "Les montants des dépassements d'honoraires applicables ?",
+    "réponse": "Sans objet (aucun dépassement d'honoraires)."
+  },
+  {
+    "question": "Quels sont les moyens pour déposer une réclamation ?",
+    "réponse": "Par courrier adressé à la Direction des Relations avec les Usagers – GHCB – 56920 Noyal-Pontivy, ou par email à : relations.usagers@gh-centrebretagne.fr"
+  }
+]

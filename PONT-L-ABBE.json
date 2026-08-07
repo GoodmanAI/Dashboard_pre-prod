@@ -1,0 +1,218 @@
+[
+  {
+    "question": "Quel est le nom complet de votre centre ?",
+    "réponse": "RIM29 SUD – Réseau d'Imagerie Médicale 29 Sud – site de Pont-l'Abbé"
+  },
+  {
+    "question": "Quelle est l'adresse complète de votre centre ?",
+    "réponse": "11 Park ar Stankou – 29120 Pont-l'Abbé"
+  },
+  {
+    "question": "Votre centre possède-t-il un site web et, si oui, quel est son lien ?",
+    "réponse": "Oui, https://www.rim29sud.fr/"
+  },
+  {
+    "question": "Quelles sont les modalités d'accès à votre centre (entrée principale, étage, interphone…) ?",
+    "réponse": "Non renseigné."
+  },
+  {
+    "question": "Quelle entrée recommandez-vous aux personnes à mobilité réduite ?",
+    "réponse": "Accès PMR avec parking réservé. Pour les patients en brancard, il est préférable de privilégier le site de Quimper, où l'accès s'effectue avec les ambulanciers par l'arrière du bâtiment, via l'entrée des soins non programmés."
+  },
+  {
+    "question": "Quelle phrase dites-vous au téléphone au patient pour lui expliquer comment se rendre à votre centre ?",
+    "réponse": "Le centre se situe au 11 Park ar Stankou, 29120 Pont-l'Abbé. Depuis Quimper, prenez la D785 en direction de Pont-l'Abbé, puis tournez à droite sur la rue Park ar Stankou."
+  },
+  {
+    "question": "Quelle phrase dites-vous au téléphone au patient pour lui expliquer comment trouver l'entrée de votre centre ?",
+    "réponse": "Le cabinet est facilement identifiable."
+  },
+  {
+    "question": "Existe-t-il des difficultés particulières pour accéder à votre centre ?",
+    "réponse": "Non."
+  },
+  {
+    "question": "Y a-t-il des places de parking réservées aux personnes handicapées (PMR) ?",
+    "réponse": "Oui, sur les 3 sites."
+  },
+  {
+    "question": "Disposez-vous d'un parking pour les patients ?",
+    "réponse": "Oui, sur les 3 sites."
+  },
+  {
+    "question": "Quels transports en commun desservent votre centre ?",
+    "réponse": "Aucun transport en commun ne dessert le site (seul le site de Quimper est desservi, via la ligne de bus n°9)."
+  },
+  {
+    "question": "Quelles sont les heures d'ouverture de votre centre ?",
+    "réponse": "Du lundi au vendredi de 8h30 à 12h00 et de 13h15 à 18h00."
+  },
+  {
+    "question": "Quelles sont les heures de pause ou de fermeture pendant la journée ?",
+    "réponse": "Fermeture de 12h00 à 13h15."
+  },
+  {
+    "question": "Quels sont les horaires de disponibilité téléphonique de vos secrétaires ?",
+    "réponse": "Du lundi au vendredi de 8h00 à 18h30, le samedi de 8h00 à 12h30."
+  },
+  {
+    "question": "Quels sont les jours ou périodes de fermeture régulière ?",
+    "réponse": "Fermeture le samedi et le dimanche, ainsi que les jours fériés."
+  },
+  {
+    "question": "Quel est le numéro de téléphone de votre secrétariat de radiologie ?",
+    "réponse": "02 98 95 21 21"
+  },
+  {
+    "question": "Quel est le numéro de téléphone et l'adresse email pour contacter un(e) responsable du service ?",
+    "réponse": "Isabelle Quentel-Gourves (Responsable centre d'appels) : 02 72 88 28 42 – iquentelgourves@29sud.fr\nCoat Christelle (Directrice) : 02 72 88 28 41 – ccoat@29sud.fr"
+  },
+  {
+    "question": "Quelle est l'adresse email du centre pour les demandes d'information générale ?",
+    "réponse": "contact@29sud.fr"
+  },
+  {
+    "question": "Quelle est l'adresse email du centre pour les demandes de RDV d'examen ?",
+    "réponse": "contact@29sud.fr"
+  },
+  {
+    "question": "Quelle est l'adresse email du centre pour l'envoi par le patient d'ordonnances d'examen ?",
+    "réponse": "ordo@29sud.fr (uniquement lorsqu'un rendez-vous a déjà été posé ; une réponse automatique confirme la bonne réception des documents)."
+  },
+  {
+    "question": "Proposez-vous la prise de rendez-vous en ligne ?",
+    "réponse": "Oui, via Radiobooking : https://www.rim29sud.fr/infos-rdv.html"
+  },
+  {
+    "question": "Proposez-vous un rappel ou une confirmation de rendez-vous par SMS ou email ?",
+    "réponse": "Oui. Via Radiobooking : rappel par SMS et email. Le centre d'appels envoie également des SMS de confirmation pour tous les examens, sauf les radiographies standards où seul un rappel est transmis 24h avant le rendez-vous. Les infiltrations sous échographie ne donnent pas lieu à l'envoi de SMS."
+  },
+  {
+    "question": "Souhaitez-vous accepter les nouveaux patients dans LyraeTalk ?",
+    "réponse": "Non renseigné."
+  },
+  {
+    "question": "Proposez-vous une liste d'attente ou un système de rappel pour remplacer les rendez-vous annulés ?",
+    "réponse": "Oui. En cas d'annulation, les patients souhaitant être rappelés sont contactés par téléphone. Le rendez-vous est attribué au premier patient joignable et disponible. Aucun message vocal n'est laissé."
+  },
+  {
+    "question": "Existe-t-il des frais en cas d'annulation tardive ou d'absence au rendez-vous ?",
+    "réponse": "Non."
+  },
+  {
+    "question": "En cas d'indisponibilité de créneau dans votre centre, vers quels autres centres proposez-vous d'orienter le patient ?",
+    "réponse": "Le réseau dispose de 3 sites (Quimper, Fouesnant, Pont-l'Abbé) et a généralement des disponibilités pour les examens courants (radiographie, échographie, mammographie). Les patients ne sont pas orientés vers d'autres structures."
+  },
+  {
+    "question": "Est-il possible de choisir son radiologue pour un examen ?",
+    "réponse": "Oui, pour les échographies, mammographies, radiographies et ostéodensitométries."
+  },
+  {
+    "question": "Quels sont les examens que vous pratiquez dans votre centre ?",
+    "réponse": "Radiographie, mammographie, ostéodensitométrie, échographie, échodoppler."
+  },
+  {
+    "question": "Combien de temps en moyenne le patient va-t-il passer sur place pour chaque examen ?",
+    "réponse": "Radiographie : environ 1h ; ostéodensitométrie : environ 1h ; échographie : environ 1h ; mammographie : environ 1h."
+  },
+  {
+    "question": "Votre centre assure-t-il la réalisation d'examens en urgence ?",
+    "réponse": "Oui, uniquement sur rendez-vous. 2 créneaux par jour sont disponibles pour les urgences radiographiques et des créneaux sont également réservés en échographie et mammographie. Aucune urgence n'est réalisée en ostéodensitométrie."
+  },
+  {
+    "question": "En cas d'examen demandé en urgence, est-il possible de se présenter sans rendez-vous ?",
+    "réponse": "Non, tous les examens sont réalisés uniquement sur rendez-vous."
+  },
+  {
+    "question": "En cas d'urgence médicale, quelle consigne donnez-vous lors de la fermeture du secrétariat ?",
+    "réponse": "En cas d'urgence vitale, appeler le 15. Sinon, se rapprocher de son médecin traitant."
+  },
+  {
+    "question": "Proposez-vous des examens interventionnels ?",
+    "réponse": "Oui, mais ces rendez-vous ne sont pas pris en charge par LyraeTalk. Un circuit dédié existe via la file d'attente n°3 du SVI."
+  },
+  {
+    "question": "Disposez-vous d'un IRM ouvert ou semi-ouvert pour les patients claustrophobes ?",
+    "réponse": "Non, le site ne dispose pas d'IRM. Le site de Quimper dispose d'un IRM adapté et une prémédication peut être prescrite en cas de claustrophobie."
+  },
+  {
+    "question": "Avez-vous des fiches de consignes pratiques pour la préparation aux examens ?",
+    "réponse": "Oui. Toutes les consignes sont données lors de la prise de rendez-vous et une fiche de consignes est expédiée au patient en fonction de l'examen."
+  },
+  {
+    "question": "Combien de radiologues exercent dans ce centre ?",
+    "réponse": "14 radiologues et 3 manipulateurs échographes pour l'ensemble du réseau (3 sites)."
+  },
+  {
+    "question": "Quels sont les radiologues qui exercent dans votre centre ?",
+    "réponse": "Radiologues résidents : Dr Bertevas-Galliou Geneviève, Dr Auter-Gestin Hervé, Dr Jaouen Alexandre, Dr Kervennic Pascal, Dr Kollo Ali, Dr Perdriel Benoit, Dr Prigent Luc, Dr Rohou Tanguy (secteur 2), Dr Texier Franck.\nRadiologues vacataires : Dr Le Bihan Eric, Dr Meneux Baptiste, Dr Helias Laurent, Dr De Kermerchou, Dr Ogoundele Modeste.\nManipulateurs échographes : Albrecht Isabelle, Marchal François, Olivry Christelle."
+  },
+  {
+    "question": "Les radiologues sont-ils surspécialisés par domaine d'imagerie ?",
+    "réponse": "Oui. Drs Kollo, Jaouen et Rohou : radiologie interventionnelle. Dr Rohou : imagerie abdominale. Drs Kervennic et Texier : imagerie ORL."
+  },
+  {
+    "question": "Le centre dispose-t-il d'un service d'imagerie de garde ?",
+    "réponse": "Non. La garde d'imagerie du réseau concerne uniquement les patients hospitalisés à la CMBO (site de Quimper)."
+  },
+  {
+    "question": "Quels documents doit-on apporter pour un examen ?",
+    "réponse": "Carte Vitale ou attestation avec droits à jour, le cas échéant attestation CMU/ACS ou document accident du travail/maladie professionnelle, ordonnance obligatoire (l'examen ne sera pas réalisé sans prescription médicale), examens antérieurs réalisés dans un autre centre d'imagerie (radiographies, échographies ou autres documents récents en lien avec l'examen), ainsi que les produits prescrits le cas échéant."
+  },
+  {
+    "question": "Combien de temps faut-il attendre pour recevoir les résultats ?",
+    "réponse": "Les résultats sont généralement disponibles sous 72 heures."
+  },
+  {
+    "question": "Proposez-vous la gravure de CD ?",
+    "réponse": "Non sur ce site : la gravure de CD concerne uniquement les scanners et les IRM, réalisés à Quimper."
+  },
+  {
+    "question": "Proposez-vous l'impression des clichés sur film ?",
+    "réponse": "Non renseigné."
+  },
+  {
+    "question": "Comment accéder aux résultats d'imagerie sur internet ?",
+    "réponse": "Se connecter sur www.rim29sud.fr, onglet « VOS RÉSULTATS » puis « ACCÉDEZ À VOS RÉSULTATS », cliquer sur « Accès examen », renseigner le numéro d'examen et la date de naissance au format JJ-MM-AAAA (utiliser les tirets comme séparateur, ne pas mettre d'espace)."
+  },
+  {
+    "question": "Le compte-rendu de l'examen est-il automatiquement envoyé à mon médecin traitant ?",
+    "réponse": "Oui, si le médecin dispose d'une adresse sécurisée."
+  },
+  {
+    "question": "Comment puis-je récupérer une copie de mes anciens examens ?",
+    "réponse": "Sur demande au centre. La réédition est facturée : 5 € pour les radiographies sur livret papier, 25 € pour les CD scanner/IRM."
+  },
+  {
+    "question": "Est-il possible que les images soient envoyées directement à un autre spécialiste si besoin ?",
+    "réponse": "Oui, si le médecin dispose d'une adresse sécurisée."
+  },
+  {
+    "question": "Votre centre propose-t-il du Wi-Fi pour les patients ?",
+    "réponse": "Non."
+  },
+  {
+    "question": "Disposez-vous d'une salle d'attente adaptée aux enfants ?",
+    "réponse": "Non."
+  },
+  {
+    "question": "Quels sont vos modes de paiement acceptés ?",
+    "réponse": "Espèces, carte bancaire et chèque."
+  },
+  {
+    "question": "Pratiquez-vous le tiers payant ?",
+    "réponse": "Le tiers payant Sécurité sociale est pratiqué. La part mutuelle ainsi que les actes HN/DH restent à la charge du patient en attente de prise en charge mutuelle éventuelle."
+  },
+  {
+    "question": "Existe-t-il des dépassements d'honoraires dans votre centre ?",
+    "réponse": "Oui."
+  },
+  {
+    "question": "Les montants des dépassements d'honoraires applicables ?",
+    "réponse": "Échographie : 30 €, Infiltration sous échographie : 60 €, Radiographie : 10 €, Infiltration sous radio : 60 €."
+  },
+  {
+    "question": "Quels sont les moyens pour déposer une réclamation ?",
+    "réponse": "Via les fiches de réclamation disponibles au service facturation, ou par email à : contact@29sud.fr"
+  }
+]
