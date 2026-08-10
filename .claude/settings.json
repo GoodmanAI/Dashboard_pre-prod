@@ -26,11 +26,13 @@
       "Bash(tail:*)",
       "Bash(wc:*)"
     ],
+    "ask": [
+      "Bash(git push:*)"
+    ],
     "deny": [
       "Read(./.env)",
       "Read(./.env.*)",
       "Read(./public/upload/**)",
-      "Bash(git push:*)",
       "Bash(git reset --hard:*)",
       "Bash(git clean:*)",
       "Bash(npx prisma migrate:*)",
