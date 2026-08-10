@@ -54,6 +54,22 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 
 # ------------------------------------------------------------
+# /etc/cron.d/dashboard-deployment-probe
+# ------------------------------------------------------------
+# Sonde de derive de deploiement (chantier 2026-08-10). Compare HEAD a
+# origin/<branche courante> et l'instant du dernier demarrage PM2 a la date du
+# dernier pull (reflog), puis POST vers sa propre API /api/deployments.
+# Alimente la page /admin/deployments et le mail quotidien de daily-report.
+#
+# Lit DEPLOY_PROBE_URL et DEPLOY_PROBE_API_KEY dans le .env du repo.
+# Lecture seule : un git fetch ne touche ni HEAD ni le working tree.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+*/15 * * * * root cd /var/www/Dashboard_pre-prod && /usr/bin/node deploy/deployment-probe.js >> /var/log/dashboard-deployment-probe.log 2>&1
+
+
+# ------------------------------------------------------------
 # /etc/cron.d/certbot
 # ------------------------------------------------------------
 # Renouvellement TLS, gere par le systeme. Hors perimetre applicatif.

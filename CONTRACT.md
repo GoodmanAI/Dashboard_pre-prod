@@ -18,6 +18,16 @@
 **Pour AI2Xplore** — header `x-api-key: APPOINTMENT_API_KEY` :
 `POST /api/rdv/init`, `POST /api/rdv/ack`, `GET /api/rdv/pending-events`, `POST /api/rdv/reminder-sent`, `POST /api/prescriptions/init`, `GET /api/prescriptions/pending`, `GET /api/prescriptions/download/[id]`, `POST /api/prescriptions/ack/[id]`.
 
+**Pour les sondes de déploiement** — header `x-api-key: DEPLOY_PROBE_API_KEY` :
+`POST /api/deployments` (écriture, appelée par `deploy/deployment-probe.js` des VMs
+lyraetalk, ai2xplore et dashboard, toutes les 15 min),
+`GET /api/deployments` (lecture, auth mixte : session admin pour la page
+`/admin/deployments`, API key pour `daily-report`).
+
+Clé dédiée et non `ADMIN_API_KEY` : la sonde n'a besoin que d'écrire son propre état.
+Le statut (`behind`, `restart_pending`, `stale`…) est **dérivé à la lecture**, jamais
+stocké — il dépend de l'heure qu'il est.
+
 Whitelist dans `src/middleware.ts:13-33`. **Toute nouvelle route M2M doit y être ajoutée.**
 
 ### Routes applicatives (71 au total)
@@ -63,7 +73,11 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 | Origine | Tables |
 |---|---|
 | Prisma (17) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `Call`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
-| SQL manuel (9) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats` |
+| SQL manuel (10) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus` |
+
+`DeploymentStatus` est la seule table **purement observationnelle** : aucune donnée métier,
+aucun lien vers les autres tables, une ligne par couple (service, host). Un `DROP` est sans
+conséquence — les sondes la repeuplent au cycle suivant.
 
 ---
 
@@ -74,6 +88,8 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 | **LyraeTalk** | 6 endpoints, dont toute sa configuration métier par centre. **S'ils tombent, le robot n'a plus de config.** |
 | **AI2Xplore** | 8 endpoints RDV + ordonnances, en polling |
 | **Grafana** | format des logs d'audit |
+| **daily-report** | `GET /api/deployments` — section « Déploiement » du mail quotidien. Dégradation gracieuse de son côté : si la route tombe, la section disparaît, le mail part quand même |
+| **Sondes de déploiement** (3 VMs) | `POST /api/deployments` toutes les 15 min |
 
 ---
 
