@@ -18,7 +18,18 @@
 **Pour AI2Xplore** — header `x-api-key: APPOINTMENT_API_KEY` :
 `POST /api/rdv/init`, `POST /api/rdv/ack`, `GET /api/rdv/pending-events`, `POST /api/rdv/reminder-sent`, `POST /api/prescriptions/init`, `GET /api/prescriptions/pending`, `GET /api/prescriptions/download/[id]`, `POST /api/prescriptions/ack/[id]`.
 
-Whitelist dans `src/middleware.ts:13-33`. **Toute nouvelle route M2M doit y être ajoutée.**
+Whitelist dans `src/middleware.ts`. **Toute nouvelle route M2M doit y être ajoutée.**
+
+⚠️ **Deux patterns de la whitelist sont larges** : `^/api/rdv(/|$)` et `^/api/prescriptions(/|$)`.
+Ils sont nécessaires aux pages patient (`/api/rdv/[token]`, `/api/prescriptions/[token]/upload`),
+mais ils rendent publique **toute** route ajoutée sous ces préfixes, sans décision explicite.
+L'authentification réelle est donc entièrement à la charge du handler. Une nouvelle route sous
+`rdv/` ou `prescriptions/` doit porter sa propre garde (`requireApiKey`, `requireAuth`,
+`requireAuthOrApiKey`, ou un token patient).
+
+`GET /api/rdv/dev-seed` est un outil de développement sans authentification (il écrit dans
+`AppointmentConfirmation` et renvoie un lien `/confirm` utilisable) : il renvoie **404 quand
+`NODE_ENV === "production"`**. Ne pas retirer ce garde.
 
 ### Routes applicatives (71 au total)
 Auth NextAuth, comptes (`/api/admin/users*`, `/api/admin/clients*`), tickets, notifications, RDV/SMS, ordonnances, mapping de centres externes, numéros, fichiers, statistiques, produits, données d'examens.

@@ -8,11 +8,22 @@ import {
 
 /**
  * ⚠️ Endpoint réservé au développement local pour tester la page /confirm/[token]
- * sans dépendre de l'API métier. Désactivé en production.
+ * sans dépendre de l'API métier. Désactivé en production (garde ci-dessous).
  *
  * Usage : ouvrir `/api/rdv/dev-seed` (ou `/api/rdv/dev-seed?centerId=N`) dans le navigateur.
+ *
+ * Il n'y a volontairement aucune authentification ici : c'est un outil de dev.
+ * Mais `src/middleware.ts` whiteliste tout `/api/rdv/*` (pattern large, pour les
+ * pages patient `/api/rdv/[token]`), donc sans le garde `NODE_ENV` cette route
+ * serait joignable sans session en production — et elle écrit en base
+ * (`AppointmentConfirmation`) tout en renvoyant un lien /confirm exploitable.
  */
 export async function GET(req: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    // 404 et non 403 : ne pas révéler que l'endpoint existe.
+    return new NextResponse(null, { status: 404 });
+  }
+
   if (!process.env.APPOINTMENT_HMAC_SECRET) {
     return NextResponse.json(
       {
