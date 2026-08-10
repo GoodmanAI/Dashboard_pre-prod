@@ -113,7 +113,7 @@ conséquence — les sondes la repeuplent au cycle suivant.
 
 - `README.md` obsolète (ne parle que de Docker Compose).
 - `.env.example` incomplet : 15 variables listées, 26+ attendues **[?] Q15**.
-- Whitelist `/api/heartbeat/*` sans endpoint correspondant **[?] Q4**.
+- ~~Whitelist `/api/heartbeat/*` sans endpoint correspondant **[?] Q4**.~~ **Résolu le 2026-08-10** : la whitelist avait en fait déjà été retirée de `src/middleware.ts` — aucune occurrence de `heartbeat` dans `src/`. Le seul émetteur restant, AI2Xplore, a été coupé de son côté. Q4 close.
 - Deux clients Prisma, deux mailers, deux seeds admin **[?] Q16**.
 - `Call` et `CallConversation` coexistent **[?] Q13**.
 - `LyraeExplain` : produit archivé, code encore présent **[?] Q14**.
