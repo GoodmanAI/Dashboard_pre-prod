@@ -3,7 +3,7 @@
 > À copier dans `repos/dashboard/CONTRACT.md`.
 
 **Rôle** : UI admin/client des centres d'imagerie **et API centrale du produit**. Base de vérité de la configuration.
-**Stack** : TypeScript, Next.js 14 App Router, Prisma 6, PostgreSQL, NextAuth v4, Socket.io. 208 fichiers, ~48 000 LOC, 71 routes API, 17 modèles Prisma.
+**Stack** : TypeScript, Next.js 14 App Router, Prisma 6, PostgreSQL, NextAuth v4, Socket.io. 208 fichiers, ~48 000 LOC, 71 routes API, 18 modèles Prisma.
 **Prod** : VPS OVH, PM2, `git pull` + `npm run build` + `pm2 restart` **[?]**. Aucune CI.
 
 ---
@@ -50,9 +50,22 @@ Sous-domaines : `rdv.neuracorp.ai`, `depot-ordonnances.neuracorp.ai` (doivent po
 
 ---
 
-## Base que je possède
+## Base PostgreSQL — partagée, pas privée
 
-PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — relation exacte avec la base d'AI2Xplore à clarifier.
+Base `dashboard` sur l'instance du VPS `vps-6fbed353` (`151.80.234.66:5432`), atteinte via
+`DATABASE_URL`. **Je ne suis pas propriétaire complet** : vérifié en production le 10/08/2026,
+deux autres systèmes accèdent à cette base **sans passer par mon API**.
+
+| Consommateur direct | Accès | Ce qu'il fait |
+|---|---|---|
+| **AI2Xplore** | écriture, rôle `neuracorp` | crée et fait évoluer ses 3 tables via `postgres.ensureSchema()` à chaque démarrage, puis les lit/écrit en SQL brut |
+| **Grafana** | lecture, rôle `grafana_readonly` | lit les tables en direct pour ses tableaux de bord — **un renommage de colonne le casse silencieusement** **[?] Q29** |
+
+**31 tables dans le schéma `public`** : 28 à moi, 3 à AI2Xplore.
+
+**Les 3 tables que je ne contrôle pas** — ne pas les inclure dans une migration, un
+`prisma db pull`, ni un script de purge : `rdv_reminders`, `prescription_sync_log`,
+`sandbox_rdv_planning`. Elles appartiennent à AI2Xplore (voir son `CONTRACT.md`).
 
 **Deux drivers coexistent** : Prisma (`src/lib/prisma.ts`) et `pg` Pool (`src/lib/db.ts`), selon les endpoints.
 
@@ -60,10 +73,26 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 - Prisma : `prisma/migrations/YYYYMMDDHHMMSS_*/migration.sql` (6 dossiers)
 - Manuel : `prisma/migrations/manual/*.sql` (10 fichiers) — **ces tables ne sont pas dans `schema.prisma`**
 
+…et un **troisième** mécanisme que je ne pilote pas : `ensureSchema()` d'AI2Xplore, qui écrit
+du DDL sur cette même base sans laisser de trace dans `_prisma_migrations`. **[?] Q30**
+
+### Mes 28 tables, par origine
+
 | Origine | Tables |
 |---|---|
-| Prisma (17) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `Call`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
+| Prisma (18) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `Call`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `ModuleInfoItem`, `LoginAttempt` |
 | SQL manuel (9) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats` |
+| Interne Prisma (1) | `_prisma_migrations` |
+
+### … et par propriétaire PostgreSQL
+
+L'origine et le propriétaire ne coïncident pas : `LoginAttempt` est né en SQL manuel puis a été
+rapatrié dans `schema.prisma`, mais son propriétaire est resté `neuracorp`.
+
+| Propriétaire | Tables |
+|---|---|
+| `postgres` (18) | les 17 modèles Prisma hors `LoginAttempt`, plus `_prisma_migrations` |
+| `neuracorp` (13) | les 9 tables SQL manuelles, plus `LoginAttempt` — **et les 3 tables d'AI2Xplore** |
 
 ---
 
@@ -72,8 +101,8 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 | Consommateur | Ce qu'il utilise |
 |---|---|
 | **LyraeTalk** | 6 endpoints, dont toute sa configuration métier par centre. **S'ils tombent, le robot n'a plus de config.** |
-| **AI2Xplore** | 8 endpoints RDV + ordonnances, en polling |
-| **Grafana** | format des logs d'audit |
+| **AI2Xplore** | 8 endpoints RDV + ordonnances, en polling — **et un accès direct en écriture à ma base PostgreSQL** |
+| **Grafana** | format des logs d'audit — **et un accès direct en lecture à ma base PostgreSQL** (`grafana_readonly`) |
 
 ---
 
