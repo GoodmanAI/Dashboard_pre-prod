@@ -97,6 +97,66 @@ function headUpdatedAt(repoPath) {
   return m ? m[1] : null;
 }
 
+/**
+ * Fichiers dont la modification n'affecte PAS un process déjà démarré.
+ *
+ * Sert à distinguer « le disque a changé » de « il faut redémarrer ». Un pull qui
+ * n'apporte que de la documentation faisait sinon clignoter la supervision en orange
+ * — et une alerte qui crie pour rien finit par être ignorée le jour où elle a raison.
+ *
+ * deploy/ en fait partie : ce sont des scripts d'exploitation lancés par cron, relus
+ * à chaque exécution, jamais chargés par le process applicatif.
+ *
+ * En cas de doute, un fichier est considéré comme runtime : rater un vrai besoin de
+ * restart coûte plus cher qu'une alerte de trop.
+ */
+const NON_RUNTIME = [
+  /\.md$/i,
+  /^\.claude\//,
+  /^\.github\//,
+  /^\.gitignore$/,
+  /^\.gitattributes$/,
+  /^LICENSE/i,
+  /^deploy\//,
+  /^docs?\//,
+];
+
+/** Date de l'entrée de reflog la plus ancienne — au-delà, on ne sait plus rien. */
+function oldestReflogDate(repoPath) {
+  const raw = gitSafe(repoPath, ['log', '-g', '--reverse', '--date=iso-strict', '--format=%gd', 'HEAD']);
+  const m = raw && raw.split('\n')[0].match(/\{(.+)\}/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Le code EXÉCUTABLE a-t-il changé depuis que le process a démarré ?
+ *
+ * On récupère le HEAD tel qu'il était à l'instant du démarrage (`HEAD@{date}`, résolu
+ * par le reflog), puis on regarde si le diff avec HEAD touche autre chose que de la
+ * doc et des scripts d'exploitation.
+ *
+ * Renvoie true / false / null (indéterminable). null quand le reflog ne remonte pas
+ * assez loin : git renverrait alors sa plus ancienne entrée avec un simple warning,
+ * ce qui produirait un diff énorme et un verdict inventé. Mieux vaut dire « je ne
+ * sais pas » et laisser le Dashboard retomber sur la comparaison de dates.
+ */
+function runtimeChangedSinceStart(repoPath, startedAtIso) {
+  if (!startedAtIso) return null;
+
+  const oldest = oldestReflogDate(repoPath);
+  if (!oldest || new Date(startedAtIso).getTime() < new Date(oldest).getTime()) return null;
+
+  const shaAtStart = gitSafe(repoPath, ['rev-parse', `HEAD@{${startedAtIso}}`]);
+  if (!shaAtStart) return null;
+
+  const out = gitSafe(repoPath, ['diff', '--name-only', shaAtStart, 'HEAD']);
+  if (out === null) return null;
+
+  const files = out.split('\n').filter(Boolean);
+  if (!files.length) return false;
+  return files.some((f) => !NON_RUNTIME.some((re) => re.test(f)));
+}
+
 /** État PM2 de la VM, indexé par répertoire de travail du process. */
 function readPm2() {
   let raw;
@@ -160,6 +220,7 @@ function probeRepo(repoPath, pm2List) {
 
   const remoteRef = `origin/${branch}`;
   const remoteSha = gitSafe(repoPath, ['rev-parse', remoteRef]);
+  const pm2 = findPm2Process(pm2List, repoPath);
 
   return {
     service: path.basename(repoPath),
@@ -177,7 +238,9 @@ function probeRepo(repoPath, pm2List) {
       ? Number(gitSafe(repoPath, ['rev-list', '--count', `HEAD..${remoteRef}`]) || 0)
       : 0,
     dirty: (gitSafe(repoPath, ['status', '--porcelain']) || '') !== '',
-    pm2: findPm2Process(pm2List, repoPath),
+    pm2,
+    // Calculé ici et pas côté Dashboard : lui n'a pas le dépôt sous la main.
+    runtimeChangedSinceStart: runtimeChangedSinceStart(repoPath, pm2?.startedAt),
   };
 }
 

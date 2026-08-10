@@ -36,6 +36,7 @@ type ProbeRepo = {
   dirty?: unknown;
   fetchOk?: unknown;
   error?: unknown;
+  runtimeChangedSinceStart?: unknown;
   pm2?: { name?: unknown; status?: unknown; startedAt?: unknown; restarts?: unknown } | null;
 };
 
@@ -78,8 +79,8 @@ export async function POST(req: NextRequest) {
          "service", "host", "repoPath", "branch", "headSha", "headSubject",
          "headCommittedAt", "headUpdatedAt", "remoteSha", "behindCount", "dirty",
          "fetchOk", "pm2Name", "pm2Status", "pm2StartedAt", "pm2Restarts",
-         "probeError", "probeAt"
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+         "probeError", "probeAt", "runtimeChangedSinceStart"
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
        ON CONFLICT ("service", "host") DO UPDATE SET
          "repoPath"        = EXCLUDED."repoPath",
          "branch"          = EXCLUDED."branch",
@@ -96,7 +97,8 @@ export async function POST(req: NextRequest) {
          "pm2StartedAt"    = EXCLUDED."pm2StartedAt",
          "pm2Restarts"     = EXCLUDED."pm2Restarts",
          "probeError"      = EXCLUDED."probeError",
-         "probeAt"         = EXCLUDED."probeAt"`,
+         "probeAt"         = EXCLUDED."probeAt",
+         "runtimeChangedSinceStart" = EXCLUDED."runtimeChangedSinceStart"`,
       [
         service,
         host,
@@ -116,6 +118,8 @@ export async function POST(req: NextRequest) {
         int(raw?.pm2?.restarts),
         str(raw?.error),
         probedAt,
+        // Tri-état volontaire : true / false / null (indéterminable côté sonde).
+        typeof raw?.runtimeChangedSinceStart === "boolean" ? raw.runtimeChangedSinceStart : null,
       ]
     );
     written++;
@@ -143,6 +147,7 @@ type Row = {
   pm2Restarts: number | null;
   probeError: string | null;
   probeAt: Date;
+  runtimeChangedSinceStart: boolean | null;
 };
 
 export type DeploymentState =
@@ -176,6 +181,11 @@ function deriveState(row: Row, now: number): DeploymentState {
   const diskChangedAt = row.headUpdatedAt ?? row.headCommittedAt;
   if (row.pm2StartedAt && diskChangedAt) {
     if (new Date(row.pm2StartedAt).getTime() < new Date(diskChangedAt).getTime()) {
+      // Le disque a changé après le démarrage — mais s'agit-il de code exécutable ?
+      // La sonde a comparé le HEAD d'alors au HEAD actuel : quand le diff ne touche
+      // que de la doc ou des scripts cron, redémarrer ne servirait qu'à couper des
+      // appels en cours. `null` = indéterminable : on garde l'alerte, par prudence.
+      if (row.runtimeChangedSinceStart === false) return "up_to_date";
       return "restart_pending";
     }
   }
@@ -198,6 +208,12 @@ function describe(row: Row, state: DeploymentState): string {
     case "restart_pending":
       return "Code à jour sur le disque mais process jamais relancé depuis — pm2 restart requis.";
     case "up_to_date":
+      // Le process est plus ancien que le dernier pull, mais celui-ci n'a apporté
+      // que de la doc : on le dit, sinon l'écart de dates visible sur la carte
+      // ferait douter du verdict.
+      if (row.runtimeChangedSinceStart === false) {
+        return "À jour — le dernier pull n'a touché que de la documentation, aucun redémarrage nécessaire.";
+      }
       return "À jour.";
   }
 }
@@ -214,7 +230,7 @@ export async function GET(req: NextRequest) {
     `SELECT "service", "host", "repoPath", "branch", "headSha", "headSubject",
             "headCommittedAt", "headUpdatedAt", "remoteSha", "behindCount", "dirty",
             "fetchOk", "pm2Name", "pm2Status", "pm2StartedAt", "pm2Restarts",
-            "probeError", "probeAt"
+            "probeError", "probeAt", "runtimeChangedSinceStart"
        FROM "DeploymentStatus"
       ORDER BY "service", "host"`
   );

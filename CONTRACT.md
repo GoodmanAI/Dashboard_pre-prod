@@ -28,6 +28,12 @@ Clé dédiée et non `ADMIN_API_KEY` : la sonde n'a besoin que d'écrire son pro
 Le statut (`behind`, `restart_pending`, `stale`…) est **dérivé à la lecture**, jamais
 stocké — il dépend de l'heure qu'il est.
 
+`runtimeChangedSinceStart` est un **tri-état** (`true` / `false` / `null`) et non un
+booléen : `null` signifie « la sonde n'a pas pu conclure » (pas de process PM2, ou
+reflog trop court pour remonter au démarrage). Le traiter comme `false` ferait
+disparaître de vraies alertes de restart — à la lecture, seul `false` explicite
+requalifie un `restart_pending` en `up_to_date`.
+
 Whitelist dans `src/middleware.ts:13-33`. **Toute nouvelle route M2M doit y être ajoutée.**
 
 ### Routes applicatives (71 au total)
@@ -77,7 +83,9 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 
 `DeploymentStatus` est la seule table **purement observationnelle** : aucune donnée métier,
 aucun lien vers les autres tables, une ligne par couple (service, host). Un `DROP` est sans
-conséquence — les sondes la repeuplent au cycle suivant.
+conséquence — les sondes la repeuplent au cycle suivant. Deux fichiers manuels la
+composent : `2026_08_10_deployment_status.sql` (création) et
+`2026_08_10_deployment_runtime_changed.sql` (colonne `runtimeChangedSinceStart`).
 
 ---
 
