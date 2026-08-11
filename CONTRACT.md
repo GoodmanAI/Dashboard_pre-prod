@@ -43,6 +43,23 @@ Auth NextAuth, comptes (`/api/admin/users*`, `/api/admin/clients*`), tickets, no
 `/c`, `/d`, `/confirm` — token 8 caractères + `verificationCode` haché bcrypt.
 Sous-domaines : `rdv.neuracorp.ai`, `depot-ordonnances.neuracorp.ai` (doivent pointer sur le même conteneur Next).
 
+**Ces trois pages doivent conserver leurs métadonnées** (`generateMetadata` / `metadata`
+dans les `page.tsx` — le layout racine est `"use client"` et ne peut pas en exporter) :
+
+- `title` + `openGraph` : les applications de messagerie (`Dalvik/…`, `GoogleMessages/…`
+  dans les logs nginx) pré-chargent l'URL du SMS pour en faire un aperçu. Sans elles,
+  l'aperçu est un rectangle vide sous un lien d'allure suspecte — signalé par des
+  patients comme « une page blanche » (2026-08-11).
+- `robots: noindex, nofollow` : Googlebot (`66.249.x`) a visité cinq liens patients le
+  2026-08-11. Ces pages portent la date d'un rendez-vous médical et mènent au dépôt d'un
+  document de santé — **elles ne doivent jamais être indexables**.
+
+Ne jamais y mettre la date du rendez-vous ni l'identité du patient : titre et description
+transitent par les serveurs de l'opérateur de messagerie pour générer l'aperçu.
+
+Chaque route patient a aussi son `error.tsx` et son `not-found.tsx` : sans error boundary,
+une erreur de rendu laisse une page blanche au patient et aucune trace côté serveur.
+
 ### Sorties
 - Socket.io `/api/socket` : `ticket-updated { ticketId, kind }`, `call-flagged { callId, flagged }`.
 - Logs d'audit stdout JSON (`audit=true`) → Alloy → Loki (`service=dashboard`). **Format consommé par LogQL et les alertes Grafana** — voir `scripts/audit-log-queries.md`.
