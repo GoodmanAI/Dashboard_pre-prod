@@ -5,6 +5,7 @@ import {
   DEFAULT_ALERT_AFTER_HOURS,
   normalizeAlertAfterHours,
 } from "@/lib/prescriptionConfig";
+import { PAST_APPOINTMENT_SQL } from "@/lib/prescriptionAlerts";
 
 /**
  * GET /api/prescriptions/alerts/count?userProductId=X
@@ -21,6 +22,8 @@ import {
  *   - status = 'PENDING' (le patient n'a pas encore upload)
  *   - alertResolvedAt IS NULL (secretaire n'a pas encore traite)
  *   - createdAt < NOW() - INTERVAL 'alertAfterHours hours'
+ *   - appointmentDate pas anterieure au jour courant (Europe/Paris) : ces
+ *     alertes sont classees automatiquement, cf. src/lib/prescriptionAlerts.ts
  *   - centre resolu via ExternalCenterMapping (multi-centre supporte)
  *
  * Reponse 200 : { userProductId, count, thresholdHours }
@@ -66,6 +69,11 @@ export async function GET(req: NextRequest) {
   }
 
   // Count uploads PENDING > seuil (alertes "patient n'a rien depose")
+  //
+  // Les RDV deja passes sont exclus : la page /alerts les classe
+  // automatiquement au chargement, le badge doit annoncer le meme chiffre sans
+  // attendre qu'une secretaire ouvre la page. Cet endpoint ne fait que lire —
+  // il est poll toutes les 60s depuis toutes les pages, on n'y ecrit pas.
   const pendingRes = await db.query<{ count: string }>(
     `
     SELECT COUNT(*)::text AS count
@@ -74,6 +82,7 @@ export async function GET(req: NextRequest) {
        AND "status" = 'PENDING'
        AND "alertResolvedAt" IS NULL
        AND "createdAt" < NOW() - ($2::int || ' hours')::interval
+       AND NOT ${PAST_APPOINTMENT_SQL}
     `,
     [codes, thresholdHours]
   );
