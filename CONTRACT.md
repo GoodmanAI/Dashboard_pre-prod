@@ -127,6 +127,14 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 5. **`ExternalCenterMapping.externalCenterCode`** = clé de jointure avec AI2Xplore.
 6. **Colonnes camelCase entre guillemets** (`"User"`, `"UserProduct"`) — sensibles à la casse.
 7. **`Product.name === "LyraeTalk"`** — chaîne magique répétée 40+ fois.
+8. **Le cycle de vie d'un `PrescriptionUpload` est à sens unique.** `POST /api/prescriptions/ack/[id]`
+   avec `rejected: true` bascule le statut en `REJECTED` (depuis le 2026-08-04) ; à partir de là
+   `GET /api/prescriptions/download/[id]` répond **409** — il ne sert que `UPLOADED` et `ACKED` — et
+   l'ack nominal refuse tout statut ≠ `UPLOADED`. **AI2Xplore ne peut donc plus rejouer un dépôt
+   qu'il a lui-même rejeté** ; seule la secrétaire récupère le fichier, via
+   `GET /api/prescriptions/rejected/[id]/download` (session NextAuth, pas de clé API).
+   Assouplir l'un des deux sans l'autre ne débloque rien : il faut les deux pour rendre le
+   rattrapage automatique possible.
 8. **`AppointmentConfirmation.shortCode`** (8 caractères) et **`PrescriptionUpload.token`** : format des URL déjà envoyées par SMS.
 9. **`RDV_SHORT_URL_BASE`, `DEPOT_ORDONNANCES_URL_BASE`, `PUBLIC_APP_URL`** : les changer casse les nouveaux SMS générés.
 10. **`JWT_SECRET`** : le changer déconnecte tout le monde. `User.tokenVersion` : l'incrémenter expulse au prochain refresh (~1 h).
