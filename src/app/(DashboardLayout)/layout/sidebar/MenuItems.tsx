@@ -15,6 +15,7 @@ import {
   IconCalendarOff,
   IconMessage2,
   IconFileAlert,
+  IconRocket,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -179,6 +180,12 @@ export const AdminMenuitems: SidebarItem[] = [
     title: "Actions",
     icon: IconBolt,
     href: "/admin/actions",
+  },
+  {
+    id: uniqueId(),
+    title: "Déploiements",
+    icon: IconRocket,
+    href: "/admin/deployments",
   },
   { navlabel: true, subheader: "Client" },
   {

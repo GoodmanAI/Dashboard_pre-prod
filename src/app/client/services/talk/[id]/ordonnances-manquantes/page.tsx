@@ -136,6 +136,10 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
   // Chantier prescriptions rejected 2026-08-04 : tab actif entre les 2 vues
   const [tab, setTab] = useState<"pending" | "rejected">("pending");
   const [rejectedCount, setRejectedCount] = useState<number>(0);
+  // Nombre d'alertes classees automatiquement par le serveur au dernier load
+  // (RDV anterieur a aujourd'hui). Affiche pour que la disparition des cartes
+  // ne soit pas silencieuse.
+  const [autoResolvedCount, setAutoResolvedCount] = useState<number>(0);
   // Chantier 2026-08-05 : mini KPI 30j en haut de la page (integres ici
   // au lieu d'une page stats dediee)
   const [statsTotals, setStatsTotals] = useState<{
@@ -182,6 +186,9 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
         if (!alertsRes.ok) throw new Error(`HTTP ${alertsRes.status}`);
         const data = await alertsRes.json();
         setItems(Array.isArray(data.items) ? data.items : []);
+        setAutoResolvedCount(
+          Number.isFinite(data?.autoResolvedCount) ? data.autoResolvedCount : 0
+        );
         if (Number.isFinite(data?.defaultHours)) {
           setDefaultHours(data.defaultHours);
         }
@@ -628,6 +635,20 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
           </Alert>
         )}
 
+        {/* Cloture auto des RDV passes : on l'annonce au lieu de laisser les
+            cartes disparaitre sans trace (cf. src/lib/prescriptionAlerts.ts) */}
+        {!loading && autoResolvedCount > 0 && (
+          <Alert
+            severity="success"
+            icon={<CheckCircle sx={{ fontSize: 20 }} />}
+            sx={{ mb: 2, borderRadius: 2 }}
+          >
+            {autoResolvedCount === 1
+              ? "1 alerte a ete classee automatiquement : le rendez-vous est deja passe."
+              : `${autoResolvedCount} alertes ont ete classees automatiquement : leur rendez-vous est deja passe.`}
+          </Alert>
+        )}
+
         {loading ? (
           <Stack alignItems="center" sx={{ py: 6 }}>
             <CircularProgress sx={{ color: "#48C8AF" }} />
@@ -652,7 +673,8 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               Cliquez sur le numero pour le copier. Une fois le patient rappele, cliquez
               &laquo; Marquer traite &raquo; pour retirer la carte de la liste. Le RDV reste
               en attente d&apos;ordonnance tant que le PDF n&apos;a pas ete depose sur la
-              plateforme.
+              plateforme. Les rendez-vous anterieurs a aujourd&apos;hui sont classes
+              automatiquement : plus la peine de rappeler, l&apos;examen est passe.
             </Alert>
 
             {orderedItems.map((item) => {

@@ -33,6 +33,11 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   //  - /api/prescriptions/[token]/status, /upload → public, protégés par le token
   //  - /api/prescriptions/config → auth mixte (API key OU session) côté handler
   /^\/api\/prescriptions(\/|$)/,
+  // Suivi de dérive de déploiement (chantier 2026-08-10) :
+  //  - POST : sonde deploy/deployment-probe.js des 3 VMs → API key (handler)
+  //  - GET  : page /admin/deployments (session admin) OU daily-report (API key),
+  //           auth mixte côté handler. Whitelisté car l'appel cron n'a pas de session.
+  /^\/api\/deployments$/,
 ];
 
 function isPublicApi(pathname: string): boolean {

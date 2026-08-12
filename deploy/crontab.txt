@@ -1,0 +1,96 @@
+# ============================================================
+# CRONTAB DE PRODUCTION — Dashboard
+# ============================================================
+# VM        : vps-6fbed353  (VPS OVH, Ubuntu)
+# Chemin    : /var/www/Dashboard_pre-prod
+# Mecanisme : /etc/cron.d/  (aucun crontab utilisateur ni root)
+# Fuseau    : aucun CRON_TZ declare -> fuseau systeme (CEST)
+# Releve le : 2026-08-10
+#
+# Ce fichier est une COPIE POUR REFERENCE, pas la source d'execution.
+# Les jobs vivent dans /etc/cron.d/dashboard-* et s'executent en root.
+# Apres toute modification en production, mettre ce fichier a jour.
+# ============================================================
+
+
+# ------------------------------------------------------------
+# /etc/cron.d/dashboard-prescriptions
+# ------------------------------------------------------------
+# Note : ce fichier ne declare ni SHELL ni PATH, contrairement aux deux
+# autres. Il s'appuie sur les valeurs par defaut de cron.
+
+# Alertes ordonnances - toutes les heures.
+0 * * * * root /var/www/Dashboard_pre-prod/scripts/db-maintenance/prescription_alerts.sh >> /var/log/prescription-alerts.log 2>&1
+
+# Purge des ordonnances - quotidien 3h15.
+15 3 * * * root /var/www/Dashboard_pre-prod/scripts/db-maintenance/purge_prescriptions.sh >> /var/log/prescription-purge.log 2>&1
+
+# Purge du journal d'acces aux ordonnances - hebdomadaire, dimanche 3h45.
+45 3 * * 0 root /var/www/Dashboard_pre-prod/scripts/db-maintenance/purge_prescription_access_log.sh >> /var/log/prescription-access-log-purge.log 2>&1
+
+
+# ------------------------------------------------------------
+# /etc/cron.d/dashboard-purge-appointment-confirmations
+# ------------------------------------------------------------
+# Purge quotidienne des AppointmentConfirmation :
+#  - ackedAt IS NOT NULL > 30j
+#  - statuts finaux non-ackes > 90j (filet de securite)
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+30 3 * * * root /var/www/Dashboard_pre-prod/scripts/db-maintenance/purge_appointment_confirmations.sh >> /var/log/dashboard-purge-appointment-confirmations.log 2>&1
+
+
+# ------------------------------------------------------------
+# /etc/cron.d/dashboard-purge-login-attempts
+# ------------------------------------------------------------
+# Purge quotidienne des LoginAttempt > 30 jours.
+# Le rate limiter (src/lib/loginSecurity.ts) ecrit dans "LoginAttempt" a
+# chaque tentative de connexion. Sans purge, la table grossit indefiniment.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+15 3 * * * root /var/www/Dashboard_pre-prod/scripts/db-maintenance/purge_login_attempts.sh >> /var/log/dashboard-purge-login-attempts.log 2>&1
+
+
+# ------------------------------------------------------------
+# /etc/cron.d/dashboard-deployment-probe
+# ------------------------------------------------------------
+# Sonde de derive de deploiement (chantier 2026-08-10). Compare HEAD a
+# origin/<branche courante> et l'instant du dernier demarrage PM2 a la date du
+# dernier pull (reflog), puis POST vers sa propre API /api/deployments.
+# Alimente la page /admin/deployments et le mail quotidien de daily-report.
+#
+# Lit DEPLOY_PROBE_URL et DEPLOY_PROBE_API_KEY dans le .env du repo.
+# Lecture seule : un git fetch ne touche ni HEAD ni le working tree.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+*/15 * * * * root cd /var/www/Dashboard_pre-prod && /usr/bin/node deploy/deployment-probe.js >> /var/log/dashboard-deployment-probe.log 2>&1
+
+
+# ------------------------------------------------------------
+# /etc/cron.d/certbot
+# ------------------------------------------------------------
+# Renouvellement TLS, gere par le systeme. Hors perimetre applicatif.
+# Un certbot.timer systemd est egalement actif.
+
+
+# ------------------------------------------------------------
+# NOTES
+# ------------------------------------------------------------
+# - Les 5 scripts de scripts/db-maintenance/ sont TOUS planifies.
+#
+# - Collision horaire : purge_prescriptions et purge_login_attempts
+#   demarrent tous deux a 3h15. Sans consequence a priori (tables
+#   differentes), mais a garder en tete en cas de contention sur la base.
+#
+# - Le chemin de production est /var/www/Dashboard_pre-prod, alors que
+#   c'est bien l'instance de production. Nom historique trompeur.
+#
+# - Aucun CRON_TZ declare : les horaires suivent le fuseau systeme. Une
+#   reinstallation en UTC decalerait toutes les purges de deux heures.
+#
+# - Les logs vont dans /var/log/ (et non dans le repo), donc couverts par
+#   le logrotate systeme - contrairement aux logs d'AI2Xplore et de
+#   Daily Report, qui ecrivent dans leur repertoire applicatif.

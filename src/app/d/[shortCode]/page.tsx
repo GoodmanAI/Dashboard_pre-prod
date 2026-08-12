@@ -29,6 +29,42 @@ import PrescriptionUploadForm from "./PrescriptionUploadForm";
 // nouveaux inits), donc rendu dynamique force.
 export const dynamic = "force-dynamic";
 
+const DEPOT_BASE_URL =
+  process.env.DEPOT_ORDONNANCES_URL_BASE ||
+  "https://depot-ordonnances.neuracorp.ai";
+
+/**
+ * Metadonnees du lien patient. Meme raison que pour /c/[shortCode] (voir le
+ * commentaire detaille la-bas) : les applications de messagerie pre-chargent
+ * l'URL du SMS pour en faire un apercu, et sans titre ni Open Graph cet apercu
+ * est un rectangle vide sous un lien d'allure suspecte.
+ *
+ * `noindex` est encore plus important ici : la page mene au depot d'un document
+ * medical. Elle n'a rien a faire dans un index de moteur de recherche.
+ */
+export const metadata = {
+  title: "Dépôt de votre ordonnance",
+  description:
+    "Transmettez votre ordonnance à votre centre d'imagerie avant votre examen. Aucun paiement n'est demandé.",
+  robots: { index: false, follow: false, nocache: true },
+  openGraph: {
+    title: "Dépôt de votre ordonnance",
+    description:
+      "Transmettez votre ordonnance à votre centre d'imagerie avant votre examen. Aucun paiement n'est demandé.",
+    type: "website" as const,
+    locale: "fr_FR",
+    siteName: "Neuracorp",
+    images: [
+      {
+        url: `${DEPOT_BASE_URL}/images/logos/neuracorp-ai-icon_fond.png`,
+        width: 512,
+        height: 512,
+        alt: "Neuracorp",
+      },
+    ],
+  },
+};
+
 export default async function PrescriptionUploadByShortCodePage({
   params,
 }: {
