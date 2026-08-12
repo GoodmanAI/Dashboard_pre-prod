@@ -7,6 +7,7 @@ import {
   DEFAULT_ALERT_AFTER_HOURS,
   normalizeAlertAfterHours,
 } from "@/lib/prescriptionConfig";
+import { autoResolvePastAppointments } from "@/lib/prescriptionAlerts";
 
 /**
  * GET /api/prescriptions/alerts?userProductId=X[&hoursThreshold=Y]
@@ -30,6 +31,12 @@ import {
  *   - alertResolvedAt IS NULL (secretaire n'a pas encore traite)
  *   - createdAt < NOW() - INTERVAL 'X hours' (X = hoursThreshold effectif)
  *
+ * Effet de bord assume : avant la lecture, les alertes dont le RDV est
+ * anterieur au jour courant (Europe/Paris) sont marquees traitees
+ * automatiquement — elles n'ont plus d'objet une fois l'examen passe. Le
+ * nombre de lignes ainsi classees est renvoye dans `autoResolvedCount` pour
+ * que l'UI puisse l'annoncer. Voir `src/lib/prescriptionAlerts.ts`.
+ *
  * Note : on ne s'appuie PAS sur alertRaisedAt (marker du cron d'envoi email).
  * Le filtre est purement base sur le temps ecoule depuis l'envoi du lien SMS,
  * ce qui permet au client d'ajuster dynamiquement le seuil sans dependre du
@@ -46,6 +53,7 @@ import {
  *     userProductId,
  *     thresholdHours,       // le seuil effectivement applique
  *     defaultHours,         // le seuil configure du centre (utile pour init UI)
+ *     autoResolvedCount,    // alertes classees auto (RDV passe) sur cet appel
  *     items: [{
  *       id, rdvId, phone, firstname, lastname,
  *       appointmentDate, examType, status,
@@ -109,8 +117,25 @@ export async function GET(req: NextRequest) {
       userProductId,
       thresholdHours,
       defaultHours,
+      autoResolvedCount: 0,
       items: [],
     });
+  }
+
+  // Cloture automatique des alertes dont le RDV est deja passe, AVANT la
+  // lecture : la liste retournee est donc deja purgee de ces lignes.
+  // Voir prescriptionAlerts.ts pour la justification metier.
+  let autoResolvedCount = 0;
+  try {
+    autoResolvedCount = await autoResolvePastAppointments(codes);
+    if (autoResolvedCount > 0) {
+      // Reveille les autres onglets/sessions du centre (badge navbar, header)
+      const io: any = globalThis.io;
+      if (io) io.emit("prescription-alerts-updated", { userProductId });
+    }
+  } catch (err) {
+    // Non bloquant : mieux vaut afficher la liste non purgee que planter la page
+    console.error("[prescriptions/alerts] auto-resolve past appointments failed:", err);
   }
 
   const alertsRes = await db.query<{
@@ -161,6 +186,7 @@ export async function GET(req: NextRequest) {
     userProductId,
     thresholdHours,
     defaultHours,
+    autoResolvedCount,
     items,
   });
 }

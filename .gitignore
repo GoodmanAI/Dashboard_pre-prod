@@ -35,11 +35,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# prisma
-# On ignore le contenu de /prisma/migrations (Prisma auto-gen), mais on garde
-# le sous-dossier /prisma/migrations/manual/ pour tracer les migrations SQL
-# manuelles (tables hors schema.prisma).
-/prisma/migrations/*
-!/prisma/migrations/manual/
-
 .history/

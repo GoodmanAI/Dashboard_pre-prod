@@ -24,15 +24,26 @@ import { requireApiKey } from "@/lib/auth-helpers";
  *
  * Semantics :
  *   - Body vide OU rejected=false : marque ACKED, PrescriptionStats.acked++
- *   - rejected=true : log dans PrescriptionAccessLog avec errorReason, NE
- *     touche PAS au statut. Le row reste UPLOADED, visible pour
- *     investigation manuelle par la secretaire.
+ *   - rejected=true : bascule le statut en REJECTED (rejectedAt, rejectReason,
+ *     rejectAttempts, rejectErrorType), PrescriptionStats.rejected++, log
+ *     'reject_failed'. La secretaire reprend la main depuis l'admin et
+ *     telecharge le fichier via /api/prescriptions/rejected/[id]/download.
+ *   - rejected=true sur un ACKED : ignore (log seulement) — l'ordonnance a
+ *     deja ete traitee avec succes.
+ *   - rejected=true sur un REJECTED : idempotent, met a jour le motif.
+ *
+ * ATTENTION — le passage en REJECTED est SANS RETOUR pour AI2Xplore :
+ * /api/prescriptions/download/[id] ne sert que UPLOADED et ACKED (409 sinon), et
+ * l'ack nominal plus bas refuse tout statut != UPLOADED. Un depot abandonne n'est
+ * donc plus rejouable par scripts/retryPrescription.js cote AI2Xplore : le
+ * rattrapage devient exclusivement manuel. Constate le 2026-08-12 sur les 11
+ * ordonnances de Menton bloquees par un 500 Xplore.
  *
  * Idempotence : si deja ACKED, retour 200 avec l'ackedAt existant. Pas de
  * double-comptage cote stats.
  *
  * Reponse 200 :
- *   { status: "ACKED" | "UPLOADED", ackedAt: ISO | null, alreadyAcked: boolean }
+ *   { status: "ACKED" | "REJECTED", ackedAt: ISO | null, alreadyAcked: boolean }
  */
 
 function extractClientIp(req: NextRequest): string | null {
