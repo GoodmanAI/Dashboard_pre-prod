@@ -36,6 +36,7 @@ import {
 } from "@tabler/icons-react";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
+import { estProduit } from "@/lib/produits";
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -385,7 +386,7 @@ const ProfilePage = () => {
   useEffect(() => {
     if (!clientData) return;
     const talkUP = (clientData.userProducts ?? []).find(
-      (up: any) => up?.product?.name === "LyraeTalk"
+      (up: any) => estProduit(up?.product?.name, "talk")
     );
     const talkUserProductId = talkUP?.id;
     if (!talkUserProductId) return;

@@ -11,6 +11,7 @@ import { useCentre } from "@/app/context/CentreContext";
 import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
 import { hasPermission } from "@/lib/permissions";
 import { getPageFromHref } from "@/lib/pageAccess";
+import { trouverProduit } from "@/lib/produits";
 
 /** Modèle minimal d’un item de menu latéral. */
 type SideNavItem = {
@@ -62,7 +63,7 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
   //  - CLIENT : id du produit "LyraeTalk" trouve dans les products du user
   const prescriptionScopeUserProductId: number | null = (() => {
     if (isAdmin) return selectedCentre?.userProductId ?? null;
-    const talk: any = products.find((el: any) => el?.name === "LyraeTalk");
+    const talk: any = trouverProduit<any>(products, "talk");
     return talk?.id ?? null;
   })();
 
@@ -108,7 +109,7 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
       return rawHref.replace("{TALK_ID}", String(selectedTalkId));
     }
 
-    const talk: any = products.find((el: any) => el.name === "LyraeTalk");
+    const talk: any = trouverProduit<any>(products, "talk");
     if (!talk) return null;
     return rawHref.replace("{TALK_ID}", String(talk.id));
   };

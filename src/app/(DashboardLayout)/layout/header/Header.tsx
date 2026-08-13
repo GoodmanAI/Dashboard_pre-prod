@@ -19,6 +19,7 @@
   import { useCentre, ManagedUser } from "../../../context/CentreContext";
   import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
   import NotificationBell from "@/components/notifications/NotificationBell";
+import { trouverProduit } from "@/lib/produits";
 
   /**
    * Header d’application (barre supérieure).
@@ -72,7 +73,7 @@
         .then((r) => r.json())
         .then((products) => {
           const talk = Array.isArray(products)
-            ? products.find((p: any) => p?.name === "LyraeTalk")
+            ? trouverProduit<any>(products, "talk")
             : null;
           setTalkProductId(talk?.id ?? null);
         })

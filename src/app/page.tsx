@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import PageContainer from '@/app/(DashboardLayout)/components/container/PageContainer';
 import { getFirstAccessiblePath } from '@/lib/pageAccess';
+import { trouverProduit } from "@/lib/produits";
 
 /**
  * Page de redirection principale du tableau de bord.
@@ -33,7 +34,7 @@ const Dashboard = () => {
         const res = await fetch(`/api/users/${userId}/products`);
         const data = await res.json();
         if (Array.isArray(data)) {
-          const talk = data.find((p: any) => p?.name === "LyraeTalk");
+          const talk = trouverProduit<any>(data, "talk");
           setTalkId(talk?.id ?? null);
         }
       } catch (err) {

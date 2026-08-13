@@ -6,6 +6,7 @@ import { Sidebar } from "react-mui-sidebar";
 import { useRouter } from 'next/navigation';
 import SidebarItems from "./SidebarItems";
 import { useSession } from "next-auth/react";
+import { estProduit } from "@/lib/produits";
 /**
  * Propriétés du composant MSidebar.
  * - `isMobileSidebarOpen` : état d’ouverture du tiroir sur mobiles.
@@ -50,7 +51,7 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
   useEffect(() => {
     if (products && Array.isArray(products)) {
       products.forEach((product: any) => {
-        if (product.name === "LyraeTalk") {
+        if (estProduit(product?.name, "talk")) {
           setTalkId(product.id);
         }
       })

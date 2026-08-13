@@ -36,6 +36,7 @@ import { format } from "date-fns";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
+import { trouverProduit } from "@/lib/produits";
 
 /**
  * Rapport clients :
@@ -66,7 +67,7 @@ interface Client {
 /** Retourne le userProductId Talk d'un client (celui utilisé dans les URLs/APIs). */
 function getTalkUserProductId(client: Client): number | null {
   return (
-    client.products.find((p) => p.name === "LyraeTalk")?.userProductId ?? null
+    trouverProduit(client.products, "talk")?.userProductId ?? null
   );
 }
 

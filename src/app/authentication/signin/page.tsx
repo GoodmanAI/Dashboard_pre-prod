@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
 import { getFirstAccessiblePath } from "@/lib/pageAccess";
+import { trouverProduit } from "@/lib/produits";
 
 /**
  * Page de connexion
@@ -100,7 +101,7 @@ export default function SignIn() {
     const res = await fetch(`/api/users/${userId}/products`);
     const data = await res.json();
     const product: any = Array.isArray(data)
-      ? data.find((p: any) => p?.name === "LyraeTalk")
+      ? trouverProduit<any>(data, "talk")
       : null;
     const talkId: number | null = product?.id ?? null;
 

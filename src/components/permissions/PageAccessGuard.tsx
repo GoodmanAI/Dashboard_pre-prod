@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { Alert, Box, Button, Container } from "@mui/material";
 import { getFirstAccessiblePath, getPageFromPathname } from "@/lib/pageAccess";
 import { hasPermission } from "@/lib/permissions";
+import { trouverProduit } from "@/lib/produits";
 
 /**
  * PageAccessGuard (chantier 3, Lot B).
@@ -48,7 +49,7 @@ export default function PageAccessGuard({ children }: { children: React.ReactNod
         const data = await res.json();
         if (cancelled) return;
         if (Array.isArray(data)) {
-          const talk = data.find((p: any) => p?.name === "LyraeTalk");
+          const talk = trouverProduit<any>(data, "talk");
           setTalkId(talk?.id ?? null);
         }
       } catch {

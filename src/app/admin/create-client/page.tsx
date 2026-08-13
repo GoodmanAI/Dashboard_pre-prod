@@ -39,6 +39,7 @@ import { useRouter } from "next/navigation";
 import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elements/CustomTextField";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
+import { trouverProduit } from "@/lib/produits";
 
 /**
  * Création d'un client (admin).
@@ -73,7 +74,7 @@ export default function CreateClientPage() {
         const res = await fetch("/api/products");
         const data = await res.json();
         if (res.ok && Array.isArray(data)) {
-          const talk = data.find((p: any) => p?.name === "LyraeTalk");
+          const talk = trouverProduit<any>(data, "talk");
           setTalkProductId(talk?.id ?? null);
         }
       } catch (err) {

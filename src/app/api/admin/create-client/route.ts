@@ -11,6 +11,7 @@ import fs from "fs/promises";
 import path from "path";
 import { passwordSchema } from "@/lib/passwordSchema";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
+import { NOMS_PRODUITS, estProduit } from "@/lib/produits";
 
 const CreateUserSchema = z.object({
   // Historiquement nommé "email" mais c'est en fait un identifiant libre (peut
@@ -190,7 +191,7 @@ export async function POST(request: NextRequest) {
     // Récupérer les IDs des produits Explain/Talk (évite les magic numbers 1/2)
     const coreProducts = await prisma.product.findMany({
       where: {
-        name: { in: ["LyraeExplain", "LyraeTalk"] },
+        name: { in: ["LyraeExplain", ...NOMS_PRODUITS] },
       },
       select: { id: true, name: true },
     });
@@ -198,7 +199,7 @@ export async function POST(request: NextRequest) {
       (p) => p.name.toLowerCase() === "lyraeexplain".toLowerCase()
     );
     const talkProduct = coreProducts.find(
-      (p) => p.name.toLowerCase() === "LyraeTalk".toLowerCase()
+      (p) => estProduit(p.name, "talk")
     );
 
     // === LyraeExplain ===
