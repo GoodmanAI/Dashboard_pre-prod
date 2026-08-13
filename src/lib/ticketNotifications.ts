@@ -56,7 +56,7 @@ export async function notifyNewTicketToAdmin(ctx: NewTicketContext) {
   const html = `
 <!doctype html>
 <html><body style="font-family:-apple-system,Segoe UI,sans-serif;max-width:600px;margin:auto;">
-  <div style="background:#48C8AF;color:white;padding:16px 20px;border-radius:8px 8px 0 0;">
+  <div style="background:var(--accent);color:white;padding:16px 20px;border-radius:8px 8px 0 0;">
     <h2 style="margin:0;">Nouveau ticket support #${ctx.ticketId}</h2>
   </div>
   <div style="border:1px solid #e0e0e0;border-top:0;padding:20px;border-radius:0 0 8px 8px;">
@@ -64,10 +64,10 @@ export async function notifyNewTicketToAdmin(ctx: NewTicketContext) {
        <span style="color:#666;font-size:13px;">${escapeHtml(ctx.clientEmail)}</span></p>
     ${centerLine}
     <p><strong>Sujet :</strong> ${escapeHtml(ctx.subject)}</p>
-    <div style="background:#f5f5f5;padding:12px;border-left:3px solid #48C8AF;margin:16px 0;white-space:pre-wrap;font-size:14px;">${escapeHtml(ctx.message)}</div>
+    <div style="background:#f5f5f5;padding:12px;border-left:3px solid var(--accent);margin:16px 0;white-space:pre-wrap;font-size:14px;">${escapeHtml(ctx.message)}</div>
     ${impersonationLine}
     <p style="margin-top:24px;">
-      <a href="${ticketUrl}" style="background:#48C8AF;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Voir le ticket</a>
+      <a href="${ticketUrl}" style="background:var(--accent);color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Voir le ticket</a>
     </p>
     <p style="color:#999;font-size:12px;margin-top:24px;">
       Ce message est envoye automatiquement par le dashboard Neuracorp.
@@ -137,7 +137,7 @@ export async function notifyTicketClosedToClient(ctx: TicketStatusChangeContext)
     <p>Si le probleme persiste, vous pouvez repondre a ce ticket ou en creer un
        nouveau depuis votre espace support.</p>
     <p style="margin-top:24px;">
-      <a href="${ticketUrl}" style="background:#48C8AF;color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Voir mes tickets</a>
+      <a href="${ticketUrl}" style="background:var(--accent);color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Voir mes tickets</a>
     </p>
     <p style="color:#999;font-size:12px;margin-top:24px;">
       Merci d'utiliser Neuracorp.

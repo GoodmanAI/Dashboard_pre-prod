@@ -266,7 +266,7 @@ export default function StatsNoShowPage({ params }: Props) {
           </Grid>
         ) : !activated ? (
           <Card elevation={1} sx={{ p: 4, mt: 1, textAlign: "center" }}>
-            <IconInfoCircle size={48} style={{ color: "#48C8AF", marginBottom: 8 }} />
+            <IconInfoCircle size={48} style={{ color: "var(--accent)", marginBottom: 8 }} />
             <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
               L&apos;option No-Show n&apos;est pas activée
             </Typography>
@@ -293,8 +293,8 @@ export default function StatsNoShowPage({ params }: Props) {
                   sx={{
                     cursor: "pointer",
                     fontWeight: 600,
-                    border: "1px solid rgba(72,200,175,0.3)",
-                    color: "#2a6f64",
+                    border: "1px solid rgba(var(--accent-rgb), 0.3)",
+                    color: "var(--accent-deep)",
                   }}
                 />
               </Stack>
@@ -315,7 +315,7 @@ export default function StatsNoShowPage({ params }: Props) {
                     title="SMS de rappel envoyés"
                     value={stats.totals.smsSent}
                     icon={<IconMessage2 />}
-                    color="#48C8AF"
+                    color="var(--accent)"
                   />
                 )}
               </Grid>
@@ -367,8 +367,8 @@ export default function StatsNoShowPage({ params }: Props) {
                         sx={{
                           p: 2,
                           border: "1px solid",
-                          borderColor: row.active ? "rgba(72,200,175,0.35)" : "divider",
-                          bgcolor: row.active ? "rgba(72,200,175,0.05)" : "transparent",
+                          borderColor: row.active ? "rgba(var(--accent-rgb), 0.35)" : "divider",
+                          bgcolor: row.active ? "rgba(var(--accent-rgb), 0.05)" : "transparent",
                           opacity: row.active ? 1 : 0.6,
                         }}
                       >

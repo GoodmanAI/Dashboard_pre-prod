@@ -29,7 +29,7 @@ import SectionHeader from "@/components/admin/SectionHeader";
  * refuse le SUPER_ADMIN cote serveur en double garde).
  */
 
-const BRAND_TEAL = "#48C8AF";
+const BRAND_TEAL = "var(--accent)";
 const TEXT_MAIN = "#1F3448";
 const TEXT_MUTED = "#7A8FA6";
 
@@ -129,7 +129,7 @@ export default function AdminProfilePage() {
               borderRadius: "12px",
               display: "grid",
               placeItems: "center",
-              bgcolor: "rgba(72,200,175,0.12)",
+              bgcolor: "rgba(var(--accent-rgb), 0.12)",
               color: BRAND_TEAL,
             }}
           >

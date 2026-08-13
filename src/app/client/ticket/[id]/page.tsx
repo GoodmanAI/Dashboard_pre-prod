@@ -60,7 +60,7 @@ export default function ClientTicketDetailPage({ params }: Props) {
           <Button
             startIcon={<ArrowBack />}
             onClick={() => router.push("/client/ticket")}
-            sx={{ color: "#48C8AF" }}
+            sx={{ color: "var(--accent)" }}
           >
             Retour aux tickets
           </Button>

@@ -40,8 +40,8 @@ interface RdvInfo {
 }
 
 // Palette brand (mêmes valeurs que le reste du dashboard)
-const BRAND_TEAL = "#48C8AF";
-const BRAND_TEAL_DARK = "#3AB19B";
+const BRAND_TEAL = "var(--accent)";
+const BRAND_TEAL_DARK = "var(--accent-press)";
 const BRAND_TEAL_SOFT = "#E6F7F3";
 const DANGER = "#E15554";
 const DANGER_SOFT = "#FBECEB";
@@ -157,7 +157,7 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
           p: { xs: 3, sm: 5 },
           boxShadow:
             "0 1px 2px rgba(15, 23, 42, 0.04), 0 20px 40px -12px rgba(15, 23, 42, 0.10)",
-          border: "1px solid rgba(72, 200, 175, 0.10)",
+          border: "1px solid rgba(var(--accent-rgb), 0.10)",
         }}
       >
         {/* ---------- En-tête : logo + titres ---------- */}
@@ -315,7 +315,7 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
                       borderWidth: 1.5,
                     },
                     "&:hover fieldset": {
-                      borderColor: "rgba(72, 200, 175, 0.4)",
+                      borderColor: "rgba(var(--accent-rgb), 0.4)",
                     },
                     "&.Mui-focused fieldset": {
                       borderColor: BRAND_TEAL,
@@ -359,12 +359,12 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
                   fontSize: 15,
                   textTransform: "none",
                   py: 1.35,
-                  boxShadow: "0 4px 12px rgba(72, 200, 175, 0.35)",
+                  boxShadow: "0 4px 12px rgba(var(--accent-rgb), 0.35)",
                   transition:
                     "transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease",
                   ":hover": {
                     bgcolor: BRAND_TEAL_DARK,
-                    boxShadow: "0 6px 16px rgba(72, 200, 175, 0.45)",
+                    boxShadow: "0 6px 16px rgba(var(--accent-rgb), 0.45)",
                     transform: "translateY(-1px)",
                   },
                   "&.Mui-disabled": {

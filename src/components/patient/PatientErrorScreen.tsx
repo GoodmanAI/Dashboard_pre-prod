@@ -31,7 +31,7 @@ const TEXT_MUTED = "#7A8FA6";
 const CARD_BG = "#FFFFFF";
 const PAGE_BG_TOP = "#F0F7F5";
 const PAGE_BG_BOTTOM = "#FAFCFB";
-const BRAND_TEAL = "#48C8AF";
+const BRAND_TEAL = "var(--accent)";
 
 export default function PatientErrorScreen({
   error,
@@ -139,7 +139,7 @@ export default function PatientErrorScreen({
             fontWeight: 700,
             fontSize: 15,
             padding: "12px 28px",
-            boxShadow: "0 4px 12px rgba(72, 200, 175, 0.35)",
+            boxShadow: "0 4px 12px rgba(var(--accent-rgb), 0.35)",
           }}
         >
           Réessayer

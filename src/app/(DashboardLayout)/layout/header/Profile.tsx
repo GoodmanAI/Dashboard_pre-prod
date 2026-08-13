@@ -116,11 +116,11 @@ const Profile = () => {
             onClick={handleLogout}
             fullWidth
             sx={{
-              color: "#48C8AF",
-              borderColor: "#48C8AF",
+              color: "var(--accent)",
+              borderColor: "var(--accent)",
               "&:hover": {
-                backgroundColor: "rgba(72,200,175,0.04)",
-                borderColor: "#48C8AF",
+                backgroundColor: "rgba(var(--accent-rgb), 0.04)",
+                borderColor: "var(--accent)",
               },
             }}
           >

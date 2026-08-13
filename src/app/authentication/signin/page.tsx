@@ -259,14 +259,14 @@ export default function SignIn() {
               type="submit"
               disabled={loading}
               sx={{
-                backgroundColor: "#48C8AF",
+                backgroundColor: "var(--accent)",
                 borderRadius: "99px",
                 color: "#FFFFFF",
                 fontWeight: 700,
                 fontSize: "13px",
                 textTransform: "none",
                 py: 1.2,
-                ":hover": { backgroundColor: "#3AB19B" },
+                ":hover": { backgroundColor: "var(--accent-press)" },
               }}
             >
               {loading ? "Connexion..." : "Se connecter"}

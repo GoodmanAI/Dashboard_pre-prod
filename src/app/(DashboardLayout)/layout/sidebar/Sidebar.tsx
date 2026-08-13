@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ACCENT } from "@/lib/accent";
 import { useMediaQuery, Box, Drawer } from "@mui/material";
 import { Theme } from "@mui/material/styles";
 import { Sidebar } from "react-mui-sidebar";
@@ -81,7 +82,7 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
               collapsewidth="80px"
               open={isSidebarOpen}
               themeColor="#5d87ff"
-              themeSecondaryColor="#48C8AF"
+              themeSecondaryColor={ACCENT}
               showProfile={false}
             >
               {/* Zone logo */}
@@ -129,7 +130,7 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
           mode="light"
           direction="ltr"
           themeColor="#5d87ff"
-          themeSecondaryColor="#48C8AF"
+          themeSecondaryColor={ACCENT}
           showProfile={false}
         >
           {/* Zone logo */}

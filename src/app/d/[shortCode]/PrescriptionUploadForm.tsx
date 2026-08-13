@@ -50,8 +50,8 @@ const EXAM_LABELS: Record<string, string> = {
 };
 
 // Palette brand (mirror de AppointmentConfirmForm pour coherence visuelle)
-const BRAND_TEAL = "#48C8AF";
-const BRAND_TEAL_DARK = "#3AB19B";
+const BRAND_TEAL = "var(--accent)";
+const BRAND_TEAL_DARK = "var(--accent-press)";
 const BRAND_TEAL_SOFT = "#E6F7F3";
 const DANGER = "#E15554";
 const DANGER_SOFT = "#FBECEB";

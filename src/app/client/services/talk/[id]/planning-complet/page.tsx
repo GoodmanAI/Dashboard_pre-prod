@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ACCENT } from "@/lib/accent";
 import {
   Box,
   Card,
@@ -1051,7 +1052,7 @@ export default function PlanningCompletPage({ params }: Props) {
                             ]}
                           />
                           <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={80}>
-                            <Cell fill="#48C8AF" />
+                            <Cell fill={ACCENT} />
                             <Cell fill="#f59e0b" />
                           </Bar>
                         </BarChart>
@@ -1099,7 +1100,7 @@ export default function PlanningCompletPage({ params }: Props) {
                           type="monotone"
                           dataKey="confirmed"
                           name="Planning complet"
-                          stroke="#48C8AF"
+                          stroke={ACCENT}
                           strokeWidth={2.5}
                           fill="url(#pc-confirmed)"
                           dot={{ r: 2.5, fill: "#48C8AF", strokeWidth: 0 }}

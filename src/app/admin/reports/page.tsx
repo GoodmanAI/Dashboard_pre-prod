@@ -233,7 +233,7 @@ export default function ReportsPage() {
               icon={<IconUsers size={14} />}
               label={`${clients.length} clients`}
               size="small"
-              sx={{ bgcolor: "rgba(72,200,175,0.15)", color: "#2a6f64", fontWeight: 600 }}
+              sx={{ bgcolor: "rgba(var(--accent-rgb), 0.15)", color: "var(--accent-deep)", fontWeight: 600 }}
             />
           }
         />
@@ -297,8 +297,8 @@ export default function ReportsPage() {
               startIcon={<IconCalendar size={16} />}
               onClick={(e) => setDatePopoverAnchor(e.currentTarget)}
               sx={{
-                borderColor: dateRange ? "#48C8AF" : "rgba(0,0,0,0.23)",
-                color: dateRange ? "#2a6f64" : "text.secondary",
+                borderColor: dateRange ? "var(--accent)" : "rgba(0,0,0,0.23)",
+                color: dateRange ? "var(--accent-deep)" : "text.secondary",
                 textTransform: "none",
                 fontWeight: 500,
               }}
@@ -323,10 +323,10 @@ export default function ReportsPage() {
               startIcon={<IconDownload size={18} />}
               onClick={exportToCSV}
               sx={{
-                borderColor: "#48C8AF",
-                color: "#2a6f64",
+                borderColor: "var(--accent)",
+                color: "var(--accent-deep)",
                 fontWeight: 600,
-                "&:hover": { borderColor: "#3BA992", bgcolor: "rgba(72,200,175,0.08)" },
+                "&:hover": { borderColor: "#3BA992", bgcolor: "rgba(var(--accent-rgb), 0.08)" },
               }}
             >
               Exporter CSV
@@ -342,7 +342,7 @@ export default function ReportsPage() {
               sx: {
                 borderRadius: 2,
                 boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
-                border: "1px solid rgba(72,200,175,0.15)",
+                border: "1px solid rgba(var(--accent-rgb), 0.15)",
               },
             }}
           >
@@ -350,7 +350,7 @@ export default function ReportsPage() {
               <Typography
                 variant="overline"
                 sx={{
-                  color: "#2a6f64",
+                  color: "var(--accent-deep)",
                   fontWeight: 700,
                   letterSpacing: 1,
                   display: "block",
@@ -403,10 +403,10 @@ export default function ReportsPage() {
                 <TableRow
                   sx={{
                     "& th": {
-                      bgcolor: "rgba(72,200,175,0.08)",
+                      bgcolor: "rgba(var(--accent-rgb), 0.08)",
                       fontWeight: 700,
-                      color: "#2a6f64",
-                      borderBottom: "2px solid rgba(72,200,175,0.3)",
+                      color: "var(--accent-deep)",
+                      borderBottom: "2px solid rgba(var(--accent-rgb), 0.3)",
                       whiteSpace: "nowrap",
                     },
                   }}
@@ -433,7 +433,7 @@ export default function ReportsPage() {
                     key={client.id}
                     sx={{
                       transition: "background-color 120ms ease",
-                      "&:hover": { bgcolor: "rgba(72,200,175,0.06)" },
+                      "&:hover": { bgcolor: "rgba(var(--accent-rgb), 0.06)" },
                       "& td": { borderBottom: "1px solid #f0f0f0" },
                     }}
                   >
@@ -451,8 +451,8 @@ export default function ReportsPage() {
                           size="small"
                           label="Multi"
                           sx={{
-                            bgcolor: "rgba(72,200,175,0.15)",
-                            color: "#2a6f64",
+                            bgcolor: "rgba(var(--accent-rgb), 0.15)",
+                            color: "var(--accent-deep)",
                             fontWeight: 600,
                           }}
                         />

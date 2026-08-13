@@ -245,11 +245,11 @@
 //                   startIcon={<IconEye size={18} />}
 //                   onClick={() => router.push("/client/services/talk/calls")}
 //                   sx={{
-//                     borderColor: "#48C8AF",
-//                     color: "#48C8AF",
+//                     borderColor: "var(--accent)",
+//                     color: "var(--accent)",
 //                     "&:hover": {
-//                       borderColor: "#48C8AF",
-//                       backgroundColor: "rgba(72,200,175,0.08)",
+//                       borderColor: "var(--accent)",
+//                       backgroundColor: "rgba(var(--accent-rgb), 0.08)",
 //                     },
 //                   }}
 //                 >
@@ -296,11 +296,11 @@
 //                   startIcon={<IconEye size={18} />}
 //                   onClick={() => handleOpenModal("talkInfo")}
 //                   sx={{
-//                     borderColor: "#48C8AF",
-//                     color: "#48C8AF",
+//                     borderColor: "var(--accent)",
+//                     color: "var(--accent)",
 //                     "&:hover": {
-//                       borderColor: "#48C8AF",
-//                       backgroundColor: "rgba(72,200,175,0.08)",
+//                       borderColor: "var(--accent)",
+//                       backgroundColor: "rgba(var(--accent-rgb), 0.08)",
 //                     },
 //                   }}
 //                 >
@@ -335,11 +335,11 @@
 //                   startIcon={<IconEye size={18} />}
 //                   onClick={() => handleOpenModal("talkLibeles")}
 //                   sx={{
-//                     borderColor: "#48C8AF",
-//                     color: "#48C8AF",
+//                     borderColor: "var(--accent)",
+//                     color: "var(--accent)",
 //                     "&:hover": {
-//                       borderColor: "#48C8AF",
-//                       backgroundColor: "rgba(72,200,175,0.08)",
+//                       borderColor: "var(--accent)",
+//                       backgroundColor: "rgba(var(--accent-rgb), 0.08)",
 //                     },
 //                   }}
 //                 >
@@ -447,11 +447,11 @@
 //           <Button
 //             onClick={() => setOpenModal(false)}
 //             sx={{
-//               color: "#48C8AF",
-//               borderColor: "#48C8AF",
+//               color: "var(--accent)",
+//               borderColor: "var(--accent)",
 //               "&:hover": {
-//                 backgroundColor: "rgba(72,200,175,0.08)",
-//                 borderColor: "#48C8AF",
+//                 backgroundColor: "rgba(var(--accent-rgb), 0.08)",
+//                 borderColor: "var(--accent)",
 //               },
 //             }}
 //           >
@@ -461,8 +461,8 @@
 //             variant="contained"
 //             onClick={handleSave}
 //             sx={{
-//               backgroundColor: "#48C8AF",
-//               "&:hover": { backgroundColor: "#3AB19B" },
+//               backgroundColor: "var(--accent)",
+//               "&:hover": { backgroundColor: "var(--accent-press)" },
 //             }}
 //           >
 //             Valider

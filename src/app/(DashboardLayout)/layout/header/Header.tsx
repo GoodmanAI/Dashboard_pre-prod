@@ -189,8 +189,8 @@
                   sx={{
                     fontWeight: 600,
                     fontSize: "0.8rem",
-                    color: "#48C8AF",
-                    "& .MuiSelect-icon": { color: "#48C8AF", fontSize: 18 },
+                    color: "var(--accent)",
+                    "& .MuiSelect-icon": { color: "var(--accent)", fontSize: 18 },
                   }}
                 >
                 {centres.map((c: any) => {

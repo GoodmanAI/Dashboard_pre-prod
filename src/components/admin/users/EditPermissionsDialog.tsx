@@ -14,7 +14,7 @@ import {
 import PermissionsGrid from "./PermissionsGrid";
 import { AccessLevel, PageKey } from "@/lib/permissions";
 
-const BRAND_TEAL = "#48C8AF";
+const BRAND_TEAL = "var(--accent)";
 
 type ApiUser = {
   id: number;

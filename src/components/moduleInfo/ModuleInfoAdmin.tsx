@@ -40,7 +40,7 @@ import {
  * - Chaque mutation bumpe la version + webhook Azure warm-up en fire-and-forget.
  */
 
-const BRAND = "#48C8AF";
+const BRAND = "var(--accent)";
 const BRAND_DARK = "#2C9B85";
 const INK = "#0F2A3F";
 const INK_MUTED = "#5A6B7B";
@@ -595,7 +595,7 @@ function QRCard({
         ...(isEditing && {
           borderColor: BRAND,
           borderWidth: 1.5,
-          boxShadow: `0 0 0 3px rgba(72, 200, 175, 0.12)`,
+          boxShadow: `0 0 0 3px rgba(var(--accent-rgb), 0.12)`,
         }),
       }}
     >

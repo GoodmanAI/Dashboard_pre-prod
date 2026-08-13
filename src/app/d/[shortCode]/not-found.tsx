@@ -19,7 +19,7 @@
  * l'enumeration). Message generique + invitation a contacter le centre.
  */
 
-const BRAND_TEAL = "#48C8AF";
+const BRAND_TEAL = "var(--accent)";
 const DANGER = "#E15554";
 const DANGER_SOFT = "#FBECEB";
 const TEXT_MAIN = "#1F3448";

@@ -39,7 +39,7 @@ import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
  * badges couleur ExamTypeBadge partages, save bar sticky, guard modifs.
  */
 
-const BRAND = "#48C8AF";
+const BRAND = "var(--accent)";
 const BRAND_DARK = "#2C9B85";
 const INK = "#0F2A3F";
 const INK_MUTED = "#5A6B7B";
@@ -310,7 +310,7 @@ export default function EditTypeExam({ params }: TalkPageProps) {
                     bgcolor: SURFACE_HOVER,
                   },
                   ...(changed && {
-                    boxShadow: `0 0 0 3px rgba(72, 200, 175, 0.12)`,
+                    boxShadow: `0 0 0 3px rgba(var(--accent-rgb), 0.12)`,
                   }),
                 }}
               >

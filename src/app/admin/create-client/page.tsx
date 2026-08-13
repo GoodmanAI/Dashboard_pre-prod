@@ -183,7 +183,7 @@ export default function CreateClientPage() {
 
   const FieldLabel = ({ icon, text }: { icon: React.ReactNode; text: string }) => (
     <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.75 }}>
-      <Box sx={{ color: "#2a6f64", display: "flex" }}>{icon}</Box>
+      <Box sx={{ color: "var(--accent-deep)", display: "flex" }}>{icon}</Box>
       <Typography variant="body2" fontWeight={600}>
         {text}
       </Typography>
@@ -205,7 +205,7 @@ export default function CreateClientPage() {
             px: 1,
             textTransform: "none",
             fontWeight: 500,
-            "&:hover": { bgcolor: "rgba(72,200,175,0.08)", color: "#2a6f64" },
+            "&:hover": { bgcolor: "rgba(var(--accent-rgb), 0.08)", color: "var(--accent-deep)" },
           }}
         >
           Retour aux actions
@@ -223,7 +223,7 @@ export default function CreateClientPage() {
                 {/* --- Identité --- */}
                 <Typography
                   variant="overline"
-                  sx={{ color: "#2a6f64", fontWeight: 700, letterSpacing: 1 }}
+                  sx={{ color: "var(--accent-deep)", fontWeight: 700, letterSpacing: 1 }}
                 >
                   Identité
                 </Typography>
@@ -279,7 +279,7 @@ export default function CreateClientPage() {
                 {/* --- Type de compte --- */}
                 <Typography
                   variant="overline"
-                  sx={{ color: "#2a6f64", fontWeight: 700, letterSpacing: 1 }}
+                  sx={{ color: "var(--accent-deep)", fontWeight: 700, letterSpacing: 1 }}
                 >
                   Type de compte
                 </Typography>
@@ -292,7 +292,7 @@ export default function CreateClientPage() {
                     gap: 1.5,
                     p: 2,
                     bgcolor: isSecretary
-                      ? "rgba(72,200,175,0.08)"
+                      ? "rgba(var(--accent-rgb), 0.08)"
                       : "rgba(0,0,0,0.02)",
                     borderRadius: 2,
                     mb: 3,
@@ -306,9 +306,9 @@ export default function CreateClientPage() {
                       display: "grid",
                       placeItems: "center",
                       bgcolor: isSecretary
-                        ? "rgba(72,200,175,0.2)"
+                        ? "rgba(var(--accent-rgb), 0.2)"
                         : "rgba(0,0,0,0.06)",
-                      color: isSecretary ? "#2a6f64" : "text.secondary",
+                      color: isSecretary ? "var(--accent-deep)" : "text.secondary",
                       flexShrink: 0,
                     }}
                   >
@@ -332,11 +332,11 @@ export default function CreateClientPage() {
                         disabled={loading}
                         sx={{
                           "& .MuiSwitch-switchBase.Mui-checked": {
-                            color: "#48C8AF",
+                            color: "var(--accent)",
                           },
                           "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track":
                             {
-                              backgroundColor: "#48C8AF",
+                              backgroundColor: "var(--accent)",
                             },
                         }}
                       />
@@ -348,7 +348,7 @@ export default function CreateClientPage() {
                 {/* --- Rattachement multi-centres (chantier 2026-08-05) --- */}
                 <Typography
                   variant="overline"
-                  sx={{ color: "#2a6f64", fontWeight: 700, letterSpacing: 1 }}
+                  sx={{ color: "var(--accent-deep)", fontWeight: 700, letterSpacing: 1 }}
                 >
                   Rattachement multi-centres
                 </Typography>
@@ -362,7 +362,7 @@ export default function CreateClientPage() {
                     >
                       <FormControlLabel
                         value="autonome"
-                        control={<Radio sx={{ color: "#48C8AF", "&.Mui-checked": { color: "#48C8AF" } }} />}
+                        control={<Radio sx={{ color: "var(--accent)", "&.Mui-checked": { color: "var(--accent)" } }} />}
                         label={
                           <Box>
                             <Typography variant="body2" fontWeight={600}>Compte autonome</Typography>
@@ -375,7 +375,7 @@ export default function CreateClientPage() {
                       />
                       <FormControlLabel
                         value="manager"
-                        control={<Radio sx={{ color: "#48C8AF", "&.Mui-checked": { color: "#48C8AF" } }} />}
+                        control={<Radio sx={{ color: "var(--accent)", "&.Mui-checked": { color: "var(--accent)" } }} />}
                         label={
                           <Box>
                             <Typography variant="body2" fontWeight={600}>Compte parent d&apos;un groupement multi-sites</Typography>
@@ -389,7 +389,7 @@ export default function CreateClientPage() {
                       />
                       <FormControlLabel
                         value="rattache"
-                        control={<Radio sx={{ color: "#48C8AF", "&.Mui-checked": { color: "#48C8AF" } }} />}
+                        control={<Radio sx={{ color: "var(--accent)", "&.Mui-checked": { color: "var(--accent)" } }} />}
                         label={
                           <Box>
                             <Typography variant="body2" fontWeight={600}>Compte rattache a un centre parent</Typography>
@@ -447,7 +447,7 @@ export default function CreateClientPage() {
                 {/* --- Produit affecté (info) --- */}
                 <Typography
                   variant="overline"
-                  sx={{ color: "#2a6f64", fontWeight: 700, letterSpacing: 1 }}
+                  sx={{ color: "var(--accent-deep)", fontWeight: 700, letterSpacing: 1 }}
                 >
                   Produit
                 </Typography>
@@ -459,7 +459,7 @@ export default function CreateClientPage() {
                     alignItems: "center",
                     gap: 1.5,
                     p: 2,
-                    bgcolor: "rgba(72,200,175,0.08)",
+                    bgcolor: "rgba(var(--accent-rgb), 0.08)",
                     borderRadius: 2,
                     mb: 3,
                   }}
@@ -471,8 +471,8 @@ export default function CreateClientPage() {
                       borderRadius: "10px",
                       display: "grid",
                       placeItems: "center",
-                      bgcolor: "rgba(72,200,175,0.2)",
-                      color: "#2a6f64",
+                      bgcolor: "rgba(var(--accent-rgb), 0.2)",
+                      color: "var(--accent-deep)",
                       flexShrink: 0,
                     }}
                   >
@@ -490,7 +490,7 @@ export default function CreateClientPage() {
                     size="small"
                     label="Auto"
                     sx={{
-                      bgcolor: "#48C8AF",
+                      bgcolor: "var(--accent)",
                       color: "#fff",
                       fontWeight: 600,
                     }}
@@ -519,7 +519,7 @@ export default function CreateClientPage() {
                     startIcon={<IconUserPlus size={18} />}
                     disabled={loading}
                     sx={{
-                      bgcolor: "#48C8AF",
+                      bgcolor: "var(--accent)",
                       fontWeight: 600,
                       "&:hover": { bgcolor: "#3BA992" },
                     }}
@@ -547,7 +547,7 @@ export default function CreateClientPage() {
             <Card sx={{ p: 3 }} elevation={1}>
               <Typography
                 variant="overline"
-                sx={{ color: "#2a6f64", fontWeight: 700, letterSpacing: 1 }}
+                sx={{ color: "var(--accent-deep)", fontWeight: 700, letterSpacing: 1 }}
               >
                 Récapitulatif
               </Typography>
@@ -587,9 +587,9 @@ export default function CreateClientPage() {
                       label={isSecretary ? "Secrétaire" : "Client standard"}
                       sx={{
                         bgcolor: isSecretary
-                          ? "rgba(72,200,175,0.15)"
+                          ? "rgba(var(--accent-rgb), 0.15)"
                           : "rgba(0,0,0,0.06)",
-                        color: isSecretary ? "#2a6f64" : "text.secondary",
+                        color: isSecretary ? "var(--accent-deep)" : "text.secondary",
                         fontWeight: 600,
                       }}
                     />
@@ -604,8 +604,8 @@ export default function CreateClientPage() {
                       size="small"
                       label="LyraeTalk"
                       sx={{
-                        bgcolor: "rgba(72,200,175,0.15)",
-                        color: "#2a6f64",
+                        bgcolor: "rgba(var(--accent-rgb), 0.15)",
+                        color: "var(--accent-deep)",
                         fontWeight: 600,
                       }}
                     />
@@ -653,9 +653,9 @@ export default function CreateClientPage() {
                   label={isSecretary ? "Secrétaire (lecture seule)" : "Client standard"}
                   sx={{
                     bgcolor: isSecretary
-                      ? "rgba(72,200,175,0.15)"
+                      ? "rgba(var(--accent-rgb), 0.15)"
                       : "rgba(0,0,0,0.06)",
-                    color: isSecretary ? "#2a6f64" : "text.secondary",
+                    color: isSecretary ? "var(--accent-deep)" : "text.secondary",
                     fontWeight: 600,
                   }}
                 />
@@ -668,8 +668,8 @@ export default function CreateClientPage() {
                   size="small"
                   label="LyraeTalk"
                   sx={{
-                    bgcolor: "rgba(72,200,175,0.15)",
-                    color: "#2a6f64",
+                    bgcolor: "rgba(var(--accent-rgb), 0.15)",
+                    color: "var(--accent-deep)",
                     fontWeight: 600,
                   }}
                 />
@@ -686,7 +686,7 @@ export default function CreateClientPage() {
               startIcon={<IconUserPlus size={16} />}
               disabled={loading}
               sx={{
-                bgcolor: "#48C8AF",
+                bgcolor: "var(--accent)",
                 fontWeight: 600,
                 "&:hover": { bgcolor: "#3BA992" },
               }}

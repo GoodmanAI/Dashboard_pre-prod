@@ -27,7 +27,7 @@ export default function SectionHeader({
       }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, flex: 1, minWidth: 0 }}>
-        <Box sx={{ width: 4, height: 36, borderRadius: 2, bgcolor: "#48C8AF", flexShrink: 0 }} />
+        <Box sx={{ width: 4, height: 36, borderRadius: 2, bgcolor: "var(--accent)", flexShrink: 0 }} />
         <Box sx={{ minWidth: 0 }}>
           <Typography variant="h5" fontWeight={800} lineHeight={1.1}>
             {title}

@@ -36,7 +36,7 @@ import PageContainer from "@/app/(DashboardLayout)/components/container/PageCont
  * /admin/ticket/[id] (deja livree au Lot B).
  */
 
-const BRAND_TEAL = "#48C8AF";
+const BRAND_TEAL = "var(--accent)";
 const BRAND_TEAL_SOFT = "#E6F7F3";
 const TEXT_MAIN = "#1F3448";
 const TEXT_MUTED = "#7A8FA6";
@@ -73,7 +73,7 @@ const STATUS_META: Record<
   { label: string; color: string; bg: string; dotColor: string; sortOrder: number }
 > = {
   PENDING: { label: "En attente", color: "#c2410c", bg: "rgba(234,88,12,0.12)", dotColor: "#EA580C", sortOrder: 0 },
-  IN_PROGRESS: { label: "En cours", color: "#2a6f64", bg: "rgba(72,200,175,0.15)", dotColor: BRAND_TEAL, sortOrder: 1 },
+  IN_PROGRESS: { label: "En cours", color: "var(--accent-deep)", bg: "rgba(var(--accent-rgb), 0.15)", dotColor: BRAND_TEAL, sortOrder: 1 },
   RESOLVED: { label: "Resolu", color: "#166534", bg: "rgba(34,197,94,0.15)", dotColor: "#22C55E", sortOrder: 2 },
   CLOSED: { label: "Ferme", color: "#4b5563", bg: "rgba(107,114,128,0.15)", dotColor: "#94a3b8", sortOrder: 3 },
 };
@@ -390,7 +390,7 @@ function AdminTicketCard({
               {ticket.subject}
             </Typography>
             {isMine && (
-              <Chip label="Assigné à vous" size="small" sx={{ height: 20, fontSize: 10, bgcolor: BRAND_TEAL_SOFT, color: "#2a6f64", fontWeight: 700 }} />
+              <Chip label="Assigné à vous" size="small" sx={{ height: 20, fontSize: 10, bgcolor: BRAND_TEAL_SOFT, color: "var(--accent-deep)", fontWeight: 700 }} />
             )}
           </Stack>
           <Typography

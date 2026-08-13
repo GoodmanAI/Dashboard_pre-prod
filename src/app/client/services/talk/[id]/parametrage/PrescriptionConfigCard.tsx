@@ -181,8 +181,8 @@ export default function PrescriptionConfigCard({
                 : `${enabledCount} / ${EXAM_TYPES.length} types actives`
             }
             sx={{
-              bgcolor: enabledCount === 0 ? "rgba(0,0,0,0.06)" : "rgba(72,200,175,0.15)",
-              color: enabledCount === 0 ? "text.secondary" : "#2a6f64",
+              bgcolor: enabledCount === 0 ? "rgba(0,0,0,0.06)" : "rgba(var(--accent-rgb), 0.15)",
+              color: enabledCount === 0 ? "text.secondary" : "var(--accent-deep)",
               fontWeight: 700,
             }}
           />
@@ -192,11 +192,11 @@ export default function PrescriptionConfigCard({
       <AccordionDetails>
         {loading ? (
           <Stack alignItems="center" sx={{ py: 4 }}>
-            <CircularProgress sx={{ color: "#48C8AF" }} />
+            <CircularProgress sx={{ color: "var(--accent)" }} />
           </Stack>
         ) : (
           <Stack spacing={3}>
-            <Alert severity="info" variant="outlined" sx={{ borderColor: "rgba(72,200,175,0.4)" }}>
+            <Alert severity="info" variant="outlined" sx={{ borderColor: "rgba(var(--accent-rgb), 0.4)" }}>
               Cochez les types d&apos;examens pour lesquels le patient doit deposer une
               ordonnance. LyraeTalk ajoutera alors un lien de depot dans le SMS de
               confirmation de RDV. Le patient recoit un lien court + un code a 6 chiffres.
@@ -227,8 +227,8 @@ export default function PrescriptionConfigCard({
                         disabled={readOnly}
                         onChange={(e) => toggleExam(t.key, e.target.checked)}
                         sx={{
-                          color: "#48C8AF",
-                          "&.Mui-checked": { color: "#48C8AF" },
+                          color: "var(--accent)",
+                          "&.Mui-checked": { color: "var(--accent)" },
                         }}
                       />
                     }
@@ -276,7 +276,7 @@ export default function PrescriptionConfigCard({
                     padding: "8px 20px",
                     borderRadius: 6,
                     border: "none",
-                    backgroundColor: !dirty || saving ? "#CFE9E1" : "#48C8AF",
+                    backgroundColor: !dirty || saving ? "#CFE9E1" : "var(--accent)",
                     color: "#FFF",
                     fontWeight: 600,
                     cursor: !dirty || saving ? "default" : "pointer",

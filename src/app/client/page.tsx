@@ -69,7 +69,7 @@ const ClientHomePage = () => {
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-        <CircularProgress sx={{ "& .MuiCircularProgress-svg": { color: "#48C8AF" } }} />
+        <CircularProgress sx={{ "& .MuiCircularProgress-svg": { color: "var(--accent)" } }} />
       </Box>
     );
   }
@@ -119,7 +119,7 @@ const ClientHomePage = () => {
         {sortedProducts.map((product) => {
           const isActive = !product.removedAt;
           const statusText = isActive ? "On" : "Off";
-          const borderColor = isActive ? "#48C8AF" : "#A0AEC0";
+          const borderColor = isActive ? "var(--accent)" : "#A0AEC0";
           const assignedDate = product.assignedAt
             ? new Date(product.assignedAt).toLocaleDateString()
             : "";
@@ -183,7 +183,7 @@ const ClientHomePage = () => {
                 <Button
                   variant="contained"
                   sx={{
-                    backgroundColor: isActive ? "#48C8AF" : "#555555",
+                    backgroundColor: isActive ? "var(--accent)" : "#555555",
                     borderRadius: "99px",
                     color: "#FFFFFF",
                     fontWeight: 500,

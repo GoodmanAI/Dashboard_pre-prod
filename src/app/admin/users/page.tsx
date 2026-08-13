@@ -50,7 +50,7 @@ import { isSubAccount } from "@/lib/permissions";
  *   - Delete
  */
 
-const BRAND_TEAL = "#48C8AF";
+const BRAND_TEAL = "var(--accent)";
 const TEXT_MAIN = "#1F3448";
 const TEXT_MUTED = "#7A8FA6";
 
@@ -338,7 +338,7 @@ export default function UsersManagementPage() {
                   borderBottom:
                     i < filteredUsers.length - 1 ? "1px solid #f1f5f9" : "none",
                   transition: "background-color 0.15s",
-                  "&:hover": { bgcolor: "rgba(72,200,175,0.04)" },
+                  "&:hover": { bgcolor: "rgba(var(--accent-rgb), 0.04)" },
                 }}
               >
                 <Box sx={{ minWidth: 0 }}>

@@ -62,13 +62,13 @@ const ListItemStyled = styled(ListItem, {
     paddingLeft: "10px",
     "&:hover": {
       backgroundColor: theme.palette.primary.light,
-      color: "#48C8AF",
+      color: "var(--accent)",
     },
     "&.Mui-selected": {
       color: "white",
-      backgroundColor: "#48C8AF",
+      backgroundColor: "var(--accent)",
       "&:hover": {
-        backgroundColor: "#48C8AF",
+        backgroundColor: "var(--accent)",
         color: "white",
       },
     },

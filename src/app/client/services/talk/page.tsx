@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ACCENT } from "@/lib/accent";
 import {
   Box,
   Typography,
@@ -348,7 +349,7 @@ export default function TalkPage() {
                     <XAxis dataKey="day" />
                     <YAxis allowDecimals={false} />
                     <Tooltip />
-                    <Bar dataKey="total" fill="#48C8AF" />
+                    <Bar dataKey="total" fill={ACCENT} />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>

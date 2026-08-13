@@ -65,7 +65,7 @@ export default function CallConversationPage({ params }: { params: { id: string;
               router.back();
             }
           }}
-          sx={{ backgroundColor: "#48C8AF", mb: 2 }}
+          sx={{ backgroundColor: "var(--accent)", mb: 2 }}
         >
           Retour
         </Button>
@@ -76,7 +76,7 @@ export default function CallConversationPage({ params }: { params: { id: string;
 
         {loading && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-            <CircularProgress sx={{ color: "#48C8AF" }} />
+            <CircularProgress sx={{ color: "var(--accent)" }} />
           </Box>
         )}
 
@@ -102,7 +102,7 @@ export default function CallConversationPage({ params }: { params: { id: string;
                 sx={{
                   p: 1.25,
                   borderRadius: 2,
-                  bgcolor: speaker === "Lyrae" ? "rgba(72,200,175,0.15)" : "#eee",
+                  bgcolor: speaker === "Lyrae" ? "rgba(var(--accent-rgb), 0.15)" : "#eee",
                   maxWidth: "75%",
                 }}
               >
