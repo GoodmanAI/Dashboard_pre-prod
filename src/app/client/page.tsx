@@ -11,6 +11,7 @@ import {
   Button,
   CircularProgress,
 } from "@mui/material";
+import { produitDepuisNom } from "@/lib/produits";
 
 /**
  * Types de données échangées avec l’API / structure locale.
@@ -78,8 +79,13 @@ const ClientHomePage = () => {
     return <Typography>Aucun produit trouvé.</Typography>;
   }
 
-  // Tri stable par id
-  const sortedProducts = [...userProducts].sort((a, b) => a.id - b.id).filter((el) => {return el.name != "LyraeExplain"});
+  // Tri stable par id, et on n'affiche QUE les produits du catalogue.
+  // Liste blanche et non liste noire : un produit retiré du dashboard
+  // (LyraeExplain) ou une ligne "Product" résiduelle en base disparaît d'office,
+  // sans qu'il faille penser à l'ajouter à une exclusion.
+  const sortedProducts = [...userProducts]
+    .sort((a, b) => a.id - b.id)
+    .filter((el) => produitDepuisNom(el.name) !== null);
 
   const renderProductName = (name: string) => {
     if (name.toLowerCase().startsWith("lyrae")) {
@@ -95,8 +101,8 @@ const ClientHomePage = () => {
   };
 
   const getProductRoute = (name: string) => {
-    if (name.toLowerCase().includes("explain")) return "/client/services/explain";
-    if (name.toLowerCase().includes("talk")) return "/client/services/talk";
+    const produit = produitDepuisNom(name);
+    if (produit) return `/client/services/${produit.segment}`;
     return "https://neuracorp.ai";
   };
 

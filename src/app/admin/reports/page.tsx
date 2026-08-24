@@ -36,14 +36,14 @@ import { format } from "date-fns";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
-import { trouverProduit } from "@/lib/produits";
+import { trouverProduit, produitDepuisNom } from "@/lib/produits";
 
 /**
  * Rapport clients :
  * - Liste des clients avec colonnes : ID, nom, email, ville, rôle, produits Talk
  * - Filtres : recherche texte, date de création, rôle centre
  * - Export CSV de la vue filtrée
- * Le produit "LyraeExplain" est exclu volontairement (produit archivé).
+ * Le filtre produit ne propose que le catalogue de `src/lib/produits.ts`.
  */
 
 type CentreRole = "ADMIN_USER" | "USER" | null;
@@ -79,8 +79,6 @@ interface Product {
 type FilterKey = "id" | "name" | "city" | "product";
 type RoleFilter = "all" | "ADMIN_USER" | "USER";
 
-/** Produits volontairement masqués (archivés). */
-const HIDDEN_PRODUCTS = new Set(["LyraeExplain"]);
 
 export default function ReportsPage() {
   const [clients, setClients] = useState<Client[]>([]);
@@ -111,8 +109,11 @@ export default function ReportsPage() {
             (clientsData as Client[]).sort((a, b) => a.id - b.id) || []
           );
           setProducts(
+            // Liste blanche sur le catalogue : seuls les produits déclarés dans
+            // `src/lib/produits.ts` sont proposés en filtre. Les lignes
+            // "Product" résiduelles en base (LyraeExplain) n'apparaissent pas.
             (productsData as Product[])
-              .filter((p) => !HIDDEN_PRODUCTS.has(p.name))
+              .filter((p) => produitDepuisNom(p.name) !== null)
               .map((p: any) => ({ id: p.id, name: p.name })) || []
           );
         } else {

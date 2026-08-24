@@ -24,8 +24,8 @@ Prod : VPS OVH, PM2. `git pull` → `npm run build` → `pm2 restart`. Pas de CI
 1. **Prisma** — `prisma/migrations/<timestamp>_<slug>/migration.sql`, générées par `prisma migrate dev`, appliquées par `prisma migrate deploy`.
 2. **SQL manuel** — `prisma/migrations/manual/AAAA_MM_JJ_<sujet>.sql`, écrites à la main, **jamais vues par Prisma**, appliquées en prod par `psql "$DATABASE_URL" -f <fichier>`.
 
-Neuf tables n'existent **que** côté SQL manuel et sont absentes de `schema.prisma` :
-`AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`.
+Dix tables n'existent **que** côté SQL manuel et sont absentes de `schema.prisma` :
+`AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`.
 
 Conséquences pratiques :
 - Ces tables **ne sont pas accessibles via `prisma.*`**. On les lit et écrit en SQL brut via le pool `pg`.
@@ -52,7 +52,8 @@ Conventions de handler, dans l'ordre : garde d'auth (`requireAuth` / `requirePag
 
 ## Pièges internes
 
-- **`Product.name === "LyraeTalk"`** est une chaîne magique en dur ~70 fois dans 11 fichiers (sidebar, header, signin, create-client, reports, profil client…). C'est le seul moyen de retrouver le `userProductId` du service vocal d'un client. La renommer en base casse l'application entière sans erreur de compilation. Un des sites compare en `toLowerCase()`, les autres en strict — ne pas supposer une casse uniforme.
+- **`src/lib/produits.ts` est le seul endroit qui connaît les valeurs de `Product.name`.** Ne jamais comparer un nom de produit en dur : passer par `estProduit` / `trouverProduit` / `produitDepuisNom`. C'est ainsi qu'on retrouve le `userProductId` d'un client pour un produit donné, et `Product.name` reste une chaîne dont le renommage en base casserait l'application sans la moindre erreur de compilation. Le catalogue déclare `LyraeTalk` et `LyraeKonnect` ; filtrer une liste de produits se fait en **liste blanche** sur ce catalogue, jamais en liste noire.
+- **LyraeExplain est retiré** (24/08/2026) : plus aucun écran ni route. Mais la ligne `Product`, les `UserProduct` rattachés et la table `LyraeExplainDetails` **restent en base**, et le modèle Prisma est conservé pour cette raison — le retirer du schéma ferait proposer un `DROP TABLE` par `prisma migrate dev`.
 - **`.env.example` est incomplet** : 15 variables listées, 35 référencées dans le code. Manquent notamment `APPOINTMENT_API_KEY`, `MODULE_INFO_API_KEY`, `APPOINTMENT_HMAC_SECRET`, `BREVO_API_KEY`, `PUBLIC_APP_URL`, `RDV_SHORT_URL_BASE`, `DEPOT_ORDONNANCES_URL_BASE`, `PRESCRIPTIONS_STORAGE_DIR`, `AZURE_STORAGE_CONNECTION_STRING*`, `NEURACORP_EXAMS_*`, `CLAMD_SOCKET`, `PGSSL`, `MAIL_FROM_*`, `AZURE_REBUILD_WEBHOOK_URL`, `AZURE_WEBHOOK_API_KEY`, `DEMO_TALK_USER_ID(S)`. Un `grep "process.env."` ne suffit pas à les recenser : `BOT_API_KEY` et `APPOINTMENT_API_KEY` n'apparaissent que sous forme de littéraux passés à `requireApiKey(req, "…")`. Ajouter la variable au `.env.example` quand on en introduit une.
 - `SPECIAL_CENTRE_PAIRS` (`src/lib/auth-helpers.ts:32`) code en dur des accès inter-centres par id numérique, dupliqué côté front dans `CentreContext`. Modifier les deux ou rien.
 - Deux mailers (`src/lib/brevoMailer.ts` pour les tickets, `src/utils/mailer.ts` nodemailer, uniquement `api/files/validation`) et deux seeds admin (`prisma/seed_admin.ts`, `scripts/seed-admin.ts`).

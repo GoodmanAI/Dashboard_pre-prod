@@ -43,8 +43,8 @@ import { trouverProduit } from "@/lib/produits";
 
 /**
  * Création d'un client (admin).
- * LyraeTalk est automatiquement affecté — c'est le seul produit actif
- * dans le dashboard (LyraeExplain est archivé).
+ * LyraeTalk est automatiquement affecté. La sélection multi-produits
+ * (LyraeTalk / LyraeKonnect) est l'étape 4 du chantier multi-produit.
  */
 export default function CreateClientPage() {
   const router = useRouter();

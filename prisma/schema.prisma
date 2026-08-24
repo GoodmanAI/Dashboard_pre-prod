@@ -146,6 +146,11 @@ model UserNumber {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+/// Produit LyraeExplain — RETIRÉ du dashboard le 24/08/2026 : plus aucun écran,
+/// aucune route et aucun seed ne l'utilise. Le modèle est CONSERVÉ à dessein :
+/// le supprimer d'ici ferait proposer un `DROP TABLE` par `prisma migrate dev`,
+/// qui emporterait les métriques des clients historiques. Table et données
+/// restent en place, simplement plus lues.
 model LyraeExplainDetails {
   id               Int       @id @default(autoincrement())
   userProductId    Int       @unique

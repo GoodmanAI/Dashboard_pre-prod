@@ -128,12 +128,6 @@ const Menuitems: SidebarItem[] = [
   },
   // {
   //   id: uniqueId(),
-  //   title: "LYRAE © Explain + Satisfy",
-  //   icon: IconFilePencil,
-  //   href: "/client/services/explain",
-  // },
-  // {
-  //   id: uniqueId(),
   //   title: "LYRAE © Talk (Radiologie)",
   //   icon: IconPhone,
   //   href: "/client/services/talk",
