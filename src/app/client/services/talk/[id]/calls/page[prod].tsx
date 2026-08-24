@@ -112,7 +112,7 @@
 
 //         {loading ? (
 //           <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-//             <CircularProgress sx={{ color: "#48C8AF" }} />
+//             <CircularProgress sx={{ color: "var(--accent)" }} />
 //           </Box>
 //         ) : calls.length === 0 ? (
 //           <Alert severity="info">Aucun appel trouvé.</Alert>
@@ -163,9 +163,9 @@
 //             startIcon={<IconEye size={18} />}
 //             onClick={() => router.push("/client/services/talk/calls")}
 //             sx={{
-//               borderColor: "#48C8AF",
-//               color: "#48C8AF",
-//               "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
+//               borderColor: "var(--accent)",
+//               color: "var(--accent)",
+//               "&:hover": { backgroundColor: "rgba(var(--accent-rgb), 0.08)" },
 //             }}
 //           >
 //             Voir tous

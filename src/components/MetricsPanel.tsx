@@ -14,7 +14,7 @@
 // } from '@mui/material';
 
 // const labelColors: { [key: string]: string } = {
-//   "Moyenne": "#48C8AF",
+//   "Moyenne": "var(--accent)",
 //   "Prise de RDV": "#299ED9",
 //   "Borne d'accueil": "#FBC739",
 //   "Prise en charge examen": "#65558F",
@@ -95,7 +95,7 @@
 //         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
 //           <Typography variant="body1" sx={{ fontWeight: 500 }}>Daily</Typography>
 //           <Typography variant="body1" sx={{ fontWeight: 500 }}>Weekly</Typography>
-//           <Typography variant="body1" sx={{ fontWeight: 500, color: '#48C8AF' }}>Monthly</Typography>
+//           <Typography variant="body1" sx={{ fontWeight: 500, color: 'var(--accent)' }}>Monthly</Typography>
 //           <Typography variant="body1" sx={{ fontWeight: 500 }}>Yearly</Typography>
 //         </Box>
 //       </Box>

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { ACCENT } from "@/lib/accent";
 import { useMediaQuery, Box, Drawer } from "@mui/material";
 import { Theme } from "@mui/material/styles";
 import { Sidebar } from "react-mui-sidebar";
 import { useRouter } from 'next/navigation';
 import SidebarItems from "./SidebarItems";
 import { useSession } from "next-auth/react";
+import { estProduit } from "@/lib/produits";
 /**
  * Propriétés du composant MSidebar.
  * - `isMobileSidebarOpen` : état d’ouverture du tiroir sur mobiles.
@@ -49,7 +51,7 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
   useEffect(() => {
     if (products && Array.isArray(products)) {
       products.forEach((product: any) => {
-        if (product.name === "LyraeTalk") {
+        if (estProduit(product?.name, "talk")) {
           setTalkId(product.id);
         }
       })
@@ -81,7 +83,7 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
               collapsewidth="80px"
               open={isSidebarOpen}
               themeColor="#5d87ff"
-              themeSecondaryColor="#48C8AF"
+              themeSecondaryColor={ACCENT}
               showProfile={false}
             >
               {/* Zone logo */}
@@ -129,7 +131,7 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
           mode="light"
           direction="ltr"
           themeColor="#5d87ff"
-          themeSecondaryColor="#48C8AF"
+          themeSecondaryColor={ACCENT}
           showProfile={false}
         >
           {/* Zone logo */}

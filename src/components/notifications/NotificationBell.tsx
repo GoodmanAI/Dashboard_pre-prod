@@ -35,7 +35,7 @@ import { io as ioClient, Socket } from "socket.io-client";
  * Silencieux si le user n'est pas authentifie (rend rien).
  */
 
-const BRAND_TEAL = "#48C8AF";
+const BRAND_TEAL = "var(--accent)";
 const TEXT_MAIN = "#1F3448";
 const TEXT_MUTED = "#7A8FA6";
 const NEUTRAL_BG = "#F1F5F9";
@@ -186,7 +186,7 @@ export default function NotificationBell() {
           sx={{
             color: unreadCount > 0 ? BRAND_TEAL : TEXT_MUTED,
             transition: "color 0.2s",
-            "&:hover": { color: BRAND_TEAL, bgcolor: "rgba(72,200,175,0.08)" },
+            "&:hover": { color: BRAND_TEAL, bgcolor: "rgba(var(--accent-rgb), 0.08)" },
           }}
         >
           <Badge
@@ -220,7 +220,7 @@ export default function NotificationBell() {
             overflow: "hidden",
             borderRadius: 2,
             boxShadow: "0 12px 32px rgba(31, 52, 72, 0.15)",
-            border: "1px solid rgba(72,200,175,0.15)",
+            border: "1px solid rgba(var(--accent-rgb), 0.15)",
           },
         }}
         MenuListProps={{ sx: { p: 0 } }}
@@ -265,7 +265,7 @@ export default function NotificationBell() {
                 fontWeight: 600,
                 minWidth: 0,
                 px: 1,
-                "&:hover": { bgcolor: "rgba(72,200,175,0.08)" },
+                "&:hover": { bgcolor: "rgba(var(--accent-rgb), 0.08)" },
               }}
             >
               Tout marquer lu
@@ -294,7 +294,7 @@ export default function NotificationBell() {
                   borderBottom: i < notifications.length - 1 ? "1px solid #f1f5f9" : "none",
                   transition: "background-color 0.15s",
                   "&:hover": notif.ticket
-                    ? { bgcolor: "rgba(72,200,175,0.06)" }
+                    ? { bgcolor: "rgba(var(--accent-rgb), 0.06)" }
                     : undefined,
                 }}
               >

@@ -278,7 +278,7 @@ async function exportCallToPdf(call: any, steps: any[]) {
 
     // Locuteur
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(speaker === "Lyrae" ? "#2a6f64" : "#374151");
+    doc.setTextColor(speaker === "Lyrae" ? "var(--accent-deep)" : "#374151");
     doc.text(speaker + " :", margin, y);
     y += 14;
 
@@ -658,7 +658,7 @@ export default function CallListPage({ params }: CallListPageProps) {
           variant="contained"
           startIcon={<ArrowBackIosIcon />}
           onClick={() => router.back()}
-          sx={{ backgroundColor: "#48C8AF" }}
+          sx={{ backgroundColor: "var(--accent)" }}
         >
           Retour
         </Button>
@@ -722,8 +722,8 @@ export default function CallListPage({ params }: CallListPageProps) {
           variant="outlined"
           onClick={(e) => setAnchorEl(e.currentTarget)}
           sx={{
-            borderColor: "#48C8AF",
-            color: "#48C8AF",
+            borderColor: "var(--accent)",
+            color: "var(--accent)",
             textTransform: "none",
             fontWeight: 600,
           }}
@@ -739,7 +739,7 @@ export default function CallListPage({ params }: CallListPageProps) {
             sx: {
               borderRadius: 2,
               boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
-              border: "1px solid rgba(72,200,175,0.15)",
+              border: "1px solid rgba(var(--accent-rgb), 0.15)",
             },
           }}
           anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
@@ -748,7 +748,7 @@ export default function CallListPage({ params }: CallListPageProps) {
             <Typography
               variant="overline"
               sx={{
-                color: "#2a6f64",
+                color: "var(--accent-deep)",
                 fontWeight: 700,
                 letterSpacing: 1,
                 display: "block",
@@ -789,7 +789,7 @@ export default function CallListPage({ params }: CallListPageProps) {
                 setPage(1);
               }}
               sx={{
-                bgcolor: "#48C8AF",
+                bgcolor: "var(--accent)",
                 fontWeight: 600,
                 textTransform: "none",
                 "&:hover": { bgcolor: "#3BA992" },
@@ -860,8 +860,8 @@ export default function CallListPage({ params }: CallListPageProps) {
             size="small"
             label={`Recherche numéro : ${phoneInput}`}
             sx={{
-              bgcolor: "rgba(72,200,175,0.15)",
-              color: "#2a6f64",
+              bgcolor: "rgba(var(--accent-rgb), 0.15)",
+              color: "var(--accent-deep)",
               fontWeight: 600,
             }}
           />
@@ -870,7 +870,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
       {loading && (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-          <CircularProgress sx={{ color: "#48C8AF" }} />
+          <CircularProgress sx={{ color: "var(--accent)" }} />
         </Box>
       )}
 
@@ -967,8 +967,8 @@ export default function CallListPage({ params }: CallListPageProps) {
                               display: "inline-flex",
                               alignItems: "center",
                               gap: 0.5,
-                              bgcolor: "rgba(72,200,175,0.12)",
-                              color: "#2a6f64",
+                              bgcolor: "rgba(var(--accent-rgb), 0.12)",
+                              color: "var(--accent-deep)",
                               px: 1.25,
                               py: 0.25,
                               borderRadius: "999px",
@@ -1112,11 +1112,11 @@ export default function CallListPage({ params }: CallListPageProps) {
               if (selectedCall) exportCallToPdf(selectedCall, filteredSteps);
             }}
             sx={{
-              borderColor: "#48C8AF",
-              color: "#2a6f64",
+              borderColor: "var(--accent)",
+              color: "var(--accent-deep)",
               fontWeight: 600,
               textTransform: "none",
-              "&:hover": { borderColor: "#3BA992", bgcolor: "rgba(72,200,175,0.08)" },
+              "&:hover": { borderColor: "#3BA992", bgcolor: "rgba(var(--accent-rgb), 0.08)" },
             }}
           >
             Exporter PDF
@@ -1142,7 +1142,7 @@ export default function CallListPage({ params }: CallListPageProps) {
                   borderRadius: 2,
                   bgcolor:
                     speaker === "Lyrae"
-                      ? "rgba(72,200,175,0.15)"
+                      ? "rgba(var(--accent-rgb), 0.15)"
                       : "#eee",
                   maxWidth: "75%",
                 }}

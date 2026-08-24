@@ -178,7 +178,7 @@ export default function RejectedPrescriptionsPanel({
   if (loading) {
     return (
       <Stack alignItems="center" sx={{ py: 6 }}>
-        <CircularProgress sx={{ "& .MuiCircularProgress-svg": { color: "#48C8AF" } }} />
+        <CircularProgress sx={{ "& .MuiCircularProgress-svg": { color: "var(--accent)" } }} />
       </Stack>
     );
   }
@@ -265,12 +265,12 @@ export default function RejectedPrescriptionsPanel({
                     spacing={1}
                     sx={{ mb: 1.5 }}
                   >
-                    <Phone sx={{ fontSize: 20, color: "#2a6f64" }} />
+                    <Phone sx={{ fontSize: 20, color: "var(--accent-deep)" }} />
                     <Typography
                       variant="body1"
                       sx={{
                         fontWeight: 700,
-                        color: "#2a6f64",
+                        color: "var(--accent-deep)",
                         fontFamily: "monospace",
                         letterSpacing: 0.5,
                         userSelect: "all",
@@ -312,7 +312,7 @@ export default function RejectedPrescriptionsPanel({
                         label={formatFrTimeOnly(it.appointmentDate)}
                         sx={{
                           bgcolor: "#E6F7F3",
-                          color: "#2a6f64",
+                          color: "var(--accent-deep)",
                           fontWeight: 700,
                           fontFamily: "monospace",
                           height: 22,
@@ -343,8 +343,8 @@ export default function RejectedPrescriptionsPanel({
                       borderColor: "#E4EAEE",
                       color: "#1F3448",
                       "&:hover": {
-                        borderColor: "#48C8AF",
-                        color: "#48C8AF",
+                        borderColor: "var(--accent)",
+                        color: "var(--accent)",
                         bgcolor: "#F5FDFB",
                       },
                     }}
@@ -358,8 +358,8 @@ export default function RejectedPrescriptionsPanel({
                     fullWidth
                     disableElevation
                     sx={{
-                      bgcolor: "#48C8AF",
-                      "&:hover": { bgcolor: "#3AB19B" },
+                      bgcolor: "var(--accent)",
+                      "&:hover": { bgcolor: "var(--accent-press)" },
                       textTransform: "none",
                       fontWeight: 600,
                     }}

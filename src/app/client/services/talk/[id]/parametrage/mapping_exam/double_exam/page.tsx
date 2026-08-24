@@ -115,7 +115,7 @@ export default function DoubleExamPage({ params }: DoubleExamPageProps) {
         onClick={() => router.back()}
         disabled={saving}
         sx={{
-          backgroundColor: "#48C8AF",
+          backgroundColor: "var(--accent)",
           "&:hover": { backgroundColor: "#3bb49d" },
           marginBottom: "10px",
         }}
@@ -239,7 +239,7 @@ export default function DoubleExamPage({ params }: DoubleExamPageProps) {
             onClick={handleSave}
             disabled={saving}
             sx={{
-              backgroundColor: "#48C8AF",
+              backgroundColor: "var(--accent)",
               "&:hover": { backgroundColor: "#3bb49d" },
             }}
           >

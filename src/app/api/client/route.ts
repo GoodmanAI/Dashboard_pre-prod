@@ -94,13 +94,6 @@ export async function GET(request: NextRequest) {
           id: true,
           assignedAt: true,
           product: { select: { id: true, name: true, description: true } },
-          explainDetails: {
-            select: {
-              metricsByMonth: true,
-              commentsByMonth: true,
-              metricsUpdatedAt: true,
-            },
-          },
           talkDetails: {
             select: {
               talkInfoValidated: true,
@@ -138,12 +131,6 @@ export async function GET(request: NextRequest) {
                                 // ne trouvait pas le centre par son talkId)
                     assignedAt: true,
                     product: { select: { id: true, name: true, description: true } },
-                    explainDetails: {
-                      select: {
-                        metricsByMonth: true,
-                        metricsUpdatedAt: true,
-                      },
-                    },
                     talkDetails: {
                       select: {
                         talkInfoValidated: true,

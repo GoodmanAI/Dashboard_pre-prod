@@ -1,5 +1,10 @@
 "use client";
 
+// Palette d'accent (variables --accent*). Importee ici et non dans le
+// ThemeProvider : les pages patient (/c, /d, /confirm) rendent hors du theme MUI
+// et perdraient l'accent.
+import "./global.css";
+
 import { styled, Container, Box } from "@mui/material";
 import { ThemeProvider, CssBaseline } from "@mui/material";
 import React, { useState } from "react";

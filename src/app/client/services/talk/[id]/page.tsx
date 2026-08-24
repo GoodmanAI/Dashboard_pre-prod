@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ACCENT } from "@/lib/accent";
 import {
   Box,
   Typography,
@@ -559,7 +560,7 @@ export default function TalkPage({ params }: TalkPageProps) {
                         fontSize: 12,
                       }}
                     />
-                    <Bar dataKey="total" fill="#48C8AF" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="total" fill={ACCENT} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>

@@ -390,8 +390,8 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                 size="small"
                 label={loading ? "chargement…" : `${orderedItems.length} en attente`}
                 sx={{
-                  bgcolor: orderedItems.length > 0 ? "rgba(239,68,68,0.15)" : "rgba(72,200,175,0.15)",
-                  color: orderedItems.length > 0 ? "#b91c1c" : "#2a6f64",
+                  bgcolor: orderedItems.length > 0 ? "rgba(239,68,68,0.15)" : "rgba(var(--accent-rgb), 0.15)",
+                  color: orderedItems.length > 0 ? "#b91c1c" : "var(--accent-deep)",
                   fontWeight: 700,
                 }}
               />
@@ -400,8 +400,8 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                 size="small"
                 label={`${rejectedCount} refusees Xplore`}
                 sx={{
-                  bgcolor: rejectedCount > 0 ? "rgba(239,68,68,0.15)" : "rgba(72,200,175,0.15)",
-                  color: rejectedCount > 0 ? "#b91c1c" : "#2a6f64",
+                  bgcolor: rejectedCount > 0 ? "rgba(239,68,68,0.15)" : "rgba(var(--accent-rgb), 0.15)",
+                  color: rejectedCount > 0 ? "#b91c1c" : "var(--accent-deep)",
                   fontWeight: 700,
                 }}
               />
@@ -432,7 +432,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
             {
               label: "Deposees patient",
               value: statsTotals?.uploaded,
-              color: "#48C8AF",
+              color: "var(--accent)",
               icon: "📥",
               sub:
                 statsTotals && statsTotals.requested > 0
@@ -510,8 +510,8 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
             sx={{
               px: 2,
               "& .MuiTab-root": { textTransform: "none", fontWeight: 600, minHeight: 48 },
-              "& .Mui-selected": { color: "#48C8AF" },
-              "& .MuiTabs-indicator": { backgroundColor: "#48C8AF" },
+              "& .Mui-selected": { color: "var(--accent)" },
+              "& .MuiTabs-indicator": { backgroundColor: "var(--accent)" },
             }}
           >
             <Tab
@@ -550,7 +550,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               spacing={2}
               alignItems={{ xs: "stretch", sm: "center" }}
             >
-              <Typography variant="body2" sx={{ fontWeight: 600, color: "#2a6f64", minWidth: 200 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: "var(--accent-deep)", minWidth: 200 }}>
                 Afficher les patients en attente depuis :
               </Typography>
               <Select
@@ -589,7 +589,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                     size="small"
                     variant="contained"
                     onClick={handleCustomApply}
-                    sx={{ bgcolor: "#48C8AF", "&:hover": { bgcolor: "#3AB19B" } }}
+                    sx={{ bgcolor: "var(--accent)", "&:hover": { bgcolor: "var(--accent-press)" } }}
                   >
                     Appliquer
                   </Button>
@@ -603,7 +603,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               spacing={2}
               alignItems={{ xs: "stretch", sm: "center" }}
             >
-              <Typography variant="body2" sx={{ fontWeight: 600, color: "#2a6f64", minWidth: 200 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: "var(--accent-deep)", minWidth: 200 }}>
                 Filtrer par type d&apos;examen :
               </Typography>
               <Select
@@ -651,7 +651,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
 
         {loading ? (
           <Stack alignItems="center" sx={{ py: 6 }}>
-            <CircularProgress sx={{ color: "#48C8AF" }} />
+            <CircularProgress sx={{ color: "var(--accent)" }} />
           </Stack>
         ) : orderedItems.length === 0 ? (
           <Card elevation={1} sx={{ p: 5, textAlign: "center" }}>
@@ -725,12 +725,12 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
 
                       {/* Ligne 2 : icone tel + numero (non cliquable, selectable au clavier) */}
                       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-                        <Phone sx={{ fontSize: 20, color: "#2a6f64" }} />
+                        <Phone sx={{ fontSize: 20, color: "var(--accent-deep)" }} />
                         <Typography
                           variant="body1"
                           sx={{
                             fontWeight: 700,
-                            color: "#2a6f64",
+                            color: "var(--accent-deep)",
                             fontFamily: "monospace",
                             letterSpacing: 0.5,
                             userSelect: "all",
@@ -750,7 +750,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                         {toExamTypeCode(item.examType) ? (
                           <ExamTypeBadge type={toExamTypeCode(item.examType)!} />
                         ) : (
-                          <MedicalServices sx={{ fontSize: 20, color: "#48C8AF" }} />
+                          <MedicalServices sx={{ fontSize: 20, color: "var(--accent)" }} />
                         )}
                         <Typography
                           variant="subtitle1"
@@ -774,7 +774,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                             label={formatFrTimeOnly(item.appointmentDate)}
                             sx={{
                               bgcolor: "#E6F7F3",
-                              color: "#2a6f64",
+                              color: "var(--accent-deep)",
                               fontWeight: 700,
                               fontFamily: "monospace",
                               height: 22,
@@ -794,8 +794,8 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                         disabled={resolving.has(item.id)}
                         onClick={() => handleResolve(item.id)}
                         sx={{
-                          bgcolor: "#48C8AF",
-                          "&:hover": { bgcolor: "#3AB19B" },
+                          bgcolor: "var(--accent)",
+                          "&:hover": { bgcolor: "var(--accent-press)" },
                           minWidth: 180,
                         }}
                       >

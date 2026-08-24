@@ -125,7 +125,7 @@ async function exportCallToPdf(call: any, steps: any[]) {
     }
 
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(speaker === "Lyrae" ? "#2a6f64" : "#374151");
+    doc.setTextColor(speaker === "Lyrae" ? "var(--accent-deep)" : "#374151");
     doc.text(speaker + " :", margin, y);
     y += 14;
 
@@ -245,7 +245,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
           variant="contained"
           startIcon={<ArrowBackIosIcon />}
           onClick={() => router.back()}
-          sx={{ backgroundColor: "#48C8AF" }}
+          sx={{ backgroundColor: "var(--accent)" }}
         >
           Retour
         </Button>
@@ -254,8 +254,8 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
           variant="outlined"
           onClick={() => router.push(`${basePath}/calls`)}
           sx={{
-            borderColor: "#48C8AF",
-            color: "#2a6f64",
+            borderColor: "var(--accent)",
+            color: "var(--accent-deep)",
             textTransform: "none",
             fontWeight: 600,
           }}
@@ -280,7 +280,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
 
       {loading && (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-          <CircularProgress sx={{ color: "#48C8AF" }} />
+          <CircularProgress sx={{ color: "var(--accent)" }} />
         </Box>
       )}
 
@@ -335,8 +335,8 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
                             display: "inline-flex",
                             alignItems: "center",
                             gap: 0.5,
-                            bgcolor: "rgba(72,200,175,0.12)",
-                            color: "#2a6f64",
+                            bgcolor: "rgba(var(--accent-rgb), 0.12)",
+                            color: "var(--accent-deep)",
                             px: 1.25,
                             py: 0.25,
                             borderRadius: "999px",
@@ -429,11 +429,11 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
               if (selectedCall) exportCallToPdf(selectedCall, filteredSteps);
             }}
             sx={{
-              borderColor: "#48C8AF",
-              color: "#2a6f64",
+              borderColor: "var(--accent)",
+              color: "var(--accent-deep)",
               fontWeight: 600,
               textTransform: "none",
-              "&:hover": { borderColor: "#3BA992", bgcolor: "rgba(72,200,175,0.08)" },
+              "&:hover": { borderColor: "#3BA992", bgcolor: "rgba(var(--accent-rgb), 0.08)" },
             }}
           >
             Exporter PDF
@@ -458,7 +458,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
                   borderRadius: 2,
                   bgcolor:
                     speaker === "Lyrae"
-                      ? "rgba(72,200,175,0.15)"
+                      ? "rgba(var(--accent-rgb), 0.15)"
                       : "#eee",
                   maxWidth: "75%",
                 }}

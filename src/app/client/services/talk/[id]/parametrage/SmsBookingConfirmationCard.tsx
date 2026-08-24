@@ -207,8 +207,8 @@ export default function SmsBookingConfirmationCard({
             size="small"
             label={enabled ? "Active" : "Desactive"}
             sx={{
-              bgcolor: enabled ? "rgba(72,200,175,0.15)" : "rgba(0,0,0,0.06)",
-              color: enabled ? "#2a6f64" : "text.secondary",
+              bgcolor: enabled ? "rgba(var(--accent-rgb), 0.15)" : "rgba(0,0,0,0.06)",
+              color: enabled ? "var(--accent-deep)" : "text.secondary",
               fontWeight: 700,
             }}
           />
@@ -226,7 +226,7 @@ export default function SmsBookingConfirmationCard({
                 <Alert
                   severity="info"
                   variant="outlined"
-                  sx={{ borderColor: "rgba(72,200,175,0.4)" }}
+                  sx={{ borderColor: "rgba(var(--accent-rgb), 0.4)" }}
                 >
                   Ce reglage est <strong>verrouille sur ON</strong> car des
                   ordonnances sont actives pour : <strong>{prescriptionLabels}</strong>.

@@ -33,7 +33,7 @@ import {
  * Composant read-only : aucun clic (la card parent porte la nav).
  */
 
-const STAGE_COLOR = "#48C8AF"; // teal brand
+const STAGE_COLOR = "var(--accent)"; // teal brand
 const DROP_ACCENT = "#f97316";
 const DROP_ACCENT_BG = "#fff7ed";
 
@@ -229,7 +229,7 @@ export default function FunnelMiniChart({ calls }: Props) {
                 fontSize: 10.5,
                 fontWeight: 600,
               },
-              "& .Mui-selected": { color: "#2a6f64 !important" },
+              "& .Mui-selected": { color: "var(--accent-deep) !important" },
               "& .MuiTabs-indicator": { backgroundColor: STAGE_COLOR },
             }}
           >
@@ -249,8 +249,8 @@ export default function FunnelMiniChart({ calls }: Props) {
                           height: 15,
                           fontSize: 9,
                           fontWeight: 700,
-                          bgcolor: "rgba(72,200,175,0.15)",
-                          color: "#2a6f64",
+                          bgcolor: "rgba(var(--accent-rgb), 0.15)",
+                          color: "var(--accent-deep)",
                           "& .MuiChip-label": { px: 0.6 },
                         }}
                       />

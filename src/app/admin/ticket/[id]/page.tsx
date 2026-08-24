@@ -44,8 +44,8 @@ import TicketConversation, { ApiTicket } from "@/components/tickets/TicketConver
  * les boutons disponibles.
  */
 
-const BRAND_TEAL = "#48C8AF";
-const BRAND_TEAL_DARK = "#3AB19B";
+const BRAND_TEAL = "var(--accent)";
+const BRAND_TEAL_DARK = "var(--accent-press)";
 
 type TargetStatus = "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "PENDING";
 
@@ -64,7 +64,7 @@ const ACTIONS_BY_CURRENT_STATUS: Record<ApiTicket["status"], StatusActionDef[]> 
       target: "IN_PROGRESS",
       label: "Prendre en charge",
       Icon: PlayArrow,
-      color: "#2a6f64",
+      color: "var(--accent-deep)",
       needsNote: false,
       helpText: "Vous serez assigne au ticket. Le client est notifie.",
     },
@@ -116,7 +116,7 @@ const ACTIONS_BY_CURRENT_STATUS: Record<ApiTicket["status"], StatusActionDef[]> 
       target: "IN_PROGRESS",
       label: "Rouvrir (en cours)",
       Icon: LockOpen,
-      color: "#2a6f64",
+      color: "var(--accent-deep)",
       needsNote: false,
       helpText: "Le ticket redevient IN_PROGRESS. Vous restez assigne.",
     },

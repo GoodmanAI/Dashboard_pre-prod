@@ -12,7 +12,7 @@ import {
 } from "@mui/material";
 import { AccessLevel, PageKey, PAGE_LABELS, PAGES } from "@/lib/permissions";
 
-const BRAND_TEAL = "#48C8AF";
+const BRAND_TEAL = "var(--accent)";
 
 type Props = {
   value: Partial<Record<PageKey, AccessLevel>>;
@@ -65,7 +65,7 @@ export default function PermissionsGrid({ value, onChange, disabled }: Props) {
               py: 1,
               borderRadius: 1,
               border: "1px solid #e5e7eb",
-              bgcolor: enabled ? "rgba(72,200,175,0.04)" : "transparent",
+              bgcolor: enabled ? "rgba(var(--accent-rgb), 0.04)" : "transparent",
             }}
           >
             <Box sx={{ minWidth: 0 }}>

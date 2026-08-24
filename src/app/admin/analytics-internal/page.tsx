@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ACCENT } from "@/lib/accent";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -455,7 +456,7 @@ function DistributionBars({
     <Stack spacing={1.5}>
       {data.map((d) => {
         const pct = total > 0 ? (d.count / total) * 100 : 0;
-        const color = colors[d.key] ?? "#48C8AF";
+        const color = colors[d.key] ?? ACCENT;
         return (
           <Box key={d.key}>
             <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
@@ -2015,7 +2016,7 @@ function FeatureMonitoringSection({
                       }}
                       labelStyle={{ fontWeight: 600, color: "#2a6f64" }}
                     />
-                    <Bar dataKey="count" fill="#48C8AF" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="count" fill={ACCENT} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
@@ -3181,7 +3182,7 @@ const AnalyticsInternalPage = () => {
                           <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                             {data.slot.iterationsDistribution.map((d, i) => {
                               const colors = ["#22c55e", "#48C8AF", "#f59e0b", "#ef4444"];
-                              return <Cell key={i} fill={colors[i] ?? "#48C8AF"} />;
+                              return <Cell key={i} fill={colors[i] ?? ACCENT} />;
                             })}
                           </Bar>
                         </BarChart>

@@ -206,9 +206,9 @@ export default function ExternalMappingPage() {
                         }
                         onClick={() => addCode(row)}
                         sx={{
-                          backgroundColor: "#48C8AF",
+                          backgroundColor: "var(--accent)",
                           textTransform: "none",
-                          ":hover": { backgroundColor: "#3AB19B" },
+                          ":hover": { backgroundColor: "var(--accent-press)" },
                         }}
                       >
                         Ajouter

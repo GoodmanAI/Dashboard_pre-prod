@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ACCENT } from "@/lib/accent";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -394,7 +395,7 @@ function CentreTodayCard({
           <Box sx={{ height: 56 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={sparklineData}>
-                <Bar dataKey="count" fill="#48C8AF" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="count" fill={ACCENT} radius={[2, 2, 0, 0]} />
                 <ReTooltip
                   cursor={{ fill: "rgba(72,200,175,0.08)" }}
                   contentStyle={{
@@ -569,7 +570,7 @@ function OverviewSummaryCard({
                 labelStyle={{ fontWeight: 600, color: "#2a6f64" }}
                 formatter={(value: any) => [`${value} appel${value > 1 ? "s" : ""}`, ""]}
               />
-              <Bar dataKey="count" fill="#48C8AF" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="count" fill={ACCENT} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Box>

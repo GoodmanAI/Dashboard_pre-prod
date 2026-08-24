@@ -91,12 +91,24 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 
 **Migrations à deux vitesses** :
 - Prisma : `prisma/migrations/YYYYMMDDHHMMSS_*/migration.sql` (6 dossiers)
-- Manuel : `prisma/migrations/manual/*.sql` (10 fichiers) — **ces tables ne sont pas dans `schema.prisma`**
+- Manuel : `prisma/migrations/manual/*.sql` (11 fichiers) — **ces tables ne sont pas dans `schema.prisma`**
 
 | Origine | Tables |
 |---|---|
 | Prisma (17) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `Call`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
-| SQL manuel (10) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus` |
+| SQL manuel (11) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus` |
+
+`KonnectTenantMapping` (24/08/2026) relie un cabinet Konnect (`tenantId`, UUID) à un centre
+du Dashboard (`userProductId`). **1 ↔ 1 contraint dans les deux sens**, à la différence
+d'`ExternalCenterMapping` qui accepte N codes pour un `UserProduct` : le Dashboard doit
+pouvoir résoudre le tenant d'un centre sans ambiguïté, pas seulement l'inverse.
+Administrée par `/api/konnect-tenant-mapping` (session NextAuth, admin — **pas** une route
+machine-à-machine). **Konnect ne la lit pas et ignore encore l'existence du Dashboard** :
+elle n'est exploitée que dans le sens Dashboard → Konnect.
+
+Le produit `LyraeKonnect` est une ligne de `Product`, créée par la même migration.
+`LyraeExplain` reste en base (4 centres actifs au 24/08/2026) mais n'a plus aucun code :
+la table et les lignes sont conservées, seulement plus lues.
 
 `DeploymentStatus` est la seule table **purement observationnelle** : aucune donnée métier,
 aucun lien vers les autres tables, une ligne par couple (service, host). Un `DROP` est sans
@@ -126,7 +138,9 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 4. **Forme de `GET /api/prescriptions/pending`** : `{ pending, total }`.
 5. **`ExternalCenterMapping.externalCenterCode`** = clé de jointure avec AI2Xplore.
 6. **Colonnes camelCase entre guillemets** (`"User"`, `"UserProduct"`) — sensibles à la casse.
-7. **`Product.name === "LyraeTalk"`** — chaîne magique répétée 40+ fois.
+7. **`Product.name`** — valeurs `LyraeTalk` et `LyraeKonnect`. Les renommer en base casse
+   l'application sans erreur de compilation. Depuis le 13/08/2026 un seul fichier les
+   connaît, `src/lib/produits.ts` : ne jamais comparer un nom de produit en dur ailleurs.
 8. **Le cycle de vie d'un `PrescriptionUpload` est à sens unique.** `POST /api/prescriptions/ack/[id]`
    avec `rejected: true` bascule le statut en `REJECTED` (depuis le 2026-08-04) ; à partir de là
    `GET /api/prescriptions/download/[id]` répond **409** — il ne sert que `UPLOADED` et `ACKED` — et
@@ -149,6 +163,10 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 - ~~Whitelist `/api/heartbeat/*` sans endpoint correspondant **[?] Q4**.~~ **Résolu le 2026-08-10** : la whitelist avait en fait déjà été retirée de `src/middleware.ts` — aucune occurrence de `heartbeat` dans `src/`. Le seul émetteur restant, AI2Xplore, a été coupé de son côté. Q4 close.
 - Deux clients Prisma, deux mailers, deux seeds admin **[?] Q16**.
 - `Call` et `CallConversation` coexistent **[?] Q13**.
-- `LyraeExplain` : produit archivé, code encore présent **[?] Q14**.
+- ~~`LyraeExplain` : produit archivé, code encore présent **[?] Q14**.~~ **Résolu le 24/08/2026** :
+  écran, route `update-metrics-explain` et seed supprimés ; plus aucune référence applicative.
+  La ligne `Product`, les `UserProduct` (4 centres) et la table `LyraeExplainDetails` restent
+  en base à dessein — un `DELETE` sur `Product` cascade sur tout ce qui pend à `UserProduct`.
+  Le modèle Prisma est conservé pour la même raison. Q14 close.
 - `SPECIAL_CENTRE_PAIRS` codé en dur (`auth-helpers.ts:32`).
 - Aucun test. `schema.prisma` ne couvre pas les 9 tables SQL manuelles.

@@ -1,0 +1,41 @@
+/* Palette d'accent du Dashboard — source unique.
+ *
+ * Avant ce fichier, l'accent etait ecrit en dur : 193 fois `#48C8AF`, 161 fois
+ * `rgba(72,200,175, …)`, 123 fois `#2a6f64` et 11 fois `#3AB19B`, repartis sur
+ * une soixantaine de fichiers. Changer la couleur selon le produit affiche
+ * (LyraeTalk / LyraeKonnect) etait donc impossible sans repasser partout.
+ *
+ * Les variables sont posees sur `:root` et NON dans le theme MUI, parce que les
+ * pages patient (/c, /d, /confirm) sont rendues HORS du ThemeProvider : elles
+ * perdraient l'accent. Ce fichier est importe par `src/app/layout.tsx`.
+ *
+ * `--accent-rgb` porte les composantes separees : c'est ce qui permet
+ * `rgba(var(--accent-rgb), 0.12)` avec un alpha libre. La syntaxe de couleur
+ * relative (`rgb(from …)`) ferait la meme chose mais son support est trop recent.
+ *
+ * Les contextes NON-CSS — attributs SVG de Recharts (`fill=`, `stroke=`), props
+ * de composants, valeurs JS — ne peuvent pas resoudre `var()` : ils lisent les
+ * memes valeurs depuis `src/lib/accent.ts`. Les deux fichiers DOIVENT rester
+ * synchronises ; ils se citent mutuellement.
+ */
+
+:root {
+  /* LyraeTalk — l'accent historique du Dashboard. */
+  --accent: #48c8af;
+  --accent-rgb: 72, 200, 175;
+  --accent-press: #3ab19b;
+  --accent-deep: #2a6f64;
+}
+
+/* LyraeKonnect — reprend la palette du produit lui-meme
+ * (repos/konnect/frontend/src/styles/konnect.css), pour que le client retrouve
+ * dans le Dashboard la couleur de l'interface qu'il utilise.
+ *
+ * L'attribut est pose sur <html> par le layout selon le produit actif. Tant que
+ * le selecteur de produit n'existe pas, ce bloc est inerte. */
+[data-produit="konnect"] {
+  --accent: #1268c4;
+  --accent-rgb: 18, 104, 196;
+  --accent-press: #0d5099;
+  --accent-deep: #10396b;
+}

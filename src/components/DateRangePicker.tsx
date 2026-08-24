@@ -18,7 +18,7 @@ interface Props {
 
 /**
  * Sélecteur de plage de dates stylé pour matcher la DA du dashboard :
- * accent teal `#48C8AF`, locale FR, typo cohérente, range capsule arrondie.
+ * accent teal `var(--accent)`, locale FR, typo cohérente, range capsule arrondie.
  *
  * On surcharge les variables CSS de react-day-picker via `sx` au lieu d'éditer
  * la feuille importée — ça permet de garder le composant isolé.
@@ -28,21 +28,21 @@ export default function DateRangePicker({ value, onChange }: Props) {
     <Box
       sx={{
         // Variables natives react-day-picker v9 — recolorisation par CSS vars.
-        "--rdp-accent-color": "#48C8AF",
-        "--rdp-accent-background-color": "rgba(72,200,175,0.15)",
+        "--rdp-accent-color": "var(--accent)",
+        "--rdp-accent-background-color": "rgba(var(--accent-rgb), 0.15)",
         "--rdp-day-height": "36px",
         "--rdp-day-width": "36px",
         "--rdp-day_button-height": "32px",
         "--rdp-day_button-width": "32px",
         "--rdp-day_button-border-radius": "8px",
-        "--rdp-selected-border": "2px solid #48C8AF",
+        "--rdp-selected-border": "2px solid var(--accent)",
         "--rdp-range_start-color": "#ffffff",
         "--rdp-range_end-color": "#ffffff",
-        "--rdp-range_start-background": "#48C8AF",
-        "--rdp-range_end-background": "#48C8AF",
-        "--rdp-range_middle-color": "#2a6f64",
-        "--rdp-range_middle-background-color": "rgba(72,200,175,0.15)",
-        "--rdp-today-color": "#48C8AF",
+        "--rdp-range_start-background": "var(--accent)",
+        "--rdp-range_end-background": "var(--accent)",
+        "--rdp-range_middle-color": "var(--accent-deep)",
+        "--rdp-range_middle-background-color": "rgba(var(--accent-rgb), 0.15)",
+        "--rdp-today-color": "var(--accent)",
         "--rdp-weekday-text-transform": "uppercase",
 
         ".rdp-root": {
@@ -64,13 +64,13 @@ export default function DateRangePicker({ value, onChange }: Props) {
         },
 
         ".rdp-button_previous, .rdp-button_next": {
-          color: "#2a6f64",
+          color: "var(--accent-deep)",
           borderRadius: "8px",
           width: 32,
           height: 32,
           transition: "background-color 160ms ease",
           "&:hover:not([disabled])": {
-            backgroundColor: "rgba(72,200,175,0.1)",
+            backgroundColor: "rgba(var(--accent-rgb), 0.1)",
           },
         },
 
@@ -87,21 +87,21 @@ export default function DateRangePicker({ value, onChange }: Props) {
           color: "#1f2937",
           transition: "background-color 140ms ease, color 140ms ease",
           "&:hover:not([disabled])": {
-            backgroundColor: "rgba(72,200,175,0.12)",
-            color: "#2a6f64",
+            backgroundColor: "rgba(var(--accent-rgb), 0.12)",
+            color: "var(--accent-deep)",
           },
         },
 
         // Aujourd'hui (sans sélection)
         ".rdp-today:not(.rdp-selected) .rdp-day_button": {
           fontWeight: 800,
-          color: "#48C8AF",
-          backgroundColor: "rgba(72,200,175,0.06)",
+          color: "var(--accent)",
+          backgroundColor: "rgba(var(--accent-rgb), 0.06)",
         },
 
         // Bornes du range : pleines teal blanches
         ".rdp-range_start .rdp-day_button, .rdp-range_end .rdp-day_button": {
-          backgroundColor: "#48C8AF !important",
+          backgroundColor: "var(--accent) !important",
           color: "#ffffff !important",
           fontWeight: 700,
           "&:hover": {
@@ -111,8 +111,8 @@ export default function DateRangePicker({ value, onChange }: Props) {
 
         // Cellules au milieu du range : fond teal léger
         ".rdp-range_middle .rdp-day_button": {
-          backgroundColor: "rgba(72,200,175,0.15) !important",
-          color: "#2a6f64 !important",
+          backgroundColor: "rgba(var(--accent-rgb), 0.15) !important",
+          color: "var(--accent-deep) !important",
           fontWeight: 600,
           borderRadius: 0,
         },

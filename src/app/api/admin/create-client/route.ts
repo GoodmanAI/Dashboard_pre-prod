@@ -11,6 +11,7 @@ import fs from "fs/promises";
 import path from "path";
 import { passwordSchema } from "@/lib/passwordSchema";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
+import { NOMS_PRODUITS, estProduit } from "@/lib/produits";
 
 const CreateUserSchema = z.object({
   // Historiquement nommé "email" mais c'est en fait un identifiant libre (peut
@@ -187,35 +188,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Récupérer les IDs des produits Explain/Talk (évite les magic numbers 1/2)
+    // Récupérer les IDs des produits du catalogue (évite les magic numbers 1/2)
     const coreProducts = await prisma.product.findMany({
       where: {
-        name: { in: ["LyraeExplain", "LyraeTalk"] },
+        name: { in: NOMS_PRODUITS },
       },
       select: { id: true, name: true },
     });
-    const explainProduct = coreProducts.find(
-      (p) => p.name.toLowerCase() === "lyraeexplain".toLowerCase()
-    );
     const talkProduct = coreProducts.find(
-      (p) => p.name.toLowerCase() === "LyraeTalk".toLowerCase()
+      (p) => estProduit(p.name, "talk")
     );
-
-    // === LyraeExplain ===
-    if (explainProduct && selectedProductIds.includes(explainProduct.id)) {
-      const userProductExplain = await prisma.userProduct.findFirst({
-        where: { userId: newUser.id, productId: explainProduct.id },
-      });
-      if (userProductExplain) {
-        // IMPORTANT : avec le nouveau schéma, on NE crée pas rdv/borne/etc.
-        // On crée un enregistrement vide (JSON par défaut "[]")
-        await prisma.lyraeExplainDetails.upsert({
-          where: { userProductId: userProductExplain.id },
-          update: {},
-          create: { userProductId: userProductExplain.id },
-        });
-      }
-    }
 
     // === LyraeTalk ===
     if (talkProduct && selectedProductIds.includes(talkProduct.id)) {

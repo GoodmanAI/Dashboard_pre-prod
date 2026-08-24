@@ -36,6 +36,7 @@ import {
 } from "@tabler/icons-react";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
+import { estProduit } from "@/lib/produits";
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -169,13 +170,13 @@ function HorizontalPlans({ matchedTier }: { matchedTier: number | null }) {
               position: "relative",
               overflow: "hidden",
               borderRadius: 2,
-              bgcolor: isOpen ? "#ffffff" : "rgba(72,200,175,0.08)",
+              bgcolor: isOpen ? "#ffffff" : "rgba(var(--accent-rgb), 0.08)",
               border: isOpen
-                ? "1px solid rgba(72,200,175,0.5)"
-                : "1px solid rgba(72,200,175,0.15)",
-              boxShadow: isOpen ? "0 8px 24px rgba(72,200,175,0.15)" : "none",
+                ? "1px solid rgba(var(--accent-rgb), 0.5)"
+                : "1px solid rgba(var(--accent-rgb), 0.15)",
+              boxShadow: isOpen ? "0 8px 24px rgba(var(--accent-rgb), 0.15)" : "none",
               "&:hover": {
-                bgcolor: isOpen ? "#ffffff" : "rgba(72,200,175,0.15)",
+                bgcolor: isOpen ? "#ffffff" : "rgba(var(--accent-rgb), 0.15)",
               },
               display: "flex",
               flexDirection: "column",
@@ -210,7 +211,7 @@ function PlanClosedStrip({ plan, isMatched }: { plan: TalkPlan; isMatched: boole
         justifyContent: "center",
         p: 1,
         gap: 0.5,
-        color: "#2a6f64",
+        color: "var(--accent-deep)",
         userSelect: "none",
         position: "relative",
       }}
@@ -224,8 +225,8 @@ function PlanClosedStrip({ plan, isMatched }: { plan: TalkPlan; isMatched: boole
             width: 8,
             height: 8,
             borderRadius: "50%",
-            bgcolor: "#48C8AF",
-            boxShadow: "0 0 0 3px rgba(72,200,175,0.3)",
+            bgcolor: "var(--accent)",
+            boxShadow: "0 0 0 3px rgba(var(--accent-rgb), 0.3)",
           }}
         />
       )}
@@ -234,7 +235,7 @@ function PlanClosedStrip({ plan, isMatched }: { plan: TalkPlan; isMatched: boole
           fontWeight: 800,
           fontSize: numberFontSize,
           lineHeight: 1,
-          color: "#2a6f64",
+          color: "var(--accent-deep)",
         }}
       >
         {plan.tier}
@@ -244,7 +245,7 @@ function PlanClosedStrip({ plan, isMatched }: { plan: TalkPlan; isMatched: boole
         sx={{
           fontWeight: 700,
           letterSpacing: 1.2,
-          color: "#2a6f64",
+          color: "var(--accent-deep)",
           opacity: 0.8,
         }}
       >
@@ -282,8 +283,8 @@ function PlanOpenPanel({ plan, isMatched }: { plan: TalkPlan; isMatched: boolean
             label="Vous vous situez ici sur ces 30 derniers jours"
             sx={{
               bgcolor: "transparent",
-              color: "#2a6f64",
-              border: "1.5px solid #48C8AF",
+              color: "var(--accent-deep)",
+              border: "1.5px solid var(--accent)",
               fontWeight: 600,
               fontSize: 11,
               height: 22,
@@ -310,7 +311,7 @@ function PlanOpenPanel({ plan, isMatched }: { plan: TalkPlan; isMatched: boolean
         <Typography
           variant="h5"
           fontWeight={800}
-          sx={{ color: "#2a6f64", lineHeight: 1.2 }}
+          sx={{ color: "var(--accent-deep)", lineHeight: 1.2 }}
         >
           {plan.price ?? "Sur devis"}
         </Typography>
@@ -325,7 +326,7 @@ function PlanOpenPanel({ plan, isMatched }: { plan: TalkPlan; isMatched: boolean
               flex: 1,
               height: 3,
               borderRadius: 1,
-              bgcolor: i < plan.tier ? "#48C8AF" : "rgba(72,200,175,0.15)",
+              bgcolor: i < plan.tier ? "var(--accent)" : "rgba(var(--accent-rgb), 0.15)",
             }}
           />
         ))}
@@ -385,7 +386,7 @@ const ProfilePage = () => {
   useEffect(() => {
     if (!clientData) return;
     const talkUP = (clientData.userProducts ?? []).find(
-      (up: any) => up?.product?.name === "LyraeTalk"
+      (up: any) => estProduit(up?.product?.name, "talk")
     );
     const talkUserProductId = talkUP?.id;
     if (!talkUserProductId) return;
@@ -420,7 +421,7 @@ const ProfilePage = () => {
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-        <CircularProgress sx={{ "& .MuiCircularProgress-svg": { color: "#48C8AF" } }} />
+        <CircularProgress sx={{ "& .MuiCircularProgress-svg": { color: "var(--accent)" } }} />
       </Box>
     );
   }
@@ -491,8 +492,8 @@ const ProfilePage = () => {
           borderRadius: "10px",
           display: "grid",
           placeItems: "center",
-          bgcolor: "rgba(72,200,175,0.12)",
-          color: "#2a6f64",
+          bgcolor: "rgba(var(--accent-rgb), 0.12)",
+          color: "var(--accent-deep)",
           flexShrink: 0,
         }}
       >
@@ -524,7 +525,7 @@ const ProfilePage = () => {
         <Card sx={{ p: 3, mb: 3 }} elevation={1}>
           <Typography
             variant="overline"
-            sx={{ color: "#2a6f64", fontWeight: 700, letterSpacing: 1 }}
+            sx={{ color: "var(--accent-deep)", fontWeight: 700, letterSpacing: 1 }}
           >
             Informations de compte
           </Typography>
@@ -560,8 +561,8 @@ const ProfilePage = () => {
                         size="small"
                         label="Multi-centres"
                         sx={{
-                          bgcolor: "rgba(72,200,175,0.15)",
-                          color: "#2a6f64",
+                          bgcolor: "rgba(var(--accent-rgb), 0.15)",
+                          color: "var(--accent-deep)",
                           fontWeight: 600,
                         }}
                       />
@@ -578,7 +579,7 @@ const ProfilePage = () => {
               <Divider sx={{ my: 3 }} />
               <Typography
                 variant="overline"
-                sx={{ color: "#2a6f64", fontWeight: 700, letterSpacing: 1 }}
+                sx={{ color: "var(--accent-deep)", fontWeight: 700, letterSpacing: 1 }}
               >
                 Centres gérés
               </Typography>
@@ -625,8 +626,8 @@ const ProfilePage = () => {
                               label={up?.product?.name ?? "—"}
                               size="small"
                               sx={{
-                                bgcolor: "rgba(72,200,175,0.15)",
-                                color: "#2a6f64",
+                                bgcolor: "rgba(var(--accent-rgb), 0.15)",
+                                color: "var(--accent-deep)",
                                 fontWeight: 600,
                               }}
                             />
@@ -658,7 +659,7 @@ const ProfilePage = () => {
             <Box>
               <Typography
                 variant="overline"
-                sx={{ color: "#2a6f64", fontWeight: 700, letterSpacing: 1 }}
+                sx={{ color: "var(--accent-deep)", fontWeight: 700, letterSpacing: 1 }}
               >
                 Plan de l&apos;abonnement
               </Typography>
@@ -712,8 +713,8 @@ const ProfilePage = () => {
                 borderRadius: "10px",
                 display: "grid",
                 placeItems: "center",
-                bgcolor: "rgba(72,200,175,0.15)",
-                color: "#2a6f64",
+                bgcolor: "rgba(var(--accent-rgb), 0.15)",
+                color: "var(--accent-deep)",
               }}
             >
               <IconLockCog size={18} />
@@ -841,7 +842,7 @@ const ProfilePage = () => {
                   disabled={passwordLoading}
                   startIcon={<IconLockCog size={18} />}
                   sx={{
-                    bgcolor: "#48C8AF",
+                    bgcolor: "var(--accent)",
                     fontWeight: 600,
                     "&:hover": { bgcolor: "#3BA992" },
                   }}

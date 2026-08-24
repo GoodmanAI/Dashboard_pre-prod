@@ -2,6 +2,9 @@
 import { PrismaClient, TicketStatus, User, Product } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { randomUUID } from 'crypto'
+// Chemin RELATIF et non l'alias `@/` : ce fichier est exécuté par ts-node, qui
+// ne résout pas les `paths` du tsconfig (`tsconfig-paths` n'est pas installé).
+import { PRODUITS } from '../src/lib/produits'
 
 const prisma = new PrismaClient()
 
@@ -43,15 +46,23 @@ async function main(): Promise<void> {
   })
 
   // 2. Produits
+  //
+  // LyraeExplain n'est plus créé : le produit est retiré du dashboard. Les
+  // lignes existantes en base ne sont PAS supprimées ici — un DELETE sur
+  // "Product" cascade sur "UserProduct" et sur tout ce qui y pend.
+  //
+  // LyraeKonnect vient du référentiel `src/lib/produits.ts`, seul endroit qui
+  // connaît les valeurs de `Product.name`. La même insertion existe en SQL
+  // idempotent dans `prisma/migrations/manual/2026_08_24_add_produit_konnect.sql`,
+  // pour les bases où le seed ne tourne pas (prod).
   await prisma.product.createMany({
     data: [
-      { name: 'LyraeExplain', description: 'Produit Lyrae Explain' },
-      { name: 'LyraeTalk',    description: 'Produit Lyrae Talk' }
+      { name: PRODUITS.talk.nom,    description: 'Robot vocal téléphonique' },
+      { name: PRODUITS.konnect.nom, description: 'Portail patient web de prise de rendez-vous' }
     ],
     skipDuplicates: true
   })
-  const lyraeExplain: Product = await prisma.product.findFirstOrThrow({ where: { name: 'LyraeExplain' } })
-  const lyraeTalk:    Product = await prisma.product.findFirstOrThrow({ where: { name: 'LyraeTalk'    } })
+  const lyraeTalk: Product = await prisma.product.findFirstOrThrow({ where: { name: PRODUITS.talk.nom } })
 
   // 3. Admin_user (Directeur)
   const hashedDirectorPw = await bcrypt.hash(DIRECTOR_PASSWORD, 10)
@@ -95,14 +106,14 @@ async function main(): Promise<void> {
     centreUsers.push(centre)
   }
 
-  // 5. Assignation des deux produits & détails pour LyraeExplain
+  // 5. Assignation du produit LyraeTalk
+  //
+  // LyraeKonnect n'est PAS assigné automatiquement : le rattachement d'un
+  // centre au portail patient suppose une correspondance `tenantId` côté
+  // Konnect (voir `KonnectTenantMapping`), qui n'a rien à voir avec un jeu de
+  // démo. Il se fait depuis l'admin, centre par centre.
   console.log("centreUsers", centreUsers)
   for (const centre of centreUsers) {
-    await prisma.userProduct.upsert({
-      where: { userId_productId: { userId: centre.id, productId: lyraeExplain.id } },
-      update: {},
-      create: { userId: centre.id, productId: lyraeExplain.id },
-    })
     await prisma.userProduct.upsert({
       where: { userId_productId: { userId: centre.id, productId: lyraeTalk.id } },
       update: {},

@@ -210,7 +210,7 @@ export default function EditExamQuestions({ params }: PageProps) {
           startIcon={<ArrowBackIosIcon />}
           onClick={() => router.back()}
           sx={{
-            backgroundColor: "#48C8AF",
+            backgroundColor: "var(--accent)",
             "&:hover": { backgroundColor: "#3bb49d" },
             mb: 3,
           }}
@@ -345,7 +345,7 @@ export default function EditExamQuestions({ params }: PageProps) {
               onClick={handleSave}
               disabled={saving}
               sx={{
-                backgroundColor: "#48C8AF",
+                backgroundColor: "var(--accent)",
                 "&:hover": { backgroundColor: "#3bb49d" },
               }}
             >

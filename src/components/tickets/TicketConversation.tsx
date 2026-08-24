@@ -35,8 +35,8 @@ import { io as ioClient, Socket } from "socket.io-client";
  * gris). L'identite "moi" est determinee par currentUserId (passe en prop).
  */
 
-const BRAND_TEAL = "#48C8AF";
-const BRAND_TEAL_DARK = "#3AB19B";
+const BRAND_TEAL = "var(--accent)";
+const BRAND_TEAL_DARK = "var(--accent-press)";
 const BRAND_TEAL_SOFT = "#E6F7F3";
 const NEUTRAL_BG = "#F1F5F9";
 const TEXT_MAIN = "#1F3448";
@@ -110,7 +110,7 @@ const STATUS_META: Record<
   { label: string; color: string; bg: string }
 > = {
   PENDING: { label: "En attente", color: "#c2410c", bg: "rgba(234,88,12,0.15)" },
-  IN_PROGRESS: { label: "En cours", color: "#2a6f64", bg: "rgba(72,200,175,0.15)" },
+  IN_PROGRESS: { label: "En cours", color: "var(--accent-deep)", bg: "rgba(var(--accent-rgb), 0.15)" },
   RESOLVED: { label: "Resolu", color: "#166534", bg: "rgba(34,197,94,0.15)" },
   CLOSED: { label: "Ferme", color: "#4b5563", bg: "rgba(107,114,128,0.15)" },
 };

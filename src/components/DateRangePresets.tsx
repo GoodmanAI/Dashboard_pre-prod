@@ -93,15 +93,15 @@ export default function DateRangePresets({
               fontWeight: 600,
               fontSize: 12,
               height: 30,
-              bgcolor: isActive ? "#48C8AF" : "transparent",
-              color: isActive ? "#fff" : "#2a6f64",
+              bgcolor: isActive ? "var(--accent)" : "transparent",
+              color: isActive ? "#fff" : "var(--accent-deep)",
               border: isActive
-                ? "1px solid #48C8AF"
-                : "1px solid rgba(72,200,175,0.3)",
+                ? "1px solid var(--accent)"
+                : "1px solid rgba(var(--accent-rgb), 0.3)",
               transition: "all 160ms ease",
               "&:hover": {
-                bgcolor: isActive ? "#3BA992" : "rgba(72,200,175,0.08)",
-                borderColor: "#48C8AF",
+                bgcolor: isActive ? "#3BA992" : "rgba(var(--accent-rgb), 0.08)",
+                borderColor: "var(--accent)",
               },
             }}
           />

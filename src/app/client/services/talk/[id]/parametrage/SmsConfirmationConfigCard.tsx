@@ -264,8 +264,8 @@ export default function SmsConfirmationConfigCard({
                 }
                 sx={{
                   bgcolor:
-                    enabledCount > 0 ? "rgba(72,200,175,0.15)" : "rgba(0,0,0,0.06)",
-                  color: enabledCount > 0 ? "#2a6f64" : "text.secondary",
+                    enabledCount > 0 ? "rgba(var(--accent-rgb), 0.15)" : "rgba(0,0,0,0.06)",
+                  color: enabledCount > 0 ? "var(--accent-deep)" : "text.secondary",
                   fontWeight: 700,
                 }}
               />

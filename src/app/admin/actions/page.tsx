@@ -50,8 +50,8 @@ function ActionCard({
         border: "1px solid transparent",
         "&:hover": {
           transform: "translateY(-2px)",
-          boxShadow: "0 8px 24px rgba(72,200,175,0.15)",
-          borderColor: "rgba(72,200,175,0.4)",
+          boxShadow: "0 8px 24px rgba(var(--accent-rgb), 0.15)",
+          borderColor: "rgba(var(--accent-rgb), 0.4)",
         },
       }}
     >
@@ -62,8 +62,8 @@ function ActionCard({
           borderRadius: "12px",
           display: "grid",
           placeItems: "center",
-          bgcolor: "rgba(72,200,175,0.12)",
-          color: "#2a6f64",
+          bgcolor: "rgba(var(--accent-rgb), 0.12)",
+          color: "var(--accent-deep)",
           flexShrink: 0,
         }}
       >

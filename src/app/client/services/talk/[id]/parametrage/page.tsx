@@ -670,9 +670,9 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               startIcon={<IconChevronLeft size={18} />}
               onClick={() => router.push(`${basePath}`)}
               sx={{
-                borderColor: "#48C8AF",
-                color: "#48C8AF",
-                "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
+                borderColor: "var(--accent)",
+                color: "var(--accent)",
+                "&:hover": { backgroundColor: "rgba(var(--accent-rgb), 0.08)" },
               }}
             >
               Retour à Talk
@@ -685,7 +685,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               onClick={handleSave}
               disabled={saving}
               sx={{
-                backgroundColor: "#48C8AF",
+                backgroundColor: "var(--accent)",
                 "&:hover": { backgroundColor: "#3bb49d" },
               }}
             >
@@ -751,8 +751,8 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                       sx={{
                         flex: "1 1 280px",
                         borderRadius: 2,
-                        borderColor: checked ? "#48C8AF" : "#e0e0e0",
-                        outline: checked ? "2px solid #48C8AF" : "none",
+                        borderColor: checked ? "var(--accent)" : "#e0e0e0",
+                        outline: checked ? "2px solid var(--accent)" : "none",
                         transition: "outline-color .2s",
                       }}
                     >
@@ -779,10 +779,10 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                             startIcon={playing ? <PauseIcon /> : <PlayArrowIcon />}
                             onClick={() => togglePlay(v.key)}
                             sx={{
-                              borderColor: "#48C8AF",
-                              color: "#48C8AF",
+                              borderColor: "var(--accent)",
+                              color: "var(--accent)",
                               textTransform: "none",
-                              "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
+                              "&:hover": { backgroundColor: "rgba(var(--accent-rgb), 0.08)" },
                             }}
                           >
                             {playing ? "Pause" : "Écouter l’aperçu"}
@@ -946,8 +946,8 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                   size="small"
                   label={`${openDays} / ${totalDays} jours ouverts`}
                   sx={{
-                    bgcolor: openDays > 0 ? "rgba(72,200,175,0.15)" : "rgba(0,0,0,0.06)",
-                    color: openDays > 0 ? "#2a6f64" : "text.secondary",
+                    bgcolor: openDays > 0 ? "rgba(var(--accent-rgb), 0.15)" : "rgba(0,0,0,0.06)",
+                    color: openDays > 0 ? "var(--accent-deep)" : "text.secondary",
                     fontWeight: 700,
                   }}
                 />
@@ -1016,8 +1016,8 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                   size="small"
                   label={`${configured} / ${total} consignes definies`}
                   sx={{
-                    bgcolor: configured > 0 ? "rgba(72,200,175,0.15)" : "rgba(0,0,0,0.06)",
-                    color: configured > 0 ? "#2a6f64" : "text.secondary",
+                    bgcolor: configured > 0 ? "rgba(var(--accent-rgb), 0.15)" : "rgba(0,0,0,0.06)",
+                    color: configured > 0 ? "var(--accent-deep)" : "text.secondary",
                     fontWeight: 700,
                   }}
                 />
@@ -1148,8 +1148,8 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                   size="small"
                   label={`${accepted} / ${total} examens acceptes`}
                   sx={{
-                    bgcolor: accepted > 0 ? "rgba(72,200,175,0.15)" : "rgba(0,0,0,0.06)",
-                    color: accepted > 0 ? "#2a6f64" : "text.secondary",
+                    bgcolor: accepted > 0 ? "rgba(var(--accent-rgb), 0.15)" : "rgba(0,0,0,0.06)",
+                    color: accepted > 0 ? "var(--accent-deep)" : "text.secondary",
                     fontWeight: 700,
                   }}
                 />
@@ -1211,8 +1211,8 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                   size="small"
                   label={`${activeCount} / ${total} options actives`}
                   sx={{
-                    bgcolor: activeCount > 0 ? "rgba(72,200,175,0.15)" : "rgba(0,0,0,0.06)",
-                    color: activeCount > 0 ? "#2a6f64" : "text.secondary",
+                    bgcolor: activeCount > 0 ? "rgba(var(--accent-rgb), 0.15)" : "rgba(0,0,0,0.06)",
+                    color: activeCount > 0 ? "var(--accent-deep)" : "text.secondary",
                     fontWeight: 700,
                   }}
                 />
@@ -1347,9 +1347,9 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               variant="outlined"
               onClick={() => router.push(`${basePath}/parametrage/mapping_exam`)}
               sx={{
-                borderColor: "#48C8AF",
-                color: "#48C8AF",
-                "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
+                borderColor: "var(--accent)",
+                color: "var(--accent)",
+                "&:hover": { backgroundColor: "rgba(var(--accent-rgb), 0.08)" },
               }}
             >
               Paramétrer les examens
@@ -1369,9 +1369,9 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               variant="outlined"
               onClick={() => router.push(`${basePath}/parametrage/questions_exam`)}
               sx={{
-                borderColor: "#48C8AF",
-                color: "#48C8AF",
-                "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
+                borderColor: "var(--accent)",
+                color: "var(--accent)",
+                "&:hover": { backgroundColor: "rgba(var(--accent-rgb), 0.08)" },
               }}
             >
               Paramétrer les questions
@@ -1384,7 +1384,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Stack direction="row" alignItems="center" spacing={1.5}>
-            <IconLink size={20} color="#48C8AF" />
+            <IconLink size={20} color="var(--accent)" />
             <Typography variant="h6">Gestion des doubles examens</Typography>
             <Chip
               size="small"
@@ -1392,8 +1392,8 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                 Object.values(doubleExamsMapping).filter((v) => v?.enabled).length
               } / ${DOUBLE_EXAMS.length} activés`}
               sx={{
-                bgcolor: "rgba(72,200,175,0.15)",
-                color: "#2a6f64",
+                bgcolor: "rgba(var(--accent-rgb), 0.15)",
+                color: "var(--accent-deep)",
                 fontWeight: 700,
               }}
             />
@@ -1405,7 +1405,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               severity="info"
               variant="outlined"
               icon={<IconInfoCircle size={18} />}
-              sx={{ mb: 2, borderColor: "rgba(72,200,175,0.4)" }}
+              sx={{ mb: 2, borderColor: "rgba(var(--accent-rgb), 0.4)" }}
             >
               Indiquez quelles combinaisons de deux examens votre centre gère, et
               comment votre système Xplore doit les traiter :
@@ -1427,14 +1427,14 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                 <TableHead>
                   <TableRow
                     sx={{
-                      bgcolor: "rgba(72,200,175,0.08)",
+                      bgcolor: "rgba(var(--accent-rgb), 0.08)",
                       "& th": {
                         fontWeight: 700,
                         fontSize: 12,
                         letterSpacing: 0.5,
-                        color: "#2a6f64",
+                        color: "var(--accent-deep)",
                         textTransform: "uppercase",
-                        borderBottom: "2px solid rgba(72,200,175,0.4)",
+                        borderBottom: "2px solid rgba(var(--accent-rgb), 0.4)",
                       },
                     }}
                   >
@@ -1454,7 +1454,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                         sx={{
                           bgcolor: i % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)",
                           transition: "background-color 200ms",
-                          "&:hover": { bgcolor: "rgba(72,200,175,0.04)" },
+                          "&:hover": { bgcolor: "rgba(var(--accent-rgb), 0.04)" },
                         }}
                       >
                         <TableCell>
@@ -1485,10 +1485,10 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                             }
                             sx={{
                               "& .MuiSwitch-switchBase.Mui-checked": {
-                                color: "#48C8AF",
+                                color: "var(--accent)",
                               },
                               "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
-                                bgcolor: "#48C8AF",
+                                bgcolor: "var(--accent)",
                               },
                             }}
                           />
@@ -1517,12 +1517,12 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                                 fontWeight: 600,
                                 py: 0.5,
                                 px: 1.5,
-                                borderColor: "rgba(72,200,175,0.3)",
+                                borderColor: "rgba(var(--accent-rgb), 0.3)",
                               },
                               "& .Mui-selected": {
-                                bgcolor: "rgba(72,200,175,0.18) !important",
-                                color: "#2a6f64 !important",
-                                borderColor: "#48C8AF !important",
+                                bgcolor: "rgba(var(--accent-rgb), 0.18) !important",
+                                color: "var(--accent-deep) !important",
+                                borderColor: "var(--accent) !important",
                               },
                             }}
                           >
@@ -1620,7 +1620,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
             onClick={handleSave}
             disabled={saving}
             sx={{
-              backgroundColor: "#48C8AF",
+              backgroundColor: "var(--accent)",
               "&:hover": { backgroundColor: "#3bb49d" },
             }}
           >

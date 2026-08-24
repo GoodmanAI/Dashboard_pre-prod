@@ -80,7 +80,7 @@ export default function ManageClientsPage() {
             px: 1,
             textTransform: "none",
             fontWeight: 500,
-            "&:hover": { bgcolor: "rgba(72,200,175,0.08)", color: "#2a6f64" },
+            "&:hover": { bgcolor: "rgba(var(--accent-rgb), 0.08)", color: "var(--accent-deep)" },
           }}
         >
           Retour aux actions
@@ -103,8 +103,8 @@ export default function ManageClientsPage() {
                 fontWeight: 600,
                 minHeight: 48,
               },
-              "& .MuiTabs-indicator": { bgcolor: "#48C8AF", height: 3 },
-              "& .Mui-selected": { color: "#2a6f64 !important" },
+              "& .MuiTabs-indicator": { bgcolor: "var(--accent)", height: 3 },
+              "& .Mui-selected": { color: "var(--accent-deep) !important" },
             }}
           >
             <Tab icon={<IconLockCog size={18} />} iconPosition="start" label="Réinitialiser mot de passe" />
@@ -253,7 +253,7 @@ function ResetPasswordPanel({
           onClick={() => setConfirmOpen(true)}
           disabled={submitting || !selectedClient || !newPassword}
           sx={{
-            bgcolor: "#48C8AF",
+            bgcolor: "var(--accent)",
             fontWeight: 600,
             "&:hover": { bgcolor: "#3BA992" },
           }}
@@ -288,7 +288,7 @@ function ResetPasswordPanel({
             onClick={handleReset}
             variant="contained"
             disabled={submitting}
-            sx={{ bgcolor: "#48C8AF", fontWeight: 600, "&:hover": { bgcolor: "#3BA992" } }}
+            sx={{ bgcolor: "var(--accent)", fontWeight: 600, "&:hover": { bgcolor: "#3BA992" } }}
           >
             Confirmer
           </Button>

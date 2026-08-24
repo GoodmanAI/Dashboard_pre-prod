@@ -11,6 +11,7 @@ import {
   Button,
   CircularProgress,
 } from "@mui/material";
+import { produitDepuisNom } from "@/lib/produits";
 
 /**
  * Types de données échangées avec l’API / structure locale.
@@ -69,7 +70,7 @@ const ClientHomePage = () => {
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-        <CircularProgress sx={{ "& .MuiCircularProgress-svg": { color: "#48C8AF" } }} />
+        <CircularProgress sx={{ "& .MuiCircularProgress-svg": { color: "var(--accent)" } }} />
       </Box>
     );
   }
@@ -78,8 +79,13 @@ const ClientHomePage = () => {
     return <Typography>Aucun produit trouvé.</Typography>;
   }
 
-  // Tri stable par id
-  const sortedProducts = [...userProducts].sort((a, b) => a.id - b.id).filter((el) => {return el.name != "LyraeExplain"});
+  // Tri stable par id, et on n'affiche QUE les produits du catalogue.
+  // Liste blanche et non liste noire : un produit retiré du dashboard
+  // (LyraeExplain) ou une ligne "Product" résiduelle en base disparaît d'office,
+  // sans qu'il faille penser à l'ajouter à une exclusion.
+  const sortedProducts = [...userProducts]
+    .sort((a, b) => a.id - b.id)
+    .filter((el) => produitDepuisNom(el.name) !== null);
 
   const renderProductName = (name: string) => {
     if (name.toLowerCase().startsWith("lyrae")) {
@@ -95,8 +101,8 @@ const ClientHomePage = () => {
   };
 
   const getProductRoute = (name: string) => {
-    if (name.toLowerCase().includes("explain")) return "/client/services/explain";
-    if (name.toLowerCase().includes("talk")) return "/client/services/talk";
+    const produit = produitDepuisNom(name);
+    if (produit) return `/client/services/${produit.segment}`;
     return "https://neuracorp.ai";
   };
 
@@ -119,7 +125,7 @@ const ClientHomePage = () => {
         {sortedProducts.map((product) => {
           const isActive = !product.removedAt;
           const statusText = isActive ? "On" : "Off";
-          const borderColor = isActive ? "#48C8AF" : "#A0AEC0";
+          const borderColor = isActive ? "var(--accent)" : "#A0AEC0";
           const assignedDate = product.assignedAt
             ? new Date(product.assignedAt).toLocaleDateString()
             : "";
@@ -183,7 +189,7 @@ const ClientHomePage = () => {
                 <Button
                   variant="contained"
                   sx={{
-                    backgroundColor: isActive ? "#48C8AF" : "#555555",
+                    backgroundColor: isActive ? "var(--accent)" : "#555555",
                     borderRadius: "99px",
                     color: "#FFFFFF",
                     fontWeight: 500,

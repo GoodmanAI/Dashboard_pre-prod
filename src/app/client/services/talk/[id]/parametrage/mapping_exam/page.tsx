@@ -61,7 +61,7 @@ import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
  * POST /api/configuration/mapping. Meme structure de row.
  */
 
-const BRAND = "#48C8AF";
+const BRAND = "var(--accent)";
 const BRAND_DARK = "#2C9B85";
 const INK = "#0F2A3F";
 const INK_MUTED = "#5A6B7B";

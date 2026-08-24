@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
 import { getFirstAccessiblePath } from "@/lib/pageAccess";
+import { trouverProduit } from "@/lib/produits";
 
 /**
  * Page de connexion
@@ -100,7 +101,7 @@ export default function SignIn() {
     const res = await fetch(`/api/users/${userId}/products`);
     const data = await res.json();
     const product: any = Array.isArray(data)
-      ? data.find((p: any) => p?.name === "LyraeTalk")
+      ? trouverProduit<any>(data, "talk")
       : null;
     const talkId: number | null = product?.id ?? null;
 
@@ -259,14 +260,14 @@ export default function SignIn() {
               type="submit"
               disabled={loading}
               sx={{
-                backgroundColor: "#48C8AF",
+                backgroundColor: "var(--accent)",
                 borderRadius: "99px",
                 color: "#FFFFFF",
                 fontWeight: 700,
                 fontSize: "13px",
                 textTransform: "none",
                 py: 1.2,
-                ":hover": { backgroundColor: "#3AB19B" },
+                ":hover": { backgroundColor: "var(--accent-press)" },
               }}
             >
               {loading ? "Connexion..." : "Se connecter"}
