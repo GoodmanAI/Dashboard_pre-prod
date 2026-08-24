@@ -20,6 +20,7 @@
   import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
   import NotificationBell from "@/components/notifications/NotificationBell";
 import { trouverProduit } from "@/lib/produits";
+  import SelecteurProduit from "@/components/produits/SelecteurProduit";
 
   /**
    * Header d’application (barre supérieure).
@@ -132,6 +133,9 @@ import { trouverProduit } from "@/lib/produits";
 
           {/* Zone à droite : notifications support, compteur ordonnances, sélecteur de centre, profil */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            {/* Bascule entre produits — invisible pour un client mono-produit */}
+            <SelecteurProduit />
+
             {/* Cloche notifications support (tickets : nouveau message, prise en charge, resolution) */}
             <NotificationBell />
 

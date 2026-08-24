@@ -4,14 +4,14 @@ import React, { useState, useEffect } from "react";
 import { Box, List } from "@mui/material";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Menuitems, { AdminMenuitems } from "./MenuItems";
+import Menuitems, { AdminMenuitems, KonnectMenuitems } from "./MenuItems";
 import NavItem from "./NavItem";
 import NavGroup from "./NavGroup";
 import { useCentre } from "@/app/context/CentreContext";
 import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
 import { hasPermission } from "@/lib/permissions";
 import { getPageFromHref } from "@/lib/pageAccess";
-import { trouverProduit } from "@/lib/produits";
+import { trouverProduit, ORDRE_PRODUITS, PRODUITS } from "@/lib/produits";
 
 /** Modèle minimal d’un item de menu latéral. */
 type SideNavItem = {
@@ -115,11 +115,45 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
   };
 
   /**
-   * Choix du menu selon le rôle :
-   * - ADMIN : `AdminMenuitems` (Admin + Client + Assistance).
-   * - CLIENT (ou autre) : `Menuitems` classique.
+   * Le produit affiché se déduit de l'URL — `/client/services/<segment>/…` —
+   * et non d'un état mémorisé : un lien partagé doit ouvrir le bon menu.
+   * Ne concerne que les clients ; un admin navigue par centre, pas par produit.
    */
-  const sourceMenu: SideNavItem[] = isAdmin ? AdminMenuitems : Menuitems;
+  const produitAffiche = (() => {
+    if (isAdmin) return null;
+    const segment = pathname?.split("/")[3];
+    return ORDRE_PRODUITS.find((slug) => PRODUITS[slug].segment === segment) ?? null;
+  })();
+
+  /**
+   * Résout le href d'un item contenant `{KONNECT_ID}`.
+   *
+   * Le `userProductId` cherché est celui du produit LyraeKonnect, PAS celui de
+   * LyraeTalk : ce sont deux lignes distinctes de `UserProduct`. On le lit en
+   * priorité dans l'URL courante, qui le porte déjà et reste vraie même quand
+   * le fetch des produits n'a pas encore répondu.
+   */
+  const resolveKonnectHref = (rawHref: string): string | null => {
+    const depuisUrl = pathname?.split("/")[4];
+    if (depuisUrl && /^\d+$/.test(depuisUrl)) {
+      return rawHref.replace("{KONNECT_ID}", depuisUrl);
+    }
+    const konnect: any = trouverProduit<any>(products, "konnect");
+    if (!konnect) return null;
+    return rawHref.replace("{KONNECT_ID}", String(konnect.id));
+  };
+
+  /**
+   * Choix du menu :
+   * - ADMIN : `AdminMenuitems` (Admin + Client + Assistance).
+   * - CLIENT sur un segment Konnect : `KonnectMenuitems`.
+   * - CLIENT sinon : `Menuitems` classique (LyraeTalk).
+   */
+  const sourceMenu: SideNavItem[] = isAdmin
+    ? AdminMenuitems
+    : produitAffiche === "konnect"
+    ? KonnectMenuitems
+    : Menuitems;
 
   const filteredMenuItems = sourceMenu.filter((item: SideNavItem) => {
     // Items LYRAE (démos produits) : masqués pour tous les rôles par défaut.
@@ -169,6 +203,9 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
     }
     if (item.href?.includes("{TALK_ID}")) {
       return resolveTalkHref(item.href);
+    }
+    if (item.href?.includes("{KONNECT_ID}")) {
+      return resolveKonnectHref(item.href);
     }
     return item.href;
   };

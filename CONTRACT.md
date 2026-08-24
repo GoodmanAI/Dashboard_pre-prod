@@ -18,6 +18,22 @@
 **Pour AI2Xplore** — header `x-api-key: APPOINTMENT_API_KEY` :
 `POST /api/rdv/init`, `POST /api/rdv/ack`, `GET /api/rdv/pending-events`, `POST /api/rdv/reminder-sent`, `POST /api/prescriptions/init`, `GET /api/prescriptions/pending`, `GET /api/prescriptions/download/[id]`, `POST /api/prescriptions/ack/[id]`.
 
+**Pour LyraeKonnect** — header `x-api-key: KONNECT_API_KEY` :
+`GET /api/konnect-configuration?tenantId=<uuid>` (lecture seule ; le `PUT` refuse un appel
+par clé, la configuration se pilote depuis le Dashboard).
+
+Clé **distincte de `BOT_API_KEY`** : la réutiliser rendrait Konnect et LyraeTalk
+indistinguables dans les logs d'audit, dont le format est consommé par Grafana.
+
+**Konnect s'identifie par son `tenant_id`, jamais par un `userProductId`** — il ignore les
+identifiants du Dashboard. La traduction passe par `KonnectTenantMapping`. Une session
+peut interroger la même route par `?userProductId=`, avec contrôle d'appartenance.
+
+Le corps de réponse est en **snake_case**, aligné champ pour champ sur `ParametresOut` de
+Konnect (`backend/app/cabinet/api.py`), pour qu'il le consomme sans traduction. Renommer
+une de ces clés casse le portail patient en silence. La frontière camelCase ↔ snake_case
+est dans `src/lib/konnectConfig.ts`, et nulle part ailleurs.
+
 **Pour les sondes de déploiement** — header `x-api-key: DEPLOY_PROBE_API_KEY` :
 `POST /api/deployments` (écriture, appelée par `deploy/deployment-probe.js` des VMs
 lyraetalk, ai2xplore et dashboard, toutes les 15 min),
@@ -103,8 +119,18 @@ du Dashboard (`userProductId`). **1 ↔ 1 contraint dans les deux sens**, à la 
 d'`ExternalCenterMapping` qui accepte N codes pour un `UserProduct` : le Dashboard doit
 pouvoir résoudre le tenant d'un centre sans ambiguïté, pas seulement l'inverse.
 Administrée par `/api/konnect-tenant-mapping` (session NextAuth, admin — **pas** une route
-machine-à-machine). **Konnect ne la lit pas et ignore encore l'existence du Dashboard** :
-elle n'est exploitée que dans le sens Dashboard → Konnect.
+machine-à-machine). C'est elle qui traduit l'identifiant de Konnect en identifiant du
+Dashboard sur `GET /api/konnect-configuration?tenantId=…`.
+
+`KonnectSettings` (24/08/2026) porte la configuration du portail patient, une ligne par
+centre. Le Dashboard en est **propriétaire**, exactement comme `TalkSettings` pour
+LyraeTalk : le client paramètre ici, Konnect vient lire. **Les valeurs par défaut ne sont
+pas neutres** — elles reprennent une à une celles de `cabinet_parametres` côté Konnect,
+délibérément *fail-closed* : un centre non configuré ne déclenche aucun traitement sensible
+(pas d'OCR cloud, pas de questionnaire clinique, pas de choix de radiologue). Seul
+`ocrActif` vaut `true`, parce que côté Konnect `false` est le chemin **plus** contrôlé.
+Les changer modifie le comportement du portail pour tout centre non encore configuré.
+Aucune ligne n'est créée à la lecture : un centre inconnu reçoit les défauts.
 
 Le produit `LyraeKonnect` est une ligne de `Product`, créée par la même migration.
 `LyraeExplain` reste en base (4 centres actifs au 24/08/2026) mais n'a plus aucun code :
