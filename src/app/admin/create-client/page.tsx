@@ -39,12 +39,15 @@ import { useRouter } from "next/navigation";
 import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elements/CustomTextField";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
-import { trouverProduit } from "@/lib/produits";
+import { trouverProduit, ORDRE_PRODUITS, PRODUITS, type SlugProduit } from "@/lib/produits";
 
 /**
  * Création d'un client (admin).
- * LyraeTalk est automatiquement affecté. La sélection multi-produits
- * (LyraeTalk / LyraeKonnect) est l'étape 4 du chantier multi-produit.
+ * Sélection multiple des produits du catalogue (`src/lib/produits.ts`).
+ * LyraeTalk est pré-coché — comportement historique, et cas le plus fréquent —
+ * mais peut être décoché. Le rattachement d'un cabinet Konnect se fait ensuite
+ * depuis « Gérer les clients », onglet Produits : il a besoin du userProductId,
+ * qui n'existe pas avant la création.
  */
 export default function CreateClientPage() {
   const router = useRouter();
@@ -53,7 +56,11 @@ export default function CreateClientPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [isSecretary, setIsSecretary] = useState(false);
-  const [talkProductId, setTalkProductId] = useState<number | null>(null);
+
+  // Étape 4 du chantier multi-produit : la sélection devient multiple. Avant,
+  // LyraeTalk était affecté implicitement et rien d'autre n'était possible.
+  const [catalogue, setCatalogue] = useState<Array<{ id: number; nom: string; libelle: string; slug: SlugProduit }>>([]);
+  const [produitsChoisis, setProduitsChoisis] = useState<number[]>([]);
 
   // Chantier 2026-08-05 : rattachement multi-centres expose dans l'UI
   // 3 modes : autonome (defaut) / manager (ADMIN_USER) / rattache (USER + managerId)
@@ -67,16 +74,30 @@ export default function CreateClientPage() {
   const [errors, setErrors] = useState<{ field?: string; message: string }[]>([]);
   const [openDialog, setOpenDialog] = useState(false);
 
-  // Résolution de l'id du produit LyraeTalk (auto-affecté à chaque création)
+  // Catalogue des produits installés en base, dans l'ordre d'affichage stable
+  // du référentiel. LyraeTalk est pré-coché : c'est le comportement historique,
+  // et le cas de très loin le plus fréquent.
   useEffect(() => {
     const run = async () => {
       try {
         const res = await fetch("/api/products");
         const data = await res.json();
-        if (res.ok && Array.isArray(data)) {
-          const talk = trouverProduit<any>(data, "talk");
-          setTalkProductId(talk?.id ?? null);
-        }
+        if (!res.ok || !Array.isArray(data)) return;
+
+        const installes = ORDRE_PRODUITS.flatMap((slug) => {
+          const enBase = trouverProduit<any>(data, slug);
+          if (!enBase) return [];
+          return [{
+            id: enBase.id as number,
+            nom: PRODUITS[slug].nom,
+            libelle: PRODUITS[slug].libelle,
+            slug,
+          }];
+        });
+        setCatalogue(installes);
+
+        const talk = installes.find((p) => p.slug === "talk");
+        if (talk) setProduitsChoisis([talk.id]);
       } catch (err) {
         console.error("Error fetching products:", err);
       }
@@ -124,11 +145,10 @@ export default function CreateClientPage() {
     setErrorMessage(null);
     setOpenDialog(false);
 
-    // Si le catalogue renvoie bien LyraeTalk, on l'inclut. Sinon on laisse vide
-    // et on fait confiance à l'API pour la suite.
-    const products = talkProductId
-      ? [{ productId: talkProductId, assignedAt: new Date().toISOString() }]
-      : [];
+    const products = produitsChoisis.map((productId) => ({
+      productId,
+      assignedAt: new Date().toISOString(),
+    }));
 
     // Chantier 2026-08-05 : rattachement multi-centres selon le mode choisi
     const centreRole =
@@ -276,6 +296,85 @@ export default function CreateClientPage() {
                     />
                   </Box>
                 </Stack>
+
+                {/* --- Produits (étape 4 du chantier multi-produit) --- */}
+                <Typography
+                  variant="overline"
+                  sx={{ color: "var(--accent-deep)", fontWeight: 700, letterSpacing: 1 }}
+                >
+                  Produits
+                </Typography>
+                <Divider sx={{ mb: 2, mt: 0.5 }} />
+
+                <Box sx={{ mb: 3 }}>
+                  {catalogue.length === 0 && (
+                    <Typography variant="body2" color="text.secondary">
+                      Chargement du catalogue…
+                    </Typography>
+                  )}
+                  {catalogue.map((produit) => {
+                    const coche = produitsChoisis.includes(produit.id);
+                    return (
+                      <Box
+                        key={produit.id}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1.5,
+                          p: 2,
+                          mb: 1.5,
+                          bgcolor: coche
+                            ? "rgba(var(--accent-rgb), 0.08)"
+                            : "rgba(0,0,0,0.02)",
+                          borderRadius: 2,
+                        }}
+                      >
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body2" fontWeight={600}>
+                            {produit.libelle}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {produit.slug === "talk"
+                              ? "Robot vocal téléphonique."
+                              : "Portail patient web. Le cabinet Konnect se rattache ensuite depuis Gérer les clients."}
+                          </Typography>
+                        </Box>
+                        <FormControlLabel
+                          sx={{ m: 0 }}
+                          control={
+                            <Switch
+                              checked={coche}
+                              onChange={(e) =>
+                                setProduitsChoisis((prev) =>
+                                  e.target.checked
+                                    ? [...prev, produit.id]
+                                    : prev.filter((id) => id !== produit.id)
+                                )
+                              }
+                              disabled={loading}
+                              sx={{
+                                "& .MuiSwitch-switchBase.Mui-checked": {
+                                  color: "var(--accent)",
+                                },
+                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track":
+                                  {
+                                    backgroundColor: "var(--accent)",
+                                  },
+                              }}
+                            />
+                          }
+                          label=""
+                        />
+                      </Box>
+                    );
+                  })}
+                  {catalogue.length > 0 && produitsChoisis.length === 0 && (
+                    <Typography variant="caption" color="text.secondary">
+                      Aucun produit sélectionné — le compte sera créé sans accès. Un
+                      produit pourra lui être affilié plus tard.
+                    </Typography>
+                  )}
+                </Box>
 
                 {/* --- Type de compte --- */}
                 <Typography
@@ -663,17 +762,29 @@ export default function CreateClientPage() {
               </Box>
               <Box sx={{ display: "flex", gap: 1 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ minWidth: 100 }}>
-                  Produit
+                  {produitsChoisis.length > 1 ? "Produits" : "Produit"}
                 </Typography>
-                <Chip
-                  size="small"
-                  label="LyraeTalk"
-                  sx={{
-                    bgcolor: "rgba(var(--accent-rgb), 0.15)",
-                    color: "var(--accent-deep)",
-                    fontWeight: 600,
-                  }}
-                />
+                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                  {produitsChoisis.length === 0 && (
+                    <Typography variant="body2" fontWeight={600} color="text.secondary">
+                      Aucun
+                    </Typography>
+                  )}
+                  {catalogue
+                    .filter((p) => produitsChoisis.includes(p.id))
+                    .map((p) => (
+                      <Chip
+                        key={p.id}
+                        size="small"
+                        label={p.libelle}
+                        sx={{
+                          bgcolor: "rgba(var(--accent-rgb), 0.15)",
+                          color: "var(--accent-deep)",
+                          fontWeight: 600,
+                        }}
+                      />
+                    ))}
+                </Stack>
               </Box>
             </Stack>
           </DialogContent>

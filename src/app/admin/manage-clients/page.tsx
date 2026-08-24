@@ -31,6 +31,7 @@ import {
   IconAlertTriangle,
   IconEye,
   IconEyeOff,
+  IconPackage,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elements/CustomTextField";
@@ -88,7 +89,7 @@ export default function ManageClientsPage() {
 
         <SectionHeader
           title="Gérer les clients"
-          subtitle="Réinitialisation de mot de passe et suppression de compte"
+          subtitle="Mot de passe, affiliation aux produits, suppression de compte"
         />
 
         <Card sx={{ p: 0, overflow: "hidden" }} elevation={1}>
@@ -108,6 +109,7 @@ export default function ManageClientsPage() {
             }}
           >
             <Tab icon={<IconLockCog size={18} />} iconPosition="start" label="Réinitialiser mot de passe" />
+            <Tab icon={<IconPackage size={18} />} iconPosition="start" label="Produits" />
             <Tab icon={<IconTrash size={18} />} iconPosition="start" label="Supprimer le compte" />
           </Tabs>
 
@@ -116,6 +118,9 @@ export default function ManageClientsPage() {
               <ResetPasswordPanel clients={clients} loading={loadingClients} />
             )}
             {currentTab === 1 && (
+              <ProductsPanel clients={clients} loading={loadingClients} />
+            )}
+            {currentTab === 2 && (
               <DeleteAccountPanel
                 clients={clients}
                 loading={loadingClients}
@@ -510,6 +515,348 @@ function DeleteAccountPanel({
             disabled={!canSubmit}
           >
             Oui, supprimer
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Stack>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/* Panel : Produits du client (étape 4 du chantier multi-produit)           */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+type LigneProduit = {
+  slug: string;
+  nom: string;
+  libelle: string;
+  productId: number;
+  userProductId: number | null;
+  affilie: boolean;
+  assignedAt: string | null;
+  removedAt: string | null;
+  tenantId: string | null;
+};
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function ProductsPanel({ clients, loading }: { clients: Client[]; loading: boolean }) {
+  const [selectedId, setSelectedId] = useState<number | "">("");
+  const [rows, setRows] = useState<LigneProduit[]>([]);
+  const [loadingRows, setLoadingRows] = useState(false);
+  const [submitting, setSubmitting] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [confirmRetrait, setConfirmRetrait] = useState<LigneProduit | null>(null);
+
+  // Saisie du tenant Konnect, séparée de `rows` pour rester éditable sans
+  // recharger toute la liste à chaque frappe.
+  const [tenantSaisi, setTenantSaisi] = useState("");
+
+  const selectedClient = useMemo(
+    () => clients.find((c) => c.id === selectedId) ?? null,
+    [clients, selectedId]
+  );
+
+  const charger = async (clientId: number) => {
+    setLoadingRows(true);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(`/api/admin/clients/${clientId}/products`);
+      const data = await res.json();
+      if (res.ok) {
+        setRows(data.rows ?? []);
+        const konnect = (data.rows ?? []).find((r: LigneProduit) => r.slug === "konnect");
+        setTenantSaisi(konnect?.tenantId ?? "");
+      } else {
+        setErrorMessage(data.error || "Échec du chargement des produits.");
+      }
+    } catch {
+      setErrorMessage("Une erreur inattendue s'est produite.");
+    } finally {
+      setLoadingRows(false);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof selectedId === "number") charger(selectedId);
+    else setRows([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
+
+  const affilier = async (ligne: LigneProduit) => {
+    if (typeof selectedId !== "number") return;
+    setSubmitting(ligne.slug);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    try {
+      const res = await fetch(`/api/admin/clients/${selectedId}/products`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: ligne.productId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSuccessMessage(
+          `${ligne.libelle} affilié — userProductId ${data.userProductId}.`
+        );
+        await charger(selectedId);
+      } else {
+        setErrorMessage(data.error || "Échec de l'affiliation.");
+      }
+    } catch {
+      setErrorMessage("Une erreur inattendue s'est produite.");
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const retirer = async (ligne: LigneProduit) => {
+    if (typeof selectedId !== "number") return;
+    setSubmitting(ligne.slug);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    setConfirmRetrait(null);
+    try {
+      const res = await fetch(
+        `/api/admin/clients/${selectedId}/products?productId=${ligne.productId}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (res.ok) {
+        setSuccessMessage(
+          `${ligne.libelle} retiré. Les données restent en base et réapparaîtront en cas de réaffiliation.`
+        );
+        await charger(selectedId);
+      } else {
+        setErrorMessage(data.error || "Échec du retrait.");
+      }
+    } catch {
+      setErrorMessage("Une erreur inattendue s'est produite.");
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const enregistrerTenant = async (ligne: LigneProduit) => {
+    if (!ligne.userProductId) return;
+    setSubmitting("tenant");
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    try {
+      const res = await fetch("/api/konnect-tenant-mapping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userProductId: ligne.userProductId,
+          tenantId: tenantSaisi.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSuccessMessage(
+          `Cabinet Konnect rattaché au userProductId ${ligne.userProductId}.`
+        );
+        if (typeof selectedId === "number") await charger(selectedId);
+      } else {
+        setErrorMessage(data.error || "Échec du rattachement.");
+      }
+    } catch {
+      setErrorMessage("Une erreur inattendue s'est produite.");
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const ligneKonnect = rows.find((r) => r.slug === "konnect") ?? null;
+  const tenantValide = UUID_RE.test(tenantSaisi.trim());
+  const tenantInchange = (ligneKonnect?.tenantId ?? "") === tenantSaisi.trim();
+
+  return (
+    <Stack spacing={3} sx={{ maxWidth: 720 }}>
+      <Box>
+        <Typography variant="subtitle1" fontWeight={700}>
+          Produits du client
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Affilier ou retirer un produit. Le retrait ne supprime rien : la ligne est
+          marquée comme retirée, et tout ce qui y est rattaché — appels, tickets,
+          configuration — réapparaît si le produit est réaffilié plus tard.
+        </Typography>
+      </Box>
+
+      <FormControl fullWidth disabled={loading}>
+        <InputLabel id="client-select-produits">Client</InputLabel>
+        <Select
+          labelId="client-select-produits"
+          value={selectedId}
+          label="Client"
+          onChange={(e) => setSelectedId(Number(e.target.value))}
+          MenuProps={{ PaperProps: { style: { maxHeight: 280 } } }}
+        >
+          {clients.map((c) => (
+            <MenuItem key={c.id} value={c.id}>
+              {c.name} — {c.email}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      {loadingRows && (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+          <CircularProgress size={28} />
+        </Box>
+      )}
+
+      {!loadingRows &&
+        selectedClient &&
+        rows.map((ligne) => {
+          const absentDuCatalogue = ligne.productId < 0;
+          return (
+            <Card key={ligne.slug} variant="outlined" sx={{ p: 2.5 }}>
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="flex-start"
+                spacing={2}
+              >
+                <Box>
+                  <Typography variant="subtitle2" fontWeight={700}>
+                    {ligne.libelle}
+                  </Typography>
+                  {absentDuCatalogue ? (
+                    <Typography variant="caption" color="error">
+                      Absent de la base — la migration du produit n&apos;a pas été appliquée.
+                    </Typography>
+                  ) : ligne.affilie ? (
+                    <Typography variant="caption" color="text.secondary">
+                      Affilié · userProductId <strong>{ligne.userProductId}</strong>
+                    </Typography>
+                  ) : ligne.removedAt ? (
+                    <Typography variant="caption" color="text.secondary">
+                      Retiré le {new Date(ligne.removedAt).toLocaleDateString("fr-FR")} —
+                      les données sont conservées
+                    </Typography>
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">
+                      Non affilié
+                    </Typography>
+                  )}
+                </Box>
+
+                {ligne.affilie ? (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    disabled={submitting !== null}
+                    onClick={() => setConfirmRetrait(ligne)}
+                  >
+                    Retirer
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    disabled={submitting !== null || absentDuCatalogue}
+                    onClick={() => affilier(ligne)}
+                    sx={{
+                      bgcolor: "var(--accent)",
+                      fontWeight: 600,
+                      "&:hover": { bgcolor: "#3BA992" },
+                    }}
+                  >
+                    {ligne.removedAt ? "Réaffilier" : "Affilier"}
+                  </Button>
+                )}
+              </Stack>
+
+              {/* Le tenant Konnect n'a de sens qu'une fois le produit affilie :
+                  la correspondance pointe vers le userProductId, qui n'existe
+                  pas avant. */}
+              {ligne.slug === "konnect" && ligne.affilie && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                    Cabinet Konnect rattaché à ce centre. C&apos;est le <code>tenant_id</code>{" "}
+                    (UUID) de Konnect — sa clé d&apos;isolation. Un cabinet ne peut être
+                    rattaché qu&apos;à un seul centre.
+                  </Typography>
+                  <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                    <CustomTextField
+                      label="tenant_id"
+                      variant="outlined"
+                      fullWidth
+                      value={tenantSaisi}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setTenantSaisi(e.target.value)
+                      }
+                      disabled={submitting !== null}
+                      error={tenantSaisi.trim() !== "" && !tenantValide}
+                      helperText={
+                        tenantSaisi.trim() !== "" && !tenantValide
+                          ? "Format UUID attendu"
+                          : ligne.tenantId
+                          ? "Enregistré"
+                          : "Aucun cabinet rattaché"
+                      }
+                    />
+                    <Button
+                      variant="contained"
+                      disabled={submitting !== null || !tenantValide || tenantInchange}
+                      onClick={() => enregistrerTenant(ligne)}
+                      sx={{
+                        mt: 1,
+                        bgcolor: "var(--accent)",
+                        fontWeight: 600,
+                        whiteSpace: "nowrap",
+                        "&:hover": { bgcolor: "#3BA992" },
+                      }}
+                    >
+                      Enregistrer
+                    </Button>
+                  </Stack>
+                </>
+              )}
+            </Card>
+          );
+        })}
+
+      {successMessage && <Alert severity="success">{successMessage}</Alert>}
+      {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
+
+      <Dialog
+        open={confirmRetrait !== null}
+        onClose={() => setConfirmRetrait(null)}
+        PaperProps={{ sx: { borderRadius: 2, minWidth: 440 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Retirer le produit ?</DialogTitle>
+        <DialogContent dividers>
+          <DialogContentText sx={{ mb: 2 }}>
+            Le client perdra l&apos;accès à ce produit. Rien n&apos;est supprimé : la
+            ligne est marquée comme retirée et tout redevient accessible en cas de
+            réaffiliation.
+          </DialogContentText>
+          <Stack spacing={1}>
+            <Row label="Client" value={selectedClient?.name || "—"} />
+            <Row label="Produit" value={confirmRetrait?.libelle || "—"} />
+            <Row
+              label="userProductId"
+              value={String(confirmRetrait?.userProductId ?? "—")}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setConfirmRetrait(null)} variant="text">
+            Annuler
+          </Button>
+          <Button
+            onClick={() => confirmRetrait && retirer(confirmRetrait)}
+            variant="contained"
+            color="error"
+          >
+            Retirer
           </Button>
         </DialogActions>
       </Dialog>
