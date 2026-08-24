@@ -252,4 +252,35 @@ export const AdminMenuitems: SidebarItem[] = [
   },
 ];
 
+/**
+ * Menu du produit LyraeKonnect (étape 5 du chantier multi-produit).
+ *
+ * `{KONNECT_ID}` est résolu par `SidebarItems` avec le `userProductId` du
+ * centre POUR CE PRODUIT — une autre ligne de `UserProduct` que celle de
+ * LyraeTalk, donc un autre identifiant. Confondre les deux enverrait le client
+ * sur la configuration d'un produit qu'il ne regarde pas.
+ *
+ * Volontairement court : le portail patient n'a qu'un écran de configuration
+ * pour l'instant. Le pilotage arrive à l'étape 7, les files opérationnelles à
+ * l'étape 9 — cette dernière conditionnée à la fermeture de Q33 et Q34, les
+ * données patient ne pouvant transiter par une brique au dépôt public.
+ */
+export const KonnectMenuitems: SidebarItem[] = [
+  { navlabel: true, subheader: "Configuration" },
+  {
+    id: uniqueId(),
+    title: "Paramètres du portail",
+    icon: IconSettings,
+    href: "/client/services/konnect/{KONNECT_ID}/parametrage",
+  },
+
+  { navlabel: true, subheader: "Assistance" },
+  {
+    id: uniqueId(),
+    title: "Support",
+    icon: IconLifebuoy,
+    href: "/admin/ticket",
+  },
+];
+
 export default Menuitems;

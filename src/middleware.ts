@@ -38,6 +38,15 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   //  - GET  : page /admin/deployments (session admin) OU daily-report (API key),
   //           auth mixte côté handler. Whitelisté car l'appel cron n'a pas de session.
   /^\/api\/deployments$/,
+  // Configuration LyraeKonnect (chantier multi-produit, 2026-08-24) :
+  //  - GET  : Konnect vient lire la config de son cabinet → x-api-key
+  //           KONNECT_API_KEY, distincte de BOT_API_KEY pour rester
+  //           distinguable dans les logs d'audit. Il s'identifie par son
+  //           tenant_id, traduit via KonnectTenantMapping.
+  //  - PUT  : session uniquement (le handler refuse un appel par clé).
+  // Whitelisté ici car l'appel de Konnect n'a pas de session ; l'authentification
+  // réelle reste dans le handler.
+  /^\/api\/konnect-configuration$/,
 ];
 
 function isPublicApi(pathname: string): boolean {
