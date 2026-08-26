@@ -55,6 +55,12 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // `/api/konnect-tenant-mapping` administre la correspondance et reste
   // réservée à une session admin — ne pas la whitelister.
   /^\/api\/konnect-tenant-mapping\/resolve$/,
+  // Socle de configuration générique (lot B, 2026-08-26) : une brique vient lire
+  // un domaine de configuration de son centre. La clé attendue DÉPEND du domaine
+  // (KONNECT_API_KEY, BOT_API_KEY…) et est résolue dans le handler via le
+  // registre `src/lib/productConfig.ts` — celle de Konnect n'ouvre pas les
+  // domaines de LyraeTalk. Le PUT reste réservé à une session.
+  /^\/api\/product-config$/,
 ];
 
 function isPublicApi(pathname: string): boolean {

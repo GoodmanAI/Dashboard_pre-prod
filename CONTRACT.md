@@ -19,20 +19,47 @@
 `POST /api/rdv/init`, `POST /api/rdv/ack`, `GET /api/rdv/pending-events`, `POST /api/rdv/reminder-sent`, `POST /api/prescriptions/init`, `GET /api/prescriptions/pending`, `GET /api/prescriptions/download/[id]`, `POST /api/prescriptions/ack/[id]`.
 
 **Pour LyraeKonnect** — header `x-api-key: KONNECT_API_KEY` :
-`GET /api/konnect-configuration?tenantId=<uuid>` (lecture seule ; le `PUT` refuse un appel
-par clé, la configuration se pilote depuis le Dashboard).
+`GET /api/konnect-tenant-mapping/resolve?tenantId=<uuid>` → `{ userProductId }`,
+`GET /api/konnect-configuration?userProductId=NN` (ou `?tenantId=<uuid>`),
+`GET /api/product-config?userProductId=NN&domaine=X`.
+Toutes en **lecture seule** : le `PUT` de ces routes refuse un appel par clé, la
+configuration se pilote depuis le Dashboard.
 
 Clé **distincte de `BOT_API_KEY`** : la réutiliser rendrait Konnect et LyraeTalk
 indistinguables dans les logs d'audit, dont le format est consommé par Grafana.
 
-**Konnect s'identifie par son `tenant_id`, jamais par un `userProductId`** — il ignore les
-identifiants du Dashboard. La traduction passe par `KonnectTenantMapping`. Une session
-peut interroger la même route par `?userProductId=`, avec contrôle d'appartenance.
+**Depuis le 26/08/2026 (lot A), Konnect s'identifie par `userProductId`, comme LyraeTalk.**
+Il le résout une fois via `/resolve`, le retient dans son `tenant.user_product_id`, et
+interroge ensuite le Dashboard dans la même forme que l'autre produit — une seule forme
+d'appel, donc plus de traduction à recoder dans chaque route de configuration.
+La forme `?tenantId=` **reste supportée** : voie d'amorçage, et repli quand l'identifiant
+retenu se révèle caduc (cabinet re-rattaché). `tenant_id` demeure la clé d'isolation RLS de
+Konnect ; il a seulement disparu des routes de configuration.
 
-Le corps de réponse est en **snake_case**, aligné champ pour champ sur `ParametresOut` de
-Konnect (`backend/app/cabinet/api.py`), pour qu'il le consomme sans traduction. Renommer
-une de ces clés casse le portail patient en silence. La frontière camelCase ↔ snake_case
-est dans `src/lib/konnectConfig.ts`, et nulle part ailleurs.
+⚠️ **Un appel par clé avec `?userProductId=` vérifie que le centre porte bien le produit
+attendu** (référentiel `src/lib/produits.ts`), sinon 404. Sans ce contrôle, la clé de
+Konnect lirait la configuration d'un centre LyraeTalk : la traduction par `tenantId`
+garantissait ce point implicitement, plus maintenant.
+
+Le corps de réponse de `konnect-configuration` est en **snake_case**, aligné champ pour
+champ sur `ParametresOut` de Konnect (`backend/app/cabinet/api.py`), pour qu'il le consomme
+sans traduction. Renommer une de ces clés casse le portail patient en silence. La frontière
+camelCase ↔ snake_case est dans `src/lib/konnectConfig.ts`, et nulle part ailleurs.
+
+`GET /api/product-config` est le **socle générique** (lot B) : un objet JSON par
+(centre, domaine), que le Dashboard stocke sans l'interpréter. Trois règles y sont
+attachées, toutes dans `src/lib/productConfig.ts` :
+- le **domaine doit être déclaré** dans le registre — sinon 400 ;
+- **chaque domaine nomme la clé d'API qui peut le lire**, si bien que `KONNECT_API_KEY`
+  n'ouvre pas les domaines de LyraeTalk ;
+- `valeur` est toujours un **objet** JSON à la racine — un tableau ou un scalaire
+  interdirait d'ajouter un champ plus tard sans casser les lecteurs.
+
+La réponse porte un **ETag** (`W/"v<version>"`) ; un `If-None-Match` qui correspond renvoie
+**304 sans corps**. Ce n'est pas un raffinement : un catalogue d'examens pèse des centaines
+de lignes et ne peut pas transiter à chaque lecture. Un domaine jamais configuré répond
+**200 avec `{}` en version 0**, jamais 404 — le consommateur doit pouvoir distinguer « pas
+encore configuré » d'une erreur pour appliquer ses défauts.
 
 **Pour les sondes de déploiement** — header `x-api-key: DEPLOY_PROBE_API_KEY` :
 `POST /api/deployments` (écriture, appelée par `deploy/deployment-probe.js` des VMs
@@ -107,20 +134,25 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 
 **Migrations à deux vitesses** :
 - Prisma : `prisma/migrations/YYYYMMDDHHMMSS_*/migration.sql` (6 dossiers)
-- Manuel : `prisma/migrations/manual/*.sql` (11 fichiers) — **ces tables ne sont pas dans `schema.prisma`**
+- Manuel : `prisma/migrations/manual/*.sql` (13 fichiers) — **ces tables ne sont pas dans `schema.prisma`**
 
 | Origine | Tables |
 |---|---|
 | Prisma (17) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `Call`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
-| SQL manuel (11) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus` |
+| SQL manuel (13) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus` |
 
 `KonnectTenantMapping` (24/08/2026) relie un cabinet Konnect (`tenantId`, UUID) à un centre
 du Dashboard (`userProductId`). **1 ↔ 1 contraint dans les deux sens**, à la différence
 d'`ExternalCenterMapping` qui accepte N codes pour un `UserProduct` : le Dashboard doit
 pouvoir résoudre le tenant d'un centre sans ambiguïté, pas seulement l'inverse.
 Administrée par `/api/konnect-tenant-mapping` (session NextAuth, admin — **pas** une route
-machine-à-machine). C'est elle qui traduit l'identifiant de Konnect en identifiant du
-Dashboard sur `GET /api/konnect-configuration?tenantId=…`.
+machine-à-machine). Sa **sous-route** `/api/konnect-tenant-mapping/resolve`, elle, est
+machine-à-machine (clé API seule, surface minimale : elle ne renvoie qu'un entier) et sert
+à Konnect à apprendre son `userProductId` une fois pour toutes.
+
+Depuis le lot A, cette table n'est plus sur le chemin critique de chaque lecture : Konnect
+retient l'identifiant de son côté. Elle reste **la seule autorité** du rattachement — ce que
+Konnect garde est un cache, effacé et re-résolu dès qu'un 404 révèle qu'il est caduc.
 
 `KonnectSettings` (24/08/2026) porte la configuration du portail patient, une ligne par
 centre. Le Dashboard en est **propriétaire**, exactement comme `TalkSettings` pour
@@ -131,6 +163,17 @@ délibérément *fail-closed* : un centre non configuré ne déclenche aucun tra
 `ocrActif` vaut `true`, parce que côté Konnect `false` est le chemin **plus** contrôlé.
 Les changer modifie le comportement du portail pour tout centre non encore configuré.
 Aucune ligne n'est créée à la lecture : un centre inconnu reçoit les défauts.
+
+`ProductConfig` (26/08/2026) est le **socle de configuration générique** : un objet JSON
+par (centre, domaine), avec une `version` qui s'incrémente à chaque écriture et sert
+d'ETag. Elle complète les tables typées plutôt qu'elle ne les remplace — ce que le client
+édite au clic garde son schéma et son écran ; ce qu'il règle une fois à l'installation vit
+ici. Le critère est la **fréquence d'édition**, pas la taille du corpus.
+
+Le produit n'y est **pas** stocké : il se déduit de `userProductId`. La liste blanche des
+domaines, le produit de chacun et la clé d'API autorisée à le lire sont dans
+`src/lib/productConfig.ts` — **ajouter un domaine s'y fait sans migration**, et c'est tout
+l'intérêt du mécanisme. Le Dashboard n'interprète jamais `valeur`.
 
 Le produit `LyraeKonnect` est une ligne de `Product`, créée par la même migration.
 `LyraeExplain` reste en base (4 centres actifs au 24/08/2026) mais n'a plus aucun code :
@@ -150,6 +193,7 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 |---|---|
 | **LyraeTalk** | 6 endpoints, dont toute sa configuration métier par centre. **S'ils tombent, le robot n'a plus de config.** |
 | **AI2Xplore** | 8 endpoints RDV + ordonnances, en polling |
+| **LyraeKonnect** | 3 endpoints : résolution d'identité, configuration cabinet, socle générique par domaine. **Le pont est éteint par défaut** (`KONNECT_DASHBOARD_BASE_URL` vide côté Konnect) ; branché, une panne du Dashboard fige sa configuration mais n'arrête pas le portail patient — il sert son cache |
 | **Grafana** | format des logs d'audit |
 | **daily-report** | `GET /api/deployments` — section « Déploiement » du mail quotidien. Dégradation gracieuse de son côté : si la route tombe, la section disparaît, le mail part quand même |
 | **Sondes de déploiement** (3 VMs) | `POST /api/deployments` toutes les 15 min |
@@ -163,6 +207,12 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 3. **Payloads** `POST /api/rdv/init`, `POST /api/prescriptions/init` (clés, format de date de naissance, enum de type d'examen).
 4. **Forme de `GET /api/prescriptions/pending`** : `{ pending, total }`.
 5. **`ExternalCenterMapping.externalCenterCode`** = clé de jointure avec AI2Xplore.
+5bis. **Clés des domaines de `ProductConfig`** (`src/lib/productConfig.ts`) : renommer un
+   slug orpheline les données du centre sans la moindre erreur — la ligne existe toujours,
+   plus personne ne la lit. Retirer une entrée du registre a le même effet. Marquer
+   obsolète plutôt que supprimer. Et **le lien domaine → variable de clé d'API** est un
+   contrôle de sécurité : le relâcher laisserait la clé d'un produit lire les domaines de
+   l'autre.
 6. **Colonnes camelCase entre guillemets** (`"User"`, `"UserProduct"`) — sensibles à la casse.
 7. **`Product.name`** — valeurs `LyraeTalk` et `LyraeKonnect`. Les renommer en base casse
    l'application sans erreur de compilation. Depuis le 13/08/2026 un seul fichier les
