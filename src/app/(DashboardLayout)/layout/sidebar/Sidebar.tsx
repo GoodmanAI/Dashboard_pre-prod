@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ACCENT } from "@/lib/accent";
+import { useProduitActif } from "@/hooks/useProduitActif";
 import { useMediaQuery, Box, Drawer } from "@mui/material";
 import { Theme } from "@mui/material/styles";
 import { Sidebar } from "react-mui-sidebar";
@@ -31,6 +31,9 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
   const lgUp = useMediaQuery((theme: Theme) => theme.breakpoints.up("lg"));
   const router = useRouter();
   const { data: session } = useSession();
+  // Logo et couleur d'accent suivent le produit affiché : la sidebar est rendue
+  // par le layout parent, elle resterait sinon aux couleurs de LyraeTalk.
+  const produit = useProduitActif();
   const [products, setProducts] = useState([]);
   const [talkId, setTalkId] = useState([]);
 
@@ -83,15 +86,15 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
               collapsewidth="80px"
               open={isSidebarOpen}
               themeColor="#5d87ff"
-              themeSecondaryColor={ACCENT}
+              themeSecondaryColor={produit.accent.principal}
               showProfile={false}
             >
               {/* Zone logo */}
               <Box sx={{ p: 2, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Box
                   component="img"
-                  src="/images/logos/neuracorp_logo.png"
-                  alt="Logo Neuracorp"
+                  src={produit.interface.principal}
+                  alt={produit.libelle}
                   sx={{ width: "210px", height: "auto", cursor: "pointer" }}
                   onClick={() =>
                     router.push(
@@ -131,15 +134,15 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
           mode="light"
           direction="ltr"
           themeColor="#5d87ff"
-          themeSecondaryColor={ACCENT}
+          themeSecondaryColor={produit.accent.principal}
           showProfile={false}
         >
           {/* Zone logo */}
           <Box sx={{ p: 2, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Box
               component="img"
-              src="/images/logos/neuracorp_logo.png"
-              alt="Logo Neuracorp"
+              src={produit.interface.principal}
+              alt={produit.libelle}
               sx={{ width: "210px", height: "auto" }}
             />
           </Box>

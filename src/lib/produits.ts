@@ -33,6 +33,35 @@ export type LogosProduit = {
   icone: string;
 };
 
+/**
+ * Accent du produit, en constantes JS.
+ *
+ * **La source de vérité reste `src/app/global.css`** (`--accent`, surchargé par
+ * `[data-produit="konnect"]`). Tout ce qui est du CSS doit utiliser `var(--accent)`.
+ *
+ * Ces valeurs ne servent qu'aux props de composants qui reçoivent une couleur
+ * comme donnée et la réinjectent ailleurs, où `var()` ne serait pas résolu :
+ * `themeSecondaryColor` de la sidebar, attributs de présentation SVG de Recharts.
+ * Elles doublent donc le CSS, et les deux doivent rester d'accord.
+ */
+export type AccentProduit = {
+  principal: string;
+  press: string;
+  deep: string;
+};
+
+/**
+ * Images d'interface qui changent avec le produit actif : le logo en haut de la
+ * sidebar et l'avatar du header. Distinctes des `logos` ci-dessus, qui
+ * identifient le produit lui-même dans le sélecteur.
+ */
+export type ImagesInterface = {
+  /** Logo en haut de la barre latérale. */
+  principal: string;
+  /** Avatar du menu profil, en haut à droite. */
+  profil: string;
+};
+
 export type Produit = {
   slug: SlugProduit;
   /** Valeur de `Product.name` en base. La toucher casse l'app en silence. */
@@ -44,6 +73,8 @@ export type Produit = {
   /** Une phrase qui dit ce que fait le produit, pour le sélecteur. */
   description: string;
   logos: LogosProduit;
+  interface: ImagesInterface;
+  accent: AccentProduit;
 };
 
 export const PRODUITS: Record<SlugProduit, Produit> = {
@@ -58,6 +89,11 @@ export const PRODUITS: Record<SlugProduit, Produit> = {
       symbole: "/images/lyraetalk-symbole-couleur.svg",
       icone: "/images/lyraetalk-icone-app-512.svg",
     },
+    interface: {
+      principal: "/images/logos/neuracorp_logo.png",
+      profil: "/images/logos/neuracorp-ai-icon_fond.png",
+    },
+    accent: { principal: "#48C8AF", press: "#3AB19B", deep: "#2A6F64" },
   },
   konnect: {
     slug: "konnect",
@@ -70,6 +106,11 @@ export const PRODUITS: Record<SlugProduit, Produit> = {
       symbole: "/images/lyraekonnect-symbole-couleur.svg",
       icone: "/images/lyraekonnect-icone-app-512.svg",
     },
+    interface: {
+      principal: "/images/logo_principal_konnect.png",
+      profil: "/images/logo_profil_konnect.png",
+    },
+    accent: { principal: "#1268C4", press: "#0D5099", deep: "#10396B" },
   },
 };
 
