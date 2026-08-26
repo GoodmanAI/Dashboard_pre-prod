@@ -61,6 +61,10 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // registre `src/lib/productConfig.ts` — celle de Konnect n'ouvre pas les
   // domaines de LyraeTalk. Le PUT reste réservé à une session.
   /^\/api\/product-config$/,
+  // Catalogue d'examens LyraeKonnect (lot C, 2026-08-26) : Konnect vient lire le
+  // catalogue de son centre, dont le Dashboard est propriétaire. Lecture par clé,
+  // écriture réservée à une session (le handler refuse un PUT par clé).
+  /^\/api\/konnect-examens$/,
 ];
 
 function isPublicApi(pathname: string): boolean {

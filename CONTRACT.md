@@ -21,7 +21,8 @@
 **Pour LyraeKonnect** — header `x-api-key: KONNECT_API_KEY` :
 `GET /api/konnect-tenant-mapping/resolve?tenantId=<uuid>` → `{ userProductId }`,
 `GET /api/konnect-configuration?userProductId=NN` (ou `?tenantId=<uuid>`),
-`GET /api/product-config?userProductId=NN&domaine=X`.
+`GET /api/product-config?userProductId=NN&domaine=X`,
+`GET /api/konnect-examens?userProductId=NN`.
 Toutes en **lecture seule** : le `PUT` de ces routes refuse un appel par clé, la
 configuration se pilote depuis le Dashboard.
 
@@ -134,12 +135,12 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 
 **Migrations à deux vitesses** :
 - Prisma : `prisma/migrations/YYYYMMDDHHMMSS_*/migration.sql` (6 dossiers)
-- Manuel : `prisma/migrations/manual/*.sql` (13 fichiers) — **ces tables ne sont pas dans `schema.prisma`**
+- Manuel : `prisma/migrations/manual/*.sql` (14 fichiers) — **ces tables ne sont pas dans `schema.prisma`**
 
 | Origine | Tables |
 |---|---|
 | Prisma (17) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `Call`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
-| SQL manuel (13) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus` |
+| SQL manuel (14) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus` |
 
 `KonnectTenantMapping` (24/08/2026) relie un cabinet Konnect (`tenantId`, UUID) à un centre
 du Dashboard (`userProductId`). **1 ↔ 1 contraint dans les deux sens**, à la différence
@@ -175,6 +176,28 @@ domaines, le produit de chacun et la clé d'API autorisée à le lire sont dans
 `src/lib/productConfig.ts` — **ajouter un domaine s'y fait sans migration**, et c'est tout
 l'intérêt du mécanisme. Le Dashboard n'interprète jamais `valeur`.
 
+`KonnectExamens` (26/08/2026) porte le **catalogue d'examens** d'un centre Konnect —
+l'équivalent d'`ExamMapping` pour LyraeTalk. Une ligne par (centre, code RIS).
+
+Le Dashboard en est propriétaire ; côté Konnect, `cabinet_examen` en devient le
+**cache**, remplacé en bloc à chaque synchronisation. Trois conséquences à connaître :
+
+- **`examenCode` est une clé de jointure avec le RIS** — c'est le code que Konnect
+  transmet à AI2Xplore lors de la réservation. Le renommer casse la prise de RDV en
+  silence.
+- **Le `PUT` remplace l'ensemble du catalogue**, il ne modifie pas ligne à ligne : un
+  examen retiré de l'écran disparaît réellement, et le catalogue n'est jamais à moitié
+  écrit.
+- **L'ETag est calculé, non stocké** (`count` + `max(updatedAt)`) : une modification
+  déplace `updatedAt`, une suppression change `count`. Un catalogue de plusieurs
+  centaines de lignes ne transite que lorsqu'il a réellement changé.
+
+Le pré-remplissage depuis le RIS **n'alimente pas cette table** : le Dashboard ne peut
+pas interroger i2ris, dont les identifiants sont par cabinet et chiffrés chez Konnect.
+Un push d'amorçage viendra dans un ticket dédié — ce sera le premier verbe d'écriture
+du pont. À noter : i2ris n'expose ni libellé ni champs métier par examen, il n'apporte
+que des codes.
+
 Le produit `LyraeKonnect` est une ligne de `Product`, créée par la même migration.
 `LyraeExplain` reste en base (4 centres actifs au 24/08/2026) mais n'a plus aucun code :
 la table et les lignes sont conservées, seulement plus lues.
@@ -193,7 +216,7 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 |---|---|
 | **LyraeTalk** | 6 endpoints, dont toute sa configuration métier par centre. **S'ils tombent, le robot n'a plus de config.** |
 | **AI2Xplore** | 8 endpoints RDV + ordonnances, en polling |
-| **LyraeKonnect** | 3 endpoints : résolution d'identité, configuration cabinet, socle générique par domaine. **Le pont est éteint par défaut** (`KONNECT_DASHBOARD_BASE_URL` vide côté Konnect) ; branché, une panne du Dashboard fige sa configuration mais n'arrête pas le portail patient — il sert son cache |
+| **LyraeKonnect** | 4 endpoints : résolution d'identité, configuration cabinet, socle générique par domaine, catalogue d'examens. **Le pont est éteint par défaut** (`KONNECT_DASHBOARD_BASE_URL` vide côté Konnect) ; branché, une panne du Dashboard fige sa configuration mais n'arrête pas le portail patient — il sert son cache |
 | **Grafana** | format des logs d'audit |
 | **daily-report** | `GET /api/deployments` — section « Déploiement » du mail quotidien. Dégradation gracieuse de son côté : si la route tombe, la section disparaît, le mail part quand même |
 | **Sondes de déploiement** (3 VMs) | `POST /api/deployments` toutes les 15 min |
