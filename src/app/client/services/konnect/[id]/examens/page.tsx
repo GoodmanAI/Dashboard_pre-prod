@@ -216,7 +216,7 @@ export default function MappingExamensKonnect() {
         {amorce && origine === "talk" && (
           <Alert severity="info" sx={{ mb: 2 }}>
             <strong>Repris de votre mapping LyraeTalk.</strong> Vos codes RIS sont déjà
-            là — c&apos;est le même RIS, donc les mêmes codes. Il vous reste à cocher les
+            là, puisque c&apos;est le même logiciel de gestion. Il vous reste à cocher les
             trois colonnes de droite, propres au portail web : ordonnance obligatoire,
             examen injecté, liste d&apos;attente. Rien n&apos;est transmis au portail tant
             que vous n&apos;avez pas enregistré, et les deux mappings resteront ensuite
@@ -349,7 +349,7 @@ export default function MappingExamensKonnect() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="caption" color="text.secondary">
-                        {l.typeExamen ?? "—"}
+                        {l.typeExamen ?? "-"}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -358,7 +358,7 @@ export default function MappingExamensKonnect() {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{l.libelle ?? "—"}</Typography>
+                      <Typography variant="body2">{l.libelle ?? "-"}</Typography>
                     </TableCell>
                     <TableCell>
                       <TextField
