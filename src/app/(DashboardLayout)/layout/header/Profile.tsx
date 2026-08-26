@@ -15,6 +15,7 @@ import {
   ListItemText,
 } from "@mui/material";
 import { IconUser } from "@tabler/icons-react";
+import { useProduitActif } from "@/hooks/useProduitActif";
 
 /**
  * Composant Profil
@@ -34,6 +35,8 @@ const Profile = () => {
 
   // Ancre du menu (élément déclencheur) ; null = menu fermé
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  // L'avatar suit le produit affiché, comme le logo de la sidebar.
+  const produit = useProduitActif();
 
   // Router client-side pour la navigation
   const router = useRouter();
@@ -84,8 +87,8 @@ const Profile = () => {
         }}
       >
         <Avatar
-          src="/images/logos/neuracorp-ai-icon_fond.png"
-          alt="User Avatar"
+          src={produit.interface.profil}
+          alt=""
           sx={{ width: 35, height: 35 }}
         />
       </IconButton>
