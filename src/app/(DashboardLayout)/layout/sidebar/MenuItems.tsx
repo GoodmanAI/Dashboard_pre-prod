@@ -276,7 +276,7 @@ export const KonnectMenuitems: SidebarItem[] = [
   },
   {
     id: uniqueId(),
-    title: "Catalogue d'examens",
+    title: "Mapping d'examens",
     icon: IconListDetails,
     href: "/client/services/konnect/{KONNECT_ID}/examens",
   },

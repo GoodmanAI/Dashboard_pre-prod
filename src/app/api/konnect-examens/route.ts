@@ -5,50 +5,51 @@ import { db } from "@/lib/db";
 import { requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { PRODUITS } from "@/lib/produits";
+import { referentielNeuracorp } from "@/lib/referentielExamens";
 
 /**
- * Catalogue d'examens LyraeKonnect d'un centre (lot C).
+ * Mapping d'examens LyraeKonnect d'un centre (lot C).
  *
- * Équivalent d'`ExamMapping` pour LyraeTalk : le client décrit ses examens ici, et
- * Konnect vient lire. Le Dashboard en est **propriétaire**.
+ * **Même modèle que LyraeTalk** : le référentiel NEURACORP est pré-rempli, le client
+ * ne remplit que les colonnes de SON RIS en face. Un nouveau centre arrive donc avec
+ * toutes les lignes déjà là, à compléter — jamais sur une page blanche.
  *
- *  GET /api/konnect-examens?userProductId=NN   (session, ou clé API)
- *      → 200 { userProductId, count, examens: [...] } + ETag
- *      → 304 si `If-None-Match` correspond
+ * Les deux mappings restent **séparés**, un par produit : même RIS et mêmes codes,
+ * mais Konnect porte trois réglages que le robot vocal ignore (ordonnance obligatoire,
+ * injection, liste d'attente), et chaque produit a son écran.
+ *
+ *  GET /api/konnect-examens?userProductId=NN
+ *      · session → le **mapping complet** (référentiel + saisie), pour l'écran.
+ *        Jamais enregistré : si rien n'est stocké, on renvoie le référentiel avec les
+ *        colonnes client vides.
+ *      · clé API → le **catalogue effectif** en snake_case, pour Konnect : seulement
+ *        les lignes pratiquées ET dont le code RIS est renseigné. Konnect n'a que
+ *        faire des lignes non attribuées.
+ *      → ETag dans les deux cas
  *  PUT /api/konnect-examens?userProductId=NN   (session uniquement)
- *      body : { examens: [...] } — remplace l'ensemble du catalogue
+ *      body : { examens: [...] } — remplace l'ensemble du mapping
  *
- * **Pourquoi le PUT remplace tout plutôt que de modifier ligne à ligne.** Le catalogue
- * est édité comme un tableau : on ajoute, on renomme, on désactive, on supprime, puis
- * on enregistre. Une API ligne à ligne obligerait l'écran à suivre les suppressions et
- * à émettre trois verbes différents ; un remplacement atomique évite les états
- * intermédiaires incohérents — un examen ne disparaît jamais « à moitié ».
- *
- * **Le corps de réponse est en snake_case**, aligné sur `ExamenOut` de Konnect
- * (`backend/app/cabinet/api.py`), pour qu'il le consomme sans traduction. Même
- * convention que `konnect-configuration` : la frontière camelCase ↔ snake_case est
- * ici, et nulle part ailleurs.
- *
- * **ETag calculé, non stocké** : `count` + le plus récent `updatedAt`. Une
- * modification déplace `updatedAt` ; une suppression change `count`. Pas de colonne
- * de version à maintenir, et le catalogue — qui peut compter des centaines de
- * lignes — ne transite que lorsqu'il a réellement changé.
- *
- * Route à déclarer dans `PUBLIC_API_PATTERNS` : l'appel de Konnect n'a pas de session.
+ * Cette double forme suit `/api/configuration/get/mapping` de LyraeTalk, qui sert lui
+ * aussi l'écran et le robot depuis une seule route.
  */
 
-type LigneExamen = {
-  examenCode: string;
-  typeCode: string | null;
-  libelle: string;
+type LigneMapping = {
+  codeExamen: string;
+  typeExamen: string | null;
+  libelle: string | null;
+  codeExamenClient: string;
+  typeExamenClient: string;
+  libelleClient: string;
+  performed: boolean;
   ordoOblig: boolean;
   examenInjecte: boolean;
-  actif: boolean;
   listeAttenteActive: boolean;
-  source: string;
 };
 
-/** Le centre existe-t-il, est-il actif, et porte-t-il bien LyraeKonnect ? */
+const COLONNES = `"codeExamen", "typeExamen", "libelle", "codeExamenClient",
+                  "typeExamenClient", "libelleClient", "performed",
+                  "ordoOblig", "examenInjecte", "listeAttenteActive"`;
+
 async function estCentreKonnect(userProductId: number): Promise<boolean> {
   const res = await db.query<{ id: number }>(
     `SELECT up."id"
@@ -68,11 +69,7 @@ function lireUserProductId(req: NextRequest): number | null {
   return !brut || Number.isNaN(brut) ? null : brut;
 }
 
-/**
- * Signature du catalogue. `count` seul ne suffit pas (renommer un examen ne le change
- * pas), `max(updatedAt)` seul non plus (supprimer une ligne ne le change pas). Les
- * deux ensemble couvrent les trois mutations possibles.
- */
+/** `count` + le plus récent `updatedAt` : couvre ajout, modification et suppression. */
 async function signature(userProductId: number): Promise<string> {
   const res = await db.query<{ n: string; dernier: Date | null }>(
     `SELECT COUNT(*)::text AS n, MAX("updatedAt") AS dernier
@@ -83,18 +80,28 @@ async function signature(userProductId: number): Promise<string> {
   return `W/"${n}-${dernier ? dernier.getTime() : 0}"`;
 }
 
-/** Traduit vers le vocabulaire de Konnect. Renommer une clé le casse en silence. */
-function versPayloadKonnect(l: LigneExamen) {
-  return {
-    examen_code: l.examenCode,
-    type_code: l.typeCode,
-    libelle: l.libelle,
-    ordo_oblig: l.ordoOblig,
-    examen_injecte: l.examenInjecte,
-    actif: l.actif,
-    liste_attente_active: l.listeAttenteActive,
-    source: l.source,
-  };
+/**
+ * Ce que Konnect consomme : le catalogue **effectif**, dans son vocabulaire.
+ *
+ * Une ligne non pratiquée, ou sans code RIS, n'est pas un examen réservable — la
+ * transmettre encombrerait le portail de lignes inutilisables. Le libellé client
+ * prime, avec repli sur le libellé NEURACORP : un centre qui n'a pas renommé
+ * l'examen affiche notre libellé plutôt qu'un vide.
+ */
+function versCatalogueKonnect(lignes: LigneMapping[]) {
+  return lignes
+    .filter((l) => l.performed && l.codeExamenClient.trim())
+    .map((l) => ({
+      examen_code: l.codeExamenClient.trim(),
+      type_code: l.typeExamenClient.trim() || l.typeExamen || null,
+      libelle: l.libelleClient.trim() || l.libelle || l.codeExamenClient.trim(),
+      ordo_oblig: l.ordoOblig,
+      examen_injecte: l.examenInjecte,
+      // `performed` a déjà filtré : tout ce qui sort d'ici est actif.
+      actif: true,
+      liste_attente_active: l.listeAttenteActive,
+      source: "manuel",
+    }));
 }
 
 export async function GET(req: NextRequest) {
@@ -123,52 +130,63 @@ export async function GET(req: NextRequest) {
     return new NextResponse(null, { status: 304, headers: { ETag: etag } });
   }
 
-  const res = await db.query<LigneExamen>(
-    `SELECT "examenCode", "typeCode", "libelle", "ordoOblig", "examenInjecte",
-            "actif", "listeAttenteActive", "source"
-       FROM "KonnectExamens"
+  const res = await db.query<LigneMapping>(
+    `SELECT ${COLONNES} FROM "KonnectExamens"
       WHERE "userProductId" = $1
-      ORDER BY "libelle" ASC`,
+      ORDER BY "typeExamen" NULLS LAST, "libelle" ASC`,
     [userProductId]
   );
 
-  // Catalogue vide = centre pas encore paramétré. On répond 200 avec une liste vide,
-  // jamais 404 : Konnect doit pouvoir distinguer « rien à proposer » d'une erreur, et
-  // surtout ne pas vider son cache local sur une panne.
+  // --- Voie de Konnect : le catalogue effectif ---
+  if (auth.bot) {
+    const catalogue = versCatalogueKonnect(res.rows);
+    return NextResponse.json(
+      { userProductId, count: catalogue.length, examens: catalogue },
+      { headers: { ETag: etag, "Cache-Control": "no-cache" } }
+    );
+  }
+
+  // --- Voie de l'écran : le mapping complet ---
+  // Rien d'enregistré → on amorce sur le référentiel NEURACORP, colonnes client
+  // vides. C'est ce qui évite la page blanche à l'ouverture d'un nouveau centre.
+  if ((res.rowCount ?? 0) === 0) {
+    const referentiel = await referentielNeuracorp();
+    return NextResponse.json(
+      {
+        userProductId,
+        amorce: true,
+        source: referentiel.source,
+        examens: referentiel.lignes,
+      },
+      { headers: { ETag: etag } }
+    );
+  }
+
   return NextResponse.json(
-    {
-      userProductId,
-      count: res.rowCount ?? 0,
-      examens: res.rows.map(versPayloadKonnect),
-    },
+    { userProductId, amorce: false, source: "enregistre", examens: res.rows },
     { headers: { ETag: etag, "Cache-Control": "no-cache" } }
   );
 }
 
-/** Normalise une ligne reçue du formulaire. Lève si elle est inexploitable. */
-function normaliser(brut: any, index: number): LigneExamen {
-  const code = typeof brut?.examen_code === "string" ? brut.examen_code.trim() : "";
+/** Normalise une ligne du formulaire. Lève si elle est inexploitable. */
+function normaliser(brut: any, index: number): LigneMapping {
+  const code = typeof brut?.codeExamen === "string" ? brut.codeExamen.trim() : "";
   if (!code) {
-    throw new Error(`Ligne ${index + 1} : le code d'examen est obligatoire.`);
+    // Le code NEURACORP est la clé du mapping : sans lui la ligne ne désigne rien.
+    throw new Error(`Ligne ${index + 1} : code NEURACORP manquant.`);
   }
-  const libelle = typeof brut?.libelle === "string" ? brut.libelle.trim() : "";
-  if (!libelle) {
-    // Le libellé est ce que voit le patient. Une ligne sans libellé afficherait un
-    // vide dans l'entonnoir, ce qui est pire qu'un examen absent.
-    throw new Error(`Ligne ${index + 1} (${code}) : le libellé est obligatoire.`);
-  }
-  const typeCode = typeof brut?.type_code === "string" ? brut.type_code.trim() : "";
-  const source = brut?.source === "ris" ? "ris" : "manuel";
-
+  const texte = (v: any) => (typeof v === "string" ? v.trim() : "");
   return {
-    examenCode: code,
-    typeCode: typeCode || null,
-    libelle,
-    ordoOblig: brut?.ordo_oblig === true,
-    examenInjecte: brut?.examen_injecte === true,
-    actif: brut?.actif !== false, // défaut true
-    listeAttenteActive: brut?.liste_attente_active === true,
-    source,
+    codeExamen: code,
+    typeExamen: texte(brut?.typeExamen) || null,
+    libelle: texte(brut?.libelle) || null,
+    codeExamenClient: texte(brut?.codeExamenClient),
+    typeExamenClient: texte(brut?.typeExamenClient),
+    libelleClient: texte(brut?.libelleClient),
+    performed: brut?.performed !== false,
+    ordoOblig: brut?.ordoOblig === true,
+    examenInjecte: brut?.examenInjecte === true,
+    listeAttenteActive: brut?.listeAttenteActive === true,
   };
 }
 
@@ -176,9 +194,6 @@ export async function PUT(req: NextRequest) {
   const auth = await requireAuthOrApiKey(req, "KONNECT_API_KEY");
   if (auth.error) return auth.error;
 
-  // Écriture réservée à une session : le catalogue se pilote depuis le Dashboard.
-  // Le push de pré-remplissage depuis Konnect fera l'objet d'une route dédiée, au
-  // périmètre étroit — pas d'un assouplissement de celle-ci.
   if (auth.bot) {
     return NextResponse.json(
       { error: "Lecture seule pour un appel par clé API." },
@@ -207,55 +222,68 @@ export async function PUT(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-
   if (!Array.isArray(body?.examens)) {
     return NextResponse.json({ error: "`examens` doit être un tableau." }, { status: 400 });
   }
 
-  let lignes: LigneExamen[];
+  let lignes: LigneMapping[];
   try {
     lignes = body.examens.map(normaliser);
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? "Ligne invalide" }, { status: 400 });
   }
 
-  // Un même code deux fois ferait échouer l'INSERT sur la contrainte d'unicité, avec
-  // une erreur Postgres illisible pour l'utilisateur. On le dit clairement.
   const vus = new Set<string>();
   for (const l of lignes) {
-    if (vus.has(l.examenCode)) {
+    if (vus.has(l.codeExamen)) {
       return NextResponse.json(
-        { error: `Le code d'examen « ${l.examenCode} » apparaît plusieurs fois.` },
+        { error: `Le code NEURACORP « ${l.codeExamen} » apparaît plusieurs fois.` },
         { status: 400 }
       );
     }
-    vus.add(l.examenCode);
+    vus.add(l.codeExamen);
+  }
+
+  // Deux lignes ne peuvent pas viser le même code RIS : Konnect ne saurait pas
+  // laquelle appliquer, et la réservation deviendrait imprévisible.
+  const codesRis = new Set<string>();
+  for (const l of lignes) {
+    const c = l.codeExamenClient.trim();
+    if (!c || !l.performed) continue;
+    if (codesRis.has(c)) {
+      return NextResponse.json(
+        { error: `Le code RIS « ${c} » est attribué à deux examens différents.` },
+        { status: 400 }
+      );
+    }
+    codesRis.add(c);
   }
 
   const client = await db.connect();
   try {
     await client.query("BEGIN");
-    // Remplacement atomique : le catalogue n'est jamais partiellement écrit, et un
-    // examen retiré de l'écran disparaît réellement.
     await client.query(`DELETE FROM "KonnectExamens" WHERE "userProductId" = $1`, [
       userProductId,
     ]);
     for (const l of lignes) {
       await client.query(
         `INSERT INTO "KonnectExamens"
-           ("userProductId", "examenCode", "typeCode", "libelle", "ordoOblig",
-            "examenInjecte", "actif", "listeAttenteActive", "source")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+           ("userProductId", "codeExamen", "typeExamen", "libelle", "codeExamenClient",
+            "typeExamenClient", "libelleClient", "performed", "ordoOblig",
+            "examenInjecte", "listeAttenteActive")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
         [
           userProductId,
-          l.examenCode,
-          l.typeCode,
+          l.codeExamen,
+          l.typeExamen,
           l.libelle,
+          l.codeExamenClient,
+          l.typeExamenClient,
+          l.libelleClient,
+          l.performed,
           l.ordoOblig,
           l.examenInjecte,
-          l.actif,
           l.listeAttenteActive,
-          l.source,
         ]
       );
     }
@@ -276,11 +304,18 @@ export async function PUT(req: NextRequest) {
       userAgent: extractUserAgent(req),
     },
     target: { type: "userProduct", id: userProductId },
-    metadata: { examens: lignes.length },
+    metadata: {
+      lignes: lignes.length,
+      attribues: lignes.filter((l) => l.performed && l.codeExamenClient.trim()).length,
+    },
   });
 
   return NextResponse.json(
-    { userProductId, count: lignes.length },
+    {
+      userProductId,
+      lignes: lignes.length,
+      attribues: lignes.filter((l) => l.performed && l.codeExamenClient.trim()).length,
+    },
     { headers: { ETag: await signature(userProductId) } }
   );
 }
