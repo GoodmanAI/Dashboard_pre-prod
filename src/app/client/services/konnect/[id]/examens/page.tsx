@@ -83,6 +83,7 @@ export default function MappingExamensKonnect() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState(false);
   const [amorce, setAmorce] = useState(false);
+  const [origine, setOrigine] = useState<string | null>(null);
   const [avertissement, setAvertissement] = useState<string | null>(null);
 
   const [recherche, setRecherche] = useState("");
@@ -101,6 +102,7 @@ export default function MappingExamensKonnect() {
         if (annule) return;
         setLignes(Array.isArray(data.examens) ? data.examens : []);
         setAmorce(Boolean(data.amorce));
+        setOrigine(data.source ?? null);
         if (data.source === "indisponible") {
           setAvertissement(
             data.motif ??
@@ -211,10 +213,20 @@ export default function MappingExamensKonnect() {
           exactement. Un examen sans code RIS n&apos;est pas proposé au patient.
         </Typography>
 
-        {amorce && (
+        {amorce && origine === "talk" && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <strong>Repris de votre mapping LyraeTalk.</strong> Vos codes RIS sont déjà
+            là — c&apos;est le même RIS, donc les mêmes codes. Il vous reste à cocher les
+            trois colonnes de droite, propres au portail web : ordonnance obligatoire,
+            examen injecté, liste d&apos;attente. Rien n&apos;est transmis au portail tant
+            que vous n&apos;avez pas enregistré, et les deux mappings resteront ensuite
+            indépendants.
+          </Alert>
+        )}
+        {amorce && origine === "blob" && (
           <Alert severity="info" sx={{ mb: 2 }}>
             Ce mapping n&apos;a jamais été enregistré : les lignes ci-dessous sont notre
-            référentiel, à compléter avec vos codes. Rien n&apos;est encore transmis au
+            référentiel, à compléter avec vos codes RIS. Rien n&apos;est transmis au
             portail patient tant que vous n&apos;avez pas enregistré.
           </Alert>
         )}

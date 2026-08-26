@@ -1,5 +1,7 @@
 import { BlobServiceClient } from "@azure/storage-blob";
 import * as XLSX from "xlsx";
+import { db } from "@/lib/db";
+import { PRODUITS } from "@/lib/produits";
 
 /**
  * Référentiel d'examens NEURACORP — notre vocabulaire interne, commun à tous les
@@ -37,8 +39,13 @@ export type LigneReferentiel = {
 
 export type Referentiel = {
   lignes: LigneReferentiel[];
-  /** `blob` si le référentiel a été lu, `indisponible` sinon. */
-  source: "blob" | "indisponible";
+  /**
+   * D'où viennent les lignes proposées :
+   * - `talk`         : reprises du mapping LyraeTalk du même client, codes RIS compris ;
+   * - `blob`         : référentiel NEURACORP, colonnes client vides ;
+   * - `indisponible` : ni l'un ni l'autre.
+   */
+  source: "talk" | "blob" | "indisponible";
   /** Renseigné quand `source` vaut `indisponible` — affiché à l'utilisateur. */
   motif?: string;
 };
@@ -109,4 +116,90 @@ export async function referentielNeuracorp(): Promise<Referentiel> {
       motif: "Le référentiel d'examens NEURACORP n'a pas pu être lu.",
     };
   }
+}
+
+/**
+ * Mapping d'examens de **LyraeTalk** pour le même client, s'il en a un.
+ *
+ * C'est la meilleure amorce possible pour Konnect, et de loin : un client qui a les
+ * deux produits a **le même RIS, donc les mêmes codes**. Le travail d'attribution est
+ * déjà fait — il ne reste qu'à cocher les trois réglages propres au parcours web
+ * (ordonnance, injection, liste d'attente).
+ *
+ * `TalkSettings.exams` est un JSON dont la forme a varié (tableau, ou objet indexé par
+ * code) ; les deux sont acceptées, comme le fait `/api/configuration/get/mapping`.
+ *
+ * Rien n'est copié définitivement : ces lignes sont **proposées** à l'écran, et rien
+ * n'est enregistré tant que le client n'a pas validé. Les deux mappings restent
+ * ensuite indépendants — modifier celui de Talk ne touchera plus celui de Konnect.
+ */
+export async function mappingDepuisTalk(
+  userProductIdKonnect: number
+): Promise<LigneReferentiel[]> {
+  const res = await db.query<{ exams: unknown }>(
+    `SELECT ts."exams"
+       FROM "UserProduct" konnect
+       JOIN "UserProduct" talk ON talk."userId" = konnect."userId"
+                              AND talk."removedAt" IS NULL
+       JOIN "Product" p ON p."id" = talk."productId"
+       JOIN "TalkSettings" ts ON ts."userProductId" = talk."id"
+      WHERE konnect."id" = $1
+        AND lower(p."name") = lower($2)
+      LIMIT 1`,
+    [userProductIdKonnect, PRODUITS.talk.nom]
+  );
+
+  if (!res.rowCount) return [];
+
+  const brut = res.rows[0].exams;
+  const parsed = typeof brut === "string" ? safeParse(brut) : brut;
+  if (!parsed || typeof parsed !== "object") return [];
+
+  const entrees: any[] = Array.isArray(parsed)
+    ? parsed
+    : Object.entries(parsed as Record<string, any>).map(([code, v]) => ({
+        codeExamen: code,
+        ...(v ?? {}),
+      }));
+
+  return entrees
+    .map((e) => ({
+      codeExamen: texte(e?.codeExamen),
+      typeExamen: texte(e?.typeExamen) || null,
+      libelle: texte(e?.libelle) || null,
+      // Le travail déjà fait pour Talk : on le reprend tel quel.
+      codeExamenClient: texte(e?.codeExamenClient),
+      typeExamenClient: texte(e?.typeExamenClient),
+      libelleClient: texte(e?.libelleClient),
+      performed: e?.performed !== false,
+      // Propres à Konnect : jamais devinés depuis Talk, qui ne les connaît pas.
+      ordoOblig: false,
+      examenInjecte: false,
+      listeAttenteActive: false,
+    }))
+    .filter((l) => l.codeExamen);
+}
+
+function safeParse(s: string): unknown {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Amorce du mapping d'un centre Konnect jamais configuré.
+ *
+ * Ordre de préférence : le mapping LyraeTalk du même client d'abord (codes RIS déjà
+ * attribués), le référentiel NEURACORP ensuite. Un client qui n'a que Konnect et un
+ * serveur sans configuration Azure aboutit à une liste vide — dite explicitement,
+ * plutôt qu'un tableau muet.
+ */
+export async function amorcerMapping(userProductIdKonnect: number): Promise<Referentiel> {
+  const depuisTalk = await mappingDepuisTalk(userProductIdKonnect);
+  if (depuisTalk.length > 0) {
+    return { lignes: depuisTalk, source: "talk" };
+  }
+  return referentielNeuracorp();
 }
