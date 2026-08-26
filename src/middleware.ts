@@ -47,6 +47,14 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // Whitelisté ici car l'appel de Konnect n'a pas de session ; l'authentification
   // réelle reste dans le handler.
   /^\/api\/konnect-configuration$/,
+  // Résolution tenant_id → userProductId (lot A, 2026-08-26) : Konnect l'appelle
+  // UNE FOIS puis retient le résultat, pour interroger ensuite le Dashboard par
+  // userProductId, comme LyraeTalk. Clé API seule côté handler (pas de session :
+  // la question n'est posée que par une brique).
+  // ⚠️ Seule la sous-route `/resolve` est publique. La route parente
+  // `/api/konnect-tenant-mapping` administre la correspondance et reste
+  // réservée à une session admin — ne pas la whitelister.
+  /^\/api\/konnect-tenant-mapping\/resolve$/,
 ];
 
 function isPublicApi(pathname: string): boolean {

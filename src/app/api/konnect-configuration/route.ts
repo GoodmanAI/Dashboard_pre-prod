@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-helpers";
+import { PRODUITS } from "@/lib/produits";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import {
   KONNECT_DEFAUTS,
@@ -20,12 +21,19 @@ import {
  * consommatrice vient la lire.
  *
  *  GET /api/konnect-configuration?userProductId=NN     (session, ou clé API)
- *  GET /api/konnect-configuration?tenantId=<uuid>      (clé API — voie de Konnect)
+ *  GET /api/konnect-configuration?tenantId=<uuid>      (clé API — voie historique)
  *  PUT /api/konnect-configuration?userProductId=NN     (session uniquement)
  *
- * **Konnect s'identifie par son `tenant_id`, pas par un `userProductId`** : il
- * ignore l'existence des identifiants du Dashboard. La traduction passe par
- * `KonnectTenantMapping`, créée à l'étape 3 — c'est là toute sa raison d'être.
+ * **Depuis le lot A (26/08/2026), Konnect appelle par `userProductId`**, comme
+ * LyraeTalk : il le résout une fois via
+ * `GET /api/konnect-tenant-mapping/resolve?tenantId=…` et le retient. Une seule
+ * forme d'appel pour les deux produits, donc plus de traduction à refaire dans
+ * chaque future route de configuration.
+ *
+ * La forme `?tenantId=` **reste supportée** et n'est pas dépréciée : c'est la
+ * voie d'amorçage (Konnect qui n'a pas encore résolu son identifiant) et le
+ * filet quand un cabinet est re-rattaché à un autre centre. La traduction passe
+ * toujours par `KonnectTenantMapping`.
  *
  * Authentification machine-à-machine par `x-api-key: KONNECT_API_KEY`,
  * **distincte de `BOT_API_KEY`** : réutiliser celle de LyraeTalk rendrait les
@@ -90,6 +98,31 @@ async function resoudreUserProductId(
   return { userProductId: brut };
 }
 
+/**
+ * Le centre visé porte-t-il bien le produit LyraeKonnect ?
+ *
+ * Tant que Konnect s'identifiait par `tenantId`, la traduction garantissait la
+ * réponse : `KonnectTenantMapping` ne rattache que des centres Konnect. Depuis
+ * le lot A il appelle par `userProductId`, et ce garde-fou disparaîtrait sans
+ * cette vérification — un appel par clé pourrait désigner un centre LyraeTalk et
+ * recevoir une configuration Konnect qui n'a aucun sens pour lui.
+ *
+ * Comparaison par le référentiel (`PRODUITS`), jamais par une chaîne en dur.
+ */
+async function estCentreKonnect(userProductId: number): Promise<boolean> {
+  const res = await db.query<{ id: number }>(
+    `SELECT up."id"
+       FROM "UserProduct" up
+       JOIN "Product" p ON p."id" = up."productId"
+      WHERE up."id" = $1
+        AND up."removedAt" IS NULL
+        AND lower(p."name") = lower($2)
+      LIMIT 1`,
+    [userProductId, PRODUITS.konnect.nom]
+  );
+  return (res.rowCount ?? 0) > 0;
+}
+
 async function lireConfig(userProductId: number): Promise<ConfigKonnect> {
   const colonnes = COLONNES_KONNECT.map((c) => `"${c}"`).join(", ");
   const res = await db.query<Record<string, unknown>>(
@@ -112,6 +145,14 @@ export async function GET(req: NextRequest) {
   if (!auth.bot) {
     const ownershipErr = await assertUserProductOwnership(auth.session, cible.userProductId);
     if (ownershipErr) return ownershipErr;
+  } else if (!(await estCentreKonnect(cible.userProductId))) {
+    // Même réponse qu'un tenant non rattaché : de l'extérieur, « ce centre n'est
+    // pas un centre Konnect » et « ce cabinet n'est rattaché à rien » sont le
+    // même cas — il n'y a pas de configuration Konnect à servir.
+    return NextResponse.json(
+      { error: "Aucun centre LyraeKonnect pour cet identifiant" },
+      { status: 404 }
+    );
   }
 
   const config = await lireConfig(cible.userProductId);
