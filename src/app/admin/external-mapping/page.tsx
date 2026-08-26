@@ -197,12 +197,14 @@ export default function ExternalMappingPage() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         <strong>Codes RIS</strong> : les codes employés par le logiciel métier
         via AI2Xplore. Un centre peut en avoir plusieurs ; chacun est unique au
-        global. — <strong>Cabinet Konnect</strong> : le <code>tenant_id</code> du
-        cabinet dans le portail patient. Il est <em>généré par Konnect</em>, on ne
-        fait que le référencer ici ; un cabinet ne peut être rattaché qu&apos;à un
-        seul centre. Le Dashboard ne peut pas vérifier qu&apos;il existe — les deux
-        bases sont séparées —, alors copiez-le depuis Konnect plutôt que de le
-        saisir.
+        global.
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        <strong>Cabinet Konnect</strong> : le <code>tenant_id</code> du cabinet dans
+        le portail patient. Il est <em>généré par Konnect</em>, on ne fait que le
+        référencer ici ; un cabinet ne peut être rattaché qu&apos;à un seul centre.
+        Le Dashboard ne peut pas vérifier qu&apos;il existe, les deux bases étant
+        séparées. Copiez-le depuis Konnect plutôt que de le saisir.
       </Typography>
 
       {error && (
@@ -340,7 +342,7 @@ export default function ExternalMappingPage() {
                       </Stack>
                     ) : (
                       <Typography variant="caption" color="text.secondary">
-                        —
+                        -
                       </Typography>
                     )}
                   </TableCell>

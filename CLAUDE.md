@@ -65,3 +65,24 @@ Conventions de handler, dans l'ordre : garde d'auth (`requireAuth` / `requirePag
 
 - **Aucun test**, d'aucune sorte : ni unitaire, ni intégration, ni e2e. Aucun runner installé. La seule vérification automatisable est `npm run build` puis `npm run lint`.
 - **Aucune CI/CD.** Pas de GitHub Actions, pas de hook. Tout se vérifie et se déploie à la main.
+
+## Ton des textes affichés
+
+S'applique à **tout texte lu par un utilisateur** : écran, libellé, info-bulle, message
+d'erreur, mail, SMS, notification. Pas aux commentaires de code ni à la documentation
+interne.
+
+1. **Jamais de tiret cadratin `—` ni de tiret demi-cadratin `–`.** Une virgule, un
+   point, deux points ou une parenthèse font le même travail. Le tiret long est le
+   marqueur le plus reconnaissable d'un texte écrit par une machine, et nos écrans
+   s'adressent à des secrétaires et à des patients.
+2. **Écrire comme on parlerait à un collègue** qu'on aide à se servir de l'outil.
+   Phrases courtes, verbe à l'indicatif, on dit ce qu'il faut faire.
+3. **Pas de formule creuse** : « n'hésitez pas à », « il est important de noter que »,
+   « afin de garantir une expérience optimale », « veuillez trouver ci-dessous ».
+4. **Un message d'erreur dit ce qui s'est passé et quoi faire ensuite**, pas une
+   généralité. « Le code RIS est déjà utilisé par un autre examen » vaut mieux que
+   « Une erreur est survenue lors de la validation ».
+5. **Pas de vocabulaire interne** dans un texte client : dire « votre logiciel de
+   gestion » plutôt que « le RIS » quand on s'adresse à un patient, et nommer les
+   choses comme l'utilisateur les nomme.

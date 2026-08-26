@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, Button, Menu, MenuItem, Typography } from "@mui/material";
-import { IconChevronDown, IconPhone, IconWorld, IconCheck } from "@tabler/icons-react";
+import { IconChevronDown, IconCheck } from "@tabler/icons-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ORDRE_PRODUITS, PRODUITS, produitDepuisNom, type SlugProduit } from "@/lib/produits";
@@ -24,11 +24,6 @@ import { ORDRE_PRODUITS, PRODUITS, produitDepuisNom, type SlugProduit } from "@/
  */
 
 const CLE_MEMOIRE = "lyrae.produitActif";
-
-const ICONES: Record<SlugProduit, React.ElementType> = {
-  talk: IconPhone,
-  konnect: IconWorld,
-};
 
 type ProduitClient = { slug: SlugProduit; libelle: string; userProductId: number };
 
@@ -106,8 +101,6 @@ export default function SelecteurProduit() {
   // Un seul produit : rien à basculer, rien à afficher.
   if (produits.length < 2) return null;
 
-  const IconeActive = actif ? ICONES[actif.slug] : IconWorld;
-
   const basculer = (produit: ProduitClient) => {
     setAncre(null);
     if (produit.slug === actif?.slug) return;
@@ -119,48 +112,65 @@ export default function SelecteurProduit() {
     <>
       <Button
         onClick={(e) => setAncre(e.currentTarget)}
-        endIcon={<IconChevronDown size={16} />}
-        startIcon={<IconeActive size={18} />}
+        endIcon={<IconChevronDown size={18} />}
         sx={{
           textTransform: "none",
-          fontWeight: 600,
           color: "var(--accent-deep)",
           bgcolor: "rgba(var(--accent-rgb), 0.10)",
-          px: 1.5,
+          px: 1.75,
+          py: 1,
+          borderRadius: 2,
           "&:hover": { bgcolor: "rgba(var(--accent-rgb), 0.18)" },
         }}
         aria-label={`Produit actif : ${actif?.libelle ?? "aucun"}. Changer de produit`}
       >
-        {actif?.libelle ?? "Produits"}
+        {actif ? (
+          // `<img>` et non `next/image` : ces logos sont des SVG locaux de moins
+          // d'un kilo-octet. Les optimiser n'apporte rien, et `next/image` refuse
+          // les SVG tant qu'on n'a pas activé `dangerouslyAllowSVG`.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={PRODUITS[actif.slug].logos.lockup}
+            alt={PRODUITS[actif.slug].libelle}
+            // Hauteur imposée, largeur libre : les deux noms de produit n'ont pas
+            // la même longueur, les figer à la même largeur en déformerait un.
+            style={{ height: 30, width: "auto", display: "block" }}
+          />
+        ) : (
+          <Typography fontWeight={600}>Produits</Typography>
+        )}
       </Button>
 
       <Menu
         anchorEl={ancre}
         open={Boolean(ancre)}
         onClose={() => setAncre(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
-        PaperProps={{ sx: { minWidth: 220, borderRadius: 2 } }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        transformOrigin={{ vertical: "top", horizontal: "left" }}
+        PaperProps={{ sx: { minWidth: 280, borderRadius: 2, mt: 0.5 } }}
       >
         {produits.map((produit) => {
-          const Icone = ICONES[produit.slug];
           const courant = produit.slug === actif?.slug;
+          const config = PRODUITS[produit.slug];
           return (
             <MenuItem
               key={produit.slug}
               onClick={() => basculer(produit)}
               selected={courant}
-              sx={{ py: 1.25, gap: 1.5 }}
+              sx={{ py: 1.5, gap: 1.5 }}
             >
-              <Icone size={18} />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={config.logos.symbole}
+                alt=""
+                style={{ height: 28, width: 28, display: "block" }}
+              />
               <Box sx={{ flex: 1 }}>
                 <Typography variant="body2" fontWeight={courant ? 700 : 500}>
-                  {produit.libelle}
+                  {config.libelle}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {produit.slug === "talk"
-                    ? "Robot vocal téléphonique"
-                    : "Portail patient web"}
+                  {config.description}
                 </Typography>
               </Box>
               {courant && <IconCheck size={16} />}

@@ -289,7 +289,7 @@ export default function ParametrageKonnectPage() {
         <AccordionDetails>
           <Reglage
             titre="Lecture automatique de l'ordonnance"
-            description="Le patient photographie son ordonnance et les examens sont reconnus automatiquement. Désactivé, il saisit ses examens dans un parcours guidé — la photo reste demandée dans les deux cas."
+            description="Le patient photographie son ordonnance et les examens sont reconnus automatiquement. Désactivé, il saisit ses examens dans un parcours guidé. La photo reste demandée dans les deux cas."
             actif={config.ocr_actif}
             onChange={(v) => maj("ocr_actif", v)}
           />
@@ -423,7 +423,7 @@ export default function ParametrageKonnectPage() {
           </Typography>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <CustomTextField
-              label="Poids maximum — IRM (kg)"
+              label="Poids maximum IRM (kg)"
               type="number"
               variant="outlined"
               fullWidth
@@ -436,7 +436,7 @@ export default function ParametrageKonnectPage() {
               }
             />
             <CustomTextField
-              label="Poids maximum — scanner (kg)"
+              label="Poids maximum scanner (kg)"
               type="number"
               variant="outlined"
               fullWidth

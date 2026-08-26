@@ -124,6 +124,11 @@ import { trouverProduit } from "@/lib/produits";
             <IconMenu width={20} height={20} />
           </IconButton>
 
+          {/* Bascule entre produits, calee a gauche : c'est le contexte de tout
+              ce qui est affiche en dessous, donc la premiere chose qu'on lit.
+              Invisible pour un client mono-produit. */}
+          <SelecteurProduit />
+
           {/* Zone breadcrumb (placeholder) */}
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="body1" sx={{ fontWeight: 500 }}>
@@ -133,9 +138,6 @@ import { trouverProduit } from "@/lib/produits";
 
           {/* Zone à droite : notifications support, compteur ordonnances, sélecteur de centre, profil */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            {/* Bascule entre produits — invisible pour un client mono-produit */}
-            <SelecteurProduit />
-
             {/* Cloche notifications support (tickets : nouveau message, prise en charge, resolution) */}
             <NotificationBell />
 
