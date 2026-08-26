@@ -16,6 +16,7 @@ import {
   IconMessage2,
   IconFileAlert,
   IconRocket,
+  IconListDetails,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -272,6 +273,12 @@ export const KonnectMenuitems: SidebarItem[] = [
     title: "Paramètres du portail",
     icon: IconSettings,
     href: "/client/services/konnect/{KONNECT_ID}/parametrage",
+  },
+  {
+    id: uniqueId(),
+    title: "Catalogue d'examens",
+    icon: IconListDetails,
+    href: "/client/services/konnect/{KONNECT_ID}/examens",
   },
 
   { navlabel: true, subheader: "Assistance" },
