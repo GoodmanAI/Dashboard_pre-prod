@@ -19,6 +19,20 @@
 /** Identifiant interne d'un produit, stable et indépendant de la base. */
 export type SlugProduit = "talk" | "konnect";
 
+/**
+ * Les trois déclinaisons du logo d'un produit. Elles vivent ici parce que le
+ * référentiel est déjà le seul endroit qui connaît les produits : ajouter un
+ * produit demain, c'est une entrée dans ce fichier et rien d'autre.
+ */
+export type LogosProduit = {
+  /** Symbole + nom, 212×44. Pour le sélecteur et tout endroit qui a la place. */
+  lockup: string;
+  /** Symbole seul, 64×64. Pour les espaces contraints (menu, favicon, mobile). */
+  symbole: string;
+  /** Icône carrée sur fond plein, 512×512. Pour une tuile ou une vignette. */
+  icone: string;
+};
+
 export type Produit = {
   slug: SlugProduit;
   /** Valeur de `Product.name` en base. La toucher casse l'app en silence. */
@@ -27,6 +41,9 @@ export type Produit = {
   libelle: string;
   /** Segment d'URL sous `/client/services/`. */
   segment: string;
+  /** Une phrase qui dit ce que fait le produit, pour le sélecteur. */
+  description: string;
+  logos: LogosProduit;
 };
 
 export const PRODUITS: Record<SlugProduit, Produit> = {
@@ -35,12 +52,24 @@ export const PRODUITS: Record<SlugProduit, Produit> = {
     nom: "LyraeTalk",
     libelle: "LyraeTalk",
     segment: "talk",
+    description: "Prise de rendez-vous par téléphone",
+    logos: {
+      lockup: "/images/lyraetalk-lockup-symbole-nom-couleur.svg",
+      symbole: "/images/lyraetalk-symbole-couleur.svg",
+      icone: "/images/lyraetalk-icone-app-512.svg",
+    },
   },
   konnect: {
     slug: "konnect",
     nom: "LyraeKonnect",
     libelle: "LyraeKonnect",
     segment: "konnect",
+    description: "Prise de rendez-vous en ligne",
+    logos: {
+      lockup: "/images/lyraekonnect-lockup-symbole-nom-couleur.svg",
+      symbole: "/images/lyraekonnect-symbole-couleur.svg",
+      icone: "/images/lyraekonnect-icone-app-512.svg",
+    },
   },
 };
 

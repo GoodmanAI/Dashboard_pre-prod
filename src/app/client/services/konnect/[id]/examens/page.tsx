@@ -25,26 +25,39 @@ import {
 } from "@mui/material";
 import { useParams } from "next/navigation";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
+import ExamTypeBadge, { EXAM_TYPE_SHORT } from "@/components/shared/ExamTypeBadge";
 
 /**
  * Mapping d'examens LyraeKonnect d'un centre.
  *
- * **Même principe que l'écran de LyraeTalk** : notre référentiel NEURACORP est
- * pré-rempli à gauche, le client renseigne les équivalents de SON RIS à droite. Un
- * centre qui ouvre cet écran pour la première fois voit toutes les lignes, pas une
- * page blanche.
+ * Reprend la direction artistique de l'écran équivalent de LyraeTalk
+ * (`talk/[id]/parametrage/mapping_exam`) : mêmes constantes de couleur, même badge
+ * de modalité, même densité de table. Un client qui a les deux produits retrouve
+ * le même écran ; seules changent les colonnes de droite.
  *
- * Les deux mappings restent séparés — même RIS, mêmes codes, mais Konnect porte
- * trois réglages que le robot vocal ignore, et le sélecteur de produit fait passer
- * d'un écran à l'autre :
+ * Le référentiel NEURACORP est pré-rempli à gauche, le client renseigne les
+ * équivalents de son RIS à droite. Quand il a déjà LyraeTalk, les codes en sont
+ * repris : même logiciel de gestion, donc mêmes codes.
  *
- * - **Ordonnance obligatoire** — le portail exige le dépôt d'une ordonnance ;
- * - **Injecté** — examen avec produit de contraste, il déclenche le questionnaire
- *   d'injection ;
- * - **Liste d'attente** — le patient peut s'inscrire si aucun créneau ne convient.
+ * Trois réglages n'existent que dans ce produit, parce qu'ils pilotent des écrans
+ * du parcours web que le robot vocal n'a pas :
  *
- * Aucun n'a de sens au téléphone : ils pilotent des écrans du parcours web.
+ * - Ordonnance obligatoire : le portail exige le dépôt d'une ordonnance ;
+ * - Injecté : déclenche le questionnaire d'injection ;
+ * - Liste d'attente : le patient s'inscrit si aucun créneau ne lui convient.
  */
+
+const BRAND = "var(--accent)";
+const BRAND_DARK = "var(--accent-press)";
+const INK = "#0F2A3F";
+const INK_MUTED = "#5A6B7B";
+const BORDER = "#E4EAEE";
+const SURFACE = "#FFFFFF";
+const SURFACE_MUTED = "#F7FAFB";
+const SURFACE_HOVER = "#F5FBFA";
+const DANGER = "#E1573B";
+
+const PAR_PAGE = 25;
 
 type Ligne = {
   codeExamen: string;
@@ -61,15 +74,98 @@ type Ligne = {
 
 type FiltreAttribution = "tous" | "attribues" | "non_attribues";
 
-const PAR_PAGE = 25;
-
-function EnTete({ titre, aide, largeur }: { titre: string; aide: string; largeur?: number }) {
-  return (
-    <TableCell sx={{ fontWeight: 600, width: largeur, whiteSpace: "nowrap" }}>
-      <Tooltip title={aide} placement="top">
-        <span>{titre}</span>
-      </Tooltip>
+function EnTete({
+  children,
+  aide,
+  largeur,
+  align = "left",
+}: {
+  children: React.ReactNode;
+  aide?: string;
+  largeur?: number;
+  align?: "left" | "center";
+}) {
+  const cellule = (
+    <TableCell
+      align={align}
+      sx={{
+        bgcolor: SURFACE_MUTED,
+        color: INK_MUTED,
+        fontWeight: 600,
+        fontSize: 11.5,
+        textTransform: "uppercase",
+        letterSpacing: "0.05em",
+        borderBottom: `1px solid ${BORDER}`,
+        width: largeur,
+        whiteSpace: "nowrap",
+        py: 1.25,
+      }}
+    >
+      {children}
     </TableCell>
+  );
+  return aide ? (
+    <Tooltip title={aide} placement="top">
+      {cellule}
+    </Tooltip>
+  ) : (
+    cellule
+  );
+}
+
+/** Champ de saisie compact, à la densité de la table de LyraeTalk. */
+function Champ({
+  valeur,
+  onChange,
+  disabled,
+  erreur,
+  placeholder,
+}: {
+  valeur: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  erreur?: boolean;
+  placeholder?: string;
+}) {
+  return (
+    <TextField
+      size="small"
+      fullWidth
+      value={valeur}
+      disabled={disabled}
+      error={erreur}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+      sx={{
+        "& .MuiOutlinedInput-root": {
+          fontSize: 13,
+          bgcolor: disabled ? "transparent" : SURFACE,
+          "& fieldset": { borderColor: BORDER },
+          "&:hover fieldset": { borderColor: BRAND },
+          "&.Mui-focused fieldset": { borderColor: BRAND },
+        },
+      }}
+    />
+  );
+}
+
+/** Case à cocher aux couleurs du produit actif. */
+function Case({
+  coche,
+  onChange,
+  disabled,
+}: {
+  coche: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Checkbox
+      checked={coche}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.checked)}
+      sx={{ color: BORDER, "&.Mui-checked": { color: BRAND } }}
+    />
   );
 }
 
@@ -82,8 +178,6 @@ export default function MappingExamensKonnect() {
   const [enregistrement, setEnregistrement] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState(false);
-  const [amorce, setAmorce] = useState(false);
-  const [origine, setOrigine] = useState<string | null>(null);
   const [avertissement, setAvertissement] = useState<string | null>(null);
 
   const [recherche, setRecherche] = useState("");
@@ -101,8 +195,8 @@ export default function MappingExamensKonnect() {
         const data = await r.json();
         if (annule) return;
         setLignes(Array.isArray(data.examens) ? data.examens : []);
-        setAmorce(Boolean(data.amorce));
-        setOrigine(data.source ?? null);
+        // Seul le cas « rien à proposer » mérite un message : d'où viennent les
+        // lignes n'intéresse pas le client, il veut juste remplir son tableau.
         if (data.source === "indisponible") {
           setAvertissement(
             data.motif ??
@@ -152,10 +246,10 @@ export default function MappingExamensKonnect() {
   );
 
   /**
-   * Deux lignes qui visent le même code RIS : Konnect ne saurait pas laquelle
-   * appliquer. Détecté ici pour montrer les lignes fautives, et refusé par l'API.
+   * Deux lignes qui visent le même code : le portail ne saurait pas laquelle
+   * réserver. Marqué ici sur les lignes fautives, et refusé par l'API.
    */
-  const codesRisEnDouble = useMemo(() => {
+  const codesEnDouble = useMemo(() => {
     const compte = new Map<string, number>();
     lignes.forEach((l) => {
       const c = l.codeExamenClient.trim();
@@ -180,7 +274,6 @@ export default function MappingExamensKonnect() {
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error ?? "Enregistrement refusé.");
-      setAmorce(false);
       setSucces(true);
     } catch (e: any) {
       setErreur(e?.message ?? "Enregistrement impossible.");
@@ -193,7 +286,7 @@ export default function MappingExamensKonnect() {
     return (
       <PageContainer title="Mapping d'examens" description="Correspondance avec votre RIS">
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress />
+          <CircularProgress sx={{ color: BRAND }} />
         </Box>
       </PageContainer>
     );
@@ -204,217 +297,239 @@ export default function MappingExamensKonnect() {
   return (
     <PageContainer title="Mapping d'examens" description="Correspondance avec votre RIS">
       <Box>
-        <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, color: INK, mb: 0.5 }}>
           Mapping d&apos;examens
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          À gauche, notre référentiel. À droite, les codes de <strong>votre RIS</strong> :
-          ce sont eux qui servent à créer le rendez-vous, ils doivent correspondre
-          exactement. Un examen sans code RIS n&apos;est pas proposé au patient.
+        <Typography variant="body2" sx={{ color: INK_MUTED, mb: 2.5 }}>
+          À gauche, notre référentiel. À droite, les codes de{" "}
+          <strong>votre logiciel de gestion</strong> : ce sont eux qui servent à créer
+          le rendez-vous, ils doivent correspondre exactement. Un examen sans code
+          n&apos;est pas proposé au patient.
         </Typography>
 
-        {amorce && origine === "talk" && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            <strong>Repris de votre mapping LyraeTalk.</strong> Vos codes RIS sont déjà
-            là, puisque c&apos;est le même logiciel de gestion. Il vous reste à cocher les
-            trois colonnes de droite, propres au portail web : ordonnance obligatoire,
-            examen injecté, liste d&apos;attente. Rien n&apos;est transmis au portail tant
-            que vous n&apos;avez pas enregistré, et les deux mappings resteront ensuite
-            indépendants.
-          </Alert>
-        )}
-        {amorce && origine === "blob" && (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Ce mapping n&apos;a jamais été enregistré : les lignes ci-dessous sont notre
-            référentiel, à compléter avec vos codes RIS. Rien n&apos;est transmis au
-            portail patient tant que vous n&apos;avez pas enregistré.
-          </Alert>
-        )}
         {avertissement && (
           <Alert severity="warning" sx={{ mb: 2 }}>
             {avertissement}
           </Alert>
         )}
 
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={2}
-          sx={{ mb: 2 }}
-          alignItems={{ md: "center" }}
+        <Paper
+          variant="outlined"
+          sx={{ p: 2, mb: 2, borderColor: BORDER, borderRadius: 2, bgcolor: SURFACE }}
         >
-          <TextField
-            size="small"
-            label="Rechercher"
-            value={recherche}
-            onChange={(e) => {
-              setRecherche(e.target.value);
-              setPage(0);
-            }}
-            sx={{ minWidth: 240 }}
-          />
-          <TextField
-            size="small"
-            select
-            label="Type"
-            value={filtreType}
-            onChange={(e) => {
-              setFiltreType(e.target.value);
-              setPage(0);
-            }}
-            sx={{ minWidth: 160 }}
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={1.5}
+            alignItems={{ md: "center" }}
           >
-            <MenuItem value="tous">Tous les types</MenuItem>
-            {types.map((t) => (
-              <MenuItem key={t} value={t}>
-                {t}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            size="small"
-            select
-            label="Attribution"
-            value={filtreAttribution}
-            onChange={(e) => {
-              setFiltreAttribution(e.target.value as FiltreAttribution);
-              setPage(0);
-            }}
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value="tous">Tous</MenuItem>
-            <MenuItem value="attribues">Avec code RIS</MenuItem>
-            <MenuItem value="non_attribues">Sans code RIS</MenuItem>
-          </TextField>
-          <Box sx={{ flexGrow: 1 }} />
-          <Chip
-            label={`${attribues} examen${attribues > 1 ? "s" : ""} proposé${
-              attribues > 1 ? "s" : ""
-            } au patient`}
-            color={attribues > 0 ? "success" : "default"}
-            variant="outlined"
-          />
-        </Stack>
+            <TextField
+              size="small"
+              placeholder="Rechercher un examen"
+              value={recherche}
+              onChange={(e) => {
+                setRecherche(e.target.value);
+                setPage(0);
+              }}
+              sx={{ minWidth: 260 }}
+            />
+            <TextField
+              size="small"
+              select
+              label="Type"
+              value={filtreType}
+              onChange={(e) => {
+                setFiltreType(e.target.value);
+                setPage(0);
+              }}
+              sx={{ minWidth: 170 }}
+            >
+              <MenuItem value="tous">Tous les types</MenuItem>
+              {types.map((t) => (
+                <MenuItem key={t} value={t}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <ExamTypeBadge type={t} variant="compact" />
+                    <Typography variant="body2">{EXAM_TYPE_SHORT[t] ?? t}</Typography>
+                  </Stack>
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              size="small"
+              select
+              label="Attribution"
+              value={filtreAttribution}
+              onChange={(e) => {
+                setFiltreAttribution(e.target.value as FiltreAttribution);
+                setPage(0);
+              }}
+              sx={{ minWidth: 180 }}
+            >
+              <MenuItem value="tous">Tous</MenuItem>
+              <MenuItem value="attribues">Avec code</MenuItem>
+              <MenuItem value="non_attribues">Sans code</MenuItem>
+            </TextField>
+            <Box sx={{ flexGrow: 1 }} />
+            <Chip
+              label={`${attribues} examen${attribues > 1 ? "s" : ""} proposé${
+                attribues > 1 ? "s" : ""
+              } au patient`}
+              sx={{
+                fontWeight: 600,
+                color: attribues > 0 ? BRAND_DARK : INK_MUTED,
+                bgcolor: attribues > 0 ? "rgba(var(--accent-rgb), 0.12)" : SURFACE_MUTED,
+              }}
+            />
+          </Stack>
+        </Paper>
 
-        <TableContainer component={Paper} variant="outlined" sx={{ overflowX: "auto" }}>
-          <Table size="small" sx={{ minWidth: 1100 }}>
+        <TableContainer
+          component={Paper}
+          variant="outlined"
+          sx={{ overflowX: "auto", borderColor: BORDER, borderRadius: 2 }}
+        >
+          <Table size="small" sx={{ minWidth: 1150 }}>
             <TableHead>
               <TableRow>
                 <EnTete
-                  titre="Pratiqué"
                   aide="Décoché, l'examen n'est jamais proposé au patient."
                   largeur={90}
-                />
-                <EnTete titre="Type" aide="Notre type d'examen." largeur={90} />
-                <EnTete titre="Code interne" aide="Notre code de référence." largeur={140} />
-                <EnTete titre="Libellé interne" aide="Notre libellé de référence." />
+                  align="center"
+                >
+                  Pratiqué
+                </EnTete>
+                <EnTete aide="Notre référentiel : modalité, libellé et code internes.">
+                  Examen
+                </EnTete>
                 <EnTete
-                  titre="Code RIS"
-                  aide="Le code de cet examen dans VOTRE RIS. Sans lui, l'examen n'est pas réservable."
+                  aide="Le code de cet examen dans votre logiciel de gestion. Sans lui, l'examen n'est pas réservable."
                   largeur={150}
-                />
-                <EnTete titre="Type RIS" aide="Le type dans votre RIS. Facultatif." largeur={110} />
+                >
+                  Code
+                </EnTete>
+                <EnTete aide="Le type dans votre logiciel. Facultatif." largeur={110}>
+                  Type
+                </EnTete>
                 <EnTete
-                  titre="Libellé patient"
-                  aide="Ce que lit le patient. Vide, notre libellé est utilisé."
-                  largeur={200}
-                />
+                  aide="Ce que lit le patient. Laissé vide, notre libellé est utilisé."
+                  largeur={210}
+                >
+                  Libellé patient
+                </EnTete>
                 <EnTete
-                  titre="Ordonnance"
                   aide="Le portail exige le dépôt d'une ordonnance pour cet examen."
-                  largeur={100}
-                />
+                  largeur={105}
+                  align="center"
+                >
+                  Ordonnance
+                </EnTete>
                 <EnTete
-                  titre="Injecté"
-                  aide="Examen avec produit de contraste : déclenche le questionnaire d'injection."
+                  aide="Examen avec produit de contraste. Déclenche le questionnaire d'injection."
                   largeur={90}
-                />
+                  align="center"
+                >
+                  Injecté
+                </EnTete>
                 <EnTete
-                  titre="Liste d'attente"
                   aide="Le patient peut s'inscrire si aucun créneau ne lui convient."
                   largeur={120}
-                />
+                  align="center"
+                >
+                  Liste d&apos;attente
+                </EnTete>
               </TableRow>
             </TableHead>
             <TableBody>
               {visibles.map((l) => {
-                const enDouble =
-                  l.performed && codesRisEnDouble.has(l.codeExamenClient.trim());
+                const enDouble = l.performed && codesEnDouble.has(l.codeExamenClient.trim());
                 return (
-                  <TableRow key={l.codeExamen} hover sx={{ opacity: l.performed ? 1 : 0.5 }}>
+                  <TableRow
+                    key={l.codeExamen}
+                    hover
+                    sx={{
+                      "&:nth-of-type(odd)": { bgcolor: "#FBFDFC" },
+                      "&:hover": { bgcolor: SURFACE_HOVER + " !important" },
+                      "& > td": { borderBottom: `1px solid ${BORDER}`, py: 1 },
+                      opacity: l.performed ? 1 : 0.45,
+                    }}
+                  >
                     <TableCell align="center">
-                      <Checkbox
-                        checked={l.performed}
-                        onChange={(e) => maj(l.codeExamen, "performed", e.target.checked)}
+                      <Case
+                        coche={l.performed}
+                        onChange={(v) => maj(l.codeExamen, "performed", v)}
                       />
                     </TableCell>
+
                     <TableCell>
-                      <Typography variant="caption" color="text.secondary">
-                        {l.typeExamen ?? "-"}
-                      </Typography>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <ExamTypeBadge type={l.typeExamen ?? ""} />
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography
+                            sx={{
+                              fontWeight: 600,
+                              fontSize: 13,
+                              color: INK,
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            {l.libelle ?? l.codeExamen}
+                          </Typography>
+                          <Typography
+                            sx={{ fontSize: 11, color: INK_MUTED, fontFamily: "monospace" }}
+                          >
+                            {l.codeExamen}
+                          </Typography>
+                        </Box>
+                      </Stack>
                     </TableCell>
+
                     <TableCell>
-                      <Typography variant="caption" sx={{ fontFamily: "monospace" }}>
-                        {l.codeExamen}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{l.libelle ?? "-"}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        size="small"
-                        fullWidth
-                        value={l.codeExamenClient}
-                        error={enDouble}
-                        helperText={enDouble ? "Code en double" : undefined}
+                      <Champ
+                        valeur={l.codeExamenClient}
+                        erreur={enDouble}
                         disabled={!l.performed}
-                        onChange={(e) =>
-                          maj(l.codeExamen, "codeExamenClient", e.target.value)
-                        }
+                        onChange={(v) => maj(l.codeExamen, "codeExamenClient", v)}
                       />
+                      {enDouble && (
+                        <Typography sx={{ fontSize: 11, color: DANGER, mt: 0.25 }}>
+                          Code en double
+                        </Typography>
+                      )}
                     </TableCell>
                     <TableCell>
-                      <TextField
-                        size="small"
-                        fullWidth
-                        value={l.typeExamenClient}
+                      <Champ
+                        valeur={l.typeExamenClient}
                         disabled={!l.performed}
-                        onChange={(e) =>
-                          maj(l.codeExamen, "typeExamenClient", e.target.value)
-                        }
+                        onChange={(v) => maj(l.codeExamen, "typeExamenClient", v)}
                       />
                     </TableCell>
                     <TableCell>
-                      <TextField
-                        size="small"
-                        fullWidth
+                      <Champ
+                        valeur={l.libelleClient}
                         placeholder={l.libelle ?? ""}
-                        value={l.libelleClient}
                         disabled={!l.performed}
-                        onChange={(e) => maj(l.codeExamen, "libelleClient", e.target.value)}
+                        onChange={(v) => maj(l.codeExamen, "libelleClient", v)}
+                      />
+                    </TableCell>
+
+                    <TableCell align="center">
+                      <Case
+                        coche={l.ordoOblig}
+                        disabled={!l.performed}
+                        onChange={(v) => maj(l.codeExamen, "ordoOblig", v)}
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <Checkbox
-                        checked={l.ordoOblig}
+                      <Case
+                        coche={l.examenInjecte}
                         disabled={!l.performed}
-                        onChange={(e) => maj(l.codeExamen, "ordoOblig", e.target.checked)}
+                        onChange={(v) => maj(l.codeExamen, "examenInjecte", v)}
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <Checkbox
-                        checked={l.examenInjecte}
+                      <Case
+                        coche={l.listeAttenteActive}
                         disabled={!l.performed}
-                        onChange={(e) => maj(l.codeExamen, "examenInjecte", e.target.checked)}
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={l.listeAttenteActive}
-                        disabled={!l.performed}
-                        onChange={(e) =>
-                          maj(l.codeExamen, "listeAttenteActive", e.target.checked)
-                        }
+                        onChange={(v) => maj(l.codeExamen, "listeAttenteActive", v)}
                       />
                     </TableCell>
                   </TableRow>
@@ -422,8 +537,8 @@ export default function MappingExamensKonnect() {
               })}
               {filtrees.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 5 }}>
-                    <Typography variant="body2" color="text.secondary">
+                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                    <Typography variant="body2" sx={{ color: INK_MUTED }}>
                       {lignes.length === 0
                         ? "Aucun examen au référentiel."
                         : "Aucun examen ne correspond à ces filtres."}
@@ -441,13 +556,14 @@ export default function MappingExamensKonnect() {
             rowsPerPage={PAR_PAGE}
             rowsPerPageOptions={[PAR_PAGE]}
             labelRowsPerPage="Par page"
-            labelDisplayedRows={({ from, to, count }) => `${from}–${to} sur ${count}`}
+            labelDisplayedRows={({ from, to, count }) => `${from} à ${to} sur ${count}`}
+            sx={{ borderTop: `1px solid ${BORDER}`, color: INK_MUTED }}
           />
         </TableContainer>
 
-        {codesRisEnDouble.size > 0 && (
+        {codesEnDouble.size > 0 && (
           <Alert severity="warning" sx={{ mt: 2 }}>
-            Un même code RIS est attribué à plusieurs examens. Le portail ne saurait pas
+            Un même code est attribué à plusieurs examens. Le portail ne saurait pas
             lequel réserver : chaque code doit être unique.
           </Alert>
         )}
@@ -462,14 +578,17 @@ export default function MappingExamensKonnect() {
             variant="contained"
             size="large"
             onClick={enregistrer}
-            disabled={enregistrement || codesRisEnDouble.size > 0 || lignes.length === 0}
+            disabled={enregistrement || codesEnDouble.size > 0 || lignes.length === 0}
             sx={{
-              bgcolor: "var(--accent)",
+              bgcolor: BRAND,
               fontWeight: 600,
-              "&:hover": { bgcolor: "var(--accent-press)" },
+              textTransform: "none",
+              px: 3,
+              "&:hover": { bgcolor: BRAND_DARK },
+              "&.Mui-disabled": { bgcolor: "#D5DFE5", color: "#8FA0AE" },
             }}
           >
-            {enregistrement ? "Enregistrement…" : "Enregistrer le mapping"}
+            {enregistrement ? "Enregistrement en cours" : "Enregistrer le mapping"}
           </Button>
         </Box>
 
