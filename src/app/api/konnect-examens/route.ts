@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { PRODUITS } from "@/lib/produits";
-import { referentielNeuracorp } from "@/lib/referentielExamens";
+import { amorcerMapping } from "@/lib/referentielExamens";
 
 /**
  * Mapping d'examens LyraeKonnect d'un centre (lot C).
@@ -147,16 +147,19 @@ export async function GET(req: NextRequest) {
   }
 
   // --- Voie de l'écran : le mapping complet ---
-  // Rien d'enregistré → on amorce sur le référentiel NEURACORP, colonnes client
-  // vides. C'est ce qui évite la page blanche à l'ouverture d'un nouveau centre.
+  // Rien d'enregistré → on amorce. D'abord sur le mapping LyraeTalk du même client
+  // (même RIS, mêmes codes : le travail d'attribution est déjà fait), sinon sur le
+  // référentiel NEURACORP. C'est ce qui évite la page blanche à l'ouverture d'un
+  // nouveau centre — et, quand le client a déjà Talk, lui évite de tout ressaisir.
   if ((res.rowCount ?? 0) === 0) {
-    const referentiel = await referentielNeuracorp();
+    const amorce = await amorcerMapping(userProductId);
     return NextResponse.json(
       {
         userProductId,
         amorce: true,
-        source: referentiel.source,
-        examens: referentiel.lignes,
+        source: amorce.source,
+        motif: amorce.motif,
+        examens: amorce.lignes,
       },
       { headers: { ETag: etag } }
     );
