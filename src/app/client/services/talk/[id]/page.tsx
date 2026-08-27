@@ -457,9 +457,11 @@ export default function TalkPage({ params }: TalkPageProps) {
     <ClientLayout>
       <PageContainer title="LyraeTalk" description="Vue d'ensemble du service vocal">
         <Box>
+          {/* Pas de titre de produit ici : le sélecteur du header le porte déjà,
+              et le répéter à deux centimètres de distance n'apprend rien. */}
           <SectionHeader
-            title="LyraeTalk"
-            subtitle="Vue d'ensemble du service vocal · 24 dernières heures"
+            title="Vue d'ensemble"
+            subtitle="Service vocal · 24 dernières heures"
           />
 
           {/* === Row 1 : KPI tiles === */}

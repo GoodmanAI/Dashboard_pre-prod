@@ -3,7 +3,7 @@ import { useProduitActif } from "@/hooks/useProduitActif";
 import { useMediaQuery, Box, Drawer } from "@mui/material";
 import { Theme } from "@mui/material/styles";
 import { Sidebar } from "react-mui-sidebar";
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import SidebarItems from "./SidebarItems";
 import { useSession } from "next-auth/react";
 import { estProduit } from "@/lib/produits";
@@ -30,6 +30,7 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
   
   const lgUp = useMediaQuery((theme: Theme) => theme.breakpoints.up("lg"));
   const router = useRouter();
+  const pathname = usePathname();
   const { data: session } = useSession();
   // Logo et couleur d'accent suivent le produit affiché : la sidebar est rendue
   // par le layout parent, elle resterait sinon aux couleurs de LyraeTalk.
@@ -60,6 +61,27 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
       })
     }
   }, [products])
+
+  /**
+   * Où mène le clic sur le logo.
+   *
+   * Un admin retourne à sa console. Un client retourne à l'accueil du produit
+   * qu'il est en train de consulter : cliquer sur le logo Konnect pour atterrir
+   * sur LyraeTalk serait déroutant, d'autant que le logo porte maintenant la
+   * couleur du produit.
+   *
+   * L'identifiant vient de l'URL courante, qui désigne déjà le bon UserProduct.
+   * On retombe sur celui de LyraeTalk hors des pages produit, ou si l'URL n'en
+   * porte pas : c'est le cas de la quasi-totalité des clients.
+   */
+  const accueilProduit = () => {
+    if (session?.user.role === "ADMIN" || session?.user.role === "SUPER_ADMIN") {
+      return "/admin";
+    }
+    const segments = pathname?.split("/") ?? [];
+    const idDansUrl = segments[3] === produit.segment ? segments[4] : undefined;
+    return `/client/services/${produit.segment}/${idDansUrl ?? talkId}`;
+  };
 
   // Largeur fixe du panneau latéral
   const sidebarWidth = "270px";
@@ -96,13 +118,7 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
                   src={produit.interface.principal}
                   alt={produit.libelle}
                   sx={{ width: "210px", height: "auto", cursor: "pointer" }}
-                  onClick={() =>
-                    router.push(
-                      (session?.user.role === "ADMIN" || session?.user.role === "SUPER_ADMIN")
-                        ? "/admin"
-                        : `/client/services/talk/${talkId}`
-                    )
-                  }
+                  onClick={() => router.push(accueilProduit())}
                 />
               </Box>
 
