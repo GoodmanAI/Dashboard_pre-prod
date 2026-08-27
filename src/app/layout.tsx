@@ -107,11 +107,18 @@ export default function RootLayout({
                 <PageWrapper className="page-wrapper" style={{ overflowX: "hidden"}}>
                   <Header toggleMobileSidebar={() => setMobileSidebarOpen(true)} />
                   {/* Zone d’injection des pages (routes enfants). */}
+                    {/* `pt` : le sélecteur de produit du header est le contexte de
+                        tout ce qui suit. Collé au titre de la page, on lisait deux
+                        titres empilés. `pb` : la barre d'enregistrement flotte en bas
+                        de plusieurs écrans ; sans cette marge elle recouvre la
+                        dernière ligne du tableau qu'elle sert à sauvegarder. */}
                     <Box sx={{
                         width: "100%",
                         minHeight: "calc(100vh - 170px)",
                         pl: 3,
                         pr: 3,
+                        pt: 3,
+                        pb: 12,
                       }}
                     >
                       <PageAccessGuard>{children}</PageAccessGuard>

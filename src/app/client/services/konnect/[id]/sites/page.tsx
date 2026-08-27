@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -25,6 +25,8 @@ import AddIcon from "@mui/icons-material/Add";
 import { useParams } from "next/navigation";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 
 /**
  * Sites d'un centre LyraeKonnect.
@@ -38,7 +40,6 @@ import SectionHeader from "@/components/admin/SectionHeader";
  */
 
 const BRAND = "var(--accent)";
-const BRAND_DARK = "var(--accent-press)";
 const INK = "#0F2A3F";
 const INK_MUTED = "#5A6B7B";
 const BORDER = "#E4EAEE";
@@ -90,6 +91,7 @@ export default function SitesKonnect() {
   const userProductId = Number(params?.id);
 
   const [sites, setSites] = useState<Site[]>([]);
+  const [initial, setInitial] = useState<Site[]>([]);
   const [chargement, setChargement] = useState(true);
   const [enregistrement, setEnregistrement] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -103,7 +105,11 @@ export default function SitesKonnect() {
         const r = await fetch(`/api/konnect-sites?userProductId=${userProductId}`);
         if (!r.ok) throw new Error("Chargement impossible.");
         const data = await r.json();
-        if (!annule) setSites(Array.isArray(data.sites) ? data.sites : []);
+        if (!annule) {
+          const chargees: Site[] = Array.isArray(data.sites) ? data.sites : [];
+          setSites(chargees);
+          setInitial(chargees);
+        }
       } catch {
         if (!annule) setErreur("Impossible de charger les sites.");
       } finally {
@@ -129,6 +135,29 @@ export default function SitesKonnect() {
     (s) => s.code_postal.trim() && !/^[0-9]{5}$/.test(s.code_postal.trim())
   );
 
+  /**
+   * Une entrée par site, indexée sur son identifiant. Un site sans identifiant
+   * prend sa position, le temps que l'utilisateur le renseigne : sans cela deux
+   * lignes vides se confondraient et l'une des deux ne compterait pas.
+   */
+  const etatSuivi = useMemo(() => {
+    const out: Record<string, unknown> = {};
+    sites.forEach((s, i) => {
+      out[s.site_id.trim() || `#${i}`] = s;
+    });
+    return out;
+  }, [sites]);
+
+  const { modifications, marquerEnregistre } = useSuiviModifications(etatSuivi, !chargement);
+
+  const blocage = doublons.size
+    ? "Deux sites portent le même identifiant."
+    : sansIdentifiant
+      ? "Un site n'a pas d'identifiant."
+      : cpInvalide
+        ? "Un code postal ne fait pas 5 chiffres."
+        : null;
+
   async function enregistrer() {
     setErreur(null);
     setEnregistrement(true);
@@ -140,6 +169,8 @@ export default function SitesKonnect() {
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error ?? "Enregistrement refusé.");
+      setInitial(sites);
+      marquerEnregistre();
       setSucces(true);
     } catch (e: any) {
       setErreur(e?.message ?? "Enregistrement impossible.");
@@ -307,24 +338,14 @@ export default function SitesKonnect() {
           </Alert>
         )}
 
-        <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
-          <Button
-            variant="contained"
-            size="large"
-            onClick={enregistrer}
-            disabled={enregistrement || doublons.size > 0 || sansIdentifiant || cpInvalide}
-            sx={{
-              bgcolor: BRAND,
-              fontWeight: 600,
-              textTransform: "none",
-              px: 3,
-              "&:hover": { bgcolor: BRAND_DARK },
-              "&.Mui-disabled": { bgcolor: "#D5DFE5", color: "#8FA0AE" },
-            }}
-          >
-            {enregistrement ? "Enregistrement en cours" : "Enregistrer les sites"}
-          </Button>
-        </Box>
+        <BarreEnregistrement
+          modifications={modifications}
+          enregistrement={enregistrement}
+          onEnregistrer={enregistrer}
+          onAnnuler={() => setSites(initial)}
+          blocage={blocage}
+          libelle="Enregistrer les sites"
+        />
 
         <Snackbar
           open={succes}
