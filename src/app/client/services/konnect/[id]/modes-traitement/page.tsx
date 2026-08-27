@@ -4,8 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
-  Button,
-  Chip,
   CircularProgress,
   IconButton,
   MenuItem,
@@ -27,6 +25,9 @@ import AddIcon from "@mui/icons-material/Add";
 import { useParams } from "next/navigation";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
+import ExamTypeBadge, { toExamTypeCode } from "@/components/shared/ExamTypeBadge";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 
 /**
  * Mode de traitement des demandes d'un centre LyraeKonnect (lot D).
@@ -38,11 +39,11 @@ import SectionHeader from "@/components/admin/SectionHeader";
  * propose que ce que le client a effectivement attribué, pour qu'aucune exception
  * ne porte sur un code que son logiciel ne connaît pas.
  *
- * Même direction artistique que les écrans mapping et sites.
+ * Même direction artistique que les écrans mapping et sites : mêmes constantes de
+ * couleur, badges de modalité partagés, et la barre d'enregistrement flottante
+ * de LyraeTalk.
  */
 
-const BRAND = "var(--accent)";
-const BRAND_DARK = "var(--accent-press)";
 const INK = "#0F2A3F";
 const INK_MUTED = "#5A6B7B";
 const BORDER = "#E4EAEE";
@@ -51,7 +52,13 @@ const SURFACE_MUTED = "#F7FAFB";
 
 const DEFAUT = "__defaut__";
 
-/** Miroir de `FamilleExamen` côté Konnect. L'ordre est celui de l'écran. */
+/**
+ * Miroir de `FamilleExamen` côté Konnect. L'ordre est celui de l'écran.
+ *
+ * `toExamTypeCode` traduit ces clés vers les codes de modalité NEURACORP, donc
+ * vers les mêmes couleurs que l'écran de mapping : irm → MR, scanner → CT,
+ * radio → RX, echo → US. « autre » n'en a pas, et n'a donc pas de badge.
+ */
 const FAMILLES: { cle: string; libelle: string }[] = [
   { cle: "irm", libelle: "IRM" },
   { cle: "scanner", libelle: "Scanner" },
@@ -80,13 +87,7 @@ const MODES: { cle: string; libelle: string; aide: string }[] = [
 ];
 
 type Ligne = { portee: string; cle: string; mode: string };
-type Examen = { code: string; libelle: string };
-
-function couleurMode(mode: string): { bg: string; fg: string } {
-  if (mode === "relecture") return { bg: "#FFF4E0", fg: "#8A5A00" };
-  if (mode === "orientation_directe") return { bg: "#FDE8E8", fg: "#9B2226" };
-  return { bg: "#E8F5EE", fg: "#186A3B" };
-}
+type Examen = { code: string; libelle: string; type: string | null };
 
 function EnTete({
   children,
@@ -164,6 +165,10 @@ export default function ModesTraitementKonnect() {
 
   const [familles, setFamilles] = useState<Record<string, string>>({});
   const [exceptions, setExceptions] = useState<Ligne[]>([]);
+  const [initial, setInitial] = useState<{
+    familles: Record<string, string>;
+    exceptions: Ligne[];
+  } | null>(null);
   const [examens, setExamens] = useState<Examen[]>([]);
   const [chargement, setChargement] = useState(true);
   const [enregistrement, setEnregistrement] = useState(false);
@@ -189,8 +194,10 @@ export default function ModesTraitementKonnect() {
         for (const l of lignes) {
           if (l.portee === "famille" && l.cle in parFamille) parFamille[l.cle] = l.mode;
         }
+        const exceptionsChargees = lignes.filter((l) => l.portee === "examen");
         setFamilles(parFamille);
-        setExceptions(lignes.filter((l) => l.portee === "examen"));
+        setExceptions(exceptionsChargees);
+        setInitial({ familles: parFamille, exceptions: exceptionsChargees });
 
         // La liste d'examens n'est pas indispensable : sans elle on garde les
         // exceptions déjà enregistrées, on ne peut simplement pas en ajouter.
@@ -206,6 +213,9 @@ export default function ModesTraitementKonnect() {
                   String(e.libelleClient ?? "").trim() ||
                   String(e.libelle ?? "").trim() ||
                   String(e.codeExamenClient).trim(),
+                type:
+                  toExamTypeCode(String(e.typeExamenClient ?? "").trim()) ??
+                  toExamTypeCode(String(e.typeExamen ?? "").trim()),
               }))
           );
         }
@@ -226,12 +236,28 @@ export default function ModesTraitementKonnect() {
     [examens, dejaPris]
   );
 
-  const libelleExamen = useMemo(() => {
-    const m = new Map(examens.map((e) => [e.code, e.libelle]));
-    return (code: string) => m.get(code) ?? code;
+  const infoExamen = useMemo(() => {
+    const m = new Map(examens.map((e) => [e.code, e]));
+    return (code: string): Examen => m.get(code) ?? { code, libelle: code, type: null };
   }, [examens]);
 
+  /** Une entrée par chose modifiable : familles réglées, plus chaque exception. */
+  const etatSuivi = useMemo(() => {
+    const out: Record<string, unknown> = {};
+    for (const f of FAMILLES) out[`famille:${f.cle}`] = familles[f.cle] ?? DEFAUT;
+    for (const e of exceptions) out[`examen:${e.cle}`] = e.mode;
+    return out;
+  }, [familles, exceptions]);
+
+  const { modifications, marquerEnregistre } = useSuiviModifications(etatSuivi, !chargement);
+
   const incompletes = exceptions.some((e) => !e.cle.trim());
+
+  function annuler() {
+    if (!initial) return;
+    setFamilles(initial.familles);
+    setExceptions(initial.exceptions);
+  }
 
   async function enregistrer() {
     setErreur(null);
@@ -252,6 +278,8 @@ export default function ModesTraitementKonnect() {
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error ?? "Enregistrement refusé.");
+      setInitial({ familles, exceptions });
+      marquerEnregistre();
       setSucces(true);
     } catch (e: any) {
       setErreur(e?.message ?? "Enregistrement impossible.");
@@ -264,7 +292,7 @@ export default function ModesTraitementKonnect() {
     return (
       <PageContainer title="Modes de traitement" description="Ce qui arrive à une demande">
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress sx={{ color: BRAND }} />
+          <CircularProgress sx={{ color: "var(--accent)" }} />
         </Box>
       </PageContainer>
     );
@@ -293,7 +321,7 @@ export default function ModesTraitementKonnect() {
           <Table size="small" sx={{ minWidth: 700 }}>
             <TableHead>
               <TableRow>
-                <EnTete aide="La famille d'examens concernée." largeur={220}>
+                <EnTete aide="La famille d'examens concernée." largeur={260}>
                   Famille d&apos;examens
                 </EnTete>
                 <EnTete aide="Ce qui se passe quand un patient demande un examen de cette famille.">
@@ -302,29 +330,39 @@ export default function ModesTraitementKonnect() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {FAMILLES.map((f, i) => (
-                <TableRow
-                  key={f.cle}
-                  hover
-                  sx={{
-                    "&:nth-of-type(odd)": { bgcolor: "#FBFDFC" },
-                    "& > td": { borderBottom: `1px solid ${BORDER}`, py: 1 },
-                  }}
-                >
-                  <TableCell>
-                    <Typography sx={{ fontSize: 13, fontWeight: 600, color: INK }}>
-                      {f.libelle}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <ChoixMode
-                      valeur={familles[f.cle] ?? DEFAUT}
-                      avecDefaut
-                      onChange={(v) => setFamilles((p) => ({ ...p, [f.cle]: v }))}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
+              {FAMILLES.map((f) => {
+                const type = toExamTypeCode(f.cle);
+                return (
+                  <TableRow
+                    key={f.cle}
+                    hover
+                    sx={{
+                      "&:nth-of-type(odd)": { bgcolor: "#FBFDFC" },
+                      "& > td": { borderBottom: `1px solid ${BORDER}`, py: 1 },
+                    }}
+                  >
+                    <TableCell>
+                      <Stack direction="row" alignItems="center" spacing={1.25}>
+                        {type ? (
+                          <ExamTypeBadge type={type} variant="compact" />
+                        ) : (
+                          <Box sx={{ width: 26 }} />
+                        )}
+                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: INK }}>
+                          {f.libelle}
+                        </Typography>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <ChoixMode
+                        valeur={familles[f.cle] ?? DEFAUT}
+                        avecDefaut
+                        onChange={(v) => setFamilles((p) => ({ ...p, [f.cle]: v }))}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
@@ -350,7 +388,10 @@ export default function ModesTraitementKonnect() {
             <Table size="small" sx={{ minWidth: 700 }}>
               <TableHead>
                 <TableRow>
-                  <EnTete aide="L'examen concerné, tel qu'il est nommé dans votre mapping." largeur={320}>
+                  <EnTete
+                    aide="L'examen concerné, tel qu'il est nommé dans votre mapping."
+                    largeur={360}
+                  >
                     Examen
                   </EnTete>
                   <EnTete aide="Ce qui se passe pour cet examen, quelle que soit sa famille.">
@@ -363,7 +404,7 @@ export default function ModesTraitementKonnect() {
               </TableHead>
               <TableBody>
                 {exceptions.map((e, i) => {
-                  const c = couleurMode(e.mode);
+                  const ex = infoExamen(e.cle);
                   return (
                     <TableRow
                       key={`${e.cle}-${i}`}
@@ -374,21 +415,20 @@ export default function ModesTraitementKonnect() {
                       }}
                     >
                       <TableCell>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Typography sx={{ fontSize: 13, color: INK }}>
-                            {libelleExamen(e.cle)}
-                          </Typography>
-                          <Chip
-                            label={e.cle}
-                            size="small"
-                            sx={{
-                              height: 20,
-                              fontSize: 11,
-                              bgcolor: c.bg,
-                              color: c.fg,
-                              fontWeight: 600,
-                            }}
-                          />
+                        <Stack direction="row" alignItems="center" spacing={1.25}>
+                          {ex.type ? (
+                            <ExamTypeBadge type={ex.type} variant="compact" />
+                          ) : (
+                            <Box sx={{ width: 26 }} />
+                          )}
+                          <Box>
+                            <Typography sx={{ fontSize: 13, color: INK }}>
+                              {ex.libelle}
+                            </Typography>
+                            <Typography sx={{ fontSize: 11.5, color: INK_MUTED }}>
+                              {e.cle}
+                            </Typography>
+                          </Box>
                         </Stack>
                       </TableCell>
                       <TableCell>
@@ -406,9 +446,7 @@ export default function ModesTraitementKonnect() {
                         <Tooltip title="Retirer cette exception">
                           <IconButton
                             size="small"
-                            onClick={() =>
-                              setExceptions((p) => p.filter((_, j) => j !== i))
-                            }
+                            onClick={() => setExceptions((p) => p.filter((_, j) => j !== i))}
                           >
                             <DeleteOutlineIcon fontSize="small" />
                           </IconButton>
@@ -439,12 +477,9 @@ export default function ModesTraitementKonnect() {
               onChange={(ev) => {
                 const code = String(ev.target.value);
                 if (!code) return;
-                setExceptions((p) => [
-                  ...p,
-                  { portee: "examen", cle: code, mode: "relecture" },
-                ]);
+                setExceptions((p) => [...p, { portee: "examen", cle: code, mode: "relecture" }]);
               }}
-              sx={{ minWidth: 340, fontSize: 13, bgcolor: SURFACE }}
+              sx={{ minWidth: 380, fontSize: 13, bgcolor: SURFACE }}
               renderValue={() => (
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <AddIcon fontSize="small" />
@@ -458,45 +493,39 @@ export default function ModesTraitementKonnect() {
             >
               {disponibles.map((e) => (
                 <MenuItem key={e.code} value={e.code}>
-                  <Box>
-                    <Typography sx={{ fontSize: 13 }}>{e.libelle}</Typography>
-                    <Typography sx={{ fontSize: 11.5, color: INK_MUTED }}>{e.code}</Typography>
-                  </Box>
+                  <Stack direction="row" alignItems="center" spacing={1.25}>
+                    {e.type ? (
+                      <ExamTypeBadge type={e.type} variant="compact" />
+                    ) : (
+                      <Box sx={{ width: 26 }} />
+                    )}
+                    <Box>
+                      <Typography sx={{ fontSize: 13 }}>{e.libelle}</Typography>
+                      <Typography sx={{ fontSize: 11.5, color: INK_MUTED }}>{e.code}</Typography>
+                    </Box>
+                  </Stack>
                 </MenuItem>
               ))}
             </Select>
           </Stack>
         </Box>
 
-        {incompletes && (
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            Une exception n&apos;a pas d&apos;examen. Choisissez-en un ou retirez la ligne.
-          </Alert>
-        )}
         {erreur && (
           <Alert severity="error" sx={{ mt: 2 }}>
             {erreur}
           </Alert>
         )}
 
-        <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
-          <Button
-            variant="contained"
-            size="large"
-            onClick={enregistrer}
-            disabled={enregistrement || incompletes}
-            sx={{
-              bgcolor: BRAND,
-              fontWeight: 600,
-              textTransform: "none",
-              px: 3,
-              "&:hover": { bgcolor: BRAND_DARK },
-              "&.Mui-disabled": { bgcolor: "#D5DFE5", color: "#8FA0AE" },
-            }}
-          >
-            {enregistrement ? "Enregistrement en cours" : "Enregistrer les modes"}
-          </Button>
-        </Box>
+        <BarreEnregistrement
+          modifications={modifications}
+          enregistrement={enregistrement}
+          onEnregistrer={enregistrer}
+          onAnnuler={annuler}
+          blocage={
+            incompletes ? "Une exception n'a pas d'examen. Choisissez-en un ou retirez la ligne." : null
+          }
+          libelle="Enregistrer les modes"
+        />
 
         <Snackbar
           open={succes}

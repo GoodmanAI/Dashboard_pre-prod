@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
-  Button,
   Checkbox,
   Chip,
   CircularProgress,
@@ -26,6 +25,8 @@ import {
 import { useParams } from "next/navigation";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import ExamTypeBadge, { EXAM_TYPE_SHORT } from "@/components/shared/ExamTypeBadge";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 
 /**
  * Mapping d'examens LyraeKonnect d'un centre.
@@ -175,6 +176,14 @@ export default function MappingExamensKonnect() {
   const userProductId = Number(params?.id);
 
   const [lignes, setLignes] = useState<Ligne[]>([]);
+  const [initial, setInitial] = useState<Ligne[]>([]);
+  /**
+   * Le tableau affiché vient d'une amorce (mapping LyraeTalk ou référentiel) et
+   * n'est donc PAS enregistré. Tout y est à sauver, même sans y toucher : sans ce
+   * drapeau, le compteur de modifications vaudrait zéro et le bouton resterait
+   * éteint sur un tableau que le client doit justement valider.
+   */
+  const [amorce, setAmorce] = useState(false);
   const [chargement, setChargement] = useState(true);
   const [enregistrement, setEnregistrement] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -195,7 +204,10 @@ export default function MappingExamensKonnect() {
         if (!r.ok) throw new Error("Chargement impossible.");
         const data = await r.json();
         if (annule) return;
-        setLignes(Array.isArray(data.examens) ? data.examens : []);
+        const chargees: Ligne[] = Array.isArray(data.examens) ? data.examens : [];
+        setLignes(chargees);
+        setInitial(chargees);
+        setAmorce(data.amorce === true);
         // Seul le cas « rien à proposer » mérite un message : d'où viennent les
         // lignes n'intéresse pas le client, il veut juste remplir son tableau.
         if (data.source === "indisponible") {
@@ -264,6 +276,18 @@ export default function MappingExamensKonnect() {
     );
   }, [lignes]);
 
+  /** Une entrée par examen, indexée sur le code NEURACORP, qui ne change jamais. */
+  const etatSuivi = useMemo(() => {
+    const out: Record<string, unknown> = {};
+    for (const l of lignes) out[l.codeExamen] = l;
+    return out;
+  }, [lignes]);
+
+  const { modifications, marquerEnregistre } = useSuiviModifications(etatSuivi, !chargement);
+
+  // Sur une amorce, rien n'est encore en base : tout le tableau est à enregistrer.
+  const aEnregistrer = amorce ? lignes.length : modifications;
+
   async function enregistrer() {
     setErreur(null);
     setEnregistrement(true);
@@ -275,6 +299,9 @@ export default function MappingExamensKonnect() {
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error ?? "Enregistrement refusé.");
+      setInitial(lignes);
+      setAmorce(false);
+      marquerEnregistre();
       setSucces(true);
     } catch (e: any) {
       setErreur(e?.message ?? "Enregistrement impossible.");
@@ -587,24 +614,20 @@ export default function MappingExamensKonnect() {
           </Alert>
         )}
 
-        <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
-          <Button
-            variant="contained"
-            size="large"
-            onClick={enregistrer}
-            disabled={enregistrement || codesEnDouble.size > 0 || lignes.length === 0}
-            sx={{
-              bgcolor: BRAND,
-              fontWeight: 600,
-              textTransform: "none",
-              px: 3,
-              "&:hover": { bgcolor: BRAND_DARK },
-              "&.Mui-disabled": { bgcolor: "#D5DFE5", color: "#8FA0AE" },
-            }}
-          >
-            {enregistrement ? "Enregistrement en cours" : "Enregistrer le mapping"}
-          </Button>
-        </Box>
+        <BarreEnregistrement
+          modifications={aEnregistrer}
+          enregistrement={enregistrement}
+          onEnregistrer={enregistrer}
+          onAnnuler={amorce ? undefined : () => setLignes(initial)}
+          blocage={
+            codesEnDouble.size > 0
+              ? "Un même code est attribué à plusieurs examens."
+              : lignes.length === 0
+                ? "Aucun examen à enregistrer."
+                : null
+          }
+          libelle="Enregistrer le mapping"
+        />
 
         <Snackbar
           open={succes}
