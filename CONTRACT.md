@@ -22,7 +22,8 @@
 `GET /api/konnect-tenant-mapping/resolve?tenantId=<uuid>` → `{ userProductId }`,
 `GET /api/konnect-configuration?userProductId=NN` (ou `?tenantId=<uuid>`),
 `GET /api/product-config?userProductId=NN&domaine=X`,
-`GET /api/konnect-examens?userProductId=NN`.
+`GET /api/konnect-examens?userProductId=NN`,
+`GET /api/konnect-sites?userProductId=NN`.
 Toutes en **lecture seule** : le `PUT` de ces routes refuse un appel par clé, la
 configuration se pilote depuis le Dashboard.
 
@@ -135,12 +136,12 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 
 **Migrations à deux vitesses** :
 - Prisma : `prisma/migrations/YYYYMMDDHHMMSS_*/migration.sql` (6 dossiers)
-- Manuel : `prisma/migrations/manual/*.sql` (15 fichiers) — **ces tables ne sont pas dans `schema.prisma`**
+- Manuel : `prisma/migrations/manual/*.sql` (16 fichiers) — **ces tables ne sont pas dans `schema.prisma`**
 
 | Origine | Tables |
 |---|---|
 | Prisma (17) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `Call`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
-| SQL manuel (14) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus` |
+| SQL manuel (15) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `KonnectSites`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus` |
 
 `KonnectTenantMapping` (24/08/2026) relie un cabinet Konnect (`tenantId`, UUID) à un centre
 du Dashboard (`userProductId`). **1 ↔ 1 contraint dans les deux sens**, à la différence
@@ -210,6 +211,12 @@ Un push d'amorçage viendra dans un ticket dédié — ce sera le premier verbe 
 du pont. À noter : i2ris n'expose ni libellé ni champs métier par examen, il n'apporte
 que des codes, là où le référentiel NEURACORP fournit déjà type et libellé.
 
+`KonnectSites` (27/08/2026) porte les lieux d'exercice d'un centre. Le RIS les
+distingue par un `siteId` mais **n'expose aucune adresse** (gap H12) : c'est le client
+qui la saisit. Elle sert à dire au patient où aller avant qu'il confirme, et à
+rapprocher les inscrits en liste d'attente du site le plus proche. `siteId` est la clé
+de jointure avec le RIS, comme `codeExamenClient` pour le catalogue.
+
 Le produit `LyraeKonnect` est une ligne de `Product`, créée par la même migration.
 `LyraeExplain` reste en base (4 centres actifs au 24/08/2026) mais n'a plus aucun code :
 la table et les lignes sont conservées, seulement plus lues.
@@ -228,7 +235,7 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 |---|---|
 | **LyraeTalk** | 6 endpoints, dont toute sa configuration métier par centre. **S'ils tombent, le robot n'a plus de config.** |
 | **AI2Xplore** | 8 endpoints RDV + ordonnances, en polling |
-| **LyraeKonnect** | 4 endpoints : résolution d'identité, configuration cabinet, socle générique par domaine, mapping d'examens. **Le pont est éteint par défaut** (`KONNECT_DASHBOARD_BASE_URL` vide côté Konnect) ; branché, une panne du Dashboard fige sa configuration mais n'arrête pas le portail patient — il sert son cache |
+| **LyraeKonnect** | 5 endpoints : résolution d'identité, configuration cabinet, socle générique par domaine, mapping d'examens, sites. **Le pont est éteint par défaut** (`KONNECT_DASHBOARD_BASE_URL` vide côté Konnect) ; branché, une panne du Dashboard fige sa configuration mais n'arrête pas le portail patient — il sert son cache |
 | **Grafana** | format des logs d'audit |
 | **daily-report** | `GET /api/deployments` — section « Déploiement » du mail quotidien. Dégradation gracieuse de son côté : si la route tombe, la section disparaît, le mail part quand même |
 | **Sondes de déploiement** (3 VMs) | `POST /api/deployments` toutes les 15 min |

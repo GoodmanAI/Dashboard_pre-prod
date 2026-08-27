@@ -17,6 +17,7 @@ import {
   IconFileAlert,
   IconRocket,
   IconListDetails,
+  IconMapPin,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -279,6 +280,12 @@ export const KonnectMenuitems: SidebarItem[] = [
     title: "Mapping d'examens",
     icon: IconListDetails,
     href: "/client/services/konnect/{KONNECT_ID}/examens",
+  },
+  {
+    id: uniqueId(),
+    title: "Sites",
+    icon: IconMapPin,
+    href: "/client/services/konnect/{KONNECT_ID}/sites",
   },
 
   { navlabel: true, subheader: "Assistance" },
