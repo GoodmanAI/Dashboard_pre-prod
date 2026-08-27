@@ -29,6 +29,7 @@ export type LigneReferentiel = {
   libelle: string | null;
   /** Colonnes du client, vides à l'amorçage : c'est lui qui les remplit. */
   codeExamenClient: string;
+  codeExamenInjection: string;
   typeExamenClient: string;
   libelleClient: string;
   performed: boolean;
@@ -94,6 +95,7 @@ export async function referentielNeuracorp(): Promise<Referentiel> {
         typeExamen: texte(item.typeExamen) || null,
         libelle: texte(item.libelle) || null,
         codeExamenClient: "",
+        codeExamenInjection: "",
         typeExamenClient: "",
         libelleClient: "",
         // Tout est proposé par défaut : le client décoche ce qu'il ne pratique pas,
@@ -169,6 +171,8 @@ export async function mappingDepuisTalk(
       libelle: texte(e?.libelle) || null,
       // Le travail déjà fait pour Talk : on le reprend tel quel.
       codeExamenClient: texte(e?.codeExamenClient),
+      // LyraeTalk porte deja ce champ : on le reprend au lieu de le redemander.
+      codeExamenInjection: texte(e?.codeExamenClientInject),
       typeExamenClient: texte(e?.typeExamenClient),
       libelleClient: texte(e?.libelleClient),
       performed: e?.performed !== false,

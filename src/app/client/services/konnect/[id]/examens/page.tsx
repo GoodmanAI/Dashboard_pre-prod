@@ -64,6 +64,7 @@ type Ligne = {
   typeExamen: string | null;
   libelle: string | null;
   codeExamenClient: string;
+  codeExamenInjection: string;
   typeExamenClient: string;
   libelleClient: string;
   performed: boolean;
@@ -387,7 +388,7 @@ export default function MappingExamensKonnect() {
           variant="outlined"
           sx={{ overflowX: "auto", borderColor: BORDER, borderRadius: 2 }}
         >
-          <Table size="small" sx={{ minWidth: 1150 }}>
+          <Table size="small" sx={{ minWidth: 1300 }}>
             <TableHead>
               <TableRow>
                 <EnTete
@@ -405,6 +406,12 @@ export default function MappingExamensKonnect() {
                   largeur={150}
                 >
                   Code
+                </EnTete>
+                <EnTete
+                  aide="Le code de la version AVEC injection, si votre logiciel en a un distinct. Laissez vide sinon."
+                  largeur={150}
+                >
+                  Code injecté
                 </EnTete>
                 <EnTete aide="Le type dans votre logiciel. Facultatif." largeur={110}>
                   Type
@@ -497,6 +504,13 @@ export default function MappingExamensKonnect() {
                     </TableCell>
                     <TableCell>
                       <Champ
+                        valeur={l.codeExamenInjection ?? ""}
+                        disabled={!l.performed}
+                        onChange={(v) => maj(l.codeExamen, "codeExamenInjection", v)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Champ
                         valeur={l.typeExamenClient}
                         disabled={!l.performed}
                         onChange={(v) => maj(l.codeExamen, "typeExamenClient", v)}
@@ -537,7 +551,7 @@ export default function MappingExamensKonnect() {
               })}
               {filtrees.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                     <Typography variant="body2" sx={{ color: INK_MUTED }}>
                       {lignes.length === 0
                         ? "Aucun examen au référentiel."
