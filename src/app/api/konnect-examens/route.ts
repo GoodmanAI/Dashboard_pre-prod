@@ -38,6 +38,7 @@ type LigneMapping = {
   typeExamen: string | null;
   libelle: string | null;
   codeExamenClient: string;
+  codeExamenInjection: string;
   typeExamenClient: string;
   libelleClient: string;
   performed: boolean;
@@ -47,8 +48,8 @@ type LigneMapping = {
 };
 
 const COLONNES = `"codeExamen", "typeExamen", "libelle", "codeExamenClient",
-                  "typeExamenClient", "libelleClient", "performed",
-                  "ordoOblig", "examenInjecte", "listeAttenteActive"`;
+                  "codeExamenInjection", "typeExamenClient", "libelleClient",
+                  "performed", "ordoOblig", "examenInjecte", "listeAttenteActive"`;
 
 async function estCentreKonnect(userProductId: number): Promise<boolean> {
   const res = await db.query<{ id: number }>(
@@ -93,6 +94,13 @@ function versCatalogueKonnect(lignes: LigneMapping[]) {
     .filter((l) => l.performed && l.codeExamenClient.trim())
     .map((l) => ({
       examen_code: l.codeExamenClient.trim(),
+      // Le code de NOTRE referentiel. Konnect s'en sert pour retrouver l'examen
+      // pivot correspondant : `referentiel_pivot_examens.code_pivot` EST ce code
+      // (le pivot est genere depuis le meme classeur NEURACORP). C'est ce qui lui
+      // permet d'alimenter son mapping d'entonnoir sans que le Dashboard ait a
+      // connaitre ses UUID.
+      code_pivot: l.codeExamen,
+      code_ris_injection: l.codeExamenInjection.trim() || null,
       type_code: l.typeExamenClient.trim() || l.typeExamen || null,
       libelle: l.libelleClient.trim() || l.libelle || l.codeExamenClient.trim(),
       ordo_oblig: l.ordoOblig,
@@ -184,6 +192,7 @@ function normaliser(brut: any, index: number): LigneMapping {
     typeExamen: texte(brut?.typeExamen) || null,
     libelle: texte(brut?.libelle) || null,
     codeExamenClient: texte(brut?.codeExamenClient),
+    codeExamenInjection: texte(brut?.codeExamenInjection),
     typeExamenClient: texte(brut?.typeExamenClient),
     libelleClient: texte(brut?.libelleClient),
     performed: brut?.performed !== false,
@@ -272,15 +281,16 @@ export async function PUT(req: NextRequest) {
       await client.query(
         `INSERT INTO "KonnectExamens"
            ("userProductId", "codeExamen", "typeExamen", "libelle", "codeExamenClient",
-            "typeExamenClient", "libelleClient", "performed", "ordoOblig",
-            "examenInjecte", "listeAttenteActive")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+            "codeExamenInjection", "typeExamenClient", "libelleClient", "performed",
+            "ordoOblig", "examenInjecte", "listeAttenteActive")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
         [
           userProductId,
           l.codeExamen,
           l.typeExamen,
           l.libelle,
           l.codeExamenClient,
+          l.codeExamenInjection,
           l.typeExamenClient,
           l.libelleClient,
           l.performed,
