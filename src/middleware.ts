@@ -65,6 +65,9 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // catalogue de son centre, dont le Dashboard est propriétaire. Lecture par clé,
   // écriture réservée à une session (le handler refuse un PUT par clé).
   /^\/api\/konnect-examens$/,
+  // Sites du centre (lot C) : Konnect vient lire les adresses saisies par le
+  // client, que le RIS n'expose pas. Lecture par cle, ecriture par session.
+  /^\/api\/konnect-sites$/,
 ];
 
 function isPublicApi(pathname: string): boolean {
