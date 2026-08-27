@@ -20,6 +20,9 @@ import {
   IconMapPin,
   IconRoute,
   IconSortAscending,
+  IconArrowsJoin,
+  IconArrowsSplit,
+  IconClockHour4,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -300,6 +303,24 @@ export const KonnectMenuitems: SidebarItem[] = [
     title: "Ordre de l'entonnoir",
     icon: IconSortAscending,
     href: "/client/services/konnect/{KONNECT_ID}/ordre-entonnoir",
+  },
+  {
+    id: uniqueId(),
+    title: "Règles de fusion",
+    icon: IconArrowsJoin,
+    href: "/client/services/konnect/{KONNECT_ID}/regles-fusion",
+  },
+  {
+    id: uniqueId(),
+    title: "Règles de coexistence",
+    icon: IconArrowsSplit,
+    href: "/client/services/konnect/{KONNECT_ID}/regles-coexistence",
+  },
+  {
+    id: uniqueId(),
+    title: "Ordre des créneaux",
+    icon: IconClockHour4,
+    href: "/client/services/konnect/{KONNECT_ID}/ordre-creneaux",
   },
 
   { navlabel: true, subheader: "Assistance" },
