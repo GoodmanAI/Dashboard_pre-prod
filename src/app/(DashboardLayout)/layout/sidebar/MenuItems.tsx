@@ -19,6 +19,7 @@ import {
   IconListDetails,
   IconMapPin,
   IconRoute,
+  IconSortAscending,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -293,6 +294,12 @@ export const KonnectMenuitems: SidebarItem[] = [
     title: "Modes de traitement",
     icon: IconRoute,
     href: "/client/services/konnect/{KONNECT_ID}/modes-traitement",
+  },
+  {
+    id: uniqueId(),
+    title: "Ordre de l'entonnoir",
+    icon: IconSortAscending,
+    href: "/client/services/konnect/{KONNECT_ID}/ordre-entonnoir",
   },
 
   { navlabel: true, subheader: "Assistance" },
