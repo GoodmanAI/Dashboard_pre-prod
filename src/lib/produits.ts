@@ -85,9 +85,9 @@ export const PRODUITS: Record<SlugProduit, Produit> = {
     segment: "talk",
     description: "Prise de rendez-vous par téléphone",
     logos: {
-      lockup: "/images/lyraetalk-lockup-symbole-nom-couleur.svg",
-      symbole: "/images/lyraetalk-symbole-couleur.svg",
-      icone: "/images/lyraetalk-icone-app-512.svg",
+      lockup: "/images/logos/produits/lyraetalk-lockup-symbole-nom-couleur.svg",
+      symbole: "/images/logos/produits/lyraetalk-symbole-couleur.svg",
+      icone: "/images/logos/produits/lyraetalk-icone-app-512.svg",
     },
     interface: {
       principal: "/images/logos/neuracorp_logo.png",
@@ -102,13 +102,13 @@ export const PRODUITS: Record<SlugProduit, Produit> = {
     segment: "konnect",
     description: "Prise de rendez-vous en ligne",
     logos: {
-      lockup: "/images/lyraekonnect-lockup-symbole-nom-couleur.svg",
-      symbole: "/images/lyraekonnect-symbole-couleur.svg",
-      icone: "/images/lyraekonnect-icone-app-512.svg",
+      lockup: "/images/logos/produits/lyraekonnect-lockup-symbole-nom-couleur.svg",
+      symbole: "/images/logos/produits/lyraekonnect-symbole-couleur.svg",
+      icone: "/images/logos/produits/lyraekonnect-icone-app-512.svg",
     },
     interface: {
-      principal: "/images/logo_principal_konnect.png",
-      profil: "/images/logo_profil_konnect.png",
+      principal: "/images/logos/logo_principal_konnect.png",
+      profil: "/images/logos/logo_profil_konnect.png",
     },
     accent: { principal: "#1268C4", press: "#0D5099", deep: "#10396B" },
   },
