@@ -23,9 +23,18 @@
 `GET /api/konnect-configuration?userProductId=NN` (ou `?tenantId=<uuid>`),
 `GET /api/product-config?userProductId=NN&domaine=X`,
 `GET /api/konnect-examens?userProductId=NN`,
-`GET /api/konnect-sites?userProductId=NN`.
+`GET /api/konnect-sites?userProductId=NN`,
+`GET /api/konnect-modes-traitement?userProductId=NN`.
 Toutes en **lecture seule** : le `PUT` de ces routes refuse un appel par clé, la
 configuration se pilote depuis le Dashboard.
+
+⚠️ **`konnect-modes-traitement` : une table vide vaut « le patient réserve seul ».**
+Ne jamais inverser ce défaut. Un centre dont la configuration ne remonte pas reste
+ouvert ; un défaut « relecture » ou « orientation directe » bloquerait en silence
+tous les rendez-vous d'un centre mal configuré. Les valeurs de `mode` et les cinq
+familles sont des énumérations partagées avec Konnect (`app/modes/schema.py`,
+`app/questionnaire/schema.py`) : en renommer une casse la résolution du mode à
+distance, sans erreur visible.
 
 Clé **distincte de `BOT_API_KEY`** : la réutiliser rendrait Konnect et LyraeTalk
 indistinguables dans les logs d'audit, dont le format est consommé par Grafana.

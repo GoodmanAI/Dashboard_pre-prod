@@ -68,6 +68,10 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // Sites du centre (lot C) : Konnect vient lire les adresses saisies par le
   // client, que le RIS n'expose pas. Lecture par cle, ecriture par session.
   /^\/api\/konnect-sites$/,
+  // Mode de traitement des demandes (lot D) : Konnect vient lire ce que le client
+  // a regle par famille d'examens et par examen. Lecture par cle, ecriture par
+  // session.
+  /^\/api\/konnect-modes-traitement$/,
 ];
 
 function isPublicApi(pathname: string): boolean {

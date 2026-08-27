@@ -18,6 +18,7 @@ import {
   IconRocket,
   IconListDetails,
   IconMapPin,
+  IconRoute,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -286,6 +287,12 @@ export const KonnectMenuitems: SidebarItem[] = [
     title: "Sites",
     icon: IconMapPin,
     href: "/client/services/konnect/{KONNECT_ID}/sites",
+  },
+  {
+    id: uniqueId(),
+    title: "Modes de traitement",
+    icon: IconRoute,
+    href: "/client/services/konnect/{KONNECT_ID}/modes-traitement",
   },
 
   { navlabel: true, subheader: "Assistance" },
