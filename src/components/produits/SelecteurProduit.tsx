@@ -56,10 +56,42 @@ export default function SelecteurProduit() {
   const estAdmin =
     session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN";
 
+  // Le `userProductId` porté par l'URL, quand il y en a un. Deux formes existent :
+  // `/client/services/{produit}/{id}/…` et `/admin/clients/{id}/…`. Les deux
+  // désignent un centre POUR UN PRODUIT, jamais le client lui-même.
+  const userProductIdUrl = useMemo(() => {
+    const parts = pathname?.split("/") ?? [];
+    const brut =
+      parts[1] === "client" && parts[2] === "services" ? parts[4] : parts[1] === "admin" && parts[2] === "clients" ? parts[3] : null;
+    const n = Number(brut);
+    return brut && Number.isFinite(n) && n > 0 ? n : null;
+  }, [pathname]);
+
   useEffect(() => {
-    // Le sélecteur est une affaire de client : un admin navigue par centre, via
-    // /admin/clients/{userProductId}, pas par produit.
-    if (status !== "authenticated" || estAdmin) return;
+    if (status !== "authenticated") return;
+
+    // ADMIN. Il navigue par centre, pas par produit : sur une page de client, le
+    // sélecteur doit montrer les produits DE CE CLIENT, pas les siens. Hors d'une
+    // page de client (overview, réglages, installation), il n'y a aucun centre en
+    // vue et le sélecteur n'a rien à proposer.
+    if (estAdmin) {
+      if (userProductIdUrl === null) {
+        setProduits([]);
+        return;
+      }
+      fetch(`/api/admin/produits-du-centre?userProductId=${userProductIdUrl}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          const liste: ProduitClient[] = Array.isArray(data?.produits) ? data.produits : [];
+          liste.sort(
+            (a, b) => ORDRE_PRODUITS.indexOf(a.slug) - ORDRE_PRODUITS.indexOf(b.slug)
+          );
+          setProduits(liste);
+        })
+        .catch(() => setProduits([]));
+      return;
+    }
+
     const userId = session?.user?.id;
     if (!userId) return;
 
@@ -87,12 +119,21 @@ export default function SelecteurProduit() {
         setProduits(resolus);
       })
       .catch(() => setProduits([]));
-  }, [status, estAdmin, session?.user?.id]);
+  }, [status, estAdmin, session?.user?.id, userProductIdUrl]);
 
   const actif = useMemo(() => {
-    const segment = pathname?.split("/")[3];
-    return produits.find((p) => PRODUITS[p.slug].segment === segment) ?? null;
-  }, [pathname, produits]);
+    const parts = pathname?.split("/") ?? [];
+    // `/client/services/{segment}/{id}` : le segment produit est le troisième.
+    const segment = parts[1] === "client" && parts[2] === "services" ? parts[3] : null;
+    if (segment) {
+      return produits.find((p) => PRODUITS[p.slug].segment === segment) ?? null;
+    }
+    // `/admin/clients/{id}` ne nomme aucun produit : ces écrans sont ceux de
+    // LyraeTalk, et c'est l'identifiant lui-même qui dit lequel des deux on
+    // regarde. Sans ça, le sélecteur afficherait « aucun produit » sur une page
+    // où l'on est manifestement dans un produit.
+    return produits.find((p) => p.userProductId === userProductIdUrl) ?? null;
+  }, [pathname, produits, userProductIdUrl]);
 
   useEffect(() => {
     if (actif) memoriserProduit(actif.slug);
