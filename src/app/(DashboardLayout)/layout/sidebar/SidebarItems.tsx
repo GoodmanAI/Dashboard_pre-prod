@@ -115,14 +115,26 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
   };
 
   /**
-   * Le produit affiché se déduit de l'URL — `/client/services/<segment>/…` —
-   * et non d'un état mémorisé : un lien partagé doit ouvrir le bon menu.
-   * Ne concerne que les clients ; un admin navigue par centre, pas par produit.
+   * Le produit affiché se déduit de l'URL et non d'un état mémorisé : un lien
+   * partagé doit ouvrir le bon menu.
+   *
+   * VAUT AUSSI POUR UN ADMIN depuis le 31/08/2026. Il navigue par centre, mais une
+   * fois DANS un centre il regarde forcément un produit : lui laisser le menu de
+   * LyraeTalk pendant qu'il consulte un portail Konnect n'a pas de sens, et c'est
+   * ce qui l'obligeait à connaître les chemins de mémoire.
+   *
+   * Deux formes d'URL, et la seconde ne nomme pas le produit :
+   * - `/client/services/{segment}/{id}` le nomme ;
+   * - `/admin/clients/{id}` ne le nomme pas, mais ces écrans SONT ceux du robot
+   *   vocal. C'est leur existence même qui dit lequel des deux on regarde.
    */
   const produitAffiche = (() => {
-    if (isAdmin) return null;
-    const segment = pathname?.split("/")[3];
-    return ORDRE_PRODUITS.find((slug) => PRODUITS[slug].segment === segment) ?? null;
+    const parts = pathname?.split("/") ?? [];
+    if (parts[1] === "client" && parts[2] === "services") {
+      return ORDRE_PRODUITS.find((slug) => PRODUITS[slug].segment === parts[3]) ?? null;
+    }
+    if (parts[1] === "admin" && parts[2] === "clients" && parts[3]) return "talk";
+    return null;
   })();
 
   /**
@@ -144,16 +156,35 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
   };
 
   /**
-   * Choix du menu :
-   * - ADMIN : `AdminMenuitems` (Admin + Client + Assistance).
-   * - CLIENT sur un segment Konnect : `KonnectMenuitems`.
-   * - CLIENT sinon : `Menuitems` classique (LyraeTalk).
+   * Les entrées PUREMENT administratives : tout ce qui précède la section
+   * « Client » d'`AdminMenuitems`. Ce menu mélange en effet les deux, et un admin
+   * qui regarde un portail Konnect doit garder ses pages à lui sans hériter de
+   * celles du robot vocal.
+   *
+   * Découpé sur le libellé de section plutôt que sur un index : ajouter une entrée
+   * admin ne doit pas casser ce partage.
    */
-  const sourceMenu: SideNavItem[] = isAdmin
-    ? AdminMenuitems
+  const entreesAdmin: SideNavItem[] = (() => {
+    const i = AdminMenuitems.findIndex(
+      (it: SideNavItem) => it.navlabel === true && it.subheader === "Client"
+    );
+    return i === -1 ? AdminMenuitems : AdminMenuitems.slice(0, i);
+  })();
+
+  /**
+   * Choix du menu, selon le rôle ET le produit regardé :
+   * - ADMIN hors d'un centre : `AdminMenuitems`, ses pages à lui.
+   * - ADMIN dans un centre Konnect : ses pages, puis celles du portail.
+   * - ADMIN dans un centre Talk : `AdminMenuitems`, qui les porte déjà.
+   * - CLIENT : le menu de son produit.
+   */
+  const sourceMenu: SideNavItem[] = !isAdmin
+    ? produitAffiche === "konnect"
+      ? KonnectMenuitems
+      : Menuitems
     : produitAffiche === "konnect"
-    ? KonnectMenuitems
-    : Menuitems;
+      ? [...entreesAdmin, ...KonnectMenuitems]
+      : AdminMenuitems;
 
   const filteredMenuItems = sourceMenu.filter((item: SideNavItem) => {
     // Items LYRAE (démos produits) : masqués pour tous les rôles par défaut.
