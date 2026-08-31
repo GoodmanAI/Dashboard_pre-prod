@@ -67,7 +67,9 @@ const Dashboard = () => {
     //     -> DASHBOARD (premier dans PAGE_PRIORITY) -> /client/services/talk/{talkId}
     //   - Sous-compte : premiere page cochee dans PAGE_PRIORITY
     // Logique unique = plus robuste que la double branche precedente.
-    const target = getFirstAccessiblePath(session?.user as any, talkId);
+    // L'URL porte le client depuis le chantier U : le `userId` de la session
+    // suffit, là où il fallait le `userProductId` du produit LyraeTalk.
+    const target = getFirstAccessiblePath(session?.user as any, userId ?? null);
     router.push(target ?? "/client");
   }, [session, status, router, talkId, productsLoaded]);
 

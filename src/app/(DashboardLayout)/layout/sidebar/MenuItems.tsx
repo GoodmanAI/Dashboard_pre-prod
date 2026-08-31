@@ -77,62 +77,62 @@ const Menuitems: SidebarItem[] = [
     id: uniqueId(),
     title: "Mapping des examens",
     icon: IconFilePencil,
-    href: "/client/services/talk/{TALK_ID}/parametrage/mapping_exam",
+    href: "/client/c/{USER_ID}/talk/parametrage/mapping_exam",
   },
   {
     id: uniqueId(),
     title: "Paramètres généraux",
     icon: IconSettings,
-    href: "/client/services/talk/{TALK_ID}/parametrage",
+    href: "/client/c/{USER_ID}/talk/parametrage",
   },
   {
     id: uniqueId(),
     title: "Module informationnel",
     icon: IconQuestionMark,
-    href: "/client/services/talk/{TALK_ID}/informationnel",
+    href: "/client/c/{USER_ID}/talk/informationnel",
   },
   {
     id: uniqueId(),
     title: "Questions par examen",
     icon: IconAdjustmentsAlt,
-    href: "/client/services/talk/{TALK_ID}/parametrage/questions_exam"
+    href: "/client/c/{USER_ID}/talk/parametrage/questions_exam"
   },
   { navlabel: true, subheader: "Statistiques" },
   {
     id: uniqueId(),
     title: "Liste des appels",
     icon: IconPhone,
-    href: "/client/services/talk/{TALK_ID}/calls",
+    href: "/client/c/{USER_ID}/talk/calls",
   },
   {
     id: uniqueId(),
     title: "Statistiques d'appels",
     icon: IconChartInfographic,
-    href: "/client/services/talk/{TALK_ID}/stats_appel",
+    href: "/client/c/{USER_ID}/talk/stats_appel",
   },
   {
     id: uniqueId(),
     title: "Examens non couverts",
     icon: IconCalendarOff,
-    href: "/client/services/talk/{TALK_ID}/planning-complet",
+    href: "/client/c/{USER_ID}/talk/planning-complet",
   },
   {
     id: uniqueId(),
     title: "Stats No-Show",
     icon: IconMessage2,
-    href: "/client/services/talk/{TALK_ID}/stats-no-show",
+    href: "/client/c/{USER_ID}/talk/stats-no-show",
   },
   {
     id: uniqueId(),
     title: "Ordonnances manquantes",
     icon: IconFileAlert,
-    href: "/client/services/talk/{TALK_ID}/ordonnances-manquantes",
+    href: "/client/c/{USER_ID}/talk/ordonnances-manquantes",
   },
   {
     id: uniqueId(),
     title: "Incidents",
     icon: IconAlertTriangle,
-    href: "/client/services/talk/{TALK_ID}/incidents",
+    href: "/client/c/{USER_ID}/talk/incidents",
   },
   // {
   //   id: uniqueId(),
@@ -160,8 +160,13 @@ const Menuitems: SidebarItem[] = [
 /**
  * Menu dédié aux ADMIN : 2 catégories (Admin / Client).
  * - Section "Admin" : pages globales admin (overview, actions).
- * - Section "Client" : pages relatives au centre sélectionné (les `{TALK_ID}` sont résolus
- *   en URL `/admin/clients/{userProductId}/...` par `SidebarItems`).
+ * - Section "Client" : pages relatives au centre sélectionné (les `{USER_ID}` sont
+ *   résolus par `SidebarItems`).
+ *
+ * Ces entrées pointent vers `/client/c/...`, la même adresse que celle du client,
+ * et non plus vers un `/admin/clients/...` qui n'était qu'un ré-export des mêmes
+ * écrans. Ce qu'un admin voit de plus lui vient de sa session et de ce menu, pas
+ * de son URL.
  */
 export const AdminMenuitems: SidebarItem[] = [
   { navlabel: true, subheader: "Admin" },
@@ -206,61 +211,61 @@ export const AdminMenuitems: SidebarItem[] = [
     id: uniqueId(),
     title: "Mapping des examens",
     icon: IconFilePencil,
-    href: "/client/services/talk/{TALK_ID}/parametrage/mapping_exam",
+    href: "/client/c/{USER_ID}/talk/parametrage/mapping_exam",
   },
   {
     id: uniqueId(),
     title: "Paramètres généraux",
     icon: IconSettings,
-    href: "/client/services/talk/{TALK_ID}/parametrage",
+    href: "/client/c/{USER_ID}/talk/parametrage",
   },
   {
     id: uniqueId(),
     title: "Module informationnel",
     icon: IconQuestionMark,
-    href: "/client/services/talk/{TALK_ID}/informationnel",
+    href: "/client/c/{USER_ID}/talk/informationnel",
   },
   {
     id: uniqueId(),
     title: "Questions par examen",
     icon: IconAdjustmentsAlt,
-    href: "/client/services/talk/{TALK_ID}/parametrage/questions_exam",
+    href: "/client/c/{USER_ID}/talk/parametrage/questions_exam",
   },
   {
     id: uniqueId(),
     title: "Liste des appels",
     icon: IconPhone,
-    href: "/client/services/talk/{TALK_ID}/calls",
+    href: "/client/c/{USER_ID}/talk/calls",
   },
   {
     id: uniqueId(),
     title: "Statistiques d'appels",
     icon: IconChartInfographic,
-    href: "/client/services/talk/{TALK_ID}/stats_appel",
+    href: "/client/c/{USER_ID}/talk/stats_appel",
   },
   {
     id: uniqueId(),
     title: "Examens non couverts",
     icon: IconCalendarOff,
-    href: "/client/services/talk/{TALK_ID}/planning-complet",
+    href: "/client/c/{USER_ID}/talk/planning-complet",
   },
   {
     id: uniqueId(),
     title: "Stats No-Show",
     icon: IconMessage2,
-    href: "/client/services/talk/{TALK_ID}/stats-no-show",
+    href: "/client/c/{USER_ID}/talk/stats-no-show",
   },
   {
     id: uniqueId(),
     title: "Ordonnances manquantes",
     icon: IconFileAlert,
-    href: "/client/services/talk/{TALK_ID}/ordonnances-manquantes",
+    href: "/client/c/{USER_ID}/talk/ordonnances-manquantes",
   },
   {
     id: uniqueId(),
     title: "Incidents",
     icon: IconAlertTriangle,
-    href: "/client/services/talk/{TALK_ID}/incidents",
+    href: "/client/c/{USER_ID}/talk/incidents",
   },
 
   { navlabel: true, subheader: "Assistance" },

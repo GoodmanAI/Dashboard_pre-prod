@@ -4,7 +4,14 @@ import { ORDRE_PRODUITS, PRODUITS, SlugProduit } from "@/lib/produits";
  * La forme des URL d'écran, et les deux seules fonctions qui la connaissent
  * (lot U1).
  *
- * `/client/c/{userId}/{produit}/...` et `/admin/c/{userId}/{produit}/...`
+ * `/client/c/{userId}/{produit}/...`
+ *
+ * UNE SEULE FORME POUR LES DEUX RÔLES. Les écrans d'un centre vivaient en double,
+ * `/client/services/talk/{id}` pour le client et `/admin/clients/{id}` pour
+ * l'administrateur, les seconds n'étant que des ré-exports des premiers. Rien dans
+ * le rendu ne dépendait du préfixe : seuls deux constructeurs de chemins le
+ * lisaient, pour reproduire une distinction dont personne d'autre ne se servait.
+ * Ce qu'un admin voit de plus vient de sa session et de son menu, pas de son URL.
  *
  * POURQUOI CE FICHIER EST À PART. Ces deux fonctions sont pures et servent aussi
  * bien à des hooks qu'à des composants, dont `useProduitActif`, appelé par toute
@@ -22,12 +29,12 @@ import { ORDRE_PRODUITS, PRODUITS, SlugProduit } from "@/lib/produits";
  * le Dashboard n'a aucun test pour rattraper ça. Avec une forme différente, elle
  * donne un 404 visible. C'est la raison d'être du préfixe.
  */
-const CHEMIN_CENTRE = /^\/(?:client|admin)\/c\/(\d+)\/([a-z]+)(?:\/|$)/;
+const CHEMIN_CENTRE = /^\/client\/c\/(\d+)\/([a-z]+)(?:\/|$)/;
 
 /** Ce que l'URL dit du centre et du produit. Aucun appel réseau. */
 export function lireCheminCentre(
   pathname: string | null | undefined
-): { userId: number; produit: SlugProduit; espace: "client" | "admin" } | null {
+): { userId: number; produit: SlugProduit } | null {
   const m = (pathname ?? "").match(CHEMIN_CENTRE);
   if (!m) return null;
 
@@ -37,22 +44,17 @@ export function lireCheminCentre(
   const slug = ORDRE_PRODUITS.find((s) => PRODUITS[s].segment === m[2]);
   if (!slug) return null;
 
-  return {
-    userId,
-    produit: slug,
-    espace: pathname!.startsWith("/admin/") ? "admin" : "client",
-  };
+  return { userId, produit: slug };
 }
 
 /** L'URL d'un écran, pour un client et un produit donnés. */
 export function cheminCentre(
   userId: number,
   produit: SlugProduit,
-  sousChemin = "",
-  espace: "client" | "admin" = "client"
+  sousChemin = ""
 ): string {
   const suffixe = sousChemin.replace(/^\/+/, "");
-  const base = `/${espace}/c/${userId}/${PRODUITS[produit].segment}`;
+  const base = `/client/c/${userId}/${PRODUITS[produit].segment}`;
   return suffixe ? `${base}/${suffixe}` : base;
 }
 
@@ -68,7 +70,7 @@ export function cheminCentre(
  * Cette liste est le seul endroit qui sait où on en est. Elle grandit d'un
  * produit à chaque lot, et disparaît au dernier (U6) avec `cheminProduit`.
  */
-export const PRODUITS_MIGRES: SlugProduit[] = ["konnect"];
+export const PRODUITS_MIGRES: SlugProduit[] = ["konnect", "talk"];
 
 /**
  * L'URL d'accueil d'un produit, dans la forme qui existe vraiment pour lui.

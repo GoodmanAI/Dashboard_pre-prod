@@ -23,20 +23,27 @@ const PATH_MATCHERS: Array<{ pattern: RegExp; page: PageKey }> = [
   { pattern: /^\/client\/ticket(?:\/|$)/, page: PAGES.TICKETS },
   { pattern: /^\/admin\/ticket(?:\/|$)/, page: PAGES.TICKETS },
 
-  // Talk sous-sections
-  { pattern: /\/services\/talk\/\d+\/parametrage\/mapping_exam(?:\/|$)/, page: PAGES.MAPPING_EXAM },
-  { pattern: /\/services\/talk\/\d+\/parametrage\/questions_exam(?:\/|$)/, page: PAGES.QUESTIONS_EXAM },
-  { pattern: /\/services\/talk\/\d+\/parametrage(?:\/|$)/, page: PAGES.PARAMETRAGE },
-  { pattern: /\/services\/talk\/\d+\/informationnel(?:\/|$)/, page: PAGES.INFORMATIONNEL },
-  { pattern: /\/services\/talk\/\d+\/planning-complet(?:\/|$)/, page: PAGES.PLANNING_COMPLET },
-  { pattern: /\/services\/talk\/\d+\/ordonnances-manquantes(?:\/|$)/, page: PAGES.ORDONNANCES },
-  { pattern: /\/services\/talk\/\d+\/incidents(?:\/|$)/, page: PAGES.INCIDENTS },
-  { pattern: /\/services\/talk\/\d+\/stats-no-show(?:\/|$)/, page: PAGES.STATS_NO_SHOW },
-  { pattern: /\/services\/talk\/\d+\/stats_appel(?:\/|$)/, page: PAGES.STATS_APPEL },
-  { pattern: /\/services\/talk\/\d+\/calls(?:\/|$)/, page: PAGES.CALLS },
+  // Talk sous-sections.
+  //
+  // `(?:\d+\/)?` couvre LES DEUX FORMES D'URL, et ce n'est pas une commodité :
+  // `/client/services/talk/23/parametrage` place l'identifiant AVANT la section,
+  // `/client/c/8/talk/parametrage` le place avant le produit. Un motif qui ne
+  // reconnaîtrait que l'ancienne renverrait `null` sur les nouvelles, et un
+  // chemin inconnu LAISSE PASSER (voir `getPageFromPathname`) : les permissions
+  // par page cesseraient d'être appliquées sans que rien ne le signale.
+  { pattern: /\/talk\/(?:\d+\/)?parametrage\/mapping_exam(?:\/|$)/, page: PAGES.MAPPING_EXAM },
+  { pattern: /\/talk\/(?:\d+\/)?parametrage\/questions_exam(?:\/|$)/, page: PAGES.QUESTIONS_EXAM },
+  { pattern: /\/talk\/(?:\d+\/)?parametrage(?:\/|$)/, page: PAGES.PARAMETRAGE },
+  { pattern: /\/talk\/(?:\d+\/)?informationnel(?:\/|$)/, page: PAGES.INFORMATIONNEL },
+  { pattern: /\/talk\/(?:\d+\/)?planning-complet(?:\/|$)/, page: PAGES.PLANNING_COMPLET },
+  { pattern: /\/talk\/(?:\d+\/)?ordonnances-manquantes(?:\/|$)/, page: PAGES.ORDONNANCES },
+  { pattern: /\/talk\/(?:\d+\/)?incidents(?:\/|$)/, page: PAGES.INCIDENTS },
+  { pattern: /\/talk\/(?:\d+\/)?stats-no-show(?:\/|$)/, page: PAGES.STATS_NO_SHOW },
+  { pattern: /\/talk\/(?:\d+\/)?stats_appel(?:\/|$)/, page: PAGES.STATS_APPEL },
+  { pattern: /\/talk\/(?:\d+\/)?calls(?:\/|$)/, page: PAGES.CALLS },
 
   // Page racine talk (redirige generalement vers parametrage cote UI)
-  { pattern: /\/services\/talk\/\d+\/?$/, page: PAGES.DASHBOARD },
+  { pattern: /\/talk(?:\/\d+)?\/?$/, page: PAGES.DASHBOARD },
 
   // Dashboard racine
   { pattern: /^\/client\/?$/, page: PAGES.DASHBOARD },
@@ -56,12 +63,12 @@ export function getPageFromPathname(pathname: string): PageKey | null {
 }
 
 /**
- * Deduit la PageKey d'un href sidebar (peut contenir {TALK_ID} non resolu).
+ * Deduit la PageKey d'un href sidebar (peut contenir {USER_ID} non resolu).
  * Meme logique que getPageFromPathname mais tolere les placeholders.
  */
 export function getPageFromHref(href: string): PageKey | null {
-  // Remplace {TALK_ID} par un id fictif pour matcher les regex
-  return getPageFromPathname(href.replace("{TALK_ID}", "0"));
+  // Remplace {USER_ID} par un id fictif pour matcher les regex
+  return getPageFromPathname(href.replace("{USER_ID}", "0"));
 }
 
 /**
@@ -89,23 +96,25 @@ export const PAGE_PRIORITY: PageKey[] = [
 ];
 
 /**
- * Construit l'URL absolue d'une page pour un CLIENT ou sous-compte a partir
- * de la PageKey et de son talkId (userProductId LyraeTalk).
+ * Construit l'URL absolue d'une page a partir de la PageKey et du `userId` du
+ * client.
  *
- * Retourne null si la page necessite un talkId qui n'est pas fourni
- * (ex: ORDONNANCES sans talkId -> aucune URL possible).
+ * Retourne null si la page necessite un centre qui n'est pas fourni
+ * (ex: ORDONNANCES sans userId -> aucune URL possible).
  *
- * Note : pour les ADMIN/SUPER_ADMIN, le path est different (/admin/clients/...)
- * mais ce fallback n'a de sens que pour les CLIENT ; les admins tombent
- * naturellement sur /admin/overview via leur redirect racine.
+ * PRENAIT UN `talkId` (le userProductId LyraeTalk) jusqu'au chantier U du
+ * 31/08/2026. Les appelants devaient donc charger les produits du client avant
+ * de pouvoir construire la moindre redirection ; le `userId` de la session
+ * suffit desormais. La distinction admin / client a disparu en meme temps : les
+ * deux roles partagent la meme adresse.
  */
 export function getClientPathForPage(
   page: PageKey,
-  talkId: number | null
+  userId: number | null
 ): string | null {
   if (page === PAGES.TICKETS) return "/client/ticket";
-  if (talkId == null) return null;
-  const base = `/client/services/talk/${talkId}`;
+  if (userId == null) return null;
+  const base = `/client/c/${userId}/talk`;
   switch (page) {
     case PAGES.DASHBOARD:
       return base;
@@ -144,11 +153,11 @@ export function getClientPathForPage(
  */
 export function getFirstAccessiblePath(
   subject: PermissionSubject,
-  talkId: number | null
+  userId: number | null
 ): string | null {
   for (const page of PAGE_PRIORITY) {
     if (!hasPermission(subject, page, "read")) continue;
-    const url = getClientPathForPage(page, talkId);
+    const url = getClientPathForPage(page, userId);
     if (url) return url;
   }
   return null;

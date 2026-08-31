@@ -49,6 +49,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
+import { cheminCentre } from "@/lib/cheminsCentre";
 import { useCentre, ManagedUser } from "@/app/context/CentreContext";
 import DateRangePresets from "@/components/DateRangePresets";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
@@ -263,7 +264,7 @@ function CentreTodayCard({
     <Card
       elevation={1}
       onClick={() =>
-        router.push(`/admin/clients/${centre.userProductId}/stats_appel`)
+        router.push(cheminCentre(centre.id, "talk", "stats_appel"))
       }
       sx={{
         p: 3,
