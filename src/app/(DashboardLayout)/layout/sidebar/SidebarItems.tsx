@@ -11,7 +11,8 @@ import { useCentre } from "@/app/context/CentreContext";
 import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
 import { hasPermission } from "@/lib/permissions";
 import { getPageFromHref } from "@/lib/pageAccess";
-import { trouverProduit, ORDRE_PRODUITS, PRODUITS } from "@/lib/produits";
+import { trouverProduit, ORDRE_PRODUITS, PRODUITS, type SlugProduit } from "@/lib/produits";
+import { lireCheminCentre } from "@/lib/cheminsCentre";
 
 /** Modèle minimal d’un item de menu latéral. */
 type SideNavItem = {
@@ -123,12 +124,17 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
    * LyraeTalk pendant qu'il consulte un portail Konnect n'a pas de sens, et c'est
    * ce qui l'obligeait à connaître les chemins de mémoire.
    *
-   * Deux formes d'URL, et la seconde ne nomme pas le produit :
-   * - `/client/services/{segment}/{id}` le nomme ;
+   * Trois formes d'URL, et la dernière ne nomme pas le produit :
+   * - `/client/c/{userId}/{segment}` le nomme (forme cible du chantier U) ;
+   * - `/client/services/{segment}/{id}` le nomme aussi (forme historique, encore
+   *   celle de LyraeTalk) ;
    * - `/admin/clients/{id}` ne le nomme pas, mais ces écrans SONT ceux du robot
    *   vocal. C'est leur existence même qui dit lequel des deux on regarde.
    */
-  const produitAffiche = (() => {
+  const produitAffiche: SlugProduit | null = (() => {
+    const cible = lireCheminCentre(pathname);
+    if (cible) return cible.produit;
+
     const parts = pathname?.split("/") ?? [];
     if (parts[1] === "client" && parts[2] === "services") {
       return ORDRE_PRODUITS.find((slug) => PRODUITS[slug].segment === parts[3]) ?? null;
@@ -138,21 +144,27 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
   })();
 
   /**
-   * Résout le href d'un item contenant `{KONNECT_ID}`.
+   * Résout le href d'un item contenant `{USER_ID}`.
    *
-   * Le `userProductId` cherché est celui du produit LyraeKonnect, PAS celui de
-   * LyraeTalk : ce sont deux lignes distinctes de `UserProduct`. On le lit en
-   * priorité dans l'URL courante, qui le porte déjà et reste vraie même quand
-   * le fetch des produits n'a pas encore répondu.
+   * ON CHERCHE LE CLIENT, plus son affiliation à un produit. C'est tout le gain du
+   * chantier U : il n'y a plus qu'un identifiant à trouver, le même quel que soit
+   * le produit, alors qu'il fallait avant distinguer la ligne `UserProduct` de
+   * Konnect de celle de Talk sous peine d'envoyer sur le mauvais produit.
+   *
+   * Trois sources, dans cet ordre :
+   * 1. l'URL, qui le porte déjà et reste vraie avant même que le moindre fetch
+   *    n'ait répondu ;
+   * 2. le centre sélectionné, pour un admin qui arrive par une page `/admin/…` ;
+   * 3. la session, pour un client, dont le `userId` est le sien.
    */
-  const resolveKonnectHref = (rawHref: string): string | null => {
-    const depuisUrl = pathname?.split("/")[4];
-    if (depuisUrl && /^\d+$/.test(depuisUrl)) {
-      return rawHref.replace("{KONNECT_ID}", depuisUrl);
-    }
-    const konnect: any = trouverProduit<any>(products, "konnect");
-    if (!konnect) return null;
-    return rawHref.replace("{KONNECT_ID}", String(konnect.id));
+  const resolveUserIdHref = (rawHref: string): string | null => {
+    const userId =
+      lireCheminCentre(pathname)?.userId ??
+      selectedCentre?.id ??
+      session?.user?.id ??
+      null;
+    if (userId === null) return null;
+    return rawHref.replace("{USER_ID}", String(userId));
   };
 
   /**
@@ -220,7 +232,8 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
    * Résolution de la destination des liens dépendants du rôle :
    * - "Dashboard" → /admin ou /client
    * - "Support" → /admin/ticket ou /client/ticket
-   * - Items `{TALK_ID}` → résolus via `resolveTalkHref`
+   * - Items `{TALK_ID}` → résolus via `resolveTalkHref` (URL par produit)
+   * - Items `{USER_ID}` → résolus via `resolveUserIdHref` (URL par client)
    * - Autres → href statique tel que défini dans MenuItems
    */
   const getDynamicHref = (item: SideNavItem): string | null | undefined => {
@@ -235,8 +248,8 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
     if (item.href?.includes("{TALK_ID}")) {
       return resolveTalkHref(item.href);
     }
-    if (item.href?.includes("{KONNECT_ID}")) {
-      return resolveKonnectHref(item.href);
+    if (item.href?.includes("{USER_ID}")) {
+      return resolveUserIdHref(item.href);
     }
     return item.href;
   };

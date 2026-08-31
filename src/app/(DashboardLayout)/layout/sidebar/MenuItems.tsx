@@ -275,10 +275,13 @@ export const AdminMenuitems: SidebarItem[] = [
 /**
  * Menu du produit LyraeKonnect (étape 5 du chantier multi-produit).
  *
- * `{KONNECT_ID}` est résolu par `SidebarItems` avec le `userProductId` du
- * centre POUR CE PRODUIT — une autre ligne de `UserProduct` que celle de
- * LyraeTalk, donc un autre identifiant. Confondre les deux enverrait le client
- * sur la configuration d'un produit qu'il ne regarde pas.
+ * `{USER_ID}` est résolu par `SidebarItems` avec l'identifiant du CLIENT.
+ *
+ * Ces liens portaient le `userProductId`, l'affiliation du client à ce produit,
+ * qui n'est pas la même ligne de `UserProduct` que celle de LyraeTalk : les
+ * confondre envoyait sur la configuration du produit qu'on ne regarde pas. Depuis
+ * le chantier U (une URL par client, 31/08/2026), l'URL porte le client et le
+ * produit est un segment, ce qui rend la confusion impossible.
  *
  * Volontairement court : le portail patient n'a qu'un écran de configuration
  * pour l'instant. Le pilotage arrive à l'étape 7, les files opérationnelles à
@@ -291,49 +294,49 @@ export const KonnectMenuitems: SidebarItem[] = [
     id: uniqueId(),
     title: "Paramètres du portail",
     icon: IconSettings,
-    href: "/client/services/konnect/{KONNECT_ID}/parametrage",
+    href: "/client/c/{USER_ID}/konnect/parametrage",
   },
   {
     id: uniqueId(),
     title: "Mapping d'examens",
     icon: IconListDetails,
-    href: "/client/services/konnect/{KONNECT_ID}/examens",
+    href: "/client/c/{USER_ID}/konnect/examens",
   },
   {
     id: uniqueId(),
     title: "Sites",
     icon: IconMapPin,
-    href: "/client/services/konnect/{KONNECT_ID}/sites",
+    href: "/client/c/{USER_ID}/konnect/sites",
   },
   {
     id: uniqueId(),
     title: "Modes de traitement",
     icon: IconRoute,
-    href: "/client/services/konnect/{KONNECT_ID}/modes-traitement",
+    href: "/client/c/{USER_ID}/konnect/modes-traitement",
   },
   {
     id: uniqueId(),
     title: "Ordre de l'entonnoir",
     icon: IconSortAscending,
-    href: "/client/services/konnect/{KONNECT_ID}/ordre-entonnoir",
+    href: "/client/c/{USER_ID}/konnect/ordre-entonnoir",
   },
   {
     id: uniqueId(),
     title: "Règles de fusion",
     icon: IconArrowsJoin,
-    href: "/client/services/konnect/{KONNECT_ID}/regles-fusion",
+    href: "/client/c/{USER_ID}/konnect/regles-fusion",
   },
   {
     id: uniqueId(),
     title: "Règles de coexistence",
     icon: IconArrowsSplit,
-    href: "/client/services/konnect/{KONNECT_ID}/regles-coexistence",
+    href: "/client/c/{USER_ID}/konnect/regles-coexistence",
   },
   {
     id: uniqueId(),
     title: "Ordre des créneaux",
     icon: IconClockHour4,
-    href: "/client/services/konnect/{KONNECT_ID}/ordre-creneaux",
+    href: "/client/c/{USER_ID}/konnect/ordre-creneaux",
   },
 
   { navlabel: true, subheader: "Assistance" },

@@ -19,6 +19,7 @@ import {
 import { IconCheck, IconAlertTriangle, IconArrowRight, IconPlus } from "@tabler/icons-react";
 import Link from "next/link";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
+import { cheminCentre } from "@/lib/cheminsCentre";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { PRODUITS } from "@/lib/produits";
 
@@ -517,7 +518,7 @@ export default function InstallationKonnect() {
                   : "Le portail tourne sur les valeurs par défaut."
               }
               detail={centre.telephoneSecretariat ?? undefined}
-              href={`/client/services/konnect/${centre.userProductId}/parametrage`}
+              href={cheminCentre(centre.userId, "konnect", "parametrage")}
             />
 
             <BlocRenvoi
@@ -526,7 +527,7 @@ export default function InstallationKonnect() {
               fait={centre.examensAttribues > 0}
               manque="Aucun examen n'a de code : le patient ne pourra rien réserver."
               detail={`${centre.examensAttribues} examens sur ${centre.examensTotal}`}
-              href={`/client/services/konnect/${centre.userProductId}/examens`}
+              href={cheminCentre(centre.userId, "konnect", "examens")}
             />
 
             <BlocRenvoi
@@ -535,7 +536,7 @@ export default function InstallationKonnect() {
               fait={centre.sites > 0}
               manque="Le patient ne saura pas où se présenter."
               detail={`${centre.sites} site${centre.sites > 1 ? "s" : ""}`}
-              href={`/client/services/konnect/${centre.userProductId}/sites`}
+              href={cheminCentre(centre.userId, "konnect", "sites")}
             />
           </>
         )}

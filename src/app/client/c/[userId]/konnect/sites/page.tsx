@@ -22,7 +22,7 @@ import {
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import AddIcon from "@mui/icons-material/Add";
-import { useParams } from "next/navigation";
+import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
@@ -87,8 +87,7 @@ function EnTete({
 }
 
 export default function SitesKonnect() {
-  const params = useParams();
-  const userProductId = Number(params?.id);
+  const { userProductId } = useCentreProduit();
 
   const [sites, setSites] = useState<Site[]>([]);
   const [initial, setInitial] = useState<Site[]>([]);

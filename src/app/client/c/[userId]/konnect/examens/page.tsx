@@ -22,7 +22,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useParams } from "next/navigation";
+import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import ExamTypeBadge, { EXAM_TYPE_SHORT } from "@/components/shared/ExamTypeBadge";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
@@ -172,8 +172,7 @@ function Case({
 }
 
 export default function MappingExamensKonnect() {
-  const params = useParams();
-  const userProductId = Number(params?.id);
+  const { userProductId } = useCentreProduit();
 
   const [lignes, setLignes] = useState<Ligne[]>([]);
   const [initial, setInitial] = useState<Ligne[]>([]);

@@ -2,7 +2,9 @@
 
 import React from "react";
 import { Box, Card, CardActionArea, Grid, Stack, Typography } from "@mui/material";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useCentreProduit } from "@/hooks/useCentreProduit";
+import { cheminCentre } from "@/lib/cheminsCentre";
 import {
   IconSettings,
   IconListDetails,
@@ -52,9 +54,8 @@ const RACCOURCIS: Raccourci[] = [
 ];
 
 export default function AccueilKonnect() {
-  const params = useParams();
   const router = useRouter();
-  const id = params?.id;
+  const { userId } = useCentreProduit();
 
   return (
     <PageContainer
@@ -81,7 +82,9 @@ export default function AccueilKonnect() {
                 }}
               >
                 <CardActionArea
-                  onClick={() => router.push(`/client/services/konnect/${id}/${chemin}`)}
+                  onClick={() =>
+                    userId !== null && router.push(cheminCentre(userId, "konnect", chemin))
+                  }
                   sx={{ p: 2.5, height: "100%" }}
                 >
                   <Stack direction="row" spacing={2} alignItems="flex-start">

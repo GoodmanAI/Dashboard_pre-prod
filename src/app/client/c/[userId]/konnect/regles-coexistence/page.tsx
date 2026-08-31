@@ -22,7 +22,7 @@ import {
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import AddIcon from "@mui/icons-material/Add";
-import { useParams } from "next/navigation";
+import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import ExamTypeBadge, { toExamTypeCode } from "@/components/shared/ExamTypeBadge";
@@ -91,8 +91,7 @@ const REGLE_VIDE: Regle = {
 };
 
 export default function ReglesCoexistenceKonnect() {
-  const params = useParams();
-  const userProductId = Number(params?.id);
+  const { userProductId } = useCentreProduit();
 
   const [regles, setRegles] = useState<Regle[]>([]);
   const [initial, setInitial] = useState<Regle[]>([]);

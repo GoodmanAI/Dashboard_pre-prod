@@ -13,7 +13,7 @@ import {
   Switch,
   Typography,
 } from "@mui/material";
-import { useParams } from "next/navigation";
+import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
@@ -82,8 +82,7 @@ function Reglage({
 }
 
 export default function OrdreCreneauxKonnect() {
-  const params = useParams();
-  const userProductId = Number(params?.id);
+  const { userProductId } = useCentreProduit();
 
   const [config, setConfig] = useState<Config>(DEFAUT);
   const [initial, setInitial] = useState<Config>(DEFAUT);

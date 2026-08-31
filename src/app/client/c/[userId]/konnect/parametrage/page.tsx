@@ -21,7 +21,7 @@ import {
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { useParams } from "next/navigation";
+import { useCentreProduit } from "@/hooks/useCentreProduit";
 import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elements/CustomTextField";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 
@@ -123,8 +123,7 @@ function Reglage({
 }
 
 export default function ParametrageKonnectPage() {
-  const params = useParams();
-  const userProductId = Number(params?.id);
+  const { userProductId } = useCentreProduit();
 
   const [config, setConfig] = useState<Config | null>(null);
   const [chargement, setChargement] = useState(true);

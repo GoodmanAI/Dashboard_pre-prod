@@ -16,7 +16,7 @@ import {
 } from "@mui/material";
 import { IconArrowUp, IconArrowDown, IconPinnedOff } from "@tabler/icons-react";
 import AddIcon from "@mui/icons-material/Add";
-import { useParams } from "next/navigation";
+import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import ExamTypeBadge, {
@@ -119,8 +119,7 @@ function deplacer<T>(liste: T[], index: number, delta: number): T[] {
 }
 
 export default function OrdreEntonnoirKonnect() {
-  const params = useParams();
-  const userProductId = Number(params?.id);
+  const { userProductId } = useCentreProduit();
 
   const [modalites, setModalites] = useState<string[]>(MODALITES_DEFAUT);
   const [epingles, setEpingles] = useState<string[]>([]);
