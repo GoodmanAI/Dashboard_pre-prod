@@ -16,30 +16,35 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { IconCheck, IconAlertTriangle, IconArrowRight, IconPlus } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconAlertTriangle,
+  IconArrowRight,
+  IconPlus,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { PRODUITS } from "@/lib/produits";
 
 /**
- * Installer un centre LyraeKonnect, de bout en bout (lots G6 et I1).
+ * Installer un centre LyraeTalk, de bout en bout (lot I2).
  *
- * CE QUE CETTE PAGE PORTE, ET CE QU'ELLE NE PORTE PAS. Elle installe : ce qui se
- * fait une fois, par l'équipe, pour qu'un centre existe et fonctionne. Le compte,
- * le rattachement du portail, le rattachement au logiciel du centre.
+ * Pendant de la page Konnect, même mécanique, mais les deux produits ne
+ * s'installent pas pareil et cette page ne cherche pas à les faire ressembler.
  *
- * Elle ne paramètre pas. Les réglages du portail, les examens, les sites changent
- * au fil de l'eau et appartiennent au client : ils sont affichés ici avec leur
- * état, et un renvoi vers l'écran qui les règle. Dupliquer ces formulaires ferait
- * deux endroits à maintenir pour la même chose.
+ * **LA DIFFÉRENCE QUI COMPTE : les codes centres.** Konnect rattache UN portail à un
+ * compte. Talk accepte N codes centres pour un même compte, un client pouvant
+ * exploiter plusieurs centres sous un seul contrat. La page gère donc une liste,
+ * pas un champ.
  *
- * La ligne de partage : fait une fois à l'installation, contre modifié au fil de
- * l'eau.
+ * Et ces codes sont la clé de jointure avec AI2Xplore : une faute de frappe n'y
+ * produit aucune erreur, les rendez-vous n'arrivent simplement jamais. Ils sont donc
+ * affichés en clair, pour être relus, plutôt que résumés par un compteur.
  *
- * AUCUNE ÉCRITURE DIRECTE. Chaque bloc appelle la route qui fait autorité, la même
- * que les écrans existants. On vient de fermer une double vérité côté Konnect, on
- * n'en ouvre pas une ici : deux vues du même endroit, pas deux endroits.
+ * Même partage que la page Konnect : on installe, on ne paramètre pas. Les réglages
+ * du robot, le mapping d'examens, les SMS, les ordonnances et la FAQ appartiennent
+ * au client et sont affichés avec un renvoi.
  */
 
 const INK = "#0F2A3F";
@@ -54,17 +59,15 @@ type Centre = {
   userId: number;
   clientNom: string | null;
   clientEmail: string | null;
-  tenantId: string | null;
-  aDesParametres: boolean;
+  codesCentres: string[];
+  numeros: string[];
+  aDesReglages: boolean;
+  botName: string | null;
   examensAttribues: number;
-  examensTotal: number;
-  sites: number;
-  telephoneSecretariat: string | null;
-  risBaseUrl: string | null;
-  risCodeSite: string | null;
+  aSmsConfirmation: boolean;
+  aDepotOrdonnances: boolean;
+  faq: number;
 };
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function Etat({ fait, children }: { fait: boolean; children: React.ReactNode }) {
   return (
@@ -90,7 +93,6 @@ function Etat({ fait, children }: { fait: boolean; children: React.ReactNode }) 
   );
 }
 
-/** Un bloc d'installation : son état, et de quoi le régler sur place. */
 function Bloc({
   numero,
   titre,
@@ -110,9 +112,7 @@ function Bloc({
         <Typography sx={{ fontSize: 12, color: INK_MUTED, minWidth: 16 }}>{numero}</Typography>
         <Etat fait={fait}>
           <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: INK }}>{titre}</Typography>
-          {!fait && (
-            <Typography sx={{ fontSize: 12, color: MANQUE }}>{manque}</Typography>
-          )}
+          {!fait && <Typography sx={{ fontSize: 12, color: MANQUE }}>{manque}</Typography>}
         </Etat>
       </Stack>
       {children}
@@ -120,7 +120,6 @@ function Bloc({
   );
 }
 
-/** Bloc en lecture seule : il appartient au client, on ne fait que le montrer. */
 function BlocRenvoi({
   numero,
   titre,
@@ -161,7 +160,7 @@ function BlocRenvoi({
   );
 }
 
-export default function InstallationKonnect() {
+export default function InstallationTalk() {
   const [centres, setCentres] = useState<Centre[]>([]);
   const [selection, setSelection] = useState<number | "">("");
   const [chargement, setChargement] = useState(true);
@@ -169,23 +168,18 @@ export default function InstallationKonnect() {
   const [message, setMessage] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
 
-  // Création d'un compte. `Product.name` n'est connu que de `produits.ts` : on
-  // résout son identifiant au chargement plutôt que de l'écrire en dur, sinon un
-  // renommage en base casserait la création sans la moindre erreur.
   const [produitId, setProduitId] = useState<number | null>(null);
   const [creation, setCreation] = useState(false);
   const [nom, setNom] = useState("");
   const [identifiant, setIdentifiant] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
 
-  // Saisies des blocs actionnables.
-  const [tenantId, setTenantId] = useState("");
-  const [risBaseUrl, setRisBaseUrl] = useState("");
-  const [risCodeSite, setRisCodeSite] = useState("");
+  const [nouveauCode, setNouveauCode] = useState("");
+  const [nouveauNumero, setNouveauNumero] = useState("");
 
   const recharger = useCallback(async (garder?: number) => {
     try {
-      const r = await fetch("/api/konnect-installation");
+      const r = await fetch("/api/talk-installation");
       if (!r.ok) throw new Error("Chargement impossible.");
       const d = await r.json();
       const liste: Centre[] = Array.isArray(d.centres) ? d.centres : [];
@@ -208,14 +202,12 @@ export default function InstallationKonnect() {
         const r = await fetch("/api/products");
         if (!r.ok) return;
         const liste = await r.json();
-        const konnect = (Array.isArray(liste) ? liste : []).find(
-          (p: { name?: string }) =>
-            (p.name ?? "").toLowerCase() === PRODUITS.konnect.nom.toLowerCase()
+        const talk = (Array.isArray(liste) ? liste : []).find(
+          (p: { name?: string }) => (p.name ?? "").toLowerCase() === PRODUITS.talk.nom.toLowerCase()
         );
-        if (konnect?.id) setProduitId(Number(konnect.id));
+        if (talk?.id) setProduitId(Number(talk.id));
       } catch {
-        // Sans identifiant produit, la création est simplement désactivée : le
-        // reste de la page fonctionne.
+        // Sans identifiant produit, seule la création est indisponible.
       }
     })();
   }, [recharger]);
@@ -225,12 +217,9 @@ export default function InstallationKonnect() {
     [centres, selection]
   );
 
-  // Les champs suivent le centre choisi : on n'édite jamais à l'aveugle une valeur
-  // qui appartient à un autre.
   useEffect(() => {
-    setTenantId(centre?.tenantId ?? "");
-    setRisBaseUrl(centre?.risBaseUrl ?? "");
-    setRisCodeSite(centre?.risCodeSite ?? "");
+    setNouveauCode("");
+    setNouveauNumero("");
   }, [centre]);
 
   async function appeler(url: string, methode: string, corps: unknown, succes: string) {
@@ -240,12 +229,12 @@ export default function InstallationKonnect() {
       const r = await fetch(url, {
         method: methode,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(corps),
+        body: corps === undefined ? undefined : JSON.stringify(corps),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error ?? "Enregistrement refusé.");
       setMessage(succes);
-      return data;
+      return data ?? {};
     } catch (e: any) {
       setErreur(e?.message ?? "Enregistrement impossible.");
       return null;
@@ -267,7 +256,7 @@ export default function InstallationKonnect() {
         isSecretary: false,
         centreRole: "ADMIN_USER",
       },
-      "Compte créé. Rattachez maintenant le portail."
+      "Compte créé. Ajoutez maintenant son code centre."
     );
     if (data) {
       setCreation(false);
@@ -278,36 +267,37 @@ export default function InstallationKonnect() {
     }
   }
 
-  async function rattacher() {
+  async function ajouterCode() {
     if (!centre) return;
     const ok = await appeler(
-      "/api/konnect-tenant-mapping",
+      "/api/external-center-mapping",
       "POST",
-      { userProductId: centre.userProductId, tenantId: tenantId.trim().toLowerCase() },
-      "Portail rattaché."
+      { userProductId: centre.userProductId, externalCenterCode: nouveauCode.trim() },
+      "Code centre ajouté."
     );
-    if (ok) await recharger(centre.userProductId);
+    if (ok) {
+      setNouveauCode("");
+      await recharger(centre.userProductId);
+    }
   }
 
-  async function enregistrerRis() {
+  async function ajouterNumero() {
     if (!centre) return;
     const ok = await appeler(
-      `/api/product-config?userProductId=${centre.userProductId}&domaine=konnect.ris-identite`,
-      "PUT",
-      {
-        valeur: {
-          base_url: risBaseUrl.trim().replace(/\/+$/, ""),
-          code_site: risCodeSite.trim(),
-        },
-      },
-      "Rattachement au logiciel du centre enregistré."
+      `/api/admin/number/${centre.userId}`,
+      "POST",
+      { number: nouveauNumero.trim() },
+      "Numéro ajouté."
     );
-    if (ok) await recharger(centre.userProductId);
+    if (ok) {
+      setNouveauNumero("");
+      await recharger(centre.userProductId);
+    }
   }
 
   if (chargement) {
     return (
-      <PageContainer title="Installation Konnect" description="Installer un centre">
+      <PageContainer title="Installation Talk" description="Installer un centre">
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress sx={{ color: "var(--accent)" }} />
         </Box>
@@ -315,15 +305,12 @@ export default function InstallationKonnect() {
     );
   }
 
-  const tenantValide = UUID_RE.test(tenantId.trim());
-  const risComplet = Boolean(risBaseUrl.trim()) && Boolean(risCodeSite.trim());
-
   return (
-    <PageContainer title="Installation Konnect" description="Installer un centre">
+    <PageContainer title="Installation Talk" description="Installer un centre">
       <Box>
         <SectionHeader
           title="Installation d'un centre"
-          subtitle="Ce qu'il faut faire une fois pour qu'un portail fonctionne"
+          subtitle="Ce qu'il faut faire une fois pour que le robot réponde"
         />
 
         {erreur && (
@@ -364,8 +351,7 @@ export default function InstallationKonnect() {
             <Box sx={{ mt: 2 }}>
               <Divider sx={{ mb: 2 }} />
               <Typography sx={{ fontSize: 12, color: INK_MUTED, mb: 1.5 }}>
-                Le compte est créé avec le produit LyraeKonnect déjà affilié. Le mot de
-                passe suit la politique du Dashboard, et le client pourra le changer.
+                Le compte est créé avec le produit LyraeTalk déjà affilié.
               </Typography>
               <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                 <TextField
@@ -416,90 +402,100 @@ export default function InstallationKonnect() {
           <>
             <Bloc
               numero={1}
-              titre="Rattachement du portail"
-              fait={Boolean(centre.tenantId)}
-              manque="Le portail ne sait pas à quel centre il parle. Rien d'autre ne s'appliquera."
+              titre="Codes centres"
+              fait={centre.codesCentres.length > 0}
+              manque="Aucun rendez-vous du robot n'arrivera jusqu'à ce centre."
             >
               <Typography sx={{ fontSize: 12, color: INK_MUTED, mb: 1.5 }}>
-                L&apos;identifiant technique du portail, communiqué à son installation. Il
-                relie ce compte au portail patient : sans lui, aucun réglage de cette page
-                n&apos;atteint le centre.
+                Le code de chaque centre dans le logiciel de gestion. Un compte peut en
+                exploiter plusieurs. <strong>Relisez-les</strong> : une faute de frappe ne
+                déclenche aucune erreur, les rendez-vous n&apos;arrivent simplement jamais.
               </Typography>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="flex-start">
+              {centre.codesCentres.length > 0 && (
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
+                  {centre.codesCentres.map((c) => (
+                    <Chip
+                      key={c}
+                      label={c}
+                      size="small"
+                      sx={{ fontFamily: "monospace", fontSize: 12.5 }}
+                    />
+                  ))}
+                </Stack>
+              )}
+              <Stack direction="row" spacing={2} alignItems="flex-start">
                 <TextField
                   size="small"
-                  fullWidth
-                  label="Identifiant du portail"
-                  placeholder="11111111-1111-1111-1111-111111111111"
-                  value={tenantId}
-                  error={tenantId.trim() !== "" && !tenantValide}
-                  helperText={
-                    tenantId.trim() !== "" && !tenantValide ? "Format attendu : un UUID." : " "
-                  }
-                  onChange={(e) => setTenantId(e.target.value)}
-                  sx={{ maxWidth: 420 }}
-                />
-                <Button
-                  variant="contained"
-                  disableElevation
-                  disabled={occupe || !tenantValide || tenantId.trim() === centre.tenantId}
-                  onClick={() => void rattacher()}
-                  sx={{ textTransform: "none", bgcolor: "var(--accent)", mt: 0.25 }}
-                >
-                  Rattacher
-                </Button>
-              </Stack>
-            </Bloc>
-
-            <Bloc
-              numero={2}
-              titre="Logiciel de gestion du centre"
-              fait={Boolean(centre.risBaseUrl && centre.risCodeSite)}
-              manque="Sans lui, aucun créneau ne peut être cherché ni réservé."
-            >
-              <Typography sx={{ fontSize: 12, color: INK_MUTED, mb: 1.5 }}>
-                L&apos;adresse de l&apos;instance et le code du site, communiqués par
-                l&apos;éditeur du logiciel. Les identifiants de connexion, eux, se
-                saisissent dans l&apos;espace technique du portail : ils ne sont pas
-                stockés ici.
-              </Typography>
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="flex-start">
-                <TextField
-                  size="small"
-                  fullWidth
-                  label="Adresse de l'instance"
-                  placeholder="https://…/api"
-                  value={risBaseUrl}
-                  onChange={(e) => setRisBaseUrl(e.target.value)}
-                />
-                <TextField
-                  size="small"
-                  label="Code du site"
-                  placeholder="N01"
-                  value={risCodeSite}
-                  onChange={(e) => setRisCodeSite(e.target.value)}
-                  sx={{ minWidth: 160 }}
+                  label="Ajouter un code centre"
+                  value={nouveauCode}
+                  onChange={(e) => setNouveauCode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && nouveauCode.trim()) void ajouterCode();
+                  }}
+                  sx={{ minWidth: 280 }}
                 />
                 <Button
                   variant="contained"
                   disableElevation
                   disabled={
                     occupe ||
-                    !risComplet ||
-                    (risBaseUrl.trim().replace(/\/+$/, "") === (centre.risBaseUrl ?? "") &&
-                      risCodeSite.trim() === (centre.risCodeSite ?? ""))
+                    !nouveauCode.trim() ||
+                    centre.codesCentres.includes(nouveauCode.trim())
                   }
-                  onClick={() => void enregistrerRis()}
+                  onClick={() => void ajouterCode()}
                   sx={{ textTransform: "none", bgcolor: "var(--accent)", mt: 0.25 }}
                 >
-                  Enregistrer
+                  Ajouter
                 </Button>
               </Stack>
-              <Alert severity="info" sx={{ mt: 2 }}>
-                La connexion reste éteinte tant qu&apos;elle n&apos;a pas été activée dans
-                l&apos;espace technique du portail. C&apos;est voulu : un rattachement saisi
-                ici ne déclenche jamais d&apos;appel vers le logiciel d&apos;un centre.
-              </Alert>
+            </Bloc>
+
+            <Bloc
+              numero={2}
+              titre="Numéro d'appel"
+              fait={centre.numeros.length > 0}
+              manque="Le robot n'a aucun numéro sur lequel répondre."
+            >
+              <Typography sx={{ fontSize: 12, color: INK_MUTED, mb: 1.5 }}>
+                Le numéro que les patients composent. C&apos;est lui qui identifie le centre
+                à l&apos;arrivée d&apos;un appel.
+              </Typography>
+              {centre.numeros.length > 0 && (
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
+                  {centre.numeros.map((n) => (
+                    <Chip
+                      key={n}
+                      label={n}
+                      size="small"
+                      sx={{ fontFamily: "monospace", fontSize: 12.5 }}
+                    />
+                  ))}
+                </Stack>
+              )}
+              <Stack direction="row" spacing={2} alignItems="flex-start">
+                <TextField
+                  size="small"
+                  label="Ajouter un numéro"
+                  placeholder="+33…"
+                  value={nouveauNumero}
+                  onChange={(e) => setNouveauNumero(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && nouveauNumero.trim()) void ajouterNumero();
+                  }}
+                  sx={{ minWidth: 280 }}
+                />
+                <Button
+                  variant="contained"
+                  disableElevation
+                  disabled={
+                    occupe || !nouveauNumero.trim() || centre.numeros.includes(nouveauNumero.trim())
+                  }
+                  onClick={() => void ajouterNumero()}
+                  sx={{ textTransform: "none", bgcolor: "var(--accent)", mt: 0.25 }}
+                >
+                  Ajouter
+                </Button>
+              </Stack>
             </Bloc>
 
             <Typography sx={{ fontSize: 12.5, color: INK_MUTED, mt: 3, mb: 1.5 }}>
@@ -509,60 +505,70 @@ export default function InstallationKonnect() {
 
             <BlocRenvoi
               numero={3}
-              titre="Paramètres du portail"
-              fait={centre.aDesParametres && Boolean(centre.telephoneSecretariat?.trim())}
-              manque={
-                centre.aDesParametres
-                  ? "Pas de numéro de secrétariat : un patient bloqué n'a personne à appeler."
-                  : "Le portail tourne sur les valeurs par défaut."
-              }
-              detail={centre.telephoneSecretariat ?? undefined}
-              href={`/client/services/konnect/${centre.userProductId}/parametrage`}
+              titre="Réglages du robot"
+              fait={centre.aDesReglages}
+              manque="Le robot tourne sur les valeurs par défaut."
+              detail={centre.botName ?? undefined}
+              href={`/client/services/talk/${centre.userProductId}/parametrage`}
             />
 
             <BlocRenvoi
               numero={4}
-              titre="Codes d'examens"
+              titre="Mapping d'examens"
               fait={centre.examensAttribues > 0}
-              manque="Aucun examen n'a de code : le patient ne pourra rien réserver."
-              detail={`${centre.examensAttribues} examens sur ${centre.examensTotal}`}
-              href={`/client/services/konnect/${centre.userProductId}/examens`}
+              manque="Aucun examen n'a de code : le robot ne pourra rien proposer."
+              detail={`${centre.examensAttribues} examens attribués`}
+              href={`/client/services/talk/${centre.userProductId}/parametrage/mapping_exam`}
             />
 
             <BlocRenvoi
               numero={5}
-              titre="Sites"
-              fait={centre.sites > 0}
-              manque="Le patient ne saura pas où se présenter."
-              detail={`${centre.sites} site${centre.sites > 1 ? "s" : ""}`}
-              href={`/client/services/konnect/${centre.userProductId}/sites`}
+              titre="Questions par examen"
+              fait={centre.aDesReglages}
+              manque="Le robot ne posera aucune question de préparation."
+              href={`/client/services/talk/${centre.userProductId}/parametrage/questions_exam`}
             />
+
+            <BlocRenvoi
+              numero={6}
+              titre="FAQ patient"
+              fait={centre.faq > 0}
+              manque="Le module informationnel n'a rien à répondre."
+              detail={`${centre.faq} question${centre.faq > 1 ? "s" : ""}`}
+              href={`/client/services/talk/${centre.userProductId}/informationnel`}
+            />
+
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
+              <Chip
+                size="small"
+                label={centre.aSmsConfirmation ? "SMS de confirmation réglés" : "SMS de confirmation non réglés"}
+                sx={{
+                  height: 24,
+                  fontSize: 11.5,
+                  bgcolor: centre.aSmsConfirmation ? "#E8F5EE" : SURFACE_MUTED,
+                  color: centre.aSmsConfirmation ? OK : INK_MUTED,
+                }}
+              />
+              <Chip
+                size="small"
+                label={centre.aDepotOrdonnances ? "Dépôt d'ordonnances actif" : "Dépôt d'ordonnances inactif"}
+                sx={{
+                  height: 24,
+                  fontSize: 11.5,
+                  bgcolor: centre.aDepotOrdonnances ? "#E8F5EE" : SURFACE_MUTED,
+                  color: centre.aDepotOrdonnances ? OK : INK_MUTED,
+                }}
+              />
+            </Stack>
           </>
         )}
 
         {!centre && !creation && centres.length === 0 && (
           <Alert severity="info">
-            Aucun centre n&apos;a le produit LyraeKonnect. Créez-en un ci-dessus, ou
-            affiliez le produit à un client existant depuis la gestion des clients.
+            Aucun centre n&apos;a le produit LyraeTalk. Créez-en un ci-dessus, ou affiliez
+            le produit à un client existant depuis la gestion des clients.
           </Alert>
         )}
-
-        <Box sx={{ mt: 4, p: 2, bgcolor: SURFACE_MUTED, borderRadius: 2 }}>
-          <Typography variant="body2" fontWeight={600} sx={{ color: INK, mb: 0.5 }}>
-            Ce qui ne se règle pas ici
-          </Typography>
-          <Typography variant="body2" sx={{ color: INK_MUTED }}>
-            Les identifiants de connexion au logiciel du centre, sa messagerie et
-            l&apos;activation de la connexion se font dans l&apos;espace technique du
-            portail. Ces réglages portent des mots de passe, qui n&apos;ont pas leur place
-            ici.
-          </Typography>
-          <Stack direction="row" spacing={1} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
-            <Chip label="Identifiants RIS" size="small" sx={{ height: 22, fontSize: 11.5 }} />
-            <Chip label="Activation de la connexion" size="small" sx={{ height: 22, fontSize: 11.5 }} />
-            <Chip label="Messagerie" size="small" sx={{ height: 22, fontSize: 11.5 }} />
-          </Stack>
-        </Box>
 
         <Snackbar
           open={Boolean(message)}

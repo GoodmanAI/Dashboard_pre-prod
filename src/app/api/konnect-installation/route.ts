@@ -37,6 +37,9 @@ type LigneInstallation = {
   examensTotal: number;
   sites: number;
   telephoneSecretariat: string | null;
+  /** Rattachement au logiciel du centre, domaine `konnect.ris-identite`. */
+  risBaseUrl: string | null;
+  risCodeSite: string | null;
 };
 
 export async function GET(_req: NextRequest) {
@@ -57,7 +60,12 @@ export async function GET(_req: NextRequest) {
        COALESCE(e."attribues", 0)::int                AS "examensAttribues",
        COALESCE(e."total", 0)::int                    AS "examensTotal",
        COALESCE(si."n", 0)::int                       AS "sites",
-       s."telephoneSecretariat"                       AS "telephoneSecretariat"
+       s."telephoneSecretariat"                       AS "telephoneSecretariat",
+       -- Le rattachement RIS vit dans le socle générique, pas dans une table à
+       -- lui. L'extraction JSON renvoie NULL si la ligne ou la clé manque, ce qui
+       -- est exactement l'état « pas encore rattaché ».
+       ris."valeur" ->> 'base_url'                    AS "risBaseUrl",
+       ris."valeur" ->> 'code_site'                   AS "risCodeSite"
      FROM "UserProduct" up
      JOIN "Product" p ON p."id" = up."productId"
      LEFT JOIN "User" u ON u."id" = up."userId"
@@ -72,6 +80,8 @@ export async function GET(_req: NextRequest) {
      LEFT JOIN (
        SELECT "userProductId", COUNT(*) AS "n" FROM "KonnectSites" GROUP BY "userProductId"
      ) si ON si."userProductId" = up."id"
+     LEFT JOIN "ProductConfig" ris
+       ON ris."userProductId" = up."id" AND ris."domaine" = 'konnect.ris-identite'
      WHERE up."removedAt" IS NULL
        AND lower(p."name") = lower($1)
      ORDER BY u."name" ASC NULLS LAST, up."id" ASC`,

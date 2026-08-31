@@ -21,6 +21,13 @@
  * **Ajouter un domaine se fait ici et nulle part ailleurs** — pas de migration,
  * c'est tout l'intérêt du socle. Retirer une entrée rend en revanche ses données
  * inaccessibles sans les supprimer : préférer la marquer obsolète.
+ *
+ * ⚠️ **Un domaine ne porte JAMAIS de secret.** Ce dépôt est public et son PostgreSQL
+ * exposé (Q33, Q34). `konnect.ris-identite` porte l'adresse de l'instance et le code
+ * de site, qui n'en sont pas : le code de site figure dans les messages d'erreur de
+ * la passerelle, et l'adresse est bornée par une liste blanche côté Konnect. Le
+ * token Xplore et les identifiants de connexion, eux, restent chiffrés chez Konnect
+ * et n'ont rien à faire ici.
  */
 
 import { PRODUITS, type SlugProduit } from "@/lib/produits";
@@ -75,6 +82,12 @@ export const DOMAINES: Record<string, Domaine> = {
     produit: "konnect",
     cleApiEnv: "KONNECT_API_KEY",
     libelle: "Ordre intelligent des créneaux",
+  },
+  "konnect.ris-identite": {
+    cle: "konnect.ris-identite",
+    produit: "konnect",
+    cleApiEnv: "KONNECT_API_KEY",
+    libelle: "Rattachement au logiciel de gestion du centre",
   },
   "konnect.synonymes": {
     cle: "konnect.synonymes",

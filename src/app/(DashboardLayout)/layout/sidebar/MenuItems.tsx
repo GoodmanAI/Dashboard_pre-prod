@@ -195,6 +195,12 @@ export const AdminMenuitems: SidebarItem[] = [
     icon: IconChecklist,
     href: "/admin/konnect-installation",
   },
+  {
+    id: uniqueId(),
+    title: "Installation Talk",
+    icon: IconChecklist,
+    href: "/admin/talk-installation",
+  },
   { navlabel: true, subheader: "Client" },
   {
     id: uniqueId(),
