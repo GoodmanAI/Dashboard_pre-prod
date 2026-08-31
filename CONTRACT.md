@@ -36,6 +36,11 @@ familles sont des énumérations partagées avec Konnect (`app/modes/schema.py`,
 `app/questionnaire/schema.py`) : en renommer une casse la résolution du mode à
 distance, sans erreur visible.
 
+`GET /api/konnect-installation` (lot G6) n'est **pas** une route machine-à-machine :
+session admin uniquement, aucune clé d'API. Elle agrège l'état d'installation des
+centres Konnect depuis les tables du Dashboard, sans jamais appeler Konnect, qui est
+derrière un VPN et ne répondrait pas.
+
 Clé **distincte de `BOT_API_KEY`** : la réutiliser rendrait Konnect et LyraeTalk
 indistinguables dans les logs d'audit, dont le format est consommé par Grafana.
 

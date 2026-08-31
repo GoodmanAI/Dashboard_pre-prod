@@ -16,6 +16,7 @@ import {
   IconMessage2,
   IconFileAlert,
   IconRocket,
+  IconChecklist,
   IconListDetails,
   IconMapPin,
   IconRoute,
@@ -187,6 +188,12 @@ export const AdminMenuitems: SidebarItem[] = [
     title: "Déploiements",
     icon: IconRocket,
     href: "/admin/deployments",
+  },
+  {
+    id: uniqueId(),
+    title: "Installation Konnect",
+    icon: IconChecklist,
+    href: "/admin/konnect-installation",
   },
   { navlabel: true, subheader: "Client" },
   {
