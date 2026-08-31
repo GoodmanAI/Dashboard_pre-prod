@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
+import { ORDRE_PRODUITS, produitDepuisNom } from "@/lib/produits";
 
 /**
  * GET /api/admin/centres
@@ -52,22 +53,45 @@ export async function GET(_request: NextRequest) {
       orderBy: { name: "asc" },
     });
 
-    // Ne garder que les centres qui ont un produit Talk (sinon la page appels n'a pas de sens)
-    const withTalk = centres
-      .filter((c) =>
-        c.userProducts.some((up) => up.product?.name?.includes("Talk"))
-      )
+    // Tous les centres qui portent au moins un produit du catalogue, quel qu'il
+    // soit. Avant, cette route ne gardait que ceux ayant LyraeTalk, et renvoyait
+    // toujours le `userProductId` de Talk : un client uniquement LyraeKonnect
+    // n'apparaissait nulle part pour un admin, et un client ayant les deux ne
+    // pouvait pas être regardé côté Konnect.
+    //
+    // Le filtre passait par `name?.includes("Talk")`, une comparaison de nom de
+    // produit en dur — précisément ce que `produits.ts` existe pour éviter :
+    // renommer `Product.name` en base aurait vidé ce sélecteur sans la moindre
+    // erreur de compilation.
+    const enrichis = centres
       .map((c) => {
-        const talkUp = c.userProducts.find((up) =>
-          up.product?.name?.includes("Talk")
+        const produits = c.userProducts.flatMap((up) => {
+          const produit = produitDepuisNom(up.product?.name);
+          // Affiliation retirée ou produit hors catalogue (LyraeExplain) : hors
+          // sélecteur.
+          if (!produit) return [];
+          return [{ slug: produit.slug, libelle: produit.libelle, userProductId: up.id }];
+        });
+        produits.sort(
+          (a, b) => ORDRE_PRODUITS.indexOf(a.slug) - ORDRE_PRODUITS.indexOf(b.slug)
         );
         return {
           ...c,
-          userProductId: talkUp?.id ?? null,
+          // `produits` est la vraie réponse : un centre a N produits, et c'est à
+          // l'appelant de choisir lequel il regarde.
+          produits,
+          // Conservé pour les écrans qui n'ont pas encore de notion de produit.
+          // Vaut LyraeTalk quand il existe, sinon le premier du catalogue : ces
+          // écrans sont ceux du robot vocal, et pointer ailleurs les casserait.
+          userProductId:
+            produits.find((p) => p.slug === "talk")?.userProductId ??
+            produits[0]?.userProductId ??
+            null,
         };
-      });
+      })
+      .filter((c) => c.produits.length > 0);
 
-    return NextResponse.json(withTalk, { status: 200 });
+    return NextResponse.json(enrichis, { status: 200 });
   } catch (error) {
     const err = error as Error;
     console.error("Error fetching admin centres:", err.message);
