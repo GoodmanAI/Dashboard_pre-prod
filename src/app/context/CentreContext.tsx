@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
+import { cheminCentre, lireCheminCentre } from "@/lib/cheminsCentre";
 
 /**
  * Représentation minimale d’un centre (utilisateur géré).
@@ -266,7 +267,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * Synchronisation automatique du centre sélectionné avec l'URL.
-   * Quand on navigue vers /admin/clients/{upid}/... ou /client/services/talk/{upid}/...,
+   * Quand on navigue vers /client/c/{userId}/{produit}/...,
    * on met à jour `selectedCentre` pour que le Header, la Sidebar et tout consommateur
    * du contexte reflètent le centre réellement affiché. Gère les cas :
    * - clic sur une card "centre" qui navigue directement (sans passer par setSelectedCentreById)
@@ -274,14 +275,20 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
    */
   useEffect(() => {
     if (!allCentres.length || !pathname) return;
-    const m = pathname.match(
-      /^\/(?:admin\/clients|client\/services\/talk)\/(\d+)(?:\/|$)/
-    );
-    if (!m) return;
-    const urlUpid = Number(m[1]);
-    if (!Number.isFinite(urlUpid)) return;
 
-    const match = allCentres.find((c) => getCentreUserProductId(c) === urlUpid);
+    // URL par client (chantier U) : l'identifiant EST celui du centre, il n'y a
+    // rien à traduire. C'est le cas de toutes les pages de centre depuis le
+    // 31/08/2026 ; le reste ne sert plus qu'aux liens encore en circulation.
+    const cible = lireCheminCentre(pathname);
+    const match = cible
+      ? allCentres.find((c) => c.id === cible.userId)
+      : (() => {
+          const m = pathname.match(/^\/client\/services\/talk\/(\d+)(?:\/|$)/);
+          const urlUpid = m ? Number(m[1]) : NaN;
+          if (!Number.isFinite(urlUpid)) return undefined;
+          return allCentres.find((c) => getCentreUserProductId(c) === urlUpid);
+        })();
+
     if (!match) return;
     if (selectedCentre?.id === match.id) return;
 
@@ -304,52 +311,40 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
    * ne exposent pas ce champ directement — juste userProducts[]. On utilise
    * maintenant getCentreUserProductId() qui gere les 2 cas.
    *
-   * URL navigation : le talkId courant est lu depuis l'URL (plus fiable que
+   * URL navigation : le centre courant est lu depuis l'URL (plus fiable que
    * de dependre du state selectedCentre qui peut etre stale au moment du
-   * clic). Si on est deja sur une page centre (/client/services/talk/N ou
-   * /admin/clients/N), on remplace N par le nouveau talkId. Sinon, on
-   * redirige vers /calls du nouveau centre.
+   * clic). Si on est deja sur une page centre, on ne remplace QUE
+   * l'identifiant du client : l'ecran et le produit regardes ne bougent pas,
+   * ce qui est tout l'interet d'une URL par client (chantier U, 31/08/2026).
+   * Auparavant il fallait echanger un userProductId contre un autre, sans
+   * rapport visible entre eux, et les deux roles avaient chacun leur prefixe.
+   *
+   * Si le centre d'arrivee n'a pas le produit regarde, l'ecran le dit
+   * franchement (AttenteCentre) plutot que de tourner dans le vide.
    */
   const setSelectedCentreById = async (id: number) => {
     const centre = centres.find((c) => getCentreUserProductId(c) === id) ?? null;
     if (!centre) return;
-
-    const newTalkId = getCentreUserProductId(centre);
-    if (!newTalkId) return;
 
     setSelectedCentre(centre);
     if (typeof window !== "undefined") {
       localStorage.setItem(STORAGE_KEY, String(centre.id));
     }
 
-    const isAdmin =
-      session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN";
-    const onClientTalkPath = /^\/client\/services\/talk\/\d+/.test(pathname || "");
-    const onAdminClientPath = /^\/admin\/clients\/\d+/.test(pathname || "");
-    const canInlineReplace = onClientTalkPath || onAdminClientPath;
+    const cible = lireCheminCentre(pathname);
 
-    // Cas 1 : pas sur une page centre -> redirect vers /calls du nouveau
-    if (!canInlineReplace) {
-      const target = isAdmin
-        ? `/admin/clients/${newTalkId}/calls`
-        : `/client/services/talk/${newTalkId}/calls`;
-      router.push(target);
+    // Cas 1 : pas sur une page centre -> on ouvre la liste des appels du nouveau.
+    if (!cible) {
+      router.push(cheminCentre(centre.id, "talk", "calls"));
       router.refresh();
       return;
     }
 
-    // Cas 2 : deja sur une page centre -> remplacer le talkId dans l'URL.
-    // On lit le talkId courant depuis l'URL (source de verite), pas depuis
-    // le state.
-    const currentUpidMatch = pathname?.match(
-      /^\/(?:admin\/clients|client\/services\/talk)\/(\d+)(?:\/|$)/
-    );
-    const currentTalkId = currentUpidMatch ? currentUpidMatch[1] : null;
-    if (!currentTalkId || currentTalkId === String(newTalkId)) return;
-
+    // Cas 2 : deja sur une page centre -> meme ecran, autre client.
+    if (cible.userId === centre.id) return;
     const newPath = pathname.replace(
-      new RegExp(`/${currentTalkId}(?=/|$)`),
-      `/${newTalkId}`
+      `/client/c/${cible.userId}/`,
+      `/client/c/${centre.id}/`
     );
     if (newPath !== pathname) {
       router.replace(newPath);

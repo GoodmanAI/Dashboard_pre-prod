@@ -77,62 +77,62 @@ const Menuitems: SidebarItem[] = [
     id: uniqueId(),
     title: "Mapping des examens",
     icon: IconFilePencil,
-    href: "/client/services/talk/{TALK_ID}/parametrage/mapping_exam",
+    href: "/client/c/{USER_ID}/talk/parametrage/mapping_exam",
   },
   {
     id: uniqueId(),
     title: "Paramètres généraux",
     icon: IconSettings,
-    href: "/client/services/talk/{TALK_ID}/parametrage",
+    href: "/client/c/{USER_ID}/talk/parametrage",
   },
   {
     id: uniqueId(),
     title: "Module informationnel",
     icon: IconQuestionMark,
-    href: "/client/services/talk/{TALK_ID}/informationnel",
+    href: "/client/c/{USER_ID}/talk/informationnel",
   },
   {
     id: uniqueId(),
     title: "Questions par examen",
     icon: IconAdjustmentsAlt,
-    href: "/client/services/talk/{TALK_ID}/parametrage/questions_exam"
+    href: "/client/c/{USER_ID}/talk/parametrage/questions_exam"
   },
   { navlabel: true, subheader: "Statistiques" },
   {
     id: uniqueId(),
     title: "Liste des appels",
     icon: IconPhone,
-    href: "/client/services/talk/{TALK_ID}/calls",
+    href: "/client/c/{USER_ID}/talk/calls",
   },
   {
     id: uniqueId(),
     title: "Statistiques d'appels",
     icon: IconChartInfographic,
-    href: "/client/services/talk/{TALK_ID}/stats_appel",
+    href: "/client/c/{USER_ID}/talk/stats_appel",
   },
   {
     id: uniqueId(),
     title: "Examens non couverts",
     icon: IconCalendarOff,
-    href: "/client/services/talk/{TALK_ID}/planning-complet",
+    href: "/client/c/{USER_ID}/talk/planning-complet",
   },
   {
     id: uniqueId(),
     title: "Stats No-Show",
     icon: IconMessage2,
-    href: "/client/services/talk/{TALK_ID}/stats-no-show",
+    href: "/client/c/{USER_ID}/talk/stats-no-show",
   },
   {
     id: uniqueId(),
     title: "Ordonnances manquantes",
     icon: IconFileAlert,
-    href: "/client/services/talk/{TALK_ID}/ordonnances-manquantes",
+    href: "/client/c/{USER_ID}/talk/ordonnances-manquantes",
   },
   {
     id: uniqueId(),
     title: "Incidents",
     icon: IconAlertTriangle,
-    href: "/client/services/talk/{TALK_ID}/incidents",
+    href: "/client/c/{USER_ID}/talk/incidents",
   },
   // {
   //   id: uniqueId(),
@@ -160,8 +160,13 @@ const Menuitems: SidebarItem[] = [
 /**
  * Menu dédié aux ADMIN : 2 catégories (Admin / Client).
  * - Section "Admin" : pages globales admin (overview, actions).
- * - Section "Client" : pages relatives au centre sélectionné (les `{TALK_ID}` sont résolus
- *   en URL `/admin/clients/{userProductId}/...` par `SidebarItems`).
+ * - Section "Client" : pages relatives au centre sélectionné (les `{USER_ID}` sont
+ *   résolus par `SidebarItems`).
+ *
+ * Ces entrées pointent vers `/client/c/...`, la même adresse que celle du client,
+ * et non plus vers un `/admin/clients/...` qui n'était qu'un ré-export des mêmes
+ * écrans. Ce qu'un admin voit de plus lui vient de sa session et de ce menu, pas
+ * de son URL.
  */
 export const AdminMenuitems: SidebarItem[] = [
   { navlabel: true, subheader: "Admin" },
@@ -206,61 +211,61 @@ export const AdminMenuitems: SidebarItem[] = [
     id: uniqueId(),
     title: "Mapping des examens",
     icon: IconFilePencil,
-    href: "/client/services/talk/{TALK_ID}/parametrage/mapping_exam",
+    href: "/client/c/{USER_ID}/talk/parametrage/mapping_exam",
   },
   {
     id: uniqueId(),
     title: "Paramètres généraux",
     icon: IconSettings,
-    href: "/client/services/talk/{TALK_ID}/parametrage",
+    href: "/client/c/{USER_ID}/talk/parametrage",
   },
   {
     id: uniqueId(),
     title: "Module informationnel",
     icon: IconQuestionMark,
-    href: "/client/services/talk/{TALK_ID}/informationnel",
+    href: "/client/c/{USER_ID}/talk/informationnel",
   },
   {
     id: uniqueId(),
     title: "Questions par examen",
     icon: IconAdjustmentsAlt,
-    href: "/client/services/talk/{TALK_ID}/parametrage/questions_exam",
+    href: "/client/c/{USER_ID}/talk/parametrage/questions_exam",
   },
   {
     id: uniqueId(),
     title: "Liste des appels",
     icon: IconPhone,
-    href: "/client/services/talk/{TALK_ID}/calls",
+    href: "/client/c/{USER_ID}/talk/calls",
   },
   {
     id: uniqueId(),
     title: "Statistiques d'appels",
     icon: IconChartInfographic,
-    href: "/client/services/talk/{TALK_ID}/stats_appel",
+    href: "/client/c/{USER_ID}/talk/stats_appel",
   },
   {
     id: uniqueId(),
     title: "Examens non couverts",
     icon: IconCalendarOff,
-    href: "/client/services/talk/{TALK_ID}/planning-complet",
+    href: "/client/c/{USER_ID}/talk/planning-complet",
   },
   {
     id: uniqueId(),
     title: "Stats No-Show",
     icon: IconMessage2,
-    href: "/client/services/talk/{TALK_ID}/stats-no-show",
+    href: "/client/c/{USER_ID}/talk/stats-no-show",
   },
   {
     id: uniqueId(),
     title: "Ordonnances manquantes",
     icon: IconFileAlert,
-    href: "/client/services/talk/{TALK_ID}/ordonnances-manquantes",
+    href: "/client/c/{USER_ID}/talk/ordonnances-manquantes",
   },
   {
     id: uniqueId(),
     title: "Incidents",
     icon: IconAlertTriangle,
-    href: "/client/services/talk/{TALK_ID}/incidents",
+    href: "/client/c/{USER_ID}/talk/incidents",
   },
 
   { navlabel: true, subheader: "Assistance" },
@@ -275,10 +280,13 @@ export const AdminMenuitems: SidebarItem[] = [
 /**
  * Menu du produit LyraeKonnect (étape 5 du chantier multi-produit).
  *
- * `{KONNECT_ID}` est résolu par `SidebarItems` avec le `userProductId` du
- * centre POUR CE PRODUIT — une autre ligne de `UserProduct` que celle de
- * LyraeTalk, donc un autre identifiant. Confondre les deux enverrait le client
- * sur la configuration d'un produit qu'il ne regarde pas.
+ * `{USER_ID}` est résolu par `SidebarItems` avec l'identifiant du CLIENT.
+ *
+ * Ces liens portaient le `userProductId`, l'affiliation du client à ce produit,
+ * qui n'est pas la même ligne de `UserProduct` que celle de LyraeTalk : les
+ * confondre envoyait sur la configuration du produit qu'on ne regarde pas. Depuis
+ * le chantier U (une URL par client, 31/08/2026), l'URL porte le client et le
+ * produit est un segment, ce qui rend la confusion impossible.
  *
  * Volontairement court : le portail patient n'a qu'un écran de configuration
  * pour l'instant. Le pilotage arrive à l'étape 7, les files opérationnelles à
@@ -291,49 +299,49 @@ export const KonnectMenuitems: SidebarItem[] = [
     id: uniqueId(),
     title: "Paramètres du portail",
     icon: IconSettings,
-    href: "/client/services/konnect/{KONNECT_ID}/parametrage",
+    href: "/client/c/{USER_ID}/konnect/parametrage",
   },
   {
     id: uniqueId(),
     title: "Mapping d'examens",
     icon: IconListDetails,
-    href: "/client/services/konnect/{KONNECT_ID}/examens",
+    href: "/client/c/{USER_ID}/konnect/examens",
   },
   {
     id: uniqueId(),
     title: "Sites",
     icon: IconMapPin,
-    href: "/client/services/konnect/{KONNECT_ID}/sites",
+    href: "/client/c/{USER_ID}/konnect/sites",
   },
   {
     id: uniqueId(),
     title: "Modes de traitement",
     icon: IconRoute,
-    href: "/client/services/konnect/{KONNECT_ID}/modes-traitement",
+    href: "/client/c/{USER_ID}/konnect/modes-traitement",
   },
   {
     id: uniqueId(),
     title: "Ordre de l'entonnoir",
     icon: IconSortAscending,
-    href: "/client/services/konnect/{KONNECT_ID}/ordre-entonnoir",
+    href: "/client/c/{USER_ID}/konnect/ordre-entonnoir",
   },
   {
     id: uniqueId(),
     title: "Règles de fusion",
     icon: IconArrowsJoin,
-    href: "/client/services/konnect/{KONNECT_ID}/regles-fusion",
+    href: "/client/c/{USER_ID}/konnect/regles-fusion",
   },
   {
     id: uniqueId(),
     title: "Règles de coexistence",
     icon: IconArrowsSplit,
-    href: "/client/services/konnect/{KONNECT_ID}/regles-coexistence",
+    href: "/client/c/{USER_ID}/konnect/regles-coexistence",
   },
   {
     id: uniqueId(),
     title: "Ordre des créneaux",
     icon: IconClockHour4,
-    href: "/client/services/konnect/{KONNECT_ID}/ordre-creneaux",
+    href: "/client/c/{USER_ID}/konnect/ordre-creneaux",
   },
 
   { navlabel: true, subheader: "Assistance" },

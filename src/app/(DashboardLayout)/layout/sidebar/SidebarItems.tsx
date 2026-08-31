@@ -11,7 +11,8 @@ import { useCentre } from "@/app/context/CentreContext";
 import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
 import { hasPermission } from "@/lib/permissions";
 import { getPageFromHref } from "@/lib/pageAccess";
-import { trouverProduit, ORDRE_PRODUITS, PRODUITS } from "@/lib/produits";
+import { trouverProduit, ORDRE_PRODUITS, PRODUITS, type SlugProduit } from "@/lib/produits";
+import { lireCheminCentre } from "@/lib/cheminsCentre";
 
 /** Modèle minimal d’un item de menu latéral. */
 type SideNavItem = {
@@ -71,50 +72,6 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
     usePrescriptionAlertsCount(prescriptionScopeUserProductId);
 
   /**
-   * Résout le href d'un item contenant `{TALK_ID}` selon le rôle :
-   * - ADMIN : préfixe `/admin/clients/{userProductId}` (centre courant du contexte).
-   * - CLIENT : préfixe `/client/services/talk/{talkProductId}` (produit LyraeTalk).
-   * Retourne `null` si on ne peut pas résoudre (item à masquer).
-   */
-  const resolveTalkHref = (rawHref: string): string | null => {
-    if (isAdmin) {
-      const id = selectedCentre?.userProductId;
-      if (!id) return null;
-      return rawHref
-        .replace("/client/services/talk/", "/admin/clients/")
-        .replace("{TALK_ID}", String(id));
-    }
-
-    // CLIENT : on utilise en priorite le userProductId du centre selectionne
-    // (via CentreContext) pour supporter les CLIENT ADMIN_USER qui switchent
-    // entre plusieurs centres via le selecteur du header.
-    //
-    // FIX 2026-08-05 : avant on ne regardait que products (fetch de /api/users/
-    // [id]/products, qui retourne toujours les products du user CONNECTE),
-    // donc pour un ADMIN_USER on rebasculait toujours sur son propre centre
-    // (ex: Quimper) meme quand il avait selectionne Fouesnand dans le header.
-    //
-    // Priorite :
-    //   1. selectedCentre.userProductId (venant de /api/admin/centres ADMIN)
-    //   2. selectedCentre.userProducts[LyraeTalk].id (venant de /api/client
-    //      ADMIN_USER — les managed users ont userProducts[] avec l'id)
-    //   3. products[LyraeTalk].id (fallback pour CLIENT non-ADMIN_USER classique)
-    const selectedTalkId =
-      selectedCentre?.userProductId ??
-      selectedCentre?.userProducts?.find(
-        (p: any) => p?.product?.name?.includes("Talk")
-      )?.id ??
-      null;
-    if (selectedTalkId) {
-      return rawHref.replace("{TALK_ID}", String(selectedTalkId));
-    }
-
-    const talk: any = trouverProduit<any>(products, "talk");
-    if (!talk) return null;
-    return rawHref.replace("{TALK_ID}", String(talk.id));
-  };
-
-  /**
    * Le produit affiché se déduit de l'URL et non d'un état mémorisé : un lien
    * partagé doit ouvrir le bon menu.
    *
@@ -123,36 +80,48 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
    * LyraeTalk pendant qu'il consulte un portail Konnect n'a pas de sens, et c'est
    * ce qui l'obligeait à connaître les chemins de mémoire.
    *
-   * Deux formes d'URL, et la seconde ne nomme pas le produit :
-   * - `/client/services/{segment}/{id}` le nomme ;
-   * - `/admin/clients/{id}` ne le nomme pas, mais ces écrans SONT ceux du robot
-   *   vocal. C'est leur existence même qui dit lequel des deux on regarde.
+   * L'URL nomme le produit dans les deux formes encore en circulation :
+   * `/client/c/{userId}/{segment}` (forme cible du chantier U) et
+   * `/client/services/{segment}/{id}` (forme historique, que des liens déjà
+   * envoyés portent encore et qui redirige vers la première).
    */
-  const produitAffiche = (() => {
+  const produitAffiche: SlugProduit | null = (() => {
+    const cible = lireCheminCentre(pathname);
+    if (cible) return cible.produit;
+
     const parts = pathname?.split("/") ?? [];
     if (parts[1] === "client" && parts[2] === "services") {
       return ORDRE_PRODUITS.find((slug) => PRODUITS[slug].segment === parts[3]) ?? null;
     }
-    if (parts[1] === "admin" && parts[2] === "clients" && parts[3]) return "talk";
     return null;
   })();
 
   /**
-   * Résout le href d'un item contenant `{KONNECT_ID}`.
+   * Résout le href d'un item contenant `{USER_ID}`.
    *
-   * Le `userProductId` cherché est celui du produit LyraeKonnect, PAS celui de
-   * LyraeTalk : ce sont deux lignes distinctes de `UserProduct`. On le lit en
-   * priorité dans l'URL courante, qui le porte déjà et reste vraie même quand
-   * le fetch des produits n'a pas encore répondu.
+   * ON CHERCHE LE CLIENT, plus son affiliation à un produit. C'est tout le gain du
+   * chantier U : il n'y a plus qu'un identifiant à trouver, le même quel que soit
+   * le produit, alors qu'il fallait avant distinguer la ligne `UserProduct` de
+   * Konnect de celle de Talk sous peine d'envoyer sur le mauvais produit.
+   *
+   * Trois sources, dans cet ordre :
+   * 1. l'URL, qui le porte déjà et reste vraie avant même que le moindre fetch
+   *    n'ait répondu ;
+   * 2. le centre sélectionné, pour un admin qui arrive par une page `/admin/…`,
+   *    et pour un CLIENT `ADMIN_USER` qui gère plusieurs centres. Ce second cas
+   *    est la raison d'être de cette source : sans elle, un gestionnaire qui a
+   *    choisi Fouesnant dans le sélecteur du header voyait le menu le ramener sur
+   *    Quimper, son propre centre, à chaque clic (constaté le 05/08/2026) ;
+   * 3. la session, pour un client ordinaire, dont le `userId` est le sien.
    */
-  const resolveKonnectHref = (rawHref: string): string | null => {
-    const depuisUrl = pathname?.split("/")[4];
-    if (depuisUrl && /^\d+$/.test(depuisUrl)) {
-      return rawHref.replace("{KONNECT_ID}", depuisUrl);
-    }
-    const konnect: any = trouverProduit<any>(products, "konnect");
-    if (!konnect) return null;
-    return rawHref.replace("{KONNECT_ID}", String(konnect.id));
+  const resolveUserIdHref = (rawHref: string): string | null => {
+    const userId =
+      lireCheminCentre(pathname)?.userId ??
+      selectedCentre?.id ??
+      session?.user?.id ??
+      null;
+    if (userId === null) return null;
+    return rawHref.replace("{USER_ID}", String(userId));
   };
 
   /**
@@ -220,7 +189,7 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
    * Résolution de la destination des liens dépendants du rôle :
    * - "Dashboard" → /admin ou /client
    * - "Support" → /admin/ticket ou /client/ticket
-   * - Items `{TALK_ID}` → résolus via `resolveTalkHref`
+   * - Items `{USER_ID}` → résolus via `resolveUserIdHref`
    * - Autres → href statique tel que défini dans MenuItems
    */
   const getDynamicHref = (item: SideNavItem): string | null | undefined => {
@@ -232,11 +201,8 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
     if (item.title === "Support") {
       return isAdmin ? "/admin/ticket" : "/client/ticket";
     }
-    if (item.href?.includes("{TALK_ID}")) {
-      return resolveTalkHref(item.href);
-    }
-    if (item.href?.includes("{KONNECT_ID}")) {
-      return resolveKonnectHref(item.href);
+    if (item.href?.includes("{USER_ID}")) {
+      return resolveUserIdHref(item.href);
     }
     return item.href;
   };

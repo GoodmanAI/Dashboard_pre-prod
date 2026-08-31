@@ -12,6 +12,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { produitDepuisNom } from "@/lib/produits";
+import { cheminCentre, PRODUITS_MIGRES } from "@/lib/cheminsCentre";
 
 /**
  * Types de données échangées avec l’API / structure locale.
@@ -100,10 +101,20 @@ const ClientHomePage = () => {
     return name;
   };
 
+  /**
+   * Où mène la tuile d'un produit.
+   *
+   * Les produits migrés vers l'URL par client (chantier U) veulent le `userId` du
+   * client, que la session porte. Les autres gardent leur chemin historique, sans
+   * identifiant : c'est leur propre redirection qui le complète.
+   */
   const getProductRoute = (name: string) => {
     const produit = produitDepuisNom(name);
-    if (produit) return `/client/services/${produit.segment}`;
-    return "https://neuracorp.ai";
+    if (!produit) return "https://neuracorp.ai";
+    if (PRODUITS_MIGRES.includes(produit.slug) && session?.user?.id) {
+      return cheminCentre(session.user.id, produit.slug);
+    }
+    return `/client/services/${produit.segment}`;
   };
 
   return (

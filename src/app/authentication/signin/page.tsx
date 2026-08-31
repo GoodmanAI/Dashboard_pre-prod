@@ -105,7 +105,7 @@ export default function SignIn() {
       : null;
     const talkId: number | null = product?.id ?? null;
 
-    const target = getFirstAccessiblePath(session?.user as any, talkId);
+    const target = getFirstAccessiblePath(session?.user as any, (session?.user as any)?.id ?? null);
     router.push(target ?? "/client/services/talk/");
     router.refresh();
   };

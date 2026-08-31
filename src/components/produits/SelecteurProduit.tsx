@@ -6,6 +6,7 @@ import { IconChevronDown, IconCheck } from "@tabler/icons-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ORDRE_PRODUITS, PRODUITS, produitDepuisNom, type SlugProduit } from "@/lib/produits";
+import { cheminProduit, lireCheminCentre } from "@/lib/cheminsCentre";
 
 /**
  * Bascule entre les produits d'un même client (étape 5 du chantier multi-produit).
@@ -56,9 +57,14 @@ export default function SelecteurProduit() {
   const estAdmin =
     session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN";
 
-  // Le `userProductId` porté par l'URL, quand il y en a un. Deux formes existent :
+  // Le client regardé, quand l'URL le nomme directement (`/client/c/{userId}/…`).
+  // C'est la forme cible du chantier U : elle donne la réponse sans aucun détour.
+  const userIdUrl = useMemo(() => lireCheminCentre(pathname)?.userId ?? null, [pathname]);
+
+  // Le `userProductId` porté par les URL pas encore migrées :
   // `/client/services/{produit}/{id}/…` et `/admin/clients/{id}/…`. Les deux
-  // désignent un centre POUR UN PRODUIT, jamais le client lui-même.
+  // désignent un centre POUR UN PRODUIT, jamais le client lui-même, et c'est
+  // précisément ce que le chantier corrige.
   const userProductIdUrl = useMemo(() => {
     const parts = pathname?.split("/") ?? [];
     const brut =
@@ -67,26 +73,48 @@ export default function SelecteurProduit() {
     return brut && Number.isFinite(n) && n > 0 ? n : null;
   }, [pathname]);
 
+  // Le client dont on affiche les produits. Résolu depuis l'URL nouvelle forme,
+  // ou renseigné par la route de résolution pour l'ancienne.
+  const [userIdCentre, setUserIdCentre] = useState<number | null>(null);
+
   useEffect(() => {
     if (status !== "authenticated") return;
 
-    // ADMIN. Il navigue par centre, pas par produit : sur une page de client, le
-    // sélecteur doit montrer les produits DE CE CLIENT, pas les siens. Hors d'une
-    // page de client (overview, réglages, installation), il n'y a aucun centre en
-    // vue et le sélecteur n'a rien à proposer.
+    const trier = (liste: ProduitClient[]) => {
+      liste.sort((a, b) => ORDRE_PRODUITS.indexOf(a.slug) - ORDRE_PRODUITS.indexOf(b.slug));
+      return liste;
+    };
+
+    // URL NOUVELLE FORME. Le client est nommé : une seule route répond, pour un
+    // admin comme pour un client, et c'est `assertUserAccess` qui décide qui a le
+    // droit de la lire. Ce chemin vaut donc pour les deux rôles et remplacera les
+    // deux branches ci-dessous quand tous les produits auront migré.
+    if (userIdUrl !== null) {
+      setUserIdCentre(userIdUrl);
+      fetch(`/api/centre/${userIdUrl}/produits`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => setProduits(trier(Array.isArray(data?.produits) ? data.produits : [])))
+        .catch(() => setProduits([]));
+      return;
+    }
+
+    // ADMIN, URL ancienne forme. Il navigue par centre, pas par produit : sur une
+    // page de client, le sélecteur doit montrer les produits DE CE CLIENT, pas les
+    // siens. Hors d'une page de client (overview, réglages, installation), il n'y a
+    // aucun centre en vue et le sélecteur n'a rien à proposer.
     if (estAdmin) {
       if (userProductIdUrl === null) {
         setProduits([]);
+        setUserIdCentre(null);
         return;
       }
       fetch(`/api/admin/produits-du-centre?userProductId=${userProductIdUrl}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
-          const liste: ProduitClient[] = Array.isArray(data?.produits) ? data.produits : [];
-          liste.sort(
-            (a, b) => ORDRE_PRODUITS.indexOf(a.slug) - ORDRE_PRODUITS.indexOf(b.slug)
-          );
-          setProduits(liste);
+          // La route renvoie aussi le `userId`, seul moyen de construire un lien
+          // vers un produit déjà migré depuis une URL qui ne nomme que le produit.
+          setUserIdCentre(Number.isFinite(Number(data?.userId)) ? Number(data.userId) : null);
+          setProduits(trier(Array.isArray(data?.produits) ? data.produits : []));
         })
         .catch(() => setProduits([]));
       return;
@@ -95,6 +123,7 @@ export default function SelecteurProduit() {
     const userId = session?.user?.id;
     if (!userId) return;
 
+    setUserIdCentre(userId);
     fetch(`/api/users/${userId}/products`)
       .then((r) => r.json())
       .then((data) => {
@@ -119,9 +148,13 @@ export default function SelecteurProduit() {
         setProduits(resolus);
       })
       .catch(() => setProduits([]));
-  }, [status, estAdmin, session?.user?.id, userProductIdUrl]);
+  }, [status, estAdmin, session?.user?.id, userProductIdUrl, userIdUrl]);
 
   const actif = useMemo(() => {
+    // `/client/c/{userId}/{produit}` nomme le produit explicitement.
+    const cible = lireCheminCentre(pathname);
+    if (cible) return produits.find((p) => p.slug === cible.produit) ?? null;
+
     const parts = pathname?.split("/") ?? [];
     // `/client/services/{segment}/{id}` : le segment produit est le troisième.
     const segment = parts[1] === "client" && parts[2] === "services" ? parts[3] : null;
@@ -146,7 +179,16 @@ export default function SelecteurProduit() {
     setAncre(null);
     if (produit.slug === actif?.slug) return;
     memoriserProduit(produit.slug);
-    router.push(`/client/services/${PRODUITS[produit.slug].segment}/${produit.userProductId}`);
+    // `cheminProduit` choisit la forme d'URL qui existe pour CE produit : la
+    // nouvelle pour ceux qui ont migré, l'ancienne pour les autres. Envoyer
+    // partout vers la nouvelle donnerait un 404 tant que le chantier n'est pas
+    // terminé. Sans `userIdCentre`, la nouvelle forme est hors de portée : on se
+    // rabat sur l'ancienne, qui marche toujours.
+    router.push(
+      userIdCentre !== null
+        ? cheminProduit(userIdCentre, produit.slug, produit.userProductId)
+        : `/client/services/${PRODUITS[produit.slug].segment}/${produit.userProductId}`
+    );
   };
 
   return (

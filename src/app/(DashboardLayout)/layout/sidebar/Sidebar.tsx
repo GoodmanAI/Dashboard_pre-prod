@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import SidebarItems from "./SidebarItems";
 import { useSession } from "next-auth/react";
 import { estProduit } from "@/lib/produits";
+import { cheminCentre, lireCheminCentre } from "@/lib/cheminsCentre";
 /**
  * Propriétés du composant MSidebar.
  * - `isMobileSidebarOpen` : état d’ouverture du tiroir sur mobiles.
@@ -70,14 +71,19 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
    * sur LyraeTalk serait déroutant, d'autant que le logo porte maintenant la
    * couleur du produit.
    *
-   * L'identifiant vient de l'URL courante, qui désigne déjà le bon UserProduct.
-   * On retombe sur celui de LyraeTalk hors des pages produit, ou si l'URL n'en
-   * porte pas : c'est le cas de la quasi-totalité des clients.
+   * L'identifiant vient de l'URL courante, qui désigne déjà le bon centre. On
+   * retombe sur le `userProductId` de LyraeTalk hors des pages produit, ou si
+   * l'URL n'en porte pas : c'est le cas de la quasi-totalité des clients.
    */
   const accueilProduit = () => {
     if (session?.user.role === "ADMIN" || session?.user.role === "SUPER_ADMIN") {
       return "/admin";
     }
+    // URL par client (chantier U) : l'accueil du produit est le chemin lui-même,
+    // sans sous-chemin. Rien à reconstruire, tout est déjà dans l'adresse.
+    const cible = lireCheminCentre(pathname);
+    if (cible) return cheminCentre(cible.userId, cible.produit);
+
     const segments = pathname?.split("/") ?? [];
     const idDansUrl = segments[3] === produit.segment ? segments[4] : undefined;
     return `/client/services/${produit.segment}/${idDansUrl ?? talkId}`;

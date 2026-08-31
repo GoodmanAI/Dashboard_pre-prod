@@ -17,6 +17,7 @@
   import { IconFileAlert, IconMenu } from "@tabler/icons-react";
   import Profile from "./Profile";
   import { useCentre, ManagedUser } from "../../../context/CentreContext";
+  import { cheminCentre } from "@/lib/cheminsCentre";
   import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
   import NotificationBell from "@/components/notifications/NotificationBell";
 import { trouverProduit } from "@/lib/produits";
@@ -90,15 +91,14 @@ import { trouverProduit } from "@/lib/produits";
 
     /**
      * Naviguer vers la page ordonnances-manquantes en un clic depuis l'icone
-     * du header, en préservant la structure d'URL selon le rôle.
+     * du header.
+     *
+     * L'URL porte le client depuis le chantier U (31/08/2026) : les deux rôles
+     * partagent donc la même adresse, et il n'y a plus de préfixe à choisir.
      */
     const goToOrdonnances = () => {
-      if (isAdmin) {
-        const upid = selectedCentre?.userProductId;
-        if (upid) router.push(`/admin/clients/${upid}/ordonnances-manquantes`);
-      } else if (talkProductId) {
-        router.push(`/client/services/talk/${talkProductId}/ordonnances-manquantes`);
-      }
+      const userId = selectedCentre?.id ?? session?.user?.id;
+      if (userId) router.push(cheminCentre(userId, "talk", "ordonnances-manquantes"));
     };
 
     /**

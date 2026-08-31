@@ -71,7 +71,7 @@ export default function PageAccessGuard({ children }: { children: React.ReactNod
   if (allowed) return <>{children}</>;
 
   const fallbackUrl =
-    getFirstAccessiblePath(session.user as any, talkId) ?? "/client";
+    getFirstAccessiblePath(session.user as any, (session.user as any)?.id ?? null) ?? "/client";
 
   return (
     <Container maxWidth="sm" sx={{ py: 8 }}>

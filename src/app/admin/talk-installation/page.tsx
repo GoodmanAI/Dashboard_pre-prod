@@ -24,6 +24,7 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
+import { cheminCentre } from "@/lib/cheminsCentre";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { PRODUITS } from "@/lib/produits";
 
@@ -509,7 +510,7 @@ export default function InstallationTalk() {
               fait={centre.aDesReglages}
               manque="Le robot tourne sur les valeurs par défaut."
               detail={centre.botName ?? undefined}
-              href={`/client/services/talk/${centre.userProductId}/parametrage`}
+              href={cheminCentre(centre.userId, "talk", "parametrage")}
             />
 
             <BlocRenvoi
@@ -518,7 +519,7 @@ export default function InstallationTalk() {
               fait={centre.examensAttribues > 0}
               manque="Aucun examen n'a de code : le robot ne pourra rien proposer."
               detail={`${centre.examensAttribues} examens attribués`}
-              href={`/client/services/talk/${centre.userProductId}/parametrage/mapping_exam`}
+              href={cheminCentre(centre.userId, "talk", "parametrage/mapping_exam")}
             />
 
             <BlocRenvoi
@@ -526,7 +527,7 @@ export default function InstallationTalk() {
               titre="Questions par examen"
               fait={centre.aDesReglages}
               manque="Le robot ne posera aucune question de préparation."
-              href={`/client/services/talk/${centre.userProductId}/parametrage/questions_exam`}
+              href={cheminCentre(centre.userId, "talk", "parametrage/questions_exam")}
             />
 
             <BlocRenvoi
@@ -535,7 +536,7 @@ export default function InstallationTalk() {
               fait={centre.faq > 0}
               manque="Le module informationnel n'a rien à répondre."
               detail={`${centre.faq} question${centre.faq > 1 ? "s" : ""}`}
-              href={`/client/services/talk/${centre.userProductId}/informationnel`}
+              href={cheminCentre(centre.userId, "talk", "informationnel")}
             />
 
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
