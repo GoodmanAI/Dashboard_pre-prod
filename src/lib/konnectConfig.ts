@@ -23,6 +23,14 @@
 
 export type ModeSaisieExamen = "traditionnel" | "anatomique";
 
+/**
+ * Mode du SMS de rappel de secours, miroir de `cabinet_parametres` côté Konnect.
+ * `conditionnel` n'envoie que si le patient n'a ni confirmé ni annulé ;
+ * `opt_out_si_ics` se tait dès que le calendrier a été téléchargé ; `toujours`
+ * est le comportement historique.
+ */
+export type SmsRappelMode = "conditionnel" | "opt_out_si_ics" | "toujours";
+
 export type ConfigKonnect = {
   // Identité du centre
   logoUrl: string | null;
@@ -43,6 +51,12 @@ export type ConfigKonnect = {
   poidsMaxScannerKg: number | null;
   // Interne technique
   cloudOcrActif: boolean;
+  // Confirmation de rendez-vous (lot G4). Ces trois-là vivaient dans la console
+  // cabinet de Konnect, seule interface à les porter : ils passent ici avant que
+  // cette console ne ferme, sans quoi ils deviendraient inaccessibles.
+  annulationDirecte: boolean;
+  smsRappelMode: SmsRappelMode;
+  codeCaracteristiqueConfirmationXplore: string | null;
 };
 
 /** Défauts *fail-closed*, alignés sur `cabinet_parametres` de Konnect. */
@@ -61,6 +75,12 @@ export const KONNECT_DEFAUTS: ConfigKonnect = {
   poidsMaxIrmKg: null,
   poidsMaxScannerKg: null,
   cloudOcrActif: false,
+  // Fail-closed (AB-12) : un « non » du patient ne supprime rien dans le logiciel
+  // du centre tant que le cabinet ne l'a pas explicitement voulu. L'inverser par
+  // défaut ferait supprimer de vrais rendez-vous chez un cabinet non paramétré.
+  annulationDirecte: false,
+  smsRappelMode: "conditionnel",
+  codeCaracteristiqueConfirmationXplore: null,
 };
 
 /** Colonnes de `KonnectSettings`, dans l'ordre. Sert à bâtir les requêtes SQL. */
@@ -79,9 +99,13 @@ export const COLONNES_KONNECT = [
   "poidsMaxIrmKg",
   "poidsMaxScannerKg",
   "cloudOcrActif",
+  "annulationDirecte",
+  "smsRappelMode",
+  "codeCaracteristiqueConfirmationXplore",
 ] as const;
 
 const MODES_SAISIE: ModeSaisieExamen[] = ["traditionnel", "anatomique"];
+const MODES_SMS_RAPPEL: SmsRappelMode[] = ["conditionnel", "opt_out_si_ics", "toujours"];
 
 function versBooleen(valeur: unknown, defaut: boolean): boolean {
   if (typeof valeur === "boolean") return valeur;
@@ -156,6 +180,13 @@ export function normaliserConfigKonnect(
     poidsMaxIrmKg: versSeuil(brut.poidsMaxIrmKg, "poidsMaxIrmKg", strict),
     poidsMaxScannerKg: versSeuil(brut.poidsMaxScannerKg, "poidsMaxScannerKg", strict),
     cloudOcrActif: versBooleen(brut.cloudOcrActif, KONNECT_DEFAUTS.cloudOcrActif),
+    annulationDirecte: versBooleen(brut.annulationDirecte, KONNECT_DEFAUTS.annulationDirecte),
+    // Une valeur inconnue retombe sur `conditionnel`, le mode le plus prudent :
+    // il n'envoie que si le patient n'a pas déjà répondu.
+    smsRappelMode: MODES_SMS_RAPPEL.includes(brut.smsRappelMode as SmsRappelMode)
+      ? (brut.smsRappelMode as SmsRappelMode)
+      : KONNECT_DEFAUTS.smsRappelMode,
+    codeCaracteristiqueConfirmationXplore: versTexte(brut.codeCaracteristiqueConfirmationXplore),
   };
 }
 
@@ -180,5 +211,8 @@ export function versPayloadKonnect(config: ConfigKonnect) {
     poids_max_irm_kg: config.poidsMaxIrmKg,
     poids_max_scanner_kg: config.poidsMaxScannerKg,
     cloud_ocr_actif: config.cloudOcrActif,
+    annulation_directe: config.annulationDirecte,
+    sms_rappel_mode: config.smsRappelMode,
+    code_caracteristique_confirmation_xplore: config.codeCaracteristiqueConfirmationXplore,
   };
 }

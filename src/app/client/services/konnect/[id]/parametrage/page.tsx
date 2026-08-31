@@ -55,6 +55,9 @@ type Config = {
   clinique_actif: boolean;
   poids_max_irm_kg: number | null;
   poids_max_scanner_kg: number | null;
+  annulation_directe: boolean;
+  sms_rappel_mode: "conditionnel" | "opt_out_si_ics" | "toujours";
+  code_caracteristique_confirmation_xplore: string | null;
 };
 
 /** Interrupteur avec son explication — le motif visuel de l'écran Talk. */
@@ -179,6 +182,10 @@ export default function ParametrageKonnectPage() {
             cliniqueActif: config.clinique_actif,
             poidsMaxIrmKg: config.poids_max_irm_kg,
             poidsMaxScannerKg: config.poids_max_scanner_kg,
+            annulationDirecte: config.annulation_directe,
+            smsRappelMode: config.sms_rappel_mode,
+            codeCaracteristiqueConfirmationXplore:
+              config.code_caracteristique_confirmation_xplore,
           }),
         }
       );
@@ -449,6 +456,98 @@ export default function ParametrageKonnectPage() {
               }
             />
           </Stack>
+        </AccordionDetails>
+      </Accordion>
+
+      {/* Confirmation de rendez-vous. Ces trois réglages vivaient dans la console
+          cabinet de Konnect ; ils arrivent ici avant sa fermeture, sans quoi plus
+          rien ne permettrait de les régler. */}
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography fontWeight={600}>Confirmation de rendez-vous</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Reglage
+            titre="Une annulation du patient retire le rendez-vous"
+            description="Quand c'est actif, un patient qui répond « non » libère lui-même son créneau dans votre logiciel. Sinon vous recevez une alerte, et c'est vous qui décidez."
+            actif={config.annulation_directe}
+            onChange={(v) => maj("annulation_directe", v)}
+            avertissement="Le créneau est rendu sans que personne ne le relise."
+          />
+
+          <Typography variant="body2" fontWeight={600} sx={{ mt: 2, mb: 0.5 }}>
+            SMS de rappel de secours
+          </Typography>
+          <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1 }}>
+            Quand envoyer le SMS qui redemande au patient s&apos;il vient.
+          </Typography>
+          <RadioGroup
+            value={config.sms_rappel_mode}
+            onChange={(e) =>
+              maj("sms_rappel_mode", e.target.value as Config["sms_rappel_mode"])
+            }
+          >
+            <FormControlLabel
+              value="conditionnel"
+              control={<Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />}
+              label={
+                <Box>
+                  <Typography variant="body2">S&apos;il n&apos;a pas encore répondu</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Le choix le plus sobre : pas de SMS à qui a déjà confirmé.
+                  </Typography>
+                </Box>
+              }
+            />
+            <FormControlLabel
+              value="opt_out_si_ics"
+              control={<Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />}
+              label={
+                <Box>
+                  <Typography variant="body2">
+                    Sauf s&apos;il a mis le rendez-vous dans son agenda
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    On considère qu&apos;il a son rappel.
+                  </Typography>
+                </Box>
+              }
+            />
+            <FormControlLabel
+              value="toujours"
+              control={<Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />}
+              label={
+                <Box>
+                  <Typography variant="body2">Dans tous les cas</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Un SMS part même si le patient a déjà répondu.
+                  </Typography>
+                </Box>
+              }
+            />
+          </RadioGroup>
+
+          <Typography variant="body2" fontWeight={600} sx={{ mt: 3, mb: 0.5 }}>
+            Code de confirmation dans votre logiciel
+          </Typography>
+          <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1.5 }}>
+            Le code de la caractéristique de confirmation, paramétrée dans
+            l&apos;administration de votre logiciel de gestion. Sans lui, la réponse du
+            patient ne peut pas y être inscrite. Il vous est communiqué à
+            l&apos;installation.
+          </Typography>
+          <CustomTextField
+            label="Code de confirmation"
+            variant="outlined"
+            fullWidth
+            value={config.code_caracteristique_confirmation_xplore ?? ""}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              maj(
+                "code_caracteristique_confirmation_xplore",
+                e.target.value.trim() === "" ? null : e.target.value
+              )
+            }
+          />
         </AccordionDetails>
       </Accordion>
 
