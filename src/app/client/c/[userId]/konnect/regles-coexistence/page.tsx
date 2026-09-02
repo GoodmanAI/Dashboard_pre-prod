@@ -8,7 +8,16 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
   IconButton,
+  InputAdornment,
+  List,
+  ListItemButton,
   ListItemText,
   MenuItem,
   Paper,
@@ -22,6 +31,10 @@ import {
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import AddIcon from "@mui/icons-material/Add";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import SearchIcon from "@mui/icons-material/Search";
+import CheckIcon from "@mui/icons-material/Check";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
@@ -42,6 +55,20 @@ import { useSuiviModifications } from "@/hooks/useSuiviModifications";
  * ici, faute de consommateur pour l'imposer, et devra être confirmée le jour où ce
  * moteur arrive.
  *
+ * REPRISE D'ERGONOMIE DU 02/09/2026. La logique était jugée bonne, l'écran non :
+ * dès deux examens choisis, la carte débordait de pastilles, poussait le reste de
+ * la page, et rien ne disait comment finir la règle. Trois causes, trois réponses :
+ *
+ * 1. **Toutes les règles étaient dépliées en permanence.** Elles sont désormais
+ *    repliées et résumées en une phrase (« IRM cérébrale et Scanner cérébral,
+ *    jamais le même jour »), et une seule s'ouvre à la fois.
+ * 2. **Le choix des examens tenait dans un menu déroulant multiple**, dont les
+ *    pastilles grossissaient sans limite dans le champ. Il passe dans une boîte de
+ *    dialogue avec recherche, à hauteur fixe.
+ * 3. **Rien ne marquait la fin d'une règle.** Un bouton « Terminer cette règle »
+ *    la referme. Il n'enregistre pas : la barre du bas reste la seule chose qui
+ *    écrit, comme sur les autres écrans.
+ *
  * Passe par le socle générique (`/api/product-config`).
  */
 
@@ -51,6 +78,8 @@ const INK = "#0F2A3F";
 const INK_MUTED = "#5A6B7B";
 const BORDER = "#E4EAEE";
 const SURFACE = "#FFFFFF";
+const SURFACE_MUTED = "#F7FAFB";
+const DANGER = "#E1573B";
 
 /** Miroir du CHECK de `cabinet_regles_coexistence`, dit dans les mots du client. */
 const TYPES = [
@@ -58,16 +87,20 @@ const TYPES = [
     cle: "interdit_meme_jour",
     libelle: "À ne pas faire le même jour",
     aide: "Le patient devra prendre deux rendez-vous à des dates différentes.",
+    /** Fin de la phrase de résumé, après la liste des examens. */
+    resume: "jamais le même jour",
   },
   {
     cle: "meme_creneau_obligatoire",
     libelle: "À faire dans la même venue",
     aide: "Les examens sont posés à la suite, sur le même passage.",
+    resume: "dans la même venue",
   },
   {
     cle: "sites_specifiques",
     libelle: "Seulement sur certains sites",
     aide: "L'examen n'est proposé que sur les sites que vous choisissez.",
+    resume: "seulement sur certains sites",
   },
 ] as const;
 
@@ -90,6 +123,142 @@ const REGLE_VIDE: Regle = {
   actif: true,
 };
 
+/** « A », « A et B », « A, B et C ». Au-delà de trois, on compte le reste. */
+function enumerer(noms: string[]): string {
+  if (noms.length === 0) return "";
+  if (noms.length === 1) return noms[0];
+  if (noms.length <= 3) return `${noms.slice(0, -1).join(", ")} et ${noms[noms.length - 1]}`;
+  return `${noms.slice(0, 2).join(", ")} et ${noms.length - 2} autres`;
+}
+
+/** Boîte de dialogue de sélection, avec recherche. Sert aux examens et aux sites. */
+function ChoixMultiple({
+  ouvert,
+  titre,
+  aide,
+  options,
+  selection,
+  onFermer,
+  onValider,
+}: {
+  ouvert: boolean;
+  titre: string;
+  aide: string;
+  options: { cle: string; libelle: string; sous: string; type?: string | null }[];
+  selection: string[];
+  onFermer: () => void;
+  onValider: (cles: string[]) => void;
+}) {
+  const [recherche, setRecherche] = useState("");
+  const [choix, setChoix] = useState<string[]>(selection);
+
+  // Rouvrir la boîte doit repartir de ce qui est enregistré, pas du brouillon
+  // abandonné la fois d'avant.
+  useEffect(() => {
+    if (ouvert) {
+      setChoix(selection);
+      setRecherche("");
+    }
+    // `selection` est volontairement hors dépendances : on ne veut resynchroniser
+    // qu'à l'ouverture, sinon cocher une case la remettrait aussitôt à sa valeur
+    // enregistrée.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ouvert]);
+
+  const visibles = useMemo(() => {
+    const q = recherche.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(
+      (o) => o.libelle.toLowerCase().includes(q) || o.sous.toLowerCase().includes(q)
+    );
+  }, [options, recherche]);
+
+  return (
+    <Dialog open={ouvert} onClose={onFermer} fullWidth maxWidth="sm">
+      <DialogTitle sx={{ fontSize: 17, fontWeight: 700, color: INK, pb: 0.5 }}>
+        {titre}
+      </DialogTitle>
+      <DialogContent sx={{ pt: 1 }}>
+        <Typography sx={{ fontSize: 13, color: INK_MUTED, mb: 1.5 }}>{aide}</Typography>
+        <TextField
+          size="small"
+          fullWidth
+          autoFocus
+          placeholder="Rechercher"
+          value={recherche}
+          onChange={(e) => setRecherche(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" sx={{ color: INK_MUTED }} />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ mb: 1.5 }}
+        />
+        <Paper variant="outlined" sx={{ borderColor: BORDER, borderRadius: 2 }}>
+          {/* Hauteur bornée : c'est ce qui empêche la liste de pousser la page,
+              quel que soit le nombre d'examens du référentiel. */}
+          <List dense sx={{ maxHeight: 340, overflowY: "auto", py: 0 }}>
+            {visibles.map((o) => {
+              const coche = choix.includes(o.cle);
+              return (
+                <ListItemButton
+                  key={o.cle}
+                  onClick={() =>
+                    setChoix((p) => (coche ? p.filter((c) => c !== o.cle) : [...p, o.cle]))
+                  }
+                  sx={{ borderBottom: `1px solid ${BORDER}` }}
+                >
+                  <Checkbox size="small" edge="start" checked={coche} tabIndex={-1} disableRipple />
+                  {o.type ? (
+                    <ExamTypeBadge type={o.type} variant="compact" sx={{ mr: 1 }} />
+                  ) : (
+                    <Box sx={{ width: 26, mr: 1 }} />
+                  )}
+                  <ListItemText
+                    primary={o.libelle}
+                    secondary={o.sous}
+                    primaryTypographyProps={{ fontSize: 13 }}
+                    secondaryTypographyProps={{ fontSize: 11.5 }}
+                  />
+                </ListItemButton>
+              );
+            })}
+            {visibles.length === 0 && (
+              <Box sx={{ py: 4 }}>
+                <Typography align="center" sx={{ fontSize: 13, color: INK_MUTED }}>
+                  Rien ne correspond à cette recherche.
+                </Typography>
+              </Box>
+            )}
+          </List>
+        </Paper>
+        <Typography sx={{ fontSize: 12, color: INK_MUTED, mt: 1 }}>
+          {choix.length} sélectionné{choix.length > 1 ? "s" : ""}
+        </Typography>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onFermer} sx={{ textTransform: "none", color: INK_MUTED }}>
+          Annuler
+        </Button>
+        <Button
+          variant="contained"
+          disableElevation
+          onClick={() => onValider(choix)}
+          sx={{
+            textTransform: "none",
+            bgcolor: "var(--accent)",
+            "&:hover": { bgcolor: "var(--accent-press)" },
+          }}
+        >
+          Valider la sélection
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 export default function ReglesCoexistenceKonnect() {
   const { userProductId } = useCentreProduit();
 
@@ -101,6 +270,13 @@ export default function ReglesCoexistenceKonnect() {
   const [enregistrement, setEnregistrement] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState(false);
+
+  /** Une seule règle ouverte à la fois : c'est ce qui garde la page lisible. */
+  const [ouverte, setOuverte] = useState<number | null>(null);
+  /** Quelle boîte de sélection est affichée, et pour quelle règle. */
+  const [dialogue, setDialogue] = useState<{ index: number; champ: "examens" | "sites" } | null>(
+    null
+  );
 
   useEffect(() => {
     if (!userProductId) return;
@@ -192,19 +368,33 @@ export default function ReglesCoexistenceKonnect() {
 
   const { modifications, marquerEnregistre } = useSuiviModifications(etatSuivi, !chargement);
 
-  const blocage = useMemo(() => {
-    const i = regles.findIndex((r) => r.examens.length === 0);
-    if (i >= 0) return `La règle ${i + 1} ne vise aucun examen.`;
-    const j = regles.findIndex(
-      (r) => r.type_regle === "sites_specifiques" && r.sites.length === 0
-    );
-    if (j >= 0) return `La règle ${j + 1} doit nommer au moins un site.`;
-    const k = regles.findIndex(
-      (r) => r.type_regle !== "sites_specifiques" && r.examens.length < 2
-    );
-    if (k >= 0) return `La règle ${k + 1} compare des examens entre eux : il en faut deux.`;
+  /** Ce qui manque à une règle pour être complète. `null` si elle l'est. */
+  function manque(r: Regle): string | null {
+    if (r.examens.length === 0) return "Choisissez au moins un examen.";
+    if (r.type_regle === "sites_specifiques") {
+      if (r.sites.length === 0) return "Choisissez au moins un site.";
+      return null;
+    }
+    if (r.examens.length < 2) return "Cette règle compare des examens entre eux : il en faut deux.";
     return null;
+  }
+
+  const blocage = useMemo(() => {
+    const i = regles.findIndex((r) => manque(r) !== null);
+    return i >= 0 ? `Règle ${i + 1} : ${manque(regles[i])}` : null;
   }, [regles]);
+
+  /** La phrase qui remplace la carte dépliée quand la règle est refermée. */
+  function resumer(r: Regle): string {
+    const type = TYPES.find((t) => t.cle === r.type_regle) ?? TYPES[0];
+    const noms = enumerer(r.examens.map((c) => infoExamen(c).libelle));
+    if (!noms) return "Règle à compléter";
+    if (r.type_regle === "sites_specifiques") {
+      const lieux = enumerer(r.sites.map(infoSite));
+      return lieux ? `${noms}, seulement à ${lieux}` : `${noms}, ${type.resume}`;
+    }
+    return `${noms}, ${type.resume}`;
+  }
 
   async function enregistrer() {
     setErreur(null);
@@ -230,6 +420,7 @@ export default function ReglesCoexistenceKonnect() {
       setInitial(regles);
       marquerEnregistre();
       setSucces(true);
+      setOuverte(null);
     } catch (e: any) {
       setErreur(e?.message ?? "Enregistrement impossible.");
     } finally {
@@ -247,6 +438,8 @@ export default function ReglesCoexistenceKonnect() {
     );
   }
 
+  const regleDialogue = dialogue ? regles[dialogue.index] : null;
+
   return (
     <PageContainer title="Règles de coexistence" description="Ce qui va ensemble, ou pas">
       <Box>
@@ -258,7 +451,9 @@ export default function ReglesCoexistenceKonnect() {
         <Typography variant="body2" sx={{ color: INK_MUTED, mb: 2.5 }}>
           Quand un patient demande plusieurs examens, ces règles disent comment les
           placer : deux examens à ne pas faire le même jour, deux examens à enchaîner
-          dans la même venue, ou un examen réservé à certains de vos sites.
+          dans la même venue, ou un examen réservé à certains de vos sites. Cliquez sur
+          une règle pour la modifier, refermez-la quand elle vous convient, puis
+          enregistrez en bas de page.
         </Typography>
 
         <Alert severity="info" sx={{ mb: 2.5 }}>
@@ -268,176 +463,230 @@ export default function ReglesCoexistenceKonnect() {
           quand la planification multi-examens sera livrée.
         </Alert>
 
-        <Stack spacing={2}>
+        <Stack spacing={1.25}>
           {regles.map((r, i) => {
             const type = TYPES.find((t) => t.cle === r.type_regle) ?? TYPES[0];
+            const ouverteIci = ouverte === i;
+            const incomplete = manque(r);
             return (
               <Paper
                 key={i}
                 variant="outlined"
-                sx={{ borderColor: BORDER, borderRadius: 2, p: 2, opacity: r.actif ? 1 : 0.6 }}
+                sx={{
+                  borderColor: ouverteIci ? "var(--accent)" : BORDER,
+                  borderRadius: 2,
+                  overflow: "hidden",
+                  opacity: r.actif ? 1 : 0.6,
+                }}
               >
-                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-                  <Typography sx={{ fontSize: 13, fontWeight: 600, color: INK, flexGrow: 1 }}>
-                    Règle {i + 1}
-                  </Typography>
+                {/* --- Ligne repliée : le résumé, et rien d'autre --- */}
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  spacing={1}
+                  sx={{
+                    px: 2,
+                    py: 1.25,
+                    cursor: "pointer",
+                    bgcolor: ouverteIci ? SURFACE_MUTED : SURFACE,
+                    "&:hover": { bgcolor: SURFACE_MUTED },
+                  }}
+                  onClick={() => setOuverte(ouverteIci ? null : i)}
+                >
+                  <ExpandMoreIcon
+                    fontSize="small"
+                    sx={{
+                      color: INK_MUTED,
+                      transform: ouverteIci ? "rotate(180deg)" : "none",
+                      transition: "transform 120ms",
+                    }}
+                  />
+                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontSize: 13.5, color: INK, fontWeight: 600 }}>
+                      {resumer(r)}
+                    </Typography>
+                    <Typography sx={{ fontSize: 11.5, color: INK_MUTED }}>
+                      {type.libelle}
+                      {!r.actif && " · en pause"}
+                      {r.description.trim() && ` · ${r.description.trim()}`}
+                    </Typography>
+                  </Box>
+                  {incomplete && (
+                    <Chip
+                      size="small"
+                      label="À compléter"
+                      sx={{ fontSize: 11, fontWeight: 600, color: DANGER, bgcolor: "#FDECE8" }}
+                    />
+                  )}
                   <Tooltip title={r.actif ? "Règle appliquée" : "Règle en pause"}>
                     <Switch
                       size="small"
                       checked={r.actif}
+                      onClick={(e) => e.stopPropagation()}
                       onChange={(e) => maj(i, "actif", e.target.checked)}
                     />
                   </Tooltip>
                   <Tooltip title="Supprimer cette règle">
                     <IconButton
                       size="small"
-                      onClick={() => setRegles((p) => p.filter((_, j) => j !== i))}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRegles((p) => p.filter((_, j) => j !== i));
+                        setOuverte(null);
+                      }}
                     >
                       <DeleteOutlineIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                 </Stack>
 
-                <Select
-                  size="small"
-                  fullWidth
-                  value={r.type_regle}
-                  onChange={(e) => maj(i, "type_regle", String(e.target.value))}
-                  sx={{ fontSize: 13, bgcolor: SURFACE, mb: 2 }}
-                >
-                  {TYPES.map((t) => (
-                    <MenuItem key={t.cle} value={t.cle}>
-                      <Box>
-                        <Typography sx={{ fontSize: 13 }}>{t.libelle}</Typography>
-                        <Typography sx={{ fontSize: 11.5, color: INK_MUTED }}>
-                          {t.aide}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </Select>
+                {/* --- Carte dépliée : le détail modifiable --- */}
+                <Collapse in={ouverteIci} unmountOnExit>
+                  <Divider />
+                  <Box sx={{ p: 2 }}>
+                    <Typography sx={{ fontSize: 11.5, color: INK_MUTED, mb: 0.75 }}>
+                      Ce que dit la règle
+                    </Typography>
+                    <Select
+                      size="small"
+                      fullWidth
+                      value={r.type_regle}
+                      onChange={(e) => maj(i, "type_regle", String(e.target.value))}
+                      sx={{ fontSize: 13, bgcolor: SURFACE, mb: 2 }}
+                    >
+                      {TYPES.map((t) => (
+                        <MenuItem key={t.cle} value={t.cle}>
+                          <Box>
+                            <Typography sx={{ fontSize: 13 }}>{t.libelle}</Typography>
+                            <Typography sx={{ fontSize: 11.5, color: INK_MUTED }}>
+                              {t.aide}
+                            </Typography>
+                          </Box>
+                        </MenuItem>
+                      ))}
+                    </Select>
 
-                <Typography sx={{ fontSize: 11.5, color: INK_MUTED, mb: 0.75 }}>
-                  {type.cle === "sites_specifiques"
-                    ? "Les examens concernés"
-                    : "Les examens concernés, au moins deux"}
-                </Typography>
-                <Select
-                  multiple
-                  size="small"
-                  fullWidth
-                  value={r.examens}
-                  error={
-                    r.examens.length === 0 ||
-                    (type.cle !== "sites_specifiques" && r.examens.length < 2)
-                  }
-                  onChange={(e) =>
-                    maj(
-                      i,
-                      "examens",
-                      typeof e.target.value === "string"
-                        ? e.target.value.split(",")
-                        : e.target.value
-                    )
-                  }
-                  sx={{ fontSize: 13, bgcolor: SURFACE, mb: 2 }}
-                  renderValue={(selection) => (
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                      {(selection as string[]).map((code) => (
+                    <Typography sx={{ fontSize: 11.5, color: INK_MUTED, mb: 0.75 }}>
+                      {type.cle === "sites_specifiques"
+                        ? "Les examens concernés"
+                        : "Les examens concernés, au moins deux"}
+                    </Typography>
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
+                      flexWrap="wrap"
+                      useFlexGap
+                      sx={{ mb: 2 }}
+                    >
+                      {r.examens.map((code) => (
                         <Chip
                           key={code}
                           size="small"
                           label={infoExamen(code).libelle}
-                          sx={{ height: 22, fontSize: 11.5 }}
+                          onDelete={() =>
+                            maj(
+                              i,
+                              "examens",
+                              r.examens.filter((c) => c !== code)
+                            )
+                          }
+                          sx={{ height: 24, fontSize: 12 }}
                         />
                       ))}
+                      <Button
+                        size="small"
+                        startIcon={r.examens.length ? <EditOutlinedIcon /> : <AddIcon />}
+                        disabled={examens.length === 0}
+                        onClick={() => setDialogue({ index: i, champ: "examens" })}
+                        sx={{ textTransform: "none", fontSize: 12.5, color: INK }}
+                      >
+                        {r.examens.length ? "Modifier la liste" : "Choisir les examens"}
+                      </Button>
                     </Stack>
-                  )}
-                >
-                  {examens.map((e) => (
-                    <MenuItem key={e.code} value={e.code}>
-                      <Checkbox size="small" checked={r.examens.includes(e.code)} />
-                      {e.type ? (
-                        <ExamTypeBadge type={e.type} variant="compact" sx={{ mr: 1 }} />
-                      ) : (
-                        <Box sx={{ width: 26, mr: 1 }} />
-                      )}
-                      <ListItemText
-                        primary={e.libelle}
-                        secondary={e.code}
-                        primaryTypographyProps={{ fontSize: 13 }}
-                        secondaryTypographyProps={{ fontSize: 11.5 }}
-                      />
-                    </MenuItem>
-                  ))}
-                </Select>
 
-                {type.cle === "sites_specifiques" && (
-                  <>
-                    <Typography sx={{ fontSize: 11.5, color: INK_MUTED, mb: 0.75 }}>
-                      Les sites où ces examens sont proposés
-                    </Typography>
-                    <Select
-                      multiple
-                      size="small"
-                      fullWidth
-                      value={r.sites}
-                      error={r.sites.length === 0}
-                      onChange={(e) =>
-                        maj(
-                          i,
-                          "sites",
-                          typeof e.target.value === "string"
-                            ? e.target.value.split(",")
-                            : e.target.value
-                        )
-                      }
-                      sx={{ fontSize: 13, bgcolor: SURFACE, mb: 2 }}
-                      renderValue={(selection) => (
-                        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                          {(selection as string[]).map((id) => (
+                    {type.cle === "sites_specifiques" && (
+                      <>
+                        <Typography sx={{ fontSize: 11.5, color: INK_MUTED, mb: 0.75 }}>
+                          Les sites où ces examens sont proposés
+                        </Typography>
+                        <Stack
+                          direction="row"
+                          alignItems="center"
+                          spacing={1}
+                          flexWrap="wrap"
+                          useFlexGap
+                          sx={{ mb: 2 }}
+                        >
+                          {r.sites.map((id) => (
                             <Chip
                               key={id}
                               size="small"
                               label={infoSite(id)}
-                              sx={{ height: 22, fontSize: 11.5 }}
+                              onDelete={() =>
+                                maj(
+                                  i,
+                                  "sites",
+                                  r.sites.filter((s) => s !== id)
+                                )
+                              }
+                              sx={{ height: 24, fontSize: 12 }}
                             />
                           ))}
+                          <Button
+                            size="small"
+                            startIcon={r.sites.length ? <EditOutlinedIcon /> : <AddIcon />}
+                            disabled={sites.length === 0}
+                            onClick={() => setDialogue({ index: i, champ: "sites" })}
+                            sx={{ textTransform: "none", fontSize: 12.5, color: INK }}
+                          >
+                            {r.sites.length ? "Modifier la liste" : "Choisir les sites"}
+                          </Button>
                         </Stack>
-                      )}
-                    >
-                      {sites.map((s) => (
-                        <MenuItem key={s.site_id} value={s.site_id}>
-                          <Checkbox size="small" checked={r.sites.includes(s.site_id)} />
-                          <ListItemText
-                            primary={s.libelle}
-                            secondary={s.site_id}
-                            primaryTypographyProps={{ fontSize: 13 }}
-                            secondaryTypographyProps={{ fontSize: 11.5 }}
-                          />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {sites.length === 0 && (
-                      <Alert severity="warning" sx={{ mb: 2 }}>
-                        Aucun site enregistré. Renseignez vos sites pour pouvoir en
-                        choisir ici.
-                      </Alert>
+                        {sites.length === 0 && (
+                          <Alert severity="warning" sx={{ mb: 2 }}>
+                            Aucun site enregistré. Renseignez vos sites pour pouvoir en
+                            choisir ici.
+                          </Alert>
+                        )}
+                      </>
                     )}
-                  </>
-                )}
 
-                <Typography sx={{ fontSize: 11.5, color: INK_MUTED, mb: 0.75 }}>
-                  Une note pour vous, facultative
-                </Typography>
-                <TextField
-                  size="small"
-                  fullWidth
-                  value={r.description}
-                  placeholder="Pourquoi cette règle existe"
-                  onChange={(e) => maj(i, "description", e.target.value)}
-                  sx={{ "& .MuiOutlinedInput-root": { fontSize: 13, bgcolor: SURFACE } }}
-                />
+                    <Typography sx={{ fontSize: 11.5, color: INK_MUTED, mb: 0.75 }}>
+                      Une note pour vous, facultative
+                    </Typography>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      value={r.description}
+                      placeholder="Pourquoi cette règle existe"
+                      onChange={(e) => maj(i, "description", e.target.value)}
+                      sx={{ "& .MuiOutlinedInput-root": { fontSize: 13, bgcolor: SURFACE } }}
+                    />
+
+                    <Stack direction="row" alignItems="center" sx={{ mt: 2 }} spacing={1.5}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<CheckIcon />}
+                        disabled={incomplete !== null}
+                        onClick={() => setOuverte(null)}
+                        sx={{
+                          textTransform: "none",
+                          fontSize: 12.5,
+                          color: INK,
+                          borderColor: BORDER,
+                        }}
+                      >
+                        Terminer cette règle
+                      </Button>
+                      <Typography sx={{ fontSize: 11.5, color: incomplete ? DANGER : INK_MUTED }}>
+                        {incomplete ??
+                          "Rien n'est encore enregistré. Utilisez le bouton en bas de page."}
+                      </Typography>
+                    </Stack>
+                  </Box>
+                </Collapse>
               </Paper>
             );
           })}
@@ -455,7 +704,12 @@ export default function ReglesCoexistenceKonnect() {
           <Button
             startIcon={<AddIcon />}
             disabled={examens.length === 0}
-            onClick={() => setRegles((p) => [...p, { ...REGLE_VIDE }])}
+            onClick={() => {
+              // La nouvelle règle s'ouvre d'elle-même : c'est celle qu'on vient de
+              // demander, la refermer aussitôt n'aurait aucun sens.
+              setRegles((p) => [...p, { ...REGLE_VIDE }]);
+              setOuverte(regles.length);
+            }}
             sx={{ textTransform: "none", color: INK }}
           >
             Ajouter une règle
@@ -468,11 +722,53 @@ export default function ReglesCoexistenceKonnect() {
           </Alert>
         )}
 
+        {dialogue && regleDialogue && dialogue.champ === "examens" && (
+          <ChoixMultiple
+            ouvert
+            titre="Les examens concernés"
+            aide={
+              regleDialogue.type_regle === "sites_specifiques"
+                ? "Ces examens ne seront proposés que sur les sites que vous choisirez ensuite."
+                : "La règle compare ces examens entre eux : il en faut au moins deux."
+            }
+            options={examens.map((e) => ({
+              cle: e.code,
+              libelle: e.libelle,
+              sous: e.code,
+              type: e.type,
+            }))}
+            selection={regleDialogue.examens}
+            onFermer={() => setDialogue(null)}
+            onValider={(cles) => {
+              maj(dialogue.index, "examens", cles);
+              setDialogue(null);
+            }}
+          />
+        )}
+
+        {dialogue && regleDialogue && dialogue.champ === "sites" && (
+          <ChoixMultiple
+            ouvert
+            titre="Les sites où ces examens sont proposés"
+            aide="Le patient ne verra de créneaux que sur ces sites."
+            options={sites.map((s) => ({ cle: s.site_id, libelle: s.libelle, sous: s.site_id }))}
+            selection={regleDialogue.sites}
+            onFermer={() => setDialogue(null)}
+            onValider={(cles) => {
+              maj(dialogue.index, "sites", cles);
+              setDialogue(null);
+            }}
+          />
+        )}
+
         <BarreEnregistrement
           modifications={modifications}
           enregistrement={enregistrement}
           onEnregistrer={enregistrer}
-          onAnnuler={() => setRegles(initial)}
+          onAnnuler={() => {
+            setRegles(initial);
+            setOuverte(null);
+          }}
           blocage={blocage}
           libelle="Enregistrer les règles"
         />

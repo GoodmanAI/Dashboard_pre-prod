@@ -19,7 +19,7 @@ import {
   IconChecklist,
   IconListDetails,
   IconMapPin,
-  IconRoute,
+  IconPhoneCall,
   IconSortAscending,
   IconArrowsJoin,
   IconArrowsSplit,
@@ -288,10 +288,11 @@ export const AdminMenuitems: SidebarItem[] = [
  * le chantier U (une URL par client, 31/08/2026), l'URL porte le client et le
  * produit est un segment, ce qui rend la confusion impossible.
  *
- * Volontairement court : le portail patient n'a qu'un écran de configuration
- * pour l'instant. Le pilotage arrive à l'étape 7, les files opérationnelles à
- * l'étape 9 — cette dernière conditionnée à la fermeture de Q33 et Q34, les
- * données patient ne pouvant transiter par une brique au dépôt public.
+ * La rubrique « Exploitation » porte les demandes de rappel des patients dont
+ * l'examen n'est pas réservable en ligne (chantier `2026-09-konnect-deux-chemins`).
+ * C'est le premier écran de cette brique à afficher de la donnée patient, et il le
+ * fait sur décision explicite du 02/09/2026, Q33 et Q34 restant ouverts. Le reste
+ * des files opérationnelles n'a pas suivi : elles restent chez Konnect.
  */
 export const KonnectMenuitems: SidebarItem[] = [
   { navlabel: true, subheader: "Configuration" },
@@ -312,12 +313,6 @@ export const KonnectMenuitems: SidebarItem[] = [
     title: "Sites",
     icon: IconMapPin,
     href: "/client/c/{USER_ID}/konnect/sites",
-  },
-  {
-    id: uniqueId(),
-    title: "Modes de traitement",
-    icon: IconRoute,
-    href: "/client/c/{USER_ID}/konnect/modes-traitement",
   },
   {
     id: uniqueId(),
@@ -342,6 +337,14 @@ export const KonnectMenuitems: SidebarItem[] = [
     title: "Ordre des créneaux",
     icon: IconClockHour4,
     href: "/client/c/{USER_ID}/konnect/ordre-creneaux",
+  },
+
+  { navlabel: true, subheader: "Exploitation" },
+  {
+    id: uniqueId(),
+    title: "Demandes de rappel",
+    icon: IconPhoneCall,
+    href: "/client/c/{USER_ID}/konnect/demandes-rappel",
   },
 
   { navlabel: true, subheader: "Assistance" },

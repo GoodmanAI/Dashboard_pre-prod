@@ -23,18 +23,31 @@
 `GET /api/konnect-configuration?userProductId=NN` (ou `?tenantId=<uuid>`),
 `GET /api/product-config?userProductId=NN&domaine=X`,
 `GET /api/konnect-examens?userProductId=NN`,
-`GET /api/konnect-sites?userProductId=NN`,
-`GET /api/konnect-modes-traitement?userProductId=NN`.
+`GET /api/konnect-sites?userProductId=NN`.
 Toutes en **lecture seule** : le `PUT` de ces routes refuse un appel par clé, la
 configuration se pilote depuis le Dashboard.
 
-⚠️ **`konnect-modes-traitement` : une table vide vaut « le patient réserve seul ».**
-Ne jamais inverser ce défaut. Un centre dont la configuration ne remonte pas reste
-ouvert ; un défaut « relecture » ou « orientation directe » bloquerait en silence
-tous les rendez-vous d'un centre mal configuré. Les valeurs de `mode` et les cinq
-familles sont des énumérations partagées avec Konnect (`app/modes/schema.py`,
-`app/questionnaire/schema.py`) : en renommer une casse la résolution du mode à
-distance, sans erreur visible.
+**Une seule exception, et elle est délibérée** :
+`POST /api/konnect-demandes-rappel?userProductId=NN` (02/09/2026). Konnect y dépose la
+demande de rappel d'un patient dont l'examen n'est pas coché « Réservable en ligne »
+dans le mapping. Corps : `referenceKonnect`, `nom`, `prenom`, `telephone`,
+`examenLibelle`. Le `POST` est réservé à la clé (une session est refusée en 403 : le
+dépôt vient du portail patient, pas d'un utilisateur du Dashboard) ; le `GET` et le
+`PATCH` sont réservés à une session (Konnect ne relit jamais ce qu'il a déposé).
+`referenceKonnect` rend le dépôt idempotent.
+
+⚠️ **`KonnectDemandesRappel` est la SEULE table de cette base qui porte de la donnée
+patient** (nom, prénom, téléphone). Q33 et Q34 restent ouverts. Trois règles qui ne se
+négocient pas : le strict minimum descend (jamais l'ordonnance ni le questionnaire),
+l'`auditLog` ne compte que des volumes, et la purge à 90 jours après traitement est
+obligatoire (`scripts/db-maintenance/purge_konnect_demandes_rappel.sh`).
+
+⚠️ **`konnect-examens` : `reservableEnLigne` vaut `true` par défaut.** Ne jamais
+inverser ce défaut. Un centre dont la configuration ne remonte pas reste ouvert ; un
+défaut `false` basculerait en silence tout son catalogue sur le rappel. Cette colonne
+a remplacé la route `konnect-modes-traitement` et ses trois modes le 02/09/2026 : le
+choix du chemin se fait désormais ligne par ligne dans le mapping. Konnect la lit dans
+`cabinet_examen.reservable_en_ligne`.
 
 `GET /api/konnect-installation` (lot G6) n'est **pas** une route machine-à-machine :
 session admin uniquement, aucune clé d'API. Elle agrège l'état d'installation des
@@ -173,7 +186,7 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 | Origine | Tables |
 |---|---|
 | Prisma (17) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `Call`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
-| SQL manuel (15) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `KonnectSites`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus` |
+| SQL manuel (16) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `KonnectSites`, `KonnectDemandesRappel`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus` |
 
 `KonnectTenantMapping` (24/08/2026) relie un cabinet Konnect (`tenantId`, UUID) à un centre
 du Dashboard (`userProductId`). **1 ↔ 1 contraint dans les deux sens**, à la différence
