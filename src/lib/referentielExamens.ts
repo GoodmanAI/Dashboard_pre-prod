@@ -33,6 +33,7 @@ export type LigneReferentiel = {
   typeExamenClient: string;
   libelleClient: string;
   performed: boolean;
+  reservableEnLigne: boolean;
   ordoOblig: boolean;
   examenInjecte: boolean;
   listeAttenteActive: boolean;
@@ -101,6 +102,9 @@ export async function referentielNeuracorp(): Promise<Referentiel> {
         // Tout est proposé par défaut : le client décoche ce qu'il ne pratique pas,
         // ce qui est plus rapide que de tout cocher. Même choix que LyraeTalk.
         performed: true,
+        // Réservable de bout en bout par défaut. Le client décoche les examens
+        // qu'il veut traiter par rappel, ce qui est le cas le moins fréquent.
+        reservableEnLigne: true,
         ordoOblig: false,
         examenInjecte: false,
         listeAttenteActive: false,
@@ -177,6 +181,7 @@ export async function mappingDepuisTalk(
       libelleClient: texte(e?.libelleClient),
       performed: e?.performed !== false,
       // Propres à Konnect : jamais devinés depuis Talk, qui ne les connaît pas.
+      reservableEnLigne: true,
       ordoOblig: false,
       examenInjecte: false,
       listeAttenteActive: false,

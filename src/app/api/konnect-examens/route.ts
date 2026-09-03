@@ -15,8 +15,14 @@ import { amorcerMapping } from "@/lib/referentielExamens";
  * toutes les lignes déjà là, à compléter — jamais sur une page blanche.
  *
  * Les deux mappings restent **séparés**, un par produit : même RIS et mêmes codes,
- * mais Konnect porte trois réglages que le robot vocal ignore (ordonnance obligatoire,
- * injection, liste d'attente), et chaque produit a son écran.
+ * mais Konnect porte quatre réglages que le robot vocal ignore (réservable en ligne,
+ * ordonnance obligatoire, injection, liste d'attente), et chaque produit a son écran.
+ *
+ * `reservableEnLigne` est le seul endroit où se décide le chemin d'une demande
+ * depuis la fin des modes de traitement (chantier `2026-09-konnect-deux-chemins`) :
+ * coché, le patient réserve seul ; décoché, aucun créneau ne lui est proposé et on
+ * lui offre d'être rappelé. La case ne se confond pas avec `performed`, qui dit si
+ * le centre pratique l'examen : un examen non pratiqué n'est même pas reconnu.
  *
  *  GET /api/konnect-examens?userProductId=NN
  *      · session → le **mapping complet** (référentiel + saisie), pour l'écran.
@@ -42,6 +48,7 @@ type LigneMapping = {
   typeExamenClient: string;
   libelleClient: string;
   performed: boolean;
+  reservableEnLigne: boolean;
   ordoOblig: boolean;
   examenInjecte: boolean;
   listeAttenteActive: boolean;
@@ -49,7 +56,8 @@ type LigneMapping = {
 
 const COLONNES = `"codeExamen", "typeExamen", "libelle", "codeExamenClient",
                   "codeExamenInjection", "typeExamenClient", "libelleClient",
-                  "performed", "ordoOblig", "examenInjecte", "listeAttenteActive"`;
+                  "performed", "reservableEnLigne", "ordoOblig", "examenInjecte",
+                  "listeAttenteActive"`;
 
 async function estCentreKonnect(userProductId: number): Promise<boolean> {
   const res = await db.query<{ id: number }>(
@@ -107,6 +115,10 @@ function versCatalogueKonnect(lignes: LigneMapping[]) {
       examen_injecte: l.examenInjecte,
       // `performed` a déjà filtré : tout ce qui sort d'ici est actif.
       actif: true,
+      // Le chemin de la demande. `false` → Konnect ne propose aucun créneau et
+      // offre le rappel. C'est la seule chose qui distingue les deux parcours
+      // depuis la fin des modes de traitement.
+      reservable_en_ligne: l.reservableEnLigne,
       liste_attente_active: l.listeAttenteActive,
       source: "manuel",
     }));
@@ -196,6 +208,9 @@ function normaliser(brut: any, index: number): LigneMapping {
     typeExamenClient: texte(brut?.typeExamenClient),
     libelleClient: texte(brut?.libelleClient),
     performed: brut?.performed !== false,
+    // Défaut `true`, comme la colonne : une ligne sans réglage explicite reste
+    // réservable. L'inverse fermerait un catalogue entier en silence.
+    reservableEnLigne: brut?.reservableEnLigne !== false,
     ordoOblig: brut?.ordoOblig === true,
     examenInjecte: brut?.examenInjecte === true,
     listeAttenteActive: brut?.listeAttenteActive === true,
@@ -282,8 +297,8 @@ export async function PUT(req: NextRequest) {
         `INSERT INTO "KonnectExamens"
            ("userProductId", "codeExamen", "typeExamen", "libelle", "codeExamenClient",
             "codeExamenInjection", "typeExamenClient", "libelleClient", "performed",
-            "ordoOblig", "examenInjecte", "listeAttenteActive")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+            "reservableEnLigne", "ordoOblig", "examenInjecte", "listeAttenteActive")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
         [
           userProductId,
           l.codeExamen,
@@ -294,6 +309,7 @@ export async function PUT(req: NextRequest) {
           l.typeExamenClient,
           l.libelleClient,
           l.performed,
+          l.reservableEnLigne,
           l.ordoOblig,
           l.examenInjecte,
           l.listeAttenteActive,
@@ -320,6 +336,9 @@ export async function PUT(req: NextRequest) {
     metadata: {
       lignes: lignes.length,
       attribues: lignes.filter((l) => l.performed && l.codeExamenClient.trim()).length,
+      surRappel: lignes.filter(
+        (l) => l.performed && l.codeExamenClient.trim() && !l.reservableEnLigne
+      ).length,
     },
   });
 
@@ -328,6 +347,9 @@ export async function PUT(req: NextRequest) {
       userProductId,
       lignes: lignes.length,
       attribues: lignes.filter((l) => l.performed && l.codeExamenClient.trim()).length,
+      surRappel: lignes.filter(
+        (l) => l.performed && l.codeExamenClient.trim() && !l.reservableEnLigne
+      ).length,
     },
     { headers: { ETag: await signature(userProductId) } }
   );

@@ -40,12 +40,23 @@ import { useSuiviModifications } from "@/hooks/useSuiviModifications";
  * équivalents de son RIS à droite. Quand il a déjà LyraeTalk, les codes en sont
  * repris : même logiciel de gestion, donc mêmes codes.
  *
- * Trois réglages n'existent que dans ce produit, parce qu'ils pilotent des écrans
+ * Quatre réglages n'existent que dans ce produit, parce qu'ils pilotent des écrans
  * du parcours web que le robot vocal n'a pas :
  *
+ * - Réservable en ligne : le patient choisit son créneau seul, ou on le rappelle ;
  * - Ordonnance obligatoire : le portail exige le dépôt d'une ordonnance ;
  * - Injecté : déclenche le questionnaire d'injection ;
  * - Liste d'attente : le patient s'inscrit si aucun créneau ne lui convient.
+ *
+ * Depuis le chantier `2026-09-konnect-deux-chemins`, cet écran est le SEUL endroit
+ * où se décide le chemin d'une demande. L'écran « Modes de traitement », ses trois
+ * modes et son réglage par famille ont disparu : deux cases suffisent, et elles ne
+ * disent pas la même chose.
+ *
+ * - « Pratiqué » : le centre fait cet examen, le portail le reconnaît. Décoché, le
+ *   patient qui le demande voit le numéro du centre.
+ * - « Réservable en ligne » : parmi ceux-là, ceux que le patient réserve seul.
+ *   Décoché, aucun créneau ne lui est proposé et on lui offre d'être rappelé.
  */
 
 const BRAND = "var(--accent)";
@@ -69,12 +80,14 @@ type Ligne = {
   typeExamenClient: string;
   libelleClient: string;
   performed: boolean;
+  reservableEnLigne: boolean;
   ordoOblig: boolean;
   examenInjecte: boolean;
   listeAttenteActive: boolean;
 };
 
 type FiltreAttribution = "tous" | "attribues" | "non_attribues";
+type FiltreChemin = "tous" | "bout_en_bout" | "rappel";
 
 function EnTete({
   children,
@@ -192,6 +205,7 @@ export default function MappingExamensKonnect() {
   const [recherche, setRecherche] = useState("");
   const [filtreType, setFiltreType] = useState("tous");
   const [filtreAttribution, setFiltreAttribution] = useState<FiltreAttribution>("tous");
+  const [filtreChemin, setFiltreChemin] = useState<FiltreChemin>("tous");
   const [page, setPage] = useState(0);
 
   useEffect(() => {
@@ -245,15 +259,25 @@ export default function MappingExamensKonnect() {
       const attribue = Boolean(l.codeExamenClient.trim());
       if (filtreAttribution === "attribues" && !attribue) return false;
       if (filtreAttribution === "non_attribues" && attribue) return false;
+      if (filtreChemin === "bout_en_bout" && !l.reservableEnLigne) return false;
+      if (filtreChemin === "rappel" && l.reservableEnLigne) return false;
       if (!q) return true;
       return [l.codeExamen, l.libelle, l.codeExamenClient, l.libelleClient]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [lignes, recherche, filtreType, filtreAttribution]);
+  }, [lignes, recherche, filtreType, filtreAttribution, filtreChemin]);
 
   const attribues = useMemo(
     () => lignes.filter((l) => l.performed && l.codeExamenClient.trim()).length,
+    [lignes]
+  );
+
+  /** Parmi les examens proposés, ceux qui passent par un rappel du centre. */
+  const surRappel = useMemo(
+    () =>
+      lignes.filter((l) => l.performed && l.codeExamenClient.trim() && !l.reservableEnLigne)
+        .length,
     [lignes]
   );
 
@@ -334,6 +358,21 @@ export default function MappingExamensKonnect() {
           n&apos;est pas proposé au patient.
         </Typography>
 
+        <Alert severity="info" icon={false} sx={{ mb: 2.5 }}>
+          <Typography sx={{ fontSize: 13, fontWeight: 600, color: INK, mb: 0.5 }}>
+            Deux cases, deux décisions
+          </Typography>
+          <Typography sx={{ fontSize: 13, color: INK_MUTED }}>
+            <strong>Pratiqué</strong> : vous faites cet examen, le portail le reconnaît.
+            Décoché, le patient qui le demande voit votre numéro de téléphone.
+            <br />
+            <strong>Réservable en ligne</strong> : parmi ceux que vous pratiquez, ceux
+            que le patient réserve seul. Décoché, aucun créneau ne lui est proposé, on
+            lui offre de laisser son numéro et vous retrouvez sa demande dans
+            « Demandes de rappel ».
+          </Typography>
+        </Alert>
+
         {avertissement && (
           <Alert severity="warning" sx={{ mb: 2 }}>
             {avertissement}
@@ -395,6 +434,21 @@ export default function MappingExamensKonnect() {
               <MenuItem value="attribues">Avec code</MenuItem>
               <MenuItem value="non_attribues">Sans code</MenuItem>
             </TextField>
+            <TextField
+              size="small"
+              select
+              label="Chemin"
+              value={filtreChemin}
+              onChange={(e) => {
+                setFiltreChemin(e.target.value as FiltreChemin);
+                setPage(0);
+              }}
+              sx={{ minWidth: 200 }}
+            >
+              <MenuItem value="tous">Tous</MenuItem>
+              <MenuItem value="bout_en_bout">Réservable en ligne</MenuItem>
+              <MenuItem value="rappel">Sur rappel</MenuItem>
+            </TextField>
             <Box sx={{ flexGrow: 1 }} />
             <Chip
               label={`${attribues} examen${attribues > 1 ? "s" : ""} proposé${
@@ -406,6 +460,12 @@ export default function MappingExamensKonnect() {
                 bgcolor: attribues > 0 ? "rgba(var(--accent-rgb), 0.12)" : SURFACE_MUTED,
               }}
             />
+            {surRappel > 0 && (
+              <Chip
+                label={`dont ${surRappel} sur rappel`}
+                sx={{ fontWeight: 600, color: "#B4602A", bgcolor: "#FCF0E6" }}
+              />
+            )}
           </Stack>
         </Paper>
 
@@ -414,11 +474,11 @@ export default function MappingExamensKonnect() {
           variant="outlined"
           sx={{ overflowX: "auto", borderColor: BORDER, borderRadius: 2 }}
         >
-          <Table size="small" sx={{ minWidth: 1300 }}>
+          <Table size="small" sx={{ minWidth: 1440 }}>
             <TableHead>
               <TableRow>
                 <EnTete
-                  aide="Décoché, l'examen n'est jamais proposé au patient."
+                  aide="Le centre fait cet examen. Décoché, le portail ne le reconnaît pas et le patient qui le demande voit votre numéro de téléphone."
                   largeur={90}
                   align="center"
                 >
@@ -449,6 +509,13 @@ export default function MappingExamensKonnect() {
                   Libellé patient
                 </EnTete>
                 <EnTete
+                  aide="Le patient choisit son créneau et le rendez-vous est posé. Décoché, aucun créneau ne lui est proposé : on lui offre de laisser son numéro et vous le rappelez."
+                  largeur={130}
+                  align="center"
+                >
+                  Réservable en ligne
+                </EnTete>
+                <EnTete
                   aide="Le portail exige le dépôt d'une ordonnance pour cet examen."
                   largeur={105}
                   align="center"
@@ -463,7 +530,7 @@ export default function MappingExamensKonnect() {
                   Injecté
                 </EnTete>
                 <EnTete
-                  aide="Le patient peut s'inscrire si aucun créneau ne lui convient."
+                  aide="Le patient peut s'inscrire si aucun créneau ne lui convient. Sans réservation en ligne, il n'y a pas de créneau, donc pas de liste d'attente."
                   largeur={120}
                   align="center"
                 >
@@ -553,6 +620,13 @@ export default function MappingExamensKonnect() {
 
                     <TableCell align="center">
                       <Case
+                        coche={l.reservableEnLigne}
+                        disabled={!l.performed}
+                        onChange={(v) => maj(l.codeExamen, "reservableEnLigne", v)}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Case
                         coche={l.ordoOblig}
                         disabled={!l.performed}
                         onChange={(v) => maj(l.codeExamen, "ordoOblig", v)}
@@ -567,8 +641,8 @@ export default function MappingExamensKonnect() {
                     </TableCell>
                     <TableCell align="center">
                       <Case
-                        coche={l.listeAttenteActive}
-                        disabled={!l.performed}
+                        coche={l.listeAttenteActive && l.reservableEnLigne}
+                        disabled={!l.performed || !l.reservableEnLigne}
                         onChange={(v) => maj(l.codeExamen, "listeAttenteActive", v)}
                       />
                     </TableCell>
@@ -577,7 +651,7 @@ export default function MappingExamensKonnect() {
               })}
               {filtrees.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
                     <Typography variant="body2" sx={{ color: INK_MUTED }}>
                       {lignes.length === 0
                         ? "Aucun examen au référentiel."

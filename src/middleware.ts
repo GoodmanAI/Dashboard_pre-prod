@@ -68,10 +68,11 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // Sites du centre (lot C) : Konnect vient lire les adresses saisies par le
   // client, que le RIS n'expose pas. Lecture par cle, ecriture par session.
   /^\/api\/konnect-sites$/,
-  // Mode de traitement des demandes (lot D) : Konnect vient lire ce que le client
-  // a regle par famille d'examens et par examen. Lecture par cle, ecriture par
-  // session.
-  /^\/api\/konnect-modes-traitement$/,
+  // Demandes de rappel (2026-09-02) : la SEULE route `konnect-*` ou Konnect
+  // ECRIT. Il y depose la demande d'un patient dont l'examen n'est pas reservable
+  // en ligne, pour que le secretariat le rappelle. Lecture et mise a jour
+  // reservees a une session.
+  /^\/api\/konnect-demandes-rappel$/,
 ];
 
 function isPublicApi(pathname: string): boolean {

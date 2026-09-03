@@ -27,6 +27,14 @@ Prod : VPS OVH, PM2. `git pull` → `npm run build` → `pm2 restart`. Pas de CI
 Dix tables n'existent **que** côté SQL manuel et sont absentes de `schema.prisma` :
 `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`.
 
+> ⚠️ **`KonnectDemandesRappel` (02/09/2026) est la seule table de cette base qui porte
+> de la donnée patient** : nom, prénom, téléphone d'un patient qui a demandé à être
+> rappelé. Elle aussi vit en SQL manuel. Trois règles la concernant ne se négocient
+> pas : ne rien y ajouter au-delà du strict minimum, ne jamais journaliser son
+> contenu (l'`auditLog` ne compte que des volumes), et garder la purge à 90 jours
+> active (`scripts/db-maintenance/purge_konnect_demandes_rappel.sh`). Q33 et Q34 de
+> `OPEN_QUESTIONS.md` restent ouverts, et cette table en augmente le coût.
+
 Conséquences pratiques :
 - Ces tables **ne sont pas accessibles via `prisma.*`**. On les lit et écrit en SQL brut via le pool `pg`.
 - Pour les faire évoluer : nouveau fichier dans `manual/`, en `ADD COLUMN` / `CREATE TABLE IF NOT EXISTS` **idempotent et additif** (les fichiers existants suivent cette convention, en-tête commenté expliquant le contexte). Ne jamais les recréer via `prisma migrate` : `prisma migrate dev` proposerait un `DROP` puisqu'elles sont invisibles du schéma.
