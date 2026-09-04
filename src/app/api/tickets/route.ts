@@ -254,6 +254,7 @@ export async function POST(request: NextRequest) {
       message: ticket.message,
       clientEmail: ticket.user.email,
       clientName: ticket.user.name,
+      contactEmail: ticket.contactEmail,
       createdByEmail:
         session.user.email ?? ticket.user.email,
       createdByName:
