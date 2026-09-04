@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
+import { indexerParType, diminutifDuType } from "@/lib/examTypes";
 
 export const dynamic = "force-dynamic";
 
@@ -320,15 +321,20 @@ export async function GET(request: NextRequest) {
       // Comparer en dur à "CT" et "MR" ne renvoyait donc rien chez tout centre
       // ayant ses propres codes. On résout les diminutifs du centre, en gardant
       // les codes canoniques au cas où le centre n'aurait rien personnalisé.
-      const mappingScannerIrm = await prisma.examMapping.findMany({
-        where: { userProductId, examCode: { in: ["CT", "MR"] } },
-        select: { diminutif: true },
+      // On lit les cinq lignes plutot que de filtrer sur examCode en base :
+      // l'examCode peut etre hors nomenclature (le script de provisionnement de
+      // Pontivy y met le code du RIS), et indexerParType retrouve le type.
+      const mappingCentre = await prisma.examMapping.findMany({
+        where: { userProductId },
+        select: { examCode: true, fr: true, labelFr: true, diminutif: true },
       });
-      const codesScannerIrm = new Set(
-        ["CT", "MR", ...mappingScannerIrm.map((m) => m.diminutif)].filter(
-          (c): c is string => !!c
-        )
-      );
+      const parType = indexerParType(mappingCentre);
+      const codesScannerIrm = new Set<string>([
+        "CT",
+        "MR",
+        diminutifDuType(parType, "CT"),
+        diminutifDuType(parType, "MR"),
+      ]);
 
       const scannersCalls = calls.filter((call: any) => {
         const id = call.stats?.exam_type_id;

@@ -321,7 +321,15 @@ composent : `2026_08_10_deployment_status.sql` (création) et
    2026-09-04, réparé par `prisma/migrations/manual/2026_09_04_repare_exam_mapping.sql`).
    `GET /api/configuration/mapping/type_exam` renvoie pour cette raison un objet clé par
    code, plus un tableau : `src/lib/examLabels.ts` est le seul endroit qui traduit un
-   diminutif en libellé.
+   diminutif en libellé, et `src/lib/examTypes.ts` le seul qui décide du type d'une ligne.
+   **Trois chemins ont écrit dans cette table avec trois conventions** : l'écran avant le
+   06/08 (`fr` à `Scanner` sur les cinq lignes), l'écran après (rangs `"0"`..`"4"` dans
+   `examCode`), et le script de provisionnement de Pontivy (code RIS dans `examCode`, code
+   canonique dans `labelFr`). D'où `codeCanonique()`, qui retrouve le type depuis
+   `examCode`, puis `labelFr`, puis `fr` en dernier recours. Pour installer un centre :
+   `scripts/data-provisioning/MODELE_exam_mapping.sql`, jamais le fichier Pontivy. Pour
+   vérifier : `scripts/data-provisioning/AUDIT_exam_mapping.sql`, qui doit renvoyer zéro
+   ligne.
 
 6. **Colonnes camelCase entre guillemets** (`"User"`, `"UserProduct"`) — sensibles à la casse.
 7. **`Product.name`** — valeurs `LyraeTalk` et `LyraeKonnect`. Les renommer en base casse

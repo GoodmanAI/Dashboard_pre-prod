@@ -1,4 +1,22 @@
 -- =====================================================================
+-- ⚠️  NE PAS COPIER CE FICHIER POUR UN NOUVEAU CENTRE.
+--
+-- Le bloc ExamMapping ci-dessous met le code du RIS dans "examCode" ('DX')
+-- et le code canonique dans "labelFr" ('RX'), c'est-a-dire l'INVERSE de la
+-- convention. Combinee a l'ancien ecran de saisie des diminutifs, qui ecrivait
+-- 'Scanner' dans les cinq "fr", cette troisieme convention a produit des
+-- rendez-vous d'echographie et de mammographie affiches « Scanner » pendant
+-- deux mois (constate le 2026-09-04 sur le groupe Quimper).
+--
+-- La ligne 'DX' de Pontivy a ete normalisee le 2026-09-04 par
+-- prisma/migrations/manual/2026_09_04_normalise_exam_code.sql. Ce fichier est
+-- conserve pour l'historique du catalogue d'examens, pas comme modele.
+--
+-- Modele a jour  : scripts/data-provisioning/MODELE_exam_mapping.sql
+-- Controle       : scripts/data-provisioning/AUDIT_exam_mapping.sql
+-- =====================================================================
+
+-- =====================================================================
 -- Mapping examens GH Pontivy (userProductId=22)
 -- Genere automatiquement depuis pontivy_exams.csv
 -- Total : 232 examens NEURACORP
