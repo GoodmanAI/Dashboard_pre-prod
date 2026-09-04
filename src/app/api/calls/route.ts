@@ -315,12 +315,27 @@ export async function GET(request: NextRequest) {
     const paginatedCalls = calls.slice(skip, skip + limit);
 
     if (examType) {
-      const scannersCalls = calls.filter((call: any) => {
-        if(call.stats?.exam_type_id === null) return false;
-        return call.stats?.exam_type_id?.includes("CT") || call.stats?.exam_type_id?.includes("MR");
+      // `stats.exam_type_id` porte le code du LOGICIEL DU CENTRE, pas le code
+      // canonique : Le Creusot écrit "SC" pour un scanner et "IR" pour une IRM.
+      // Comparer en dur à "CT" et "MR" ne renvoyait donc rien chez tout centre
+      // ayant ses propres codes. On résout les diminutifs du centre, en gardant
+      // les codes canoniques au cas où le centre n'aurait rien personnalisé.
+      const mappingScannerIrm = await prisma.examMapping.findMany({
+        where: { userProductId, examCode: { in: ["CT", "MR"] } },
+        select: { diminutif: true },
       });
+      const codesScannerIrm = new Set(
+        ["CT", "MR", ...mappingScannerIrm.map((m) => m.diminutif)].filter(
+          (c): c is string => !!c
+        )
+      );
 
-      console.log(scannersCalls.length, "calls de type scanner/IRM");
+      const scannersCalls = calls.filter((call: any) => {
+        const id = call.stats?.exam_type_id;
+        if (!id) return false;
+        const codes = Array.isArray(id) ? id : [id];
+        return codes.some((c: unknown) => codesScannerIrm.has(String(c)));
+      });
       const examPaginatedCalls = scannersCalls.slice(skip, skip + limit);
 
       return NextResponse.json(

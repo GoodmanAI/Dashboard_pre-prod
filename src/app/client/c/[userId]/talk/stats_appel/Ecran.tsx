@@ -58,6 +58,7 @@ import {
   isCounterTransfer,
 } from "@/lib/transferReasons";
 import { getLanguageMeta, LANGUAGE_META, LanguageCode } from "@/lib/languages";
+import { construireExamLabelMap, listerTypesExamen } from "@/lib/examLabels";
 import {
   HANGUP_CONTEXTS,
   UNKNOWN_HANGUP_CONTEXT,
@@ -1312,22 +1313,12 @@ export default function StatsAppelPage({ params }: any) {
   };
 
   // 3ème ligne
-  const examLabelMap = useMemo(() => {
-    if (!mapping) return {};
-
-    const map: Record<string, string> = {};
-
-    if (Array.isArray(mapping)) {
-      for (const e of mapping) {
-        if (e.id) map[String(e.id)] = e.fr;
-        if (e.diminutif) map[e.diminutif] = e.fr;
-        if (e.examCode) map[e.examCode] = e.fr;
-        if (e.labelFr) map[e.labelFr] = e.fr;
-      }
-    }
-
-    return map;
-  }, [mapping]);
+  // Le libellé vient du code canonique de la ligne, pas de la colonne `fr`
+  // stockée : voir `src/lib/examLabels.ts`.
+  const examLabelMap = useMemo(
+    () => construireExamLabelMap(mapping),
+    [mapping]
+  );
 
   const examPieData = useMemo(() => {
     const buckets: Record<string, number> = {};
@@ -1362,29 +1353,21 @@ export default function StatsAppelPage({ params }: any) {
     return sum === 0 ? [{ name: "Aucune donnée", value: 1 }] : arr;
   }, [calls, examLabelMap]);
 
+  // Les types d'examen effectivement présents dans les appels de la période.
+  // On part des types déclarés par le centre, et on ne garde que ceux qu'on a
+  // vus, pour ne pas offrir un filtre qui ne renverrait rien.
   const examCodes = useMemo(() => {
-    const map = new Map<string, { label: string; examCode: string }>();
-
+    const vus = new Set<string>();
     for (const c of calls as any[]) {
       const code = c?.stats?.exam_type_id;
       if (!code) continue;
-
-      const codes = Array.isArray(code) ? code : [code];
-
-      codes.forEach((e) => {
-        const element = mapping?.find((m: any) => m.diminutif == e);
-        if (element && !map.has(element.diminutif)) {
-          map.set(element.diminutif, {
-            label: element.fr,
-            examCode: element.diminutif,
-          });
-        }
-      });
+      for (const e of Array.isArray(code) ? code : [code]) vus.add(String(e));
     }
 
-    return Array.from(map.values()).sort((a, b) =>
-      a.label.localeCompare(b.label)
-    );
+    return listerTypesExamen(mapping)
+      .filter((o) => vus.has(o.valeur) || vus.has(o.code))
+      .map((o) => ({ label: o.label, examCode: o.valeur }))
+      .sort((a, b) => a.label.localeCompare(b.label));
   }, [calls, mapping]);
 
   const examCodePieData = useMemo(() => {

@@ -36,6 +36,7 @@ import { io } from "socket.io-client";
 import { subDays, startOfDay, endOfDay, subYears } from "date-fns";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import DateRangePresets from "@/components/DateRangePresets";
+import { construireExamLabelMap, listerTypesExamen } from "@/lib/examLabels";
 
 type Speaker = "Lyrae" | "User";
 
@@ -366,17 +367,20 @@ export default function CallListPage({ params }: CallListPageProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const open = Boolean(anchorEl);
 
-  const [mapping, setMapping] = useState<any[]>([]);
+  // Objet { US: { fr, diminutif }, ... } renvoyé par /api/configuration/mapping/type_exam.
+  const [mapping, setMapping] = useState<Record<string, any>>({});
 
-  const examLabelMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    if (Array.isArray(mapping)) {
-      for (const e of mapping) {
-        if (e.diminutif) map[e.diminutif] = e.fr;
-      }
-    }
-    return map;
-  }, [mapping]);
+  // Diminutif du centre (ce que remonte `stats.exam_type_id`) vers le libellé
+  // affiché. Le libellé vient du code canonique de la ligne, pas de la colonne
+  // `fr` stockée : voir `src/lib/examLabels.ts`.
+  const examLabelMap = useMemo(
+    () => construireExamLabelMap(mapping),
+    [mapping]
+  );
+
+  // Une entrée par type d'examen pour le filtre : sans ça, un centre dont le
+  // diminutif diffère du code canonique apparaîtrait deux fois dans la liste.
+  const examTypeOptions = useMemo(() => listerTypesExamen(mapping), [mapping]);
 
   const [dateRange, setDateRange] = useState<DateRange>(() => {
     const today = new Date();
@@ -847,9 +851,9 @@ export default function CallListPage({ params }: CallListPageProps) {
             }}
           >
             <MenuItem value="all">Tous</MenuItem>
-            {Object.entries(examLabelMap).map(([code, label]) => (
-              <MenuItem key={code} value={code}>
-                {label}
+            {examTypeOptions.map((o) => (
+              <MenuItem key={o.code} value={o.valeur}>
+                {o.label}
               </MenuItem>
             ))}
           </Select>

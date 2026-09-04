@@ -203,32 +203,25 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
           } else {
             localStorage.removeItem(STORAGE_KEY);
           }
-        } else if (data.id == 7 || data.id == 8) {
-          if (data.id == 7) {
-            const res = await fetch("/api/users/8", { cache: "no-store" });
-
-            const otherCentre = await res.json();
-            setAllCentres([data, otherCentre]);
-          } else {
-            const res = await fetch("/api/users/7", { cache: "no-store" });
-            const otherCentre = await res.json();
-            setAllCentres([data, otherCentre]);
-          }
-        } else if (data.id == 12 ||data.id == 13) {
-          if (data.id == 12) {
-            const res = await fetch("/api/users/13", { cache: "no-store" });
-            const otherCentre = await res.json();
-            setAllCentres([data, otherCentre]);
-          } else {
-            const res = await fetch("/api/users/12", { cache: "no-store" });
-            const otherCentre = await res.json();
-            setAllCentres([data, otherCentre]);
-          }
         } else {
-          setAllCentres([]);
-          setSelectedCentre(null);
-          if (typeof window !== "undefined") {
-            localStorage.removeItem(STORAGE_KEY);
+          // Centre appartenant à un groupe multi-centres (Montchanin /
+          // Le Creusot, Quimper / Fouesnant / Pont-l'Abbé, ...). La liste des
+          // groupes est une règle d'autorisation : elle vit côté serveur, dans
+          // `@/lib/groupesCentres`, et le front se contente de la demander.
+          // Auparavant elle était recopiée ici en `if (data.id == 7 || ...)`,
+          // ce qui ne savait exprimer que des paires.
+          const resLies = await fetch("/api/centres-lies", { cache: "no-store" });
+          const lies = resLies.ok ? await resLies.json() : [];
+          if (cancelled) return;
+
+          if (Array.isArray(lies) && lies.length > 0) {
+            setAllCentres([data, ...lies]);
+          } else {
+            setAllCentres([]);
+            setSelectedCentre(null);
+            if (typeof window !== "undefined") {
+              localStorage.removeItem(STORAGE_KEY);
+            }
           }
         }
       } catch (err) {
