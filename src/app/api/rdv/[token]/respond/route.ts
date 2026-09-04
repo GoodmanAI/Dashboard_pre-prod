@@ -98,7 +98,8 @@ export async function POST(
     );
     return NextResponse.json(
       {
-        error: "Code incorrect.",
+        error:
+          "Code incorrect. C'est le code à 6 chiffres écrit à la fin du SMS, après le mot Code.",
         status: locked ? "LOCKED" : "PENDING",
         attemptsLeft: locked ? 0 : APPOINTMENT_MAX_ATTEMPTS - nextAttempts,
       },
