@@ -103,7 +103,9 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
         setSubmitError(
           data.error +
             (typeof data.attemptsLeft === "number"
-              ? ` (${data.attemptsLeft} tentative(s) restante(s))`
+              ? ` Il vous reste ${data.attemptsLeft} essai${
+                  data.attemptsLeft > 1 ? "s" : ""
+                }.`
               : "")
         );
         return;
@@ -290,7 +292,7 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
                   setCode(next);
                 }}
                 disabled={submitting !== null}
-                placeholder="••••••"
+                placeholder="123456"
                 autoComplete="one-time-code"
                 inputProps={{
                   inputMode: "numeric",
@@ -332,7 +334,8 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
                   textAlign: "center",
                 }}
               >
-                Saisissez les 6 chiffres reçus dans le SMS.
+                Saisissez les 6 chiffres écrits à la fin du SMS, après le mot
+                Code.
               </Typography>
             </Box>
 
