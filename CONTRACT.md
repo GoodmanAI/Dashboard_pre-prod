@@ -290,7 +290,17 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 ## Invariants à ne pas casser
 
 1. **Header `x-api-key`** — le renommer casse LyraeTalk **et** AI2Xplore simultanément.
-2. **Payload `POST /api/calls/summary`** : tableau `steps` **ordonné**, index 0 = Lyrae, index 1 = User, alternance stricte (`route.ts:30`).
+2. **Payload `POST /api/calls/summary`** : tableau `steps` **ordonné**, index 0 = Lyrae,
+   index 1 = User, alternance stricte (`route.ts:30`). Depuis le 2026-09-04,
+   `userProductId` est le **centre effectif** et non celui du numéro appelé : sur un
+   groupe qui partage un numéro (Quimper 18, Fouesnant 20, Pont-l'Abbé 21), LyraeTalk
+   envoie le centre où le patient a pris ou choisi son rendez-vous, et joint le centre
+   d'entrée dans `stats.entry_user_product_id` plus le code du centre dans
+   `stats.site_code`. `CallConversation.userProductId` portant une clé étrangère, le
+   handler vérifie que le `UserProduct` existe avant d'écrire et retombe sur le centre
+   d'entrée sinon : un centre non encore créé dégrade l'attribution, il ne fait pas
+   perdre l'appel. `centerId` reste à 0, il ne désigne ici aucun centre.
+   Voir `plans/2026-09-attribution-stats-multisite.md` dans le workspace.
 3. **Payloads** `POST /api/rdv/init`, `POST /api/prescriptions/init` (clés, format de date de naissance, enum de type d'examen).
 4. **Forme de `GET /api/prescriptions/pending`** : `{ pending, total }`.
 5. **`ExternalCenterMapping.externalCenterCode`** = clé de jointure avec AI2Xplore.
@@ -300,6 +310,19 @@ composent : `2026_08_10_deployment_status.sql` (création) et
    obsolète plutôt que supprimer. Et **le lien domaine → variable de clé d'API** est un
    contrôle de sécurité : le relâcher laisserait la clé d'un produit lire les domaines de
    l'autre.
+5ter. **`ExamMapping.examCode` est l'identité d'une ligne**, jamais son rang dans la
+   table ni sa colonne `fr`. `examCode` vaut `US`, `MG`, `RX`, `MR` ou `CT` ; `diminutif`
+   est le code que le logiciel du centre emploie pour ce type (`DX` pour la radio chez
+   RIM29SUD, `SC`/`IR` chez Le Creusot), et c'est lui que LyraeTalk renvoie dans
+   `stats.exam_type_id`. `fr` n'est qu'un libellé d'affichage : **ne rien en déduire.**
+   L'ancien écran de saisie des diminutifs le calculait depuis la position de la ligne et
+   a écrit `Scanner` sur les cinq lignes de plusieurs centres, ce qui affichait toute
+   mammographie et toute échographie comme un scanner (constaté sur le groupe Quimper le
+   2026-09-04, réparé par `prisma/migrations/manual/2026_09_04_repare_exam_mapping.sql`).
+   `GET /api/configuration/mapping/type_exam` renvoie pour cette raison un objet clé par
+   code, plus un tableau : `src/lib/examLabels.ts` est le seul endroit qui traduit un
+   diminutif en libellé.
+
 6. **Colonnes camelCase entre guillemets** (`"User"`, `"UserProduct"`) — sensibles à la casse.
 7. **`Product.name`** — valeurs `LyraeTalk` et `LyraeKonnect`. Les renommer en base casse
    l'application sans erreur de compilation. Depuis le 13/08/2026 un seul fichier les

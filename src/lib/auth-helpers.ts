@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "./authOptions";
 import { prisma } from "./prisma";
+import { centresLies } from "./groupesCentres";
 
 /**
  * Session authentifiée enrichie avec id + rôle (comme retournée par `authOptions.callbacks.session`).
@@ -23,18 +24,6 @@ type AuthOk = { session: AuthSession; error?: never };
 type AuthErr = { session?: never; error: NextResponse };
 export type AuthResult = AuthOk | AuthErr;
 
-/**
- * Paires multi-centres "hardcodées" (legacy) répliquant la logique du `CentreContext`
- * côté frontend : certains CLIENT ont accès à un autre CLIENT sans relation `managerId`
- * en base. À terme, cette config devrait être représentée en DB (via `managerId` ou
- * une table `UserCentreAccess`) et ce bloc supprimé des deux côtés.
- */
-const SPECIAL_CENTRE_PAIRS: Record<number, number[]> = {
-  7: [8],
-  8: [7],
-  12: [13],
-  13: [12],
-};
 
 /**
  * Exige une session valide. À appeler au tout début d'un handler API.
@@ -140,11 +129,13 @@ export async function assertUserProductOwnership(
     if (parent) return null;
   }
 
-  // CLIENT paire legacy (hardcodée — voir SPECIAL_CENTRE_PAIRS)
-  const pairIds = SPECIAL_CENTRE_PAIRS[session.user.id];
-  if (pairIds?.length) {
+  // CLIENT d'un groupe multi-centres (Montchanin / Le Creusot, Quimper, ...).
+  // La liste des groupes vit dans `@/lib/groupesCentres`, seul endroit qui la
+  // déclare, front-end compris.
+  const lies = await centresLies(session.user.id);
+  if (lies.length) {
     const paired = await prisma.userProduct.findFirst({
-      where: { id: userProductId, userId: { in: pairIds } },
+      where: { id: userProductId, userId: { in: lies } },
       select: { id: true },
     });
     if (paired) return null;
@@ -187,9 +178,9 @@ export async function assertUserAccess(
   });
   if (currentUser?.managerId === targetUserId) return null;
 
-  // Paire legacy hardcodée (voir SPECIAL_CENTRE_PAIRS)
-  const pairIds = SPECIAL_CENTRE_PAIRS[session.user.id];
-  if (pairIds?.includes(targetUserId)) return null;
+  // Groupe multi-centres (voir `@/lib/groupesCentres`)
+  const lies = await centresLies(session.user.id);
+  if (lies.includes(targetUserId)) return null;
 
   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }

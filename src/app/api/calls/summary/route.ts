@@ -17,13 +17,49 @@ export async function POST(req: NextRequest) {
 
     const data = await req.json();
 
-    const { userProductId, centerId, steps, stats } = data;
+    const { userProductId, steps, stats } = data;
 
     if (!userProductId || !steps || !Array.isArray(steps)) {
       return NextResponse.json(
         { error: "Missing or invalid parameters" },
         { status: 400 }
       );
+    }
+
+    // Centre effectif contre centre d'entrée.
+    // -------------------------------------------------------------------------
+    // Depuis le 2026-09-04, sur un groupe qui partage un numéro d'appel (Quimper
+    // 18, Fouesnant 20, Pont-l'Abbé 21), LyraeTalk envoie le centre où le patient
+    // a pris ou choisi son rendez-vous, pas celui du numéro composé. Il joint le
+    // centre d'entrée dans `stats.entry_user_product_id`.
+    //
+    // `CallConversation.userProductId` porte une clé étrangère vers UserProduct :
+    // écrire un centre qui n'existe pas encore côté Dashboard ferait échouer
+    // l'insertion en 500 et PERDRAIT l'appel, transcription comprise. On retombe
+    // donc sur le centre d'entrée, quitte à mal attribuer, plutôt que de perdre.
+    // Cf. plans/2026-09-attribution-stats-multisite.md.
+    const entryUserProductId =
+      Number(stats?.entry_user_product_id) || Number(userProductId);
+
+    const existe = await prisma.userProduct.findUnique({
+      where: { id: Number(userProductId) },
+      select: { id: true },
+    });
+
+    let userProductIdFinal = Number(userProductId);
+    if (!existe) {
+      if (entryUserProductId === userProductIdFinal) {
+        return NextResponse.json(
+          { error: `UserProduct ${userProductId} introuvable` },
+          { status: 404 }
+        );
+      }
+      console.warn(
+        `[calls/summary] UserProduct ${userProductId} introuvable, ` +
+          `appel attribué au centre d'entrée ${entryUserProductId}. ` +
+          `Créer le centre côté Dashboard pour rétablir l'attribution.`
+      );
+      userProductIdFinal = entryUserProductId;
     }
 
     // Transformation des steps
@@ -33,13 +69,18 @@ export async function POST(req: NextRequest) {
     }));
 
     await prisma.callConversation.create({
-  data: {
-    userProductId,
-    centerId: 0,
-    steps: stepsTransformed as unknown as Prisma.InputJsonValue,
-    stats: stats as unknown as Prisma.InputJsonValue,
-  },
-});
+      data: {
+        userProductId: userProductIdFinal,
+        // `centerId` reste à 0 : dans les autres tables de cette base
+        // (AppointmentConfirmation, PrescriptionUpload) il désigne un User.id.
+        // Lui donner ici le sens de « centre d'entrée » serait un troisième
+        // sens pour un même nom de colonne. Cette information vit dans
+        // `stats.entry_user_product_id`, qui est explicite.
+        centerId: 0,
+        steps: stepsTransformed as unknown as Prisma.InputJsonValue,
+        stats: stats as unknown as Prisma.InputJsonValue,
+      },
+    });
 
     return NextResponse.json({ success: true }, { status: 200 });
 
