@@ -7,6 +7,16 @@ import * as XLSX from "xlsx";
 
 export const runtime = "nodejs";
 
+/**
+ * Le referentiel est lu dans un blob Azure a chaque appel, et doit le rester.
+ * Sans cette ligne, Next prerend la route au build (elle ne lit ni headers ni
+ * cookies) et sert indefiniment le contenu fige de ce build : une mise a jour
+ * du blob n'apparaitrait plus jamais. Le symptome est invisible tant que le
+ * referentiel ne bouge pas, ce qui le rend d'autant plus penible a diagnostiquer.
+ * Constate le 04/09/2026, quand la route s'est remise a fonctionner.
+ */
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING_NEURACORP_EXAMS;
