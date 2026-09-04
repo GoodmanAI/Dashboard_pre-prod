@@ -30,10 +30,16 @@ import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 /**
  * Correspondance des Types d'examens (diminutifs) - refonte 2026-08-06.
  * -----------------------------------------------------------------------------
- * Le "diminutif" est le code court que le bot Lyrae utilise en interne pour
- * routing / synthese vocale (ex: US, MG, RX, MR, CT). Les 5 lignes de la
- * table cote back sont indexees 0..4 -> Echographie, Mammographie, Radio,
- * IRM, Scanner (ordre historique de l'API, inchange par cette refonte).
+ * Le "diminutif" est le code court utilise par le logiciel de gestion du centre
+ * pour designer un type d'examen (ex: DX pour la radio chez RIM29SUD). Il est
+ * remonte dans les statistiques d'appel, ou il sert a retrouver le libelle.
+ *
+ * L'IDENTITE D'UNE LIGNE EST SON CODE CANONIQUE (US/MG/RX/MR/CT), jamais sa
+ * position. Cet ecran indexait autrefois les libelles sur le rang de la ligne
+ * renvoyee par l'API : les cinq lignes d'un centre neuf recevaient toutes le
+ * libelle "Scanner", et la liste des appels affichait ensuite chaque mammo et
+ * chaque echo comme un scanner (constate sur le groupe Quimper le 2026-09-04).
+ * On boucle donc sur EXAM_LIST, et on ne lit plus jamais l'ordre de l'API.
  *
  * Design aligne sur /parametrage/mapping_exam (chantier UI 2026-08-06) :
  * badges couleur ExamTypeBadge partages, save bar sticky, guard modifs.
@@ -111,12 +117,14 @@ export default function EditTypeExam({ params }: TalkPageProps) {
           `/api/configuration/mapping/type_exam?userProductId=${userProductId}`
         );
         const data = await res.json();
+        // On part de EXAM_LIST, pas de ce que renvoie l'API : le type d'une
+        // ligne est son code, et l'ordre de la reponse ne dit rien.
         const mapped: Mapping = Object.fromEntries(
-          Object.entries(data).map(([code, val]: any, index) => [
-            code,
+          EXAM_LIST.map(({ typeCode, label }) => [
+            typeCode,
             {
-              fr: EXAM_LIST[index]?.label ?? code,
-              diminutif: val.diminutif ?? code,
+              fr: label,
+              diminutif: data?.[typeCode]?.diminutif ?? typeCode,
             },
           ])
         );
@@ -287,9 +295,11 @@ export default function EditTypeExam({ params }: TalkPageProps) {
         </Box>
       ) : (
         <Stack spacing={1.5} sx={{ maxWidth: 720 }}>
-          {entries.map(([code, item], index) => {
-            const meta = EXAM_LIST[index];
-            const typeCode = meta?.typeCode ?? "";
+          {entries.map(([code, item]) => {
+            // `code` EST le code canonique : on retrouve le type par la clé,
+            // jamais par le rang de la ligne.
+            const meta = EXAM_LIST.find((e) => e.typeCode === code);
+            const typeCode = meta?.typeCode ?? code;
             const label = meta?.label ?? item.fr;
             const description = meta?.description ?? "";
             const original = originalMapping[code]?.diminutif ?? "";

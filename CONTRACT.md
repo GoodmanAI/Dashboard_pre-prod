@@ -300,6 +300,19 @@ composent : `2026_08_10_deployment_status.sql` (création) et
    obsolète plutôt que supprimer. Et **le lien domaine → variable de clé d'API** est un
    contrôle de sécurité : le relâcher laisserait la clé d'un produit lire les domaines de
    l'autre.
+5ter. **`ExamMapping.examCode` est l'identité d'une ligne**, jamais son rang dans la
+   table ni sa colonne `fr`. `examCode` vaut `US`, `MG`, `RX`, `MR` ou `CT` ; `diminutif`
+   est le code que le logiciel du centre emploie pour ce type (`DX` pour la radio chez
+   RIM29SUD, `SC`/`IR` chez Le Creusot), et c'est lui que LyraeTalk renvoie dans
+   `stats.exam_type_id`. `fr` n'est qu'un libellé d'affichage : **ne rien en déduire.**
+   L'ancien écran de saisie des diminutifs le calculait depuis la position de la ligne et
+   a écrit `Scanner` sur les cinq lignes de plusieurs centres, ce qui affichait toute
+   mammographie et toute échographie comme un scanner (constaté sur le groupe Quimper le
+   2026-09-04, réparé par `prisma/migrations/manual/2026_09_04_repare_exam_mapping.sql`).
+   `GET /api/configuration/mapping/type_exam` renvoie pour cette raison un objet clé par
+   code, plus un tableau : `src/lib/examLabels.ts` est le seul endroit qui traduit un
+   diminutif en libellé.
+
 6. **Colonnes camelCase entre guillemets** (`"User"`, `"UserProduct"`) — sensibles à la casse.
 7. **`Product.name`** — valeurs `LyraeTalk` et `LyraeKonnect`. Les renommer en base casse
    l'application sans erreur de compilation. Depuis le 13/08/2026 un seul fichier les
