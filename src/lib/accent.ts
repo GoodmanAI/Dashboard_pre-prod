@@ -6,14 +6,17 @@
  * `var(--accent)` et surtout PAS ces constantes : sinon la couleur ne suivrait
  * pas le produit affiche.
  *
- * Ces constantes n'existent que pour les trois cas ou `var()` echoue :
+ * Ces constantes n'existent que pour les quatre cas ou `var()` echoue :
  *
  *   1. les attributs de presentation SVG poses par Recharts (`fill=`, `stroke=`)
  *      — `var()` n'est pas resolu dans un attribut XML, seulement dans une
  *      propriete CSS ;
  *   2. les props de composants qui recoivent une couleur comme donnee
  *      (`themeSecondaryColor`) et la reinjectent ailleurs ;
- *   3. les valeurs JS servant de repli dans un calcul (`colors[k] ?? ACCENT`).
+ *   3. les valeurs JS servant de repli dans un calcul (`colors[k] ?? ACCENT`);
+ *   4. les emails HTML (`src/lib/ticketNotifications.ts`) — la boite de
+ *      reception du destinataire n'a ni notre `:root` ni, pour beaucoup de
+ *      clients mail, le support des variables CSS.
  *
  * LIMITE ASSUMEE : ces valeurs sont FIGEES a la compilation. Un composant qui
  * les utilise gardera la couleur LyraeTalk meme sous LyraeKonnect. C'est

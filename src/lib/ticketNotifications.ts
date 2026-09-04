@@ -15,6 +15,18 @@
  */
 
 import { escapeHtml, sendEmail } from "./brevoMailer";
+import { ACCENT } from "./accent";
+
+/**
+ * `User.email` n'est pas toujours une adresse : les comptes historiques portent
+ * un identifiant libre (« menton », « epsilon »), comme le rappelle deja
+ * `/api/admin/reset-password`. Brevo refuse alors l'envoi ENTIER avec un 400,
+ * y compris quand la valeur ne sert que de `replyTo`. Il faut donc filtrer
+ * avant d'appeler, jamais apres.
+ */
+function estAdresseEmail(v: string | null | undefined): v is string {
+  return typeof v === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+}
 
 const DASHBOARD_URL =
   process.env.DASHBOARD_PUBLIC_URL ?? "https://dashboard.neuracorp.ai";
@@ -25,6 +37,8 @@ interface NewTicketContext {
   message: string;
   clientEmail: string;
   clientName: string | null;
+  /** Adresse de contact saisie a la creation du ticket, validee cote schema. */
+  contactEmail: string | null;
   createdByEmail: string;
   createdByName: string | null;
   userProductLabel: string | null;
@@ -56,7 +70,7 @@ export async function notifyNewTicketToAdmin(ctx: NewTicketContext) {
   const html = `
 <!doctype html>
 <html><body style="font-family:-apple-system,Segoe UI,sans-serif;max-width:600px;margin:auto;">
-  <div style="background:var(--accent);color:white;padding:16px 20px;border-radius:8px 8px 0 0;">
+  <div style="background:${ACCENT};color:white;padding:16px 20px;border-radius:8px 8px 0 0;">
     <h2 style="margin:0;">Nouveau ticket support #${ctx.ticketId}</h2>
   </div>
   <div style="border:1px solid #e0e0e0;border-top:0;padding:20px;border-radius:0 0 8px 8px;">
@@ -64,10 +78,10 @@ export async function notifyNewTicketToAdmin(ctx: NewTicketContext) {
        <span style="color:#666;font-size:13px;">${escapeHtml(ctx.clientEmail)}</span></p>
     ${centerLine}
     <p><strong>Sujet :</strong> ${escapeHtml(ctx.subject)}</p>
-    <div style="background:#f5f5f5;padding:12px;border-left:3px solid var(--accent);margin:16px 0;white-space:pre-wrap;font-size:14px;">${escapeHtml(ctx.message)}</div>
+    <div style="background:#f5f5f5;padding:12px;border-left:3px solid ${ACCENT};margin:16px 0;white-space:pre-wrap;font-size:14px;">${escapeHtml(ctx.message)}</div>
     ${impersonationLine}
     <p style="margin-top:24px;">
-      <a href="${ticketUrl}" style="background:var(--accent);color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Voir le ticket</a>
+      <a href="${ticketUrl}" style="background:${ACCENT};color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Voir le ticket</a>
     </p>
     <p style="color:#999;font-size:12px;margin-top:24px;">
       Ce message est envoye automatiquement par le dashboard Neuracorp.
@@ -87,12 +101,21 @@ ${ctx.message}
 Voir le ticket : ${ticketUrl}
 `.trim();
 
+  // Le support doit pouvoir repondre directement au client : on vise d'abord
+  // l'adresse de contact du ticket, puis l'email du compte s'il en est une.
+  // Sans ce filtre, un identifiant comme « menton » fait rejeter tout le mail
+  // par Brevo, et la notification disparait sans que personne ne le voie
+  // (constate sur le ticket #3, le 02/09/2026).
+  const replyToEmail = [ctx.contactEmail, ctx.clientEmail].find(estAdresseEmail);
+
   return sendEmail({
     to: { email: adminEmail },
     subject: `[Ticket #${ctx.ticketId}] ${ctx.subject}`,
     htmlContent: html,
     textContent: text,
-    replyTo: { email: ctx.clientEmail, name: ctx.clientName ?? undefined },
+    ...(replyToEmail
+      ? { replyTo: { email: replyToEmail, name: ctx.clientName ?? undefined } }
+      : {}),
     tags: ["ticket_created"],
   });
 }
@@ -112,6 +135,18 @@ interface TicketStatusChangeContext {
  * (Les autres transitions PENDING <-> IN_PROGRESS n'envoient pas de mail.)
  */
 export async function notifyTicketClosedToClient(ctx: TicketStatusChangeContext) {
+  // Meme piege que pour la notification admin, en plus grave : ici l'adresse
+  // fautive est le destinataire. L'appelant retombe sur `User.email` quand le
+  // ticket n'a pas de `contactEmail`, ce qui est le cas des tickets anterieurs
+  // a sa mise en place. Le client n'apprenait alors jamais que son ticket etait
+  // clos (constate sur le ticket #1, le 03/09/2026, destinataire « epsilon »).
+  if (!estAdresseEmail(ctx.clientEmail)) {
+    console.warn(
+      `[ticketNotifications] ticket #${ctx.ticketId} : « ${ctx.clientEmail} » n'est pas une adresse email, mail de cloture non envoye`
+    );
+    return { ok: false, error: "invalid recipient" };
+  }
+
   const ticketUrl = `${DASHBOARD_URL}/client/ticket`;
   const statusLabel = ctx.newStatus === "RESOLVED" ? "resolu" : "ferme";
   const statusColor = ctx.newStatus === "RESOLVED" ? "#22C55E" : "#7A8FA6";
@@ -137,7 +172,7 @@ export async function notifyTicketClosedToClient(ctx: TicketStatusChangeContext)
     <p>Si le probleme persiste, vous pouvez repondre a ce ticket ou en creer un
        nouveau depuis votre espace support.</p>
     <p style="margin-top:24px;">
-      <a href="${ticketUrl}" style="background:var(--accent);color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Voir mes tickets</a>
+      <a href="${ticketUrl}" style="background:${ACCENT};color:white;padding:10px 20px;text-decoration:none;border-radius:6px;display:inline-block;">Voir mes tickets</a>
     </p>
     <p style="color:#999;font-size:12px;margin-top:24px;">
       Merci d'utiliser Neuracorp.
