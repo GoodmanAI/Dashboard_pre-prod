@@ -4,6 +4,13 @@ import { NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { rejectIfSecretary } from "@/lib/authGuards";
+import {
+  EXAM_TYPES,
+  LIBELLE_STOCKE,
+  indexerParType,
+  diminutifDuType,
+  type ExamType,
+} from "@/lib/examTypes";
 
 /**
  * Correspondance « type d'examen canonique → code court du centre » (diminutif).
@@ -26,40 +33,28 @@ import { rejectIfSecretary } from "@/lib/authGuards";
  *     dérivés du code canonique côté serveur, donc ils ne peuvent plus dériver.
  */
 
-/** Les cinq types d'examen, dans l'ordre d'affichage. La clé fait foi. */
-const EXAM_TYPES = ["US", "MG", "RX", "MR", "CT"] as const;
-type ExamType = (typeof EXAM_TYPES)[number];
-
-/**
- * Libellé français par code canonique.
- *
- * Ces libellés sont ceux que `examCodeMap` savait retraduire en code
- * (`configuration/route.ts`) : ne pas les remplacer par des variantes accentuées
- * ou plus longues sans mettre la table de retour à jour du même coup.
- */
-const LIBELLE_PAR_TYPE: Record<ExamType, string> = {
-  US: "Echographie",
-  MG: "Mammographie",
-  RX: "Radio",
-  MR: "IRM",
-  CT: "Scanner",
-};
-
 type LigneMapping = { fr: string; diminutif: string };
 
-/** Le mapping complet d'un centre, indexé par code canonique. */
+/**
+ * Le mapping complet d'un centre, indexé par code canonique.
+ *
+ * `indexerParType` retrouve le type d'une ligne même si son `examCode` est hors
+ * nomenclature : le script de provisionnement de Pontivy y a mis le code du RIS
+ * (`DX`) et le code canonique dans `labelFr`. Sans cette recuperation, la radio
+ * de ce centre ressortait avec le diminutif par defaut `RX` au lieu de `DX`, et
+ * l'enregistrer aurait ecrase la vraie valeur.
+ */
 function construireMapping(
-  lignes: Array<{ examCode: string; diminutif: string | null }>
+  lignes: Array<{ examCode: string; fr: string; labelFr: string; diminutif: string | null }>
 ): Record<ExamType, LigneMapping> {
-  const parCode = new Map(lignes.map((l) => [l.examCode, l]));
+  const parType = indexerParType(lignes);
 
   return EXAM_TYPES.reduce((acc, code) => {
-    const ligne = parCode.get(code);
     acc[code] = {
-      fr: LIBELLE_PAR_TYPE[code],
+      fr: LIBELLE_STOCKE[code],
       // Défaut = le code canonique lui-même. Un centre qui n'a rien saisi
       // utilise donc les codes standards, ce qui est le cas le plus courant.
-      diminutif: ligne?.diminutif?.trim() || code,
+      diminutif: diminutifDuType(parType, code),
     };
     return acc;
   }, {} as Record<ExamType, LigneMapping>);
@@ -87,7 +82,9 @@ export async function GET(req: Request) {
 
   const mappings = await prisma.examMapping.findMany({
     where: { userProductId: id },
-    select: { examCode: true, diminutif: true },
+    // `fr` et `labelFr` sont lus pour retrouver le type d'une ligne dont
+    // l'`examCode` serait hors nomenclature, pas pour l'afficher.
+    select: { examCode: true, fr: true, labelFr: true, diminutif: true },
   });
 
   // Toujours les cinq types, toujours dans le même ordre, que la table soit
@@ -150,7 +147,7 @@ export async function POST(req: Request) {
     return {
       userProductId: id,
       examCode: code,
-      fr: LIBELLE_PAR_TYPE[code],
+      fr: LIBELLE_STOCKE[code],
       labelFr: code,
       diminutif: diminutif || code,
     };
