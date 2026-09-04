@@ -27,7 +27,7 @@ SELECT em."userProductId" AS upid, em."examCode", em."fr", em."labelFr", em."dim
     OR btrim(COALESCE(em."diminutif", '')) = ''
  ORDER BY em."userProductId", em."examCode";
 
-\echo '── 2. Centres dont le mapping n''a pas cinq lignes (doit etre vide) ──'
+\echo '── 2. Centres sans exactement cinq lignes de mapping (doit etre vide) ──'
 SELECT up."id" AS upid, u."name",
        COALESCE(COUNT(em."id"), 0) AS lignes,
        string_agg(em."examCode", ', ' ORDER BY em."examCode") AS codes
