@@ -16,6 +16,7 @@ import { usePathname } from "next/navigation";
 import localFont from 'next/font/local'
 import { CentreProvider } from "./context/CentreContext";
 import PageAccessGuard from "@/components/permissions/PageAccessGuard";
+import BandeauCompletude from "@/components/completude/BandeauCompletude";
 
 /**
  * Layout racine de l’espace applicatif (hors pages d’authentification).
@@ -106,6 +107,11 @@ export default function RootLayout({
                 {/* En-tête et zone de contenu métier. */}
                 <PageWrapper className="page-wrapper" style={{ overflowX: "hidden"}}>
                   <Header toggleMobileSidebar={() => setMobileSidebarOpen(true)} />
+                  {/* Ce qui manque au centre regarde, s'il y a lieu. Le composant
+                      ne rend rien hors d'un ecran de centre, ni sur un centre
+                      arrete, ni sur un centre complet : il est sans effet tant
+                      qu'il n'a rien a dire. */}
+                  <BandeauCompletude />
                   {/* Zone d’injection des pages (routes enfants). */}
                     {/* `pt` : le sélecteur de produit du header est le contexte de
                         tout ce qui suit. Collé au titre de la page, on lisait deux
