@@ -22,6 +22,8 @@ import PageContainer from "@/app/(DashboardLayout)/components/container/PageCont
 import { cheminCentre } from "@/lib/cheminsCentre";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { PRODUITS } from "@/lib/produits";
+import type { Manque } from "@/lib/completude/types";
+import type { StatutCentre } from "@/lib/centreStatut";
 
 /**
  * Installer un centre LyraeKonnect, de bout en bout (lots G6 et I1).
@@ -63,7 +65,21 @@ type Centre = {
   telephoneSecretariat: string | null;
   risBaseUrl: string | null;
   risCodeSite: string | null;
+  statut: StatutCentre;
+  manques: Manque[];
 };
+
+/**
+ * Le manque portant cette cle, ou `undefined` si l'information est en place.
+ *
+ * Les blocs ne jugent plus par eux-memes : ils demandent au registre
+ * `src/lib/completude/konnect.ts`. C'est ce qui garantit que cette page et le
+ * bandeau du client disent la meme chose, et que le numero de secretariat est
+ * VALIDE et pas seulement rempli.
+ */
+function chercher(centre: Centre | null, cle: string): Manque | undefined {
+  return centre?.manques?.find((m) => m.cle === cle);
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -418,8 +434,8 @@ export default function InstallationKonnect() {
             <Bloc
               numero={1}
               titre="Rattachement du portail"
-              fait={Boolean(centre.tenantId)}
-              manque="Le portail ne sait pas à quel centre il parle. Rien d'autre ne s'appliquera."
+              fait={!chercher(centre, "konnect.rattachement")}
+              manque={chercher(centre, "konnect.rattachement")?.manque ?? ""}
             >
               <Typography sx={{ fontSize: 12, color: INK_MUTED, mb: 1.5 }}>
                 L&apos;identifiant technique du portail, communiqué à son installation. Il
@@ -455,8 +471,8 @@ export default function InstallationKonnect() {
             <Bloc
               numero={2}
               titre="Logiciel de gestion du centre"
-              fait={Boolean(centre.risBaseUrl && centre.risCodeSite)}
-              manque="Sans lui, aucun créneau ne peut être cherché ni réservé."
+              fait={!chercher(centre, "konnect.ris-identite")}
+              manque={chercher(centre, "konnect.ris-identite")?.manque ?? ""}
             >
               <Typography sx={{ fontSize: 12, color: INK_MUTED, mb: 1.5 }}>
                 L&apos;adresse de l&apos;instance et le code du site, communiqués par
@@ -511,11 +527,14 @@ export default function InstallationKonnect() {
             <BlocRenvoi
               numero={3}
               titre="Paramètres du portail"
-              fait={centre.aDesParametres && Boolean(centre.telephoneSecretariat?.trim())}
+              fait={
+                !chercher(centre, "konnect.telephone-secretariat") &&
+                !chercher(centre, "konnect.parametres")
+              }
               manque={
-                centre.aDesParametres
-                  ? "Pas de numéro de secrétariat : un patient bloqué n'a personne à appeler."
-                  : "Le portail tourne sur les valeurs par défaut."
+                chercher(centre, "konnect.telephone-secretariat")?.manque ??
+                chercher(centre, "konnect.parametres")?.manque ??
+                ""
               }
               detail={centre.telephoneSecretariat ?? undefined}
               href={cheminCentre(centre.userId, "konnect", "parametrage")}
@@ -524,8 +543,8 @@ export default function InstallationKonnect() {
             <BlocRenvoi
               numero={4}
               titre="Codes d'examens"
-              fait={centre.examensAttribues > 0}
-              manque="Aucun examen n'a de code : le patient ne pourra rien réserver."
+              fait={!chercher(centre, "konnect.examens")}
+              manque={chercher(centre, "konnect.examens")?.manque ?? ""}
               detail={`${centre.examensAttribues} examens sur ${centre.examensTotal}`}
               href={cheminCentre(centre.userId, "konnect", "examens")}
             />
@@ -533,8 +552,8 @@ export default function InstallationKonnect() {
             <BlocRenvoi
               numero={5}
               titre="Sites"
-              fait={centre.sites > 0}
-              manque="Le patient ne saura pas où se présenter."
+              fait={!chercher(centre, "konnect.sites")}
+              manque={chercher(centre, "konnect.sites")?.manque ?? ""}
               detail={`${centre.sites} site${centre.sites > 1 ? "s" : ""}`}
               href={cheminCentre(centre.userId, "konnect", "sites")}
             />
