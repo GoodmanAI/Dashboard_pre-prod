@@ -29,6 +29,57 @@ export type ExamType = (typeof EXAM_TYPES)[number];
 const EST_TYPE = new Set<string>(EXAM_TYPES);
 
 /**
+ * ── Les codes supplementaires ────────────────────────────────────────────────
+ *
+ * Quatre codes vivent dans le `getInitInfo.js` de LyraeTalk
+ * (`userProductIdToTypeExams`) sans avoir de place ici, et la migration de la
+ * configuration vers le Dashboard les perdrait :
+ *
+ *   | Code | Centre concerne        | Ce que c'est                        |
+ *   |------|------------------------|-------------------------------------|
+ *   | PA   | 12 Cognac              | panoramique dentaire                |
+ *   | UI   | 15 Menton              | echographie injectee                |
+ *   | CI   | 15 Menton              | scanner injecte                     |
+ *   | OT   | 18/20/21 Quimper, 22 Pontivy | osteodensitometrie            |
+ *
+ * **CE NE SONT PAS DE NOUVELLES MODALITES**, et c'est ce qui decide de leur
+ * modelisation. Verifie dans LyraeTalk le 2026-09-07 : `rdv.internal_type` ne
+ * prend jamais ces valeurs depuis la detection Azure, qui ne connait que les
+ * cinq types. Ils n'apparaissent que dans la traduction INVERSE de
+ * `modifyConfirm.js` : un rendez-vous deja pris remonte du RIS avec son code
+ * maison (`CI`, `OT`…), et le bot doit savoir le reconnaitre pour le relire au
+ * patient. Sans eux, un patient de Menton qui appelle pour deplacer son scanner
+ * injecte n'est pas compris.
+ *
+ * ILS RESTENT DONC HORS DE `EXAM_TYPES`. Les y ajouter ferait apparaitre quatre
+ * cases fantomes dans `examsAccepted`, `prescriptionByType`, la confirmation par
+ * SMS et les treize combinaisons de double examen, qui sont toutes indexees par
+ * les cinq cles canoniques. Le besoin est de RECONNAITRE ces codes, pas de les
+ * rendre reservables.
+ */
+export const EXAM_TYPES_SUPPLEMENTAIRES = ["PA", "UI", "CI", "OT"] as const;
+export type ExamTypeSupplementaire = (typeof EXAM_TYPES_SUPPLEMENTAIRES)[number];
+
+/** Un code de mapping valide : canonique ou supplementaire. */
+export type ExamTypeEtendu = ExamType | ExamTypeSupplementaire;
+
+const EST_SUPPLEMENTAIRE = new Set<string>(EXAM_TYPES_SUPPLEMENTAIRES);
+
+/** Libelle affiche d'un code supplementaire. Accentue : il n'est pas stocke. */
+export const LIBELLE_SUPPLEMENTAIRE: Record<ExamTypeSupplementaire, string> = {
+  PA: "Panoramique dentaire",
+  UI: "Échographie injectée",
+  CI: "Scanner injecté",
+  OT: "Ostéodensitométrie",
+};
+
+export function estTypeSupplementaire(
+  code: string | null | undefined
+): code is ExamTypeSupplementaire {
+  return !!code && EST_SUPPLEMENTAIRE.has(code.trim().toUpperCase());
+}
+
+/**
  * Libelle stocke dans `ExamMapping.fr`.
  *
  * SANS accent et "Radio" plutot que "Radiographie" : ce sont les valeurs que la
@@ -83,9 +134,39 @@ export function codeCanonique(ligne: LigneExamMapping): ExamType | null {
 }
 
 /**
+ * Le code d'une ligne, canonique OU supplementaire, ou `null`.
+ *
+ * A utiliser partout ou une ligne doit simplement etre IDENTIFIEE : la reponse
+ * de `/api/configuration`, l'audit, l'ecran des codes courts. `codeCanonique`
+ * reste la bonne fonction partout ou l'on raisonne sur les cinq modalites
+ * (examens acceptes, double examen, ordonnances), et il renvoie `null` pour une
+ * ligne supplementaire — ce qui est le comportement voulu : un panoramique
+ * n'est pas une radio.
+ */
+export function codeEtendu(ligne: LigneExamMapping): ExamTypeEtendu | null {
+  const canonique = codeCanonique(ligne);
+  if (canonique) return canonique;
+
+  // Meme ordre de confiance que `codeCanonique` : `examCode` d'abord, `labelFr`
+  // ensuite. `fr` n'est pas consulte, aucun libelle stocke ne designe ces codes.
+  const examCode = ligne.examCode?.trim().toUpperCase();
+  if (examCode && EST_SUPPLEMENTAIRE.has(examCode))
+    return examCode as ExamTypeSupplementaire;
+
+  const labelFr = ligne.labelFr?.trim().toUpperCase();
+  if (labelFr && EST_SUPPLEMENTAIRE.has(labelFr))
+    return labelFr as ExamTypeSupplementaire;
+
+  return null;
+}
+
+/**
  * Les lignes d'un centre indexees par type canonique.
  * En cas de collision (deux lignes ramenees au meme type), la premiere gagne :
  * on prefere une valeur stable a une valeur arbitraire.
+ *
+ * Les lignes supplementaires (PA, UI, CI, OT) en sont ABSENTES : elles ne sont
+ * pas des modalites. Pour les inclure, passer par `codeEtendu`.
  */
 export function indexerParType(
   lignes: LigneExamMapping[]

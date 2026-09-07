@@ -27,6 +27,8 @@ import PageContainer from "@/app/(DashboardLayout)/components/container/PageCont
 import { cheminCentre } from "@/lib/cheminsCentre";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { PRODUITS } from "@/lib/produits";
+import type { Manque } from "@/lib/completude/types";
+import { STATUTS, type StatutCentre } from "@/lib/centreStatut";
 
 /**
  * Installer un centre LyraeTalk, de bout en bout (lot I2).
@@ -68,7 +70,31 @@ type Centre = {
   aSmsConfirmation: boolean;
   aDepotOrdonnances: boolean;
   faq: number;
+  statut: StatutCentre;
+  manques: Manque[];
 };
+
+/**
+ * Le manque portant cette clé, ou `undefined` si l'information est en place.
+ *
+ * Les blocs ci-dessous ne jugent plus par eux-mêmes : ils demandent au registre.
+ * C'est ce qui garantit que cette page et le bandeau du client disent la même
+ * chose — avant, chacun portait sa propre version de la règle, et le bloc
+ * « Questions par examen » vérifiait en fait la présence des réglages du robot,
+ * affichant en vert des centres qui n'avaient aucune question.
+ */
+function chercher(centre: Centre | null, cle: string): Manque | undefined {
+  return centre?.manques?.find((m) => m.cle === cle);
+}
+
+/** Les clés déjà rendues par un bloc numéroté : le reste va au récapitulatif. */
+const CLES_AVEC_BLOC = [
+  "talk.codes-centres",
+  "talk.numero-entrant",
+  "talk.codes-examens",
+  "talk.questions-examens",
+  "talk.faq",
+];
 
 function Etat({ fait, children }: { fait: boolean; children: React.ReactNode }) {
   return (
@@ -339,6 +365,24 @@ export default function InstallationTalk() {
                 </MenuItem>
               ))}
             </Select>
+            {/* Le statut change la portée de tout ce qui suit : un manque sur un
+                centre en intégration est normal, sur un centre en production il
+                est signalé au client. Se règle dans « Parc clients ». */}
+            {centre && (
+              <Chip
+                label={STATUTS[centre.statut].libelle}
+                size="small"
+                component={Link}
+                href="/admin/parc"
+                clickable
+                sx={{
+                  bgcolor: STATUTS[centre.statut].couleur.fond,
+                  color: STATUTS[centre.statut].couleur.texte,
+                  fontWeight: 600,
+                  fontSize: 12,
+                }}
+              />
+            )}
             <Button
               startIcon={<IconPlus size={16} />}
               onClick={() => setCreation((v) => !v)}
@@ -404,8 +448,8 @@ export default function InstallationTalk() {
             <Bloc
               numero={1}
               titre="Codes centres"
-              fait={centre.codesCentres.length > 0}
-              manque="Aucun rendez-vous du robot n'arrivera jusqu'à ce centre."
+              fait={!chercher(centre, "talk.codes-centres")}
+              manque={chercher(centre, "talk.codes-centres")?.manque ?? ""}
             >
               <Typography sx={{ fontSize: 12, color: INK_MUTED, mb: 1.5 }}>
                 Le code de chaque centre dans le logiciel de gestion. Un compte peut en
@@ -454,8 +498,8 @@ export default function InstallationTalk() {
             <Bloc
               numero={2}
               titre="Numéro d'appel"
-              fait={centre.numeros.length > 0}
-              manque="Le robot n'a aucun numéro sur lequel répondre."
+              fait={!chercher(centre, "talk.numero-entrant")}
+              manque={chercher(centre, "talk.numero-entrant")?.manque ?? ""}
             >
               <Typography sx={{ fontSize: 12, color: INK_MUTED, mb: 1.5 }}>
                 Le numéro que les patients composent. C&apos;est lui qui identifie le centre
@@ -516,8 +560,8 @@ export default function InstallationTalk() {
             <BlocRenvoi
               numero={4}
               titre="Mapping d'examens"
-              fait={centre.examensAttribues > 0}
-              manque="Aucun examen n'a de code : le robot ne pourra rien proposer."
+              fait={!chercher(centre, "talk.codes-examens")}
+              manque={chercher(centre, "talk.codes-examens")?.manque ?? ""}
               detail={`${centre.examensAttribues} examens attribués`}
               href={cheminCentre(centre.userId, "talk", "parametrage/mapping_exam")}
             />
@@ -525,19 +569,66 @@ export default function InstallationTalk() {
             <BlocRenvoi
               numero={5}
               titre="Questions par examen"
-              fait={centre.aDesReglages}
-              manque="Le robot ne posera aucune question de préparation."
+              fait={!chercher(centre, "talk.questions-examens")}
+              manque={chercher(centre, "talk.questions-examens")?.manque ?? ""}
               href={cheminCentre(centre.userId, "talk", "parametrage/questions_exam")}
             />
 
             <BlocRenvoi
               numero={6}
               titre="FAQ patient"
-              fait={centre.faq > 0}
-              manque="Le module informationnel n'a rien à répondre."
+              fait={!chercher(centre, "talk.faq")}
+              manque={chercher(centre, "talk.faq")?.manque ?? ""}
               detail={`${centre.faq} question${centre.faq > 1 ? "s" : ""}`}
               href={cheminCentre(centre.userId, "talk", "informationnel")}
             />
+
+            {/* Les exigences du registre qui n'ont pas de bloc à elles : fiche du
+                centre, redirections, codes courts des examens. Sans ce
+                récapitulatif, sept des treize informations attendues seraient
+                invisibles depuis cette page, alors qu'elle sert justement à voir
+                d'un coup d'œil où en est un centre. */}
+            {(() => {
+              const autres = (centre.manques ?? []).filter(
+                (m) => !CLES_AVEC_BLOC.includes(m.cle)
+              );
+              if (autres.length === 0) return null;
+              return (
+                <Paper
+                  variant="outlined"
+                  sx={{ borderColor: BORDER, borderRadius: 2, p: 2, mb: 2 }}
+                >
+                  <Typography
+                    sx={{ fontSize: 13.5, fontWeight: 600, color: INK, mb: 1 }}
+                  >
+                    Autres informations à compléter
+                  </Typography>
+                  <Stack spacing={1}>
+                    {autres.map((m) => (
+                      <Etat key={m.cle} fait={false}>
+                        <Typography sx={{ fontSize: 13, color: INK }}>
+                          {m.libelle}
+                          <Typography
+                            component="span"
+                            sx={{
+                              fontSize: 11.5,
+                              color: INK_MUTED,
+                              ml: 1,
+                            }}
+                          >
+                            {m.proprietaire === "client" ? "client" : "interne"}
+                            {m.criticite === "bloquant" ? " · essentiel" : ""}
+                          </Typography>
+                        </Typography>
+                        <Typography sx={{ fontSize: 12, color: MANQUE }}>
+                          {m.manque}
+                        </Typography>
+                      </Etat>
+                    ))}
+                  </Stack>
+                </Paper>
+              );
+            })()}
 
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
               <Chip

@@ -15,6 +15,23 @@
 **Pour LyraeTalk** — header `x-api-key: BOT_API_KEY` :
 `GET /api/configuration`, `GET /api/configuration/get/mapping`, `GET /api/configuration/get/mapping/getLibelle`, `GET /api/configuration/get/is_open`, `GET /api/sms-confirmation-config`, `POST /api/calls/summary`.
 
+⚠️ **`GET /api/configuration` : le champ `labelFr` de `examMappings` porte un CODE de
+type, jamais un libellé** (07/09/2026). C'est ce que LyraeTalk lit pour savoir de quel
+type une ligne parle, et ce dont il fera la clé de `site.typeExams` quand la
+configuration descendra d'ici. Il est calculé par `codeEtendu()` de
+`src/lib/examTypes.ts`, qui lit `examCode` d'abord, `labelFr` ensuite, `fr` en dernier
+recours — dans cet ordre parce que `fr` est précisément la colonne qui a été corrompue
+chez plusieurs centres (« Scanner » sur les cinq lignes), et que la table locale qu'il
+remplace la consultait en premier, renvoyant `CT` pour une échographie.
+
+`codeEtendu` reconnaît **neuf** codes : les cinq canoniques (`US`, `MG`, `RX`, `MR`,
+`CT`) et quatre supplémentaires (`PA` panoramique dentaire, `UI` échographie injectée,
+`CI` scanner injecté, `OT` ostéodensitométrie). Ces quatre-là ne sont **pas** des
+modalités : ils ne sont ni réservables ni présents dans `examsAccepted`,
+`prescriptionByType` ou les combinaisons de double examen. Ils servent à RELIRE un
+rendez-vous que le logiciel du centre renvoie avec son code maison. Une ligne
+irrécupérable retombe sur `fr`, comportement historique.
+
 **Pour AI2Xplore** — header `x-api-key: APPOINTMENT_API_KEY` :
 `POST /api/rdv/init`, `POST /api/rdv/ack`, `GET /api/rdv/pending-events`, `POST /api/rdv/reminder-sent`, `POST /api/prescriptions/init`, `GET /api/prescriptions/pending`, `GET /api/prescriptions/download/[id]`, `POST /api/prescriptions/ack/[id]`.
 
@@ -129,6 +146,14 @@ Whitelist dans `src/middleware.ts:13-33`. **Toute nouvelle route M2M doit y êtr
 ### Routes applicatives (71 au total)
 Auth NextAuth, comptes (`/api/admin/users*`, `/api/admin/clients*`), tickets, notifications, RDV/SMS, ordonnances, mapping de centres externes, numéros, fichiers, statistiques, produits, données d'examens.
 
+Depuis le 07/09/2026, deux routes servent le suivi d'installation, **session NextAuth
+uniquement, jamais appelées par une brique** :
+- `GET/PUT/DELETE /api/centre-statut` — le classement d'un centre (admin).
+- `GET /api/completude` — ce qui manque à un centre pour fonctionner, calculé par le
+  registre `src/lib/completude/`. Un client n'y reçoit que les informations dont il est
+  propriétaire, le filtrage est côté serveur. Sans `userProductId`, elle renvoie tout le
+  parc (admin seul).
+
 ### Pages patient publiques
 `/c`, `/d`, `/confirm` — token 8 caractères + `verificationCode` haché bcrypt.
 Sous-domaines : `rdv.neuracorp.ai`, `depot-ordonnances.neuracorp.ai` (doivent pointer sur le même conteneur Next).
@@ -181,12 +206,28 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 
 **Migrations à deux vitesses** :
 - Prisma : `prisma/migrations/YYYYMMDDHHMMSS_*/migration.sql` (6 dossiers)
-- Manuel : `prisma/migrations/manual/*.sql` (16 fichiers) — **ces tables ne sont pas dans `schema.prisma`**
+- Manuel : `prisma/migrations/manual/*.sql` (17 fichiers) — **ces tables ne sont pas dans `schema.prisma`**
 
 | Origine | Tables |
 |---|---|
 | Prisma (17) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `Call`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
-| SQL manuel (16) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `KonnectSites`, `KonnectDemandesRappel`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus` |
+| SQL manuel (17) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `KonnectSites`, `KonnectDemandesRappel`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus`, `CentreStatut` |
+
+`CentreStatut` (07/09/2026) porte le statut de cycle de vie d'un centre :
+`integration`, `production` ou `arrete`, une ligne par `userProductId`, donc **par couple
+client × produit** — un cabinet peut prendre des appels depuis six mois et ouvrir son
+portail patient la semaine prochaine.
+
+**Elle ne pilote que l'affichage des alertes de configuration.** Elle ne coupe aucun
+service, ne retire aucune affiliation, et aucune brique consommatrice ne la lit : ni
+LyraeTalk ni Konnect n'en connaissent l'existence. Ne pas la confondre avec les trois
+notions d'état qui existaient déjà : `UserProduct.removedAt` (le client n'a plus le
+produit, et le centre disparaît des écrans), `TalkSettings.options.serviceEnabled` (le
+robot répond ou transfère, réversible à la minute) et `DeploymentStatus` (l'état des VMs).
+
+**L'absence de ligne vaut `integration`**, donc silence : le classement est un geste
+volontaire, et reclasser un centre en intégration éteint ses alertes sans redéploiement.
+Administrée par `/api/centre-statut` (session NextAuth, admin — **pas** machine-à-machine).
 
 `KonnectTenantMapping` (24/08/2026) relie un cabinet Konnect (`tenantId`, UUID) à un centre
 du Dashboard (`userProductId`). **1 ↔ 1 contraint dans les deux sens**, à la différence

@@ -374,6 +374,23 @@ function DayHoursField({
   );
 }
 
+/**
+ * `address2` porte le code postal ET la ville dans une seule colonne, alors que
+ * l'écran en fait deux champs. Cette fonction fait le chemin inverse au
+ * chargement.
+ *
+ * Un code postal est reconnu s'il ouvre la valeur et fait cinq chiffres. Sinon,
+ * tout part dans la ville : c'est le cas de Cognac, dont l'`address2` a
+ * longtemps valu « CHATEAUBERNARD » sans code postal. Mieux vaut afficher la
+ * valeur dans le mauvais champ que la faire disparaître.
+ */
+function separerAddress2(valeur: unknown): { codePostal: string; ville: string } {
+  const brut = typeof valeur === "string" ? valeur.trim() : "";
+  const m = brut.match(/^(\d{5})\s*(.*)$/);
+  if (m) return { codePostal: m[1], ville: m[2].trim() };
+  return { codePostal: "", ville: brut };
+}
+
 export default function ParametrageTalkPage({ params }: TalkPageProps) {
   const router = useRouter();
   const { selectedUserId, selectedCentre } = useCentre();
@@ -468,6 +485,15 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           ) as Record<ExamKey, PlanningAction>,
         }));
 
+        // Le code postal et la ville sont deux champs à l'écran mais UNE seule
+        // colonne en base (`address2`). Sans cette relecture, ils revenaient
+        // vides après un rafraîchissement alors que la valeur était bien
+        // enregistrée — et le piège était pire que visuel : corriger le seul
+        // code postal réécrivait `address2` avec une ville vide, donc effaçait
+        // la ville sans que personne ne le voie.
+        const { codePostal, ville } = separerAddress2(data.address2);
+        setZipCode(codePostal);
+        setCity(ville);
       } catch (error) {
         console.error("Error fetching settings:", error);
       } finally {
