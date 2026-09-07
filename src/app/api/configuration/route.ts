@@ -108,10 +108,93 @@ export async function GET(req: NextRequest) {
         WHERE "userProductId" = $1 AND "domaine" = 'talk.site' LIMIT 1`,
       [userProductId]
     );
-    const site =
+    const siteBrut =
       (siteCfgRes.rowCount ?? 0) > 0 && estObjetJson(siteCfgRes.rows[0].valeur)
         ? (siteCfgRes.rows[0].valeur as Record<string, unknown>)
         : null;
+
+    // ── UNE SEULE SOURCE PAR INFORMATION ──────────────────────────────────────
+    //
+    // Sept champs de `site` désignent la même chose qu'un champ servi à la
+    // racine de cette réponse. LyraeTalk applique le bloc `site` PUIS les champs
+    // racine : ces sept-là étaient donc écrasés en silence, et l'écran qui les
+    // saisit ne servait à rien. Pire, il laissait croire le contraire.
+    //
+    // On les retire ici plutôt que côté robot : le Dashboard ne doit pas
+    // descendre deux valeurs pour une même information, quoi qu'on ait pu
+    // enregistrer dans `talk.site`. La racine gagne, parce que c'est elle
+    // qu'un écran client alimente.
+    const SERVIS_A_LA_RACINE: Record<string, string> = {
+      bookableExams: "examsAccepted",
+      fullPlanningNotes: "fullPlanningNotes",
+      doubleBookingConfig: "doubleBookingConfig",
+      intro: "welcomeMsg",
+      serviceEnabled: "serviceEnabled",
+      sendConfirmationSms: "sendConfirmationSms",
+      prescriptionByType: "prescriptionByType",
+      // `typeExams` vient des diminutifs du mapping d'examens, que le client
+      // saisit dans son écran. Le dupliquer ici recréait la double vérité que
+      // ce chantier existe pour supprimer.
+      typeExams: "examMappings[].diminutif",
+    };
+
+    // Trois clés de `statePerformed` sont réglées par le client dans ses
+    // Paramètres généraux (`options`), et écrasent celles du bloc. Les retirer
+    // évite qu'un administrateur croie les piloter depuis son écran.
+    const ETAPES_DU_CLIENT = ["motif", "questions", "menstruations"];
+
+    // Le site PRINCIPAL est décrit par `centerName`/`address`/… : sa fiche est
+    // reconstruite après le bloc, donc celle du bloc serait perdue. Seuls les
+    // sites secondaires ont leur place ici.
+    const siteRis = estObjetJson(siteBrut?.risCode)
+      ? (siteBrut!.risCode as Record<string, unknown>)
+      : null;
+    const codePrincipal =
+      typeof siteRis?.info === "string" ? (siteRis.info as string) : null;
+
+    let site: Record<string, unknown> | null = null;
+    const ignores: string[] = [];
+    if (siteBrut) {
+      site = {};
+      for (const [cle, valeur] of Object.entries(siteBrut)) {
+        if (cle in SERVIS_A_LA_RACINE) {
+          ignores.push(`${cle} (voir ${SERVIS_A_LA_RACINE[cle]})`);
+          continue;
+        }
+        if (cle === "statePerformed" && estObjetJson(valeur)) {
+          const etapes: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(valeur)) {
+            if (ETAPES_DU_CLIENT.includes(k)) {
+              ignores.push(`statePerformed.${k} (voir options.${k})`);
+              continue;
+            }
+            etapes[k] = v;
+          }
+          site[cle] = etapes;
+          continue;
+        }
+        if (cle === "siteDetails" && estObjetJson(valeur) && codePrincipal) {
+          const { [codePrincipal]: principal, ...secondaires } = valeur as Record<
+            string,
+            unknown
+          >;
+          if (principal !== undefined) {
+            ignores.push(`siteDetails.${codePrincipal} (voir centerName)`);
+          }
+          site[cle] = secondaires;
+          continue;
+        }
+        site[cle] = valeur;
+      }
+      if (Object.keys(site).length === 0) site = null;
+    }
+
+    if (ignores.length > 0) {
+      console.log(
+        `[configuration] upid=${userProductId} champs de talk.site ignorés car servis ailleurs :`,
+        ignores.join(", ")
+      );
+    }
 
     // 3️⃣ `labelFr` porte le code du type, jamais un libellé.
     //
