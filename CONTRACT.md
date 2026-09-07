@@ -33,8 +33,20 @@ Trois règles, et les trois sont des invariants :
    tous les créneaux. Tout objet descendu doit être complet.
 
 `null` dans un champ signifie « je n'ai pas d'avis » et est ignoré ; pour vider une
-liste, envoyer `[]`. Contrat détaillé et liste des champs cibles :
-`contracts/shared/init-config.md`.
+liste, envoyer `[]`.
+
+**Le bloc ne porte jamais ce que la racine sert déjà** (08/09/2026). LyraeTalk applique
+le bloc PUIS les champs racine : un champ présent des deux côtés serait écrasé en
+silence, et l'écran qui le saisit ne servirait à rien. Huit champs sont donc retirés du
+bloc avant l'envoi, et celui qui gagne est toujours celui qu'un écran **client**
+alimente : `bookableExams` (← `examsAccepted`), `fullPlanningNotes`,
+`doubleBookingConfig`, `intro` (← `welcomeMsg`), `serviceEnabled`,
+`sendConfirmationSms`, `prescriptionByType`, et `typeExams` (← `examMappings[].diminutif`,
+que le robot dérive lui-même). Même règle pour `statePerformed.motif`, `.questions` et
+`.menstruations`, réglées dans `options`, et pour la fiche du site principal de
+`siteDetails`, reconstruite depuis `centerName`. Ce qui est retiré est journalisé.
+
+Contrat détaillé et liste des champs cibles : `contracts/shared/init-config.md`.
 
 ⚠️ **`GET /api/configuration` : le champ `labelFr` de `examMappings` porte un CODE de
 type, jamais un libellé** (07/09/2026). C'est ce que LyraeTalk lit pour savoir de quel
