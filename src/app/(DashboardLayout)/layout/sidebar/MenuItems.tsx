@@ -24,6 +24,9 @@ import {
   IconArrowsJoin,
   IconArrowsSplit,
   IconClockHour4,
+  IconAbc,
+  IconShieldCheck,
+  IconKey,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -216,6 +219,19 @@ export const AdminMenuitems: SidebarItem[] = [
     icon: IconChecklist,
     href: "/admin/talk-installation",
   },
+  {
+    // Codes centres de tous les clients, et rattachement des cabinets Konnect.
+    // La page existait depuis e0a931d mais n'avait jamais ete reliee au menu :
+    // elle n'etait atteignable qu'en tapant l'URL. Or c'est ici qu'on active un
+    // cabinet Konnect (une ligne KonnectTenantMapping), et c'est la vue qui
+    // repond a « ce code appartient a quel centre ? » quand un rendez-vous
+    // arrive avec un code inconnu -- les deux pages d'installation, elles, ne
+    // montrent qu'un centre a la fois.
+    id: uniqueId(),
+    title: "Identifiants externes",
+    icon: IconKey,
+    href: "/admin/external-mapping",
+  },
   { navlabel: true, subheader: "Client" },
   {
     id: uniqueId(),
@@ -347,6 +363,18 @@ export const KonnectMenuitems: SidebarItem[] = [
     title: "Ordre des créneaux",
     icon: IconClockHour4,
     href: "/client/c/{USER_ID}/konnect/ordre-creneaux",
+  },
+  {
+    id: uniqueId(),
+    title: "Mots du cabinet",
+    icon: IconAbc,
+    href: "/client/c/{USER_ID}/konnect/mots-cabinet",
+  },
+  {
+    id: uniqueId(),
+    title: "Règles",
+    icon: IconShieldCheck,
+    href: "/client/c/{USER_ID}/konnect/regles-cliniques",
   },
 
   { navlabel: true, subheader: "Exploitation" },
