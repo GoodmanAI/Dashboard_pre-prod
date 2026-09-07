@@ -27,7 +27,22 @@
  * s'applique quand l'interrupteur est ouvert.
  */
 
-export type TypeChamp = "texte" | "texte-long" | "booleen" | "nombre" | "liste";
+export type TypeChamp =
+  | "texte"
+  | "texte-long"
+  | "booleen"
+  | "nombre"
+  | "liste"
+  /**
+   * Structure JSON éditée telle quelle.
+   *
+   * Assumé, et pas un renoncement : `risCode`, `siteDetails` ou
+   * `siteSelectionList` n'ont pas de forme de formulaire évidente, elles se
+   * règlent une fois à l'installation, et une saisie guidée fausse serait pire
+   * qu'un JSON relu. L'écran valide la syntaxe avant d'enregistrer ; c'est le
+   * contenu qui reste à la charge de celui qui saisit.
+   */
+  | "json";
 
 export type ChampSite = {
   /** Chemin dans `call.site`. Un point désigne une sous-clé d'objet. */
@@ -124,6 +139,131 @@ export const SECTIONS_SITE: SectionSite[] = [
       },
     ],
   },
+  {
+    titre: "Codes du logiciel de gestion",
+    description:
+      "Ce qui relie le robot au logiciel du centre. Une erreur ici ne lève aucune alerte : elle rend simplement les créneaux introuvables. À ne modifier qu'en sachant ce qu'on fait.",
+    champs: [
+      {
+        chemin: "risCode",
+        libelle: "Codes sites par type d'examen",
+        type: "json",
+        proprietaire: "admin",
+        defautRobot: "La table du robot",
+        aide: "`info` est le code du site principal. Chaque type d'examen (US, RX, MG, CT, MR, OT…) liste les sites où chercher des créneaux, le premier étant le préférentiel. Un type absent n'est pas réservable. Exemple : { \"info\": \"A04\", \"US\": [\"A04\"], \"CT\": [\"A05\"] }",
+      },
+      {
+        chemin: "typeExams",
+        libelle: "Codes d'examen du logiciel",
+        type: "json",
+        proprietaire: "admin",
+        defautRobot: "La table du robot",
+        aide: "Ce que le logiciel du centre attend pour chaque type interne. Exemple : { \"US\": \"EC\", \"RX\": \"RA\" }. Sert aussi à relire un rendez-vous déjà pris.",
+      },
+      {
+        chemin: "siteCodeToName",
+        libelle: "Nom prononcé de chaque site",
+        type: "json",
+        proprietaire: "admin",
+        defautRobot: "La table du robot",
+        aide: "Le nom que le robot dit au patient pour chaque code site. Il est lu à voix haute : écrire comme cela se prononce. Exemple : { \"A04\": \"Imagerie Médicale Cognac\" }",
+      },
+      {
+        chemin: "siteDetails",
+        libelle: "Fiches des sites secondaires",
+        type: "json",
+        proprietaire: "admin",
+        defautRobot: "La table du robot",
+        aide: "Adresse et téléphone de chaque site AUTRE que le principal, pour les convocations. Le site principal, lui, vient des Paramètres généraux du centre.",
+      },
+      {
+        chemin: "siteSelectionList",
+        libelle: "Centres proposés au patient",
+        type: "json",
+        proprietaire: "admin",
+        defautRobot: "Aucun choix proposé",
+        aide: "Quand le robot demande au patient dans quel centre il veut son rendez-vous. L'ordre est celui de l'énoncé. Exemple : [{ \"id\": \"PQS\", \"nom\": \"Quimper\", \"userProductId\": 18 }]",
+      },
+    ],
+  },
+  {
+    titre: "Où le robot renvoie le patient",
+    description:
+      "Les numéros que le robot compose ou dicte. Un numéro faux s'entend, mais seulement chez le patient.",
+    champs: [
+      {
+        chemin: "transferNumber",
+        libelle: "Secrétariat",
+        type: "json",
+        proprietaire: "client",
+        defautRobot: "La table du robot",
+        aide: "Numéros essayés dans l'ordre quand le robot passe la main. Exemple : [{ \"phone\": \"+33586870092\", \"label\": \"Cognac\" }]",
+      },
+      {
+        chemin: "examTypeRedirection",
+        libelle: "Redirection par type d'examen",
+        type: "json",
+        proprietaire: "client",
+        defautRobot: "Aucune, tout va au secrétariat",
+        aide: "Un numéro dédié pour certains examens. Exemple : { \"MR\": [{ \"phone\": \"+33545356891\", \"label\": \"Centre IRM\" }] }",
+      },
+      {
+        chemin: "transferFallbacks",
+        libelle: "Repli sur des horaires",
+        type: "json",
+        proprietaire: "client",
+        defautRobot: "Aucun repli",
+        aide: "Un autre numéro sur des créneaux précis, quand le secrétariat habituel est fermé. `days` va de 0 (dimanche) à 6 (samedi).",
+      },
+      {
+        chemin: "transferFallbackMessage",
+        libelle: "Phrase ajoutée au transfert",
+        type: "texte-long",
+        proprietaire: "client",
+        defautRobot: "Aucune",
+        aide: "Ajoutée à toutes les phrases de transfert, par exemple pour donner un second numéro. Elle est lue à voix haute : écrire les chiffres en toutes lettres.",
+      },
+    ],
+  },
+  {
+    titre: "Étapes du parcours",
+    description:
+      "Ce que le robot demande au patient, et dans quel ordre. Chaque étape allonge l'appel : ne garder que ce dont le centre a besoin.",
+    champs: [
+      {
+        chemin: "statePerformed",
+        libelle: "Étapes activées",
+        type: "json",
+        proprietaire: "client",
+        defautRobot: "La table du robot",
+        aide: "motif, questions, adultCheck, menstruations, identification_full, organEchoConstraints, siteSelection, phoneLookupEnabled, spell_confirm_new_patient. Les trois premières se règlent aussi dans les Paramètres généraux du centre.",
+      },
+      {
+        chemin: "askRadiologueChoice",
+        libelle: "Choix du radiologue",
+        type: "json",
+        proprietaire: "client",
+        defautRobot: "Jamais demandé",
+        aide: "Par type d'examen. Exemple : { \"MG\": true, \"US\": false }",
+      },
+      {
+        chemin: "infoNewPatient",
+        libelle: "Informations demandées à un nouveau patient",
+        type: "json",
+        proprietaire: "client",
+        defautRobot: "Rien de plus",
+        aide: "{ \"enabled\": true, \"adresse\": false, \"poids\": false, \"taille\": false }. N'agit que pour un dossier inconnu du logiciel.",
+      },
+      {
+        chemin: "specialMedecins",
+        libelle: "Médecins particuliers",
+        type: "json",
+        proprietaire: "admin",
+        defautRobot: "Aucun",
+        aide: "Une phrase d'avertissement quand le rendez-vous concerne certains praticiens. { \"enabled\": true, \"codesMedecins\": [\"BENATE\"], \"doctorName\": \"BENATTAR\", \"sentence\": \"special_medecin_warning\" }",
+      },
+    ],
+  },
 ];
 
 /** Tous les champs, à plat. */
@@ -205,6 +345,10 @@ function defautTypé(champ: ChampSite): unknown {
       return Number(champ.defautRobot);
     case "liste":
       return champ.defautRobot.split(",").map((v) => v.trim()).filter(Boolean);
+    case "json":
+      // Un objet JSON n'a pas de défaut représentable en texte : le champ n'est
+      // écrit que s'il est explicitement activé, jamais rempli par défaut.
+      return undefined;
     default:
       return champ.defautRobot;
   }
