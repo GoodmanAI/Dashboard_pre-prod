@@ -103,7 +103,13 @@ export default function TalkConfigPage() {
         const v = lireChemin(valeur, champ.chemin);
         a[champ.chemin] = v !== undefined;
         s[champ.chemin] =
-          v !== undefined ? (champ.type === "liste" ? (v as string[]).join(", ") : v) : "";
+          v === undefined
+            ? ""
+            : champ.type === "liste"
+              ? (v as string[]).join(", ")
+              : champ.type === "json"
+                ? JSON.stringify(v, null, 2)
+                : v;
       }
       setActifs(a);
       setSaisies(s);
@@ -128,8 +134,21 @@ export default function TalkConfigPage() {
     try {
       // Les listes sont saisies en texte, converties ici seulement.
       const converties: Record<string, unknown> = {};
+      const invalides: string[] = [];
       for (const champ of CHAMPS_SITE) {
         const brut = saisies[champ.chemin];
+        if (champ.type === "json") {
+          // Un JSON mal formé enregistré tel quel casserait la configuration du
+          // centre au prochain appel : on refuse avant d'écrire, en nommant le
+          // champ fautif.
+          if (!actifs[champ.chemin]) continue;
+          try {
+            converties[champ.chemin] = JSON.parse(String(brut ?? ""));
+          } catch {
+            invalides.push(champ.libelle);
+          }
+          continue;
+        }
         converties[champ.chemin] =
           champ.type === "liste"
             ? String(brut ?? "")
@@ -139,6 +158,11 @@ export default function TalkConfigPage() {
             : champ.type === "nombre"
               ? Number(brut)
               : brut;
+      }
+      if (invalides.length > 0) {
+        throw new Error(
+          `Le contenu de « ${invalides.join(" », « ")} » n'est pas du JSON valide. Rien n'a été enregistré.`
+        );
       }
 
       const r = await fetch(
@@ -207,6 +231,22 @@ export default function TalkConfigPage() {
                   onChange={(e) =>
                     setSaisies((p) => ({ ...p, [champ.chemin]: e.target.checked }))
                   }
+                />
+              ) : champ.type === "json" ? (
+                <TextField
+                  size="small"
+                  fullWidth
+                  multiline
+                  minRows={3}
+                  maxRows={20}
+                  value={saisies[champ.chemin] ?? ""}
+                  onChange={(e) =>
+                    setSaisies((p) => ({ ...p, [champ.chemin]: e.target.value }))
+                  }
+                  inputProps={{
+                    style: { fontFamily: "monospace", fontSize: 12.5 },
+                    spellCheck: false,
+                  }}
                 />
               ) : (
                 <TextField
