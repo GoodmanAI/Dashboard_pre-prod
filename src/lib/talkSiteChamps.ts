@@ -153,14 +153,6 @@ export const SECTIONS_SITE: SectionSite[] = [
         aide: "`info` est le code du site principal. Chaque type d'examen (US, RX, MG, CT, MR, OT…) liste les sites où chercher des créneaux, le premier étant le préférentiel. Un type absent n'est pas réservable. Exemple : { \"info\": \"A04\", \"US\": [\"A04\"], \"CT\": [\"A05\"] }",
       },
       {
-        chemin: "typeExams",
-        libelle: "Codes d'examen du logiciel",
-        type: "json",
-        proprietaire: "admin",
-        defautRobot: "La table du robot",
-        aide: "Ce que le logiciel du centre attend pour chaque type interne. Exemple : { \"US\": \"EC\", \"RX\": \"RA\" }. Sert aussi à relire un rendez-vous déjà pris.",
-      },
-      {
         chemin: "siteCodeToName",
         libelle: "Nom prononcé de chaque site",
         type: "json",
@@ -174,7 +166,7 @@ export const SECTIONS_SITE: SectionSite[] = [
         type: "json",
         proprietaire: "admin",
         defautRobot: "La table du robot",
-        aide: "Adresse et téléphone de chaque site AUTRE que le principal, pour les convocations. Le site principal, lui, vient des Paramètres généraux du centre.",
+        aide: "Adresse et téléphone de chaque site AUTRE que le principal, pour les convocations. Une fiche saisie ici pour le site principal serait ignorée : elle vient des Paramètres généraux du centre.",
       },
       {
         chemin: "siteSelectionList",
@@ -236,7 +228,7 @@ export const SECTIONS_SITE: SectionSite[] = [
         type: "json",
         proprietaire: "client",
         defautRobot: "La table du robot",
-        aide: "motif, questions, adultCheck, menstruations, identification_full, organEchoConstraints, siteSelection, phoneLookupEnabled, spell_confirm_new_patient. Les trois premières se règlent aussi dans les Paramètres généraux du centre.",
+        aide: "adultCheck, identification_full, organEchoConstraints, siteSelection, phoneLookupEnabled, spell_confirm_new_patient. Attention : motif, questions et menstruations ne se règlent PAS ici, elles viennent des Paramètres généraux du centre et écrasent ce qui serait saisi.",
       },
       {
         chemin: "askRadiologueChoice",
