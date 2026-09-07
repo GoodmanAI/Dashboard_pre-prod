@@ -220,6 +220,16 @@ export const AdminMenuitems: SidebarItem[] = [
     href: "/admin/talk-installation",
   },
   {
+    // Les reglages du robot qui vivaient dans son code, et qui descendent
+    // maintenant du Dashboard (domaine talk.site). Un ecran d'administration et
+    // non client : il porte surtout des reglages techniques, et le client a ses
+    // propres ecrans pour ce qui le concerne.
+    id: uniqueId(),
+    title: "Configuration du robot",
+    icon: IconAdjustmentsAlt,
+    href: "/admin/talk-config",
+  },
+  {
     // Codes centres de tous les clients, et rattachement des cabinets Konnect.
     // La page existait depuis e0a931d mais n'avait jamais ete reliee au menu :
     // elle n'etait atteignable qu'en tapant l'URL. Or c'est ici qu'on active un
