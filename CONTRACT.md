@@ -129,6 +129,14 @@ Whitelist dans `src/middleware.ts:13-33`. **Toute nouvelle route M2M doit y êtr
 ### Routes applicatives (71 au total)
 Auth NextAuth, comptes (`/api/admin/users*`, `/api/admin/clients*`), tickets, notifications, RDV/SMS, ordonnances, mapping de centres externes, numéros, fichiers, statistiques, produits, données d'examens.
 
+Depuis le 07/09/2026, deux routes servent le suivi d'installation, **session NextAuth
+uniquement, jamais appelées par une brique** :
+- `GET/PUT/DELETE /api/centre-statut` — le classement d'un centre (admin).
+- `GET /api/completude` — ce qui manque à un centre pour fonctionner, calculé par le
+  registre `src/lib/completude/`. Un client n'y reçoit que les informations dont il est
+  propriétaire, le filtrage est côté serveur. Sans `userProductId`, elle renvoie tout le
+  parc (admin seul).
+
 ### Pages patient publiques
 `/c`, `/d`, `/confirm` — token 8 caractères + `verificationCode` haché bcrypt.
 Sous-domaines : `rdv.neuracorp.ai`, `depot-ordonnances.neuracorp.ai` (doivent pointer sur le même conteneur Next).
@@ -181,12 +189,28 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 
 **Migrations à deux vitesses** :
 - Prisma : `prisma/migrations/YYYYMMDDHHMMSS_*/migration.sql` (6 dossiers)
-- Manuel : `prisma/migrations/manual/*.sql` (16 fichiers) — **ces tables ne sont pas dans `schema.prisma`**
+- Manuel : `prisma/migrations/manual/*.sql` (17 fichiers) — **ces tables ne sont pas dans `schema.prisma`**
 
 | Origine | Tables |
 |---|---|
 | Prisma (17) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `Call`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
-| SQL manuel (16) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `KonnectSites`, `KonnectDemandesRappel`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus` |
+| SQL manuel (17) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `KonnectSites`, `KonnectDemandesRappel`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus`, `CentreStatut` |
+
+`CentreStatut` (07/09/2026) porte le statut de cycle de vie d'un centre :
+`integration`, `production` ou `arrete`, une ligne par `userProductId`, donc **par couple
+client × produit** — un cabinet peut prendre des appels depuis six mois et ouvrir son
+portail patient la semaine prochaine.
+
+**Elle ne pilote que l'affichage des alertes de configuration.** Elle ne coupe aucun
+service, ne retire aucune affiliation, et aucune brique consommatrice ne la lit : ni
+LyraeTalk ni Konnect n'en connaissent l'existence. Ne pas la confondre avec les trois
+notions d'état qui existaient déjà : `UserProduct.removedAt` (le client n'a plus le
+produit, et le centre disparaît des écrans), `TalkSettings.options.serviceEnabled` (le
+robot répond ou transfère, réversible à la minute) et `DeploymentStatus` (l'état des VMs).
+
+**L'absence de ligne vaut `integration`**, donc silence : le classement est un geste
+volontaire, et reclasser un centre en intégration éteint ses alertes sans redéploiement.
+Administrée par `/api/centre-statut` (session NextAuth, admin — **pas** machine-à-machine).
 
 `KonnectTenantMapping` (24/08/2026) relie un cabinet Konnect (`tenantId`, UUID) à un centre
 du Dashboard (`userProductId`). **1 ↔ 1 contraint dans les deux sens**, à la différence

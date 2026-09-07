@@ -195,6 +195,16 @@ export const AdminMenuitems: SidebarItem[] = [
     href: "/admin/deployments",
   },
   {
+    // Où en est chaque centre : en intégration, en production, ou arrêté. Le
+    // statut décide des alertes de configuration affichées au client, et il est
+    // transverse aux deux produits — d'où sa place avant les deux pages
+    // d'installation, qui traitent un centre à la fois.
+    id: uniqueId(),
+    title: "Parc clients",
+    icon: IconListDetails,
+    href: "/admin/parc",
+  },
+  {
     id: uniqueId(),
     title: "Installation Konnect",
     icon: IconChecklist,
