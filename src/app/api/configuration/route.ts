@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
 import { codeEtendu } from "@/lib/examTypes";
+import { estObjetJson } from "@/lib/productConfig";
 import { db } from "@/lib/db";
 import { requireAuth, requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-helpers";
 import {
@@ -90,6 +91,27 @@ export async function GET(req: NextRequest) {
       prescriptionByType = normalizePrescriptionEnabled(row.enabledExamTypes);
       prescriptionAlertAfterHours = normalizeAlertAfterHours(row.alertAfterHours);
     }
+
+    // 2️⃣.d — Le bloc `site`, miroir de `call.site` côté LyraeTalk.
+    //
+    // Porte les champs qui vivent encore dans le `getInitInfo.js` du robot et
+    // qui descendent ici au fur et à mesure (`contracts/shared/init-config.md`).
+    // Chaque clé porte EXACTEMENT le nom de la propriété qu'elle alimente : le
+    // robot recopie sans traduire, donc sans table de correspondance à oublier.
+    //
+    // **Il surcharge, il ne remplace pas.** Le robot garde ses valeurs en dur
+    // comme défaut ; un champ absent d'ici laisse le comportement actuel. C'est
+    // ce qui rend la migration réversible et activable centre par centre : un
+    // centre sans ligne `ProductConfig` se comporte exactement comme avant.
+    const siteCfgRes = await db.query<{ valeur: unknown }>(
+      `SELECT "valeur" FROM "ProductConfig"
+        WHERE "userProductId" = $1 AND "domaine" = 'talk.site' LIMIT 1`,
+      [userProductId]
+    );
+    const site =
+      (siteCfgRes.rowCount ?? 0) > 0 && estObjetJson(siteCfgRes.rows[0].valeur)
+        ? (siteCfgRes.rows[0].valeur as Record<string, unknown>)
+        : null;
 
     // 3️⃣ `labelFr` porte le code du type, jamais un libellé.
     //
@@ -251,6 +273,10 @@ export async function GET(req: NextRequest) {
         // (utilisé par le bot pour personnaliser le SMS "à déposer sous Nh").
         prescriptionByType,
         prescriptionAlertAfterHours,
+
+        // `null` quand le centre n'a rien de configuré ici : le robot garde
+        // alors ses valeurs en dur, sans distinguer ce cas d'un objet vide.
+        site,
       },
       { status: 200 }
     );

@@ -15,6 +15,27 @@
 **Pour LyraeTalk** — header `x-api-key: BOT_API_KEY` :
 `GET /api/configuration`, `GET /api/configuration/get/mapping`, `GET /api/configuration/get/mapping/getLibelle`, `GET /api/configuration/get/is_open`, `GET /api/sms-confirmation-config`, `POST /api/calls/summary`.
 
+⚠️ **`GET /api/configuration` renvoie un bloc `site`** (07/09/2026), miroir exact de
+l'objet `call.site` de LyraeTalk. Il porte la configuration qui vit encore dans le
+`getInitInfo.js` du robot et qui descend ici au fur et à mesure, lue dans le domaine
+`talk.site` du socle `ProductConfig`.
+
+Trois règles, et les trois sont des invariants :
+
+1. **Chaque clé porte le nom de la propriété `call.site` qu'elle alimente**, sans
+   traduction. Le robot recopie ; renommer une clé côté Dashboard casse le champ en
+   silence.
+2. **Le bloc surcharge, il ne remplace pas.** Le robot pose ses valeurs en dur avant
+   la fusion : un champ absent, ou le bloc entier à `null`, laisse le comportement
+   actuel. C'est ce qui rend la migration réversible et activable centre par centre.
+3. **Un objet est remplacé en entier, jamais fusionné clé à clé.** Envoyer
+   `risCode: { info: "A04" }` sans les types ferait perdre tous les codes sites, donc
+   tous les créneaux. Tout objet descendu doit être complet.
+
+`null` dans un champ signifie « je n'ai pas d'avis » et est ignoré ; pour vider une
+liste, envoyer `[]`. Contrat détaillé et liste des champs cibles :
+`contracts/shared/init-config.md`.
+
 ⚠️ **`GET /api/configuration` : le champ `labelFr` de `examMappings` porte un CODE de
 type, jamais un libellé** (07/09/2026). C'est ce que LyraeTalk lit pour savoir de quel
 type une ligne parle, et ce dont il fera la clé de `site.typeExams` quand la

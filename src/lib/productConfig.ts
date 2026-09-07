@@ -53,6 +53,30 @@ export type Domaine = {
  * attendre la migration des données.
  */
 export const DOMAINES: Record<string, Domaine> = {
+  /**
+   * La configuration de LyraeTalk par centre, celle qui vit encore dans le
+   * `getInitInfo.js` du robot — 944 lignes de données client en dur, 21 tables.
+   *
+   * **Un seul domaine pour tous ces champs**, et non un par table. La valeur est
+   * le miroir exact de `call.site` : chaque clé porte le nom de la propriété
+   * qu'elle alimente (`risCode`, `typeExams`, `transferNumber`…), sans
+   * traduction. C'est ce qui permet au robot de fusionner en cinq lignes, sans
+   * table de correspondance à tenir à jour ni à oublier.
+   *
+   * Le contenu grandit au fil de la migration, champ par champ, **sans
+   * migration SQL** — c'est tout l'intérêt du socle. Et le robot garde ses
+   * valeurs en dur comme défaut : ce domaine SURCHARGE, il ne remplace pas. Un
+   * champ absent laisse le comportement actuel, ce qui rend chaque étape
+   * réversible et activable centre par centre.
+   *
+   * Contrat de forme : `contracts/shared/init-config.md`.
+   */
+  "talk.site": {
+    cle: "talk.site",
+    produit: "talk",
+    cleApiEnv: "BOT_API_KEY",
+    libelle: "Configuration du robot vocal par centre",
+  },
   "konnect.regles-etat": {
     cle: "konnect.regles-etat",
     produit: "konnect",
