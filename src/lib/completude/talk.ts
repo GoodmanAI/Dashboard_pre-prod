@@ -164,11 +164,22 @@ export const REGISTRE_TALK: Exigence<ConfigTalk>[] = [
   },
   {
     cle: "talk.numero-entrant",
-    libelle: "Numéro d'appel",
+    libelle: "Numéro que composent les patients",
     proprietaire: "admin",
-    criticite: "bloquant",
+    // CONFORT, et non bloquant : vérifié le 07/09/2026, `UserNumber` n'est lu
+    // par AUCUNE route fonctionnelle. LyraeTalk route les appels entrants
+    // depuis sa propre table `phoneToUserProductId`, en dur dans son code ; le
+    // Dashboard n'intervient pas. Un centre sans numéro ici répond donc
+    // parfaitement au téléphone, et en faire un bloquant affichait une alerte
+    // rouge que rien ne justifiait — le cas de Cognac le 07/09.
+    //
+    // Il redeviendra fonctionnel au lot 7 de
+    // `plans/2026-09-lyraetalk-config-tout-dashboard.md`, quand le robot
+    // résoudra le centre par une route au lieu de sa table en dur. Ce sera le
+    // moment de le repasser bloquant, pas avant.
+    criticite: "confort",
     manque:
-      "Le robot n'a aucun numéro valide sur lequel répondre. Le numéro doit être au format international, par exemple +33545820880.",
+      "Ce numéro sert au suivi, pas au fonctionnement : le robot route les appels depuis sa propre configuration. Format attendu : +33545820880.",
     href: () => "/admin/talk-installation",
     satisfaite: (c) => c.numeros.some(estNumeroEntrant),
   },
