@@ -69,14 +69,43 @@ function ListeManques({ manques }: { manques: Manque[] }) {
             spacing={{ xs: 0.25, sm: 1 }}
             alignItems={{ sm: "baseline" }}
           >
-            <Typography sx={{ fontSize: 13 }}>
+            <Typography sx={{ fontSize: 13.5 }}>
               <strong>{m.libelle}</strong> : {m.manque}
             </Typography>
+            {/* Un manque « interne » n'est pas au client de le corriger, et son
+                lien mene vers une page d'administration a laquelle il n'a pas
+                acces. Seul un administrateur recoit ces lignes (le tri est fait
+                par la route), mais il les lit sur l'ecran du client : sans
+                cette etiquette, il croit voir ce que son client voit. */}
+            {m.proprietaire === "admin" ? (
+              <Typography
+                component="span"
+                sx={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: 0.3,
+                  textTransform: "uppercase",
+                  px: 0.75,
+                  py: 0.15,
+                  borderRadius: 0.75,
+                  bgcolor: "rgba(0,0,0,0.10)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                interne
+              </Typography>
+            ) : null}
             <Button
               component={Link}
               href={m.href}
               size="small"
-              sx={{ textTransform: "none", p: 0, minWidth: 0, fontSize: 13 }}
+              sx={{
+                textTransform: "none",
+                p: 0,
+                minWidth: 0,
+                fontSize: 13,
+                fontWeight: 700,
+              }}
             >
               Corriger
             </Button>
@@ -85,6 +114,35 @@ function ListeManques({ manques }: { manques: Manque[] }) {
       ))}
     </Stack>
   );
+}
+
+/**
+ * Un fond franc plutot que le pastel par defaut de MUI.
+ *
+ * Le `severity` seul donne un fond a peine teinte, que l'oeil glisse sans le
+ * voir en haut d'un ecran deja charge. Une barre laterale epaisse, un fond plus
+ * soutenu et un titre contraste rendent le bandeau lisible sans le rendre
+ * criard : c'est une information, pas une alarme.
+ */
+const APPARENCE = {
+  error: { bord: "#B3261E", fond: "#FDECEA", texte: "#5F1512" },
+  warning: { bord: "#B26B00", fond: "#FFF4E5", texte: "#6B3F00" },
+  info: { bord: "#1D4E7F", fond: "#E8F1FA", texte: "#123252" },
+} as const;
+
+function styleAlerte(niveau: keyof typeof APPARENCE) {
+  const a = APPARENCE[niveau];
+  return {
+    borderLeft: `6px solid ${a.bord}`,
+    bgcolor: a.fond,
+    color: a.texte,
+    borderRadius: 1.5,
+    boxShadow: "0 1px 3px rgba(15,42,63,0.10)",
+    alignItems: "flex-start",
+    "& .MuiAlert-icon": { color: a.bord, opacity: 1, mt: 0.25 },
+    "& .MuiAlertTitle-root": { color: a.texte, mb: 0.25 },
+    "& a": { color: a.texte },
+  };
 }
 
 export default function BandeauCompletude() {
@@ -172,7 +230,7 @@ export default function BandeauCompletude() {
   if (regime === "informative") {
     return (
       <Box sx={cadre}>
-        <Alert severity="info">
+        <Alert severity="info" sx={styleAlerte("info")}>
           <AlertTitle sx={{ fontWeight: 700 }}>
             {nomService(produit).replace(/^v/, "V")} est en cours d&apos;installation
           </AlertTitle>
@@ -195,7 +253,7 @@ export default function BandeauCompletude() {
   if (bloquants.length > 0) {
     return (
       <Box sx={cadre}>
-        <Alert severity="error">
+        <Alert severity="error" sx={styleAlerte("error")}>
           <AlertTitle sx={{ fontWeight: 700 }}>
             {bloquants.length === 1
               ? "Une information essentielle manque"
@@ -220,7 +278,7 @@ export default function BandeauCompletude() {
 
   return (
     <Box sx={cadre}>
-      <Alert severity="warning" onClose={masquer}>
+      <Alert severity="warning" onClose={masquer} sx={styleAlerte("warning")}>
         <AlertTitle sx={{ fontWeight: 700 }}>
           {degrades.length === 1
             ? "Un réglage est à compléter"
