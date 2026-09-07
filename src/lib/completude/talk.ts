@@ -106,7 +106,25 @@ export type ConfigTalk = {
 
   /** Nombre d'entrées de la FAQ patient (`ModuleInfoItem`). */
   faq: number;
+
+  /**
+   * Le domaine `talk.site`, ou `null` si le centre n'en a pas encore.
+   *
+   * `null` ne veut pas dire « mal configuré » : le robot applique alors ses
+   * valeurs en dur, et il n'y a rien à exiger. Les exigences qui portent sur ce
+   * bloc doivent donc toutes commencer par ce test, sinon un centre neuf
+   * remonterait en défaut pour une configuration qu'on ne lui a pas demandée.
+   */
+  talkSite: Record<string, any> | null;
 };
+
+/** Le premier numéro de transfert déclaré, s'il y en a un. */
+function numeroSecretariat(c: ConfigTalk): string | null {
+  const liste = c.talkSite?.transferNumber;
+  if (!Array.isArray(liste) || liste.length === 0) return null;
+  const p = liste[0]?.phone;
+  return typeof p === "string" ? p : null;
+}
 
 /** Les types que le centre a déclaré accepter. */
 function typesAcceptes(c: ConfigTalk): ExamTypeKey[] {
@@ -205,6 +223,25 @@ export const REGISTRE_TALK: Exigence<ConfigTalk>[] = [
   },
 
   // ───────────────────────────────────  Client  ───────────────────────────────
+  {
+    cle: "talk.secretariat",
+    libelle: "Numéro du secrétariat",
+    proprietaire: "client",
+    // Bloquant : c'est le repli universel. Tout ce que le robot ne sait pas
+    // traiter finit là, y compris une panne du Dashboard en début d'appel.
+    criticite: "bloquant",
+    manque:
+      "Le robot ne peut transférer aucun appel. Renseignez un numéro valide, par exemple 0298952121.",
+    href: () => "/admin/talk-config",
+    satisfaite: (c) => {
+      // Pas de configuration ici : le robot garde son numéro en dur, rien à dire.
+      if (!c.talkSite) return true;
+      const numero = numeroSecretariat(c);
+      // Le champ n'est pas défini dans le bloc : le robot garde le sien.
+      if (numero === null) return true;
+      return estNumeroSortant(numero);
+    },
+  },
   {
     cle: "talk.examens-acceptes",
     libelle: "Examens acceptés",
