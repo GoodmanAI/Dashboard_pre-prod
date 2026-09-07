@@ -15,6 +15,23 @@
 **Pour LyraeTalk** — header `x-api-key: BOT_API_KEY` :
 `GET /api/configuration`, `GET /api/configuration/get/mapping`, `GET /api/configuration/get/mapping/getLibelle`, `GET /api/configuration/get/is_open`, `GET /api/sms-confirmation-config`, `POST /api/calls/summary`.
 
+⚠️ **`GET /api/configuration` : le champ `labelFr` de `examMappings` porte un CODE de
+type, jamais un libellé** (07/09/2026). C'est ce que LyraeTalk lit pour savoir de quel
+type une ligne parle, et ce dont il fera la clé de `site.typeExams` quand la
+configuration descendra d'ici. Il est calculé par `codeEtendu()` de
+`src/lib/examTypes.ts`, qui lit `examCode` d'abord, `labelFr` ensuite, `fr` en dernier
+recours — dans cet ordre parce que `fr` est précisément la colonne qui a été corrompue
+chez plusieurs centres (« Scanner » sur les cinq lignes), et que la table locale qu'il
+remplace la consultait en premier, renvoyant `CT` pour une échographie.
+
+`codeEtendu` reconnaît **neuf** codes : les cinq canoniques (`US`, `MG`, `RX`, `MR`,
+`CT`) et quatre supplémentaires (`PA` panoramique dentaire, `UI` échographie injectée,
+`CI` scanner injecté, `OT` ostéodensitométrie). Ces quatre-là ne sont **pas** des
+modalités : ils ne sont ni réservables ni présents dans `examsAccepted`,
+`prescriptionByType` ou les combinaisons de double examen. Ils servent à RELIRE un
+rendez-vous que le logiciel du centre renvoie avec son code maison. Une ligne
+irrécupérable retombe sur `fr`, comportement historique.
+
 **Pour AI2Xplore** — header `x-api-key: APPOINTMENT_API_KEY` :
 `POST /api/rdv/init`, `POST /api/rdv/ack`, `GET /api/rdv/pending-events`, `POST /api/rdv/reminder-sent`, `POST /api/prescriptions/init`, `GET /api/prescriptions/pending`, `GET /api/prescriptions/download/[id]`, `POST /api/prescriptions/ack/[id]`.
 

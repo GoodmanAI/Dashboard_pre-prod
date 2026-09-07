@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
+import { codeEtendu } from "@/lib/examTypes";
 import { db } from "@/lib/db";
 import { requireAuth, requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-helpers";
 import {
@@ -90,18 +91,24 @@ export async function GET(req: NextRequest) {
       prescriptionAlertAfterHours = normalizeAlertAfterHours(row.alertAfterHours);
     }
 
-    // 3️⃣ Mapping FR -> Code
-    const examCodeMap: Record<string, string> = {
-      Echographie: "US",
-      Mammographie: "MG",
-      Radio: "RX",
-      IRM: "MR",
-      Scanner: "CT",
-    };
-
+    // 3️⃣ `labelFr` porte le code du type, jamais un libellé.
+    //
+    // C'est ce que LyraeTalk lit pour savoir de quel type une ligne parle, et
+    // il en fera la clé de `site.typeExams` quand la configuration descendra
+    // d'ici (cf. `contracts/shared/init-config.md`). Il doit donc valoir un code
+    // et rien d'autre.
+    //
+    // Passe par `codeEtendu` plutôt que par une table `fr -> code` locale : la
+    // colonne `fr` a été corrompue chez plusieurs centres (« Scanner » sur les
+    // cinq lignes), et s'y fier renvoyait `CT` pour une échographie. `codeEtendu`
+    // lit `examCode` d'abord, `labelFr` ensuite, `fr` en dernier recours, et
+    // reconnaît en plus les codes supplémentaires PA, UI, CI et OT.
+    //
+    // Repli sur `fr` si la ligne est irrécupérable : c'est le comportement
+    // historique, et il vaut mieux un libellé qu'un `null` côté robot.
     const mappedExamMappings = mappings.map((m: any) => ({
       ...m,
-      labelFr: examCodeMap[m.fr] ?? m.fr,
+      labelFr: codeEtendu(m) ?? m.fr,
     }));
 
     const defaultTypes = {

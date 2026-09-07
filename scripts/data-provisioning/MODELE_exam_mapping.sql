@@ -52,9 +52,26 @@ INSERT INTO "ExamMapping" ("userProductId", "examCode", "fr", "labelFr", "diminu
   (:UPID, 'MR', 'IRM',          'MR', 'MR'),   -- <- remplacer le dernier champ
   (:UPID, 'CT', 'Scanner',      'CT', 'CT');   -- <- remplacer le dernier champ
 
+-- ── Codes supplementaires, seulement si le logiciel du centre les emploie ────
+--
+-- Ce ne sont PAS des modalites reservables : le patient ne peut pas demander un
+-- panoramique au robot. Ils servent a RELIRE un rendez-vous deja pris, quand le
+-- logiciel du centre le renvoie avec un code maison. Sans la ligne, un patient
+-- qui appelle pour deplacer cet examen n'est pas compris.
+--
+-- N'ajouter que ceux que le centre utilise reellement, et mettre son code a lui
+-- en diminutif. Decommenter au besoin :
+--
+-- INSERT INTO "ExamMapping" ("userProductId", "examCode", "fr", "labelFr", "diminutif") VALUES
+--   (:UPID, 'PA', 'Panoramique dentaire',  'PA', 'PA'),
+--   (:UPID, 'UI', 'Echographie injectee',  'UI', 'UI'),
+--   (:UPID, 'CI', 'Scanner injecte',       'CI', 'CI'),
+--   (:UPID, 'OT', 'Osteodensitometrie',    'OT', 'OT');
+
 COMMIT;
 
--- Controle immediat : les cinq types, la bonne nomenclature, les diminutifs du
--- centre. A relire avant de passer a la suite de l'installation.
+-- Controle immediat : les cinq types canoniques (plus les supplementaires s'il
+-- y en a), la bonne nomenclature, les diminutifs du centre. A relire avant de
+-- passer a la suite de l'installation.
 SELECT "examCode", "fr", "labelFr", "diminutif"
   FROM "ExamMapping" WHERE "userProductId" = :UPID ORDER BY "examCode";
