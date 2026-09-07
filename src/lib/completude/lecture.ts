@@ -86,7 +86,8 @@ export async function lireCentresTalk(
            ts."fullPlanningNotes"                    AS "fullPlanningNotes",
            COALESCE(ex."attribues", 0)::int          AS "examensAvecCode",
            COALESCE(em."lignes", '[]'::jsonb)        AS "mappings",
-           COALESCE(mi."n", 0)::int                  AS "faq"
+           COALESCE(mi."n", 0)::int                  AS "faq",
+           sc."valeur"                               AS "talkSite"
       FROM "UserProduct" up
       JOIN "Product" p ON p."id" = up."productId"
       LEFT JOIN "User" u ON u."id" = up."userId"
@@ -120,6 +121,8 @@ export async function lireCentresTalk(
         SELECT "userProductId", COUNT(*) AS "n"
           FROM "ModuleInfoItem" GROUP BY "userProductId"
       ) mi ON mi."userProductId" = up."id"
+      LEFT JOIN "ProductConfig" sc
+        ON sc."userProductId" = up."id" AND sc."domaine" = 'talk.site'
      WHERE up."removedAt" IS NULL
        AND lower(p."name") = lower($1)
        AND ($2::int IS NULL OR up."id" = $2::int)
@@ -155,6 +158,11 @@ export async function lireCentresTalk(
       examensAvecCode: r.examensAvecCode,
       mappings: tableau(r.mappings),
       faq: r.faq,
+      // `null` quand le centre n'a pas encore de configuration ici : le robot
+      // applique alors ses valeurs en dur, et il n'y a rien a exiger.
+      talkSite: objet(r.talkSite) && Object.keys(objet(r.talkSite)).length > 0
+        ? objet(r.talkSite)
+        : null,
     },
   }));
 }
