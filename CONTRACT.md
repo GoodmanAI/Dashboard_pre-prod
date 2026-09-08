@@ -426,6 +426,18 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 
 ## Dette connue
 
+- **`resolve-number` reste à écrire, et c'est le dernier verrou de la migration de
+  `getInitInfo`.** LyraeTalk route ses appels entrants depuis sa propre table
+  `phoneToUserProductId`, en dur dans son code : c'est le seul champ qui ne peut pas
+  passer par l'appel d'initiation, puisqu'il sert précisément à savoir de quel centre
+  il s'agit. Il lui faut une route dédiée, chargée au démarrage du robot et non à
+  chaque appel (la latence tomberait sur le premier mot).
+  Prérequis : une colonne `userProductId` sur `UserNumber`, aujourd'hui clée par
+  `userId` — ce qui ne distingue pas Quimper de Fouesnant, trois `UserProduct` sous un
+  même client. C'est aussi ce qui rendra le « numéro d'appel » enfin fonctionnel et
+  justifiera de repasser son exigence en bloquant (elle est en `confort` depuis le
+  07/09, parce que rien ne lit cette table). Suite du chantier `talk.site`, cf.
+  `contracts/shared/init-config.md` et le backlog de LyraeTalk (B53, B54).
 - `README.md` obsolète (ne parle que de Docker Compose).
 - `.env.example` incomplet : 15 variables listées, 26+ attendues **[?] Q15**.
 - ~~Whitelist `/api/heartbeat/*` sans endpoint correspondant **[?] Q4**.~~ **Résolu le 2026-08-10** : la whitelist avait en fait déjà été retirée de `src/middleware.ts` — aucune occurrence de `heartbeat` dans `src/`. Le seul émetteur restant, AI2Xplore, a été coupé de son côté. Q4 close.
