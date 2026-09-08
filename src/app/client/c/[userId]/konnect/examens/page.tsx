@@ -202,6 +202,17 @@ export default function MappingExamensKonnect() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState(false);
   const [avertissement, setAvertissement] = useState<string | null>(null);
+  // Ecarts constates par le portail entre ce qui est saisi ici et ce que le
+  // logiciel du centre declare (lot I). Purement informatif : on ne corrige rien,
+  // la saisie du client fait autorite. `null` = aucun rapprochement recu.
+  const [ecarts, setEcarts] = useState<{
+    nb_codes_inconnus: number;
+    nb_types_incoherents: number;
+    nb_absents_du_mapping: number;
+    codes_inconnus: string[];
+    types_incoherents: { code: string; saisi: string; attendu: string }[];
+    absents_du_mapping: string[];
+  } | null>(null);
 
   const [recherche, setRecherche] = useState("");
   const [filtreType, setFiltreType] = useState("tous");
@@ -229,6 +240,20 @@ export default function MappingExamensKonnect() {
             data.motif ??
               "Le référentiel d'examens n'a pas pu être chargé. Contactez l'équipe technique."
           );
+        }
+
+        // Separe et volontairement silencieux : le rapprochement enrichit l'ecran,
+        // il ne le conditionne pas. Un portail qui n'a rien remonte ne doit pas
+        // empecher de saisir son mapping.
+        try {
+          const rEtat = await fetch(`/api/konnect-remontee?userProductId=${userProductId}`);
+          if (rEtat.ok) {
+            const dEtat = await rEtat.json();
+            const c = dEtat?.charge?.catalogue;
+            if (c && typeof c === "object") setEcarts(c);
+          }
+        } catch {
+          // On reste sans rapprochement, ce qui est l'etat par defaut.
         }
       } catch {
         if (!annule) setErreur("Impossible de charger le mapping.");
@@ -377,6 +402,71 @@ export default function MappingExamensKonnect() {
         {avertissement && (
           <Alert severity="warning" sx={{ mb: 2 }}>
             {avertissement}
+          </Alert>
+        )}
+
+        {/* Lot I : ce que le logiciel du centre dit de ces codes. On CONSTATE, on ne
+            corrige pas. Le client sait ce qu'il fait ; ce qu'il ne peut pas savoir,
+            c'est qu'un code mal recopie ne produit aucune erreur, juste un examen que
+            le portail ne saura jamais reserver. */}
+        {ecarts && ecarts.nb_codes_inconnus > 0 && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.5 }}>
+              {ecarts.nb_codes_inconnus} code
+              {ecarts.nb_codes_inconnus > 1 ? "s" : ""} que votre logiciel ne reconnaît
+              pas
+            </Typography>
+            Ces examens ne seront jamais proposés au patient : votre logiciel ne les
+            ouvre pas à la prise de rendez-vous en ligne, ou le code est différent.
+            Vérifiez-les chez vous, puis corrigez-les ici.
+            <Typography sx={{ fontSize: 12.5, mt: 1, fontFamily: "monospace" }}>
+              {ecarts.codes_inconnus.join(", ")}
+              {ecarts.nb_codes_inconnus > ecarts.codes_inconnus.length
+                ? ` … et ${ecarts.nb_codes_inconnus - ecarts.codes_inconnus.length} autre(s)`
+                : ""}
+            </Typography>
+          </Alert>
+        )}
+
+        {ecarts && ecarts.nb_types_incoherents > 0 && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.5 }}>
+              {ecarts.nb_types_incoherents} type
+              {ecarts.nb_types_incoherents > 1 ? "s" : ""} qui ne correspond
+              {ecarts.nb_types_incoherents > 1 ? "ent" : ""} pas
+            </Typography>
+            Le portail cherche les créneaux avec le couple type + code. Quand le type
+            ne correspond pas, aucun créneau n&apos;est trouvé et le patient croit que
+            vous êtes complet.
+            <Box component="ul" sx={{ m: 0, mt: 1, pl: 2.5 }}>
+              {ecarts.types_incoherents.map((t) => (
+                <li key={t.code}>
+                  <Typography sx={{ fontSize: 12.5, fontFamily: "monospace" }}>
+                    {t.code} : vous avez saisi « {t.saisi} », votre logiciel dit
+                    « {t.attendu} »
+                  </Typography>
+                </li>
+              ))}
+            </Box>
+          </Alert>
+        )}
+
+        {ecarts && ecarts.nb_absents_du_mapping > 0 && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.5 }}>
+              {ecarts.nb_absents_du_mapping} examen
+              {ecarts.nb_absents_du_mapping > 1 ? "s" : ""} que vous ouvrez en ligne
+              sans l&apos;avoir renseigné ici
+            </Typography>
+            Votre logiciel les accepte à la réservation, mais aucune ligne ne porte
+            leur code : le portail ne les propose pas. Si ce sont des examens que vous
+            pratiquez, complétez la ligne correspondante.
+            <Typography sx={{ fontSize: 12.5, mt: 1, fontFamily: "monospace" }}>
+              {ecarts.absents_du_mapping.join(", ")}
+              {ecarts.nb_absents_du_mapping > ecarts.absents_du_mapping.length
+                ? ` … et ${ecarts.nb_absents_du_mapping - ecarts.absents_du_mapping.length} autre(s)`
+                : ""}
+            </Typography>
           </Alert>
         )}
 
