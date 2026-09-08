@@ -89,8 +89,13 @@ dépôt vient du portail patient, pas d'un utilisateur du Dashboard) ; le `GET` 
 
 **2.** `POST /api/konnect-remontee?userProductId=NN` (08/09/2026, lot E). Konnect y
 pousse ce qu'il **observe** et que le Dashboard ne peut pas déduire. Corps : un objet
-dont les clés sont des sections ; seule `messagerie` est connue à ce jour
-(`notifier_arme`, `mail_en_service`, `sms_en_service`). Le `POST` est réservé à la clé,
+dont les clés sont des sections. Deux sont connues : `messagerie`
+(`notifier_arme`, `mail_en_service`, `sms_en_service`) et `funnel`
+(`fenetre_jours`, `demandes`, `conversion_globale`, `abandons`,
+`sorties_humaines`, `etapes[]`). **Une section inconnue est ignorée, pas refusée** :
+un Konnect plus récent peut en envoyer une que ce Dashboard ne sait pas encore lire.
+Les deux sections ont des rythmes différents (quinze minutes, six heures) et la
+fusion se fait section par section : une remontée partielle n'efface pas le reste. Le `POST` est réservé à la clé,
 le `GET` à une session. Stocké dans `KonnectRemontee`, une ligne par centre, fusionnée
 section par section, horodatée **à la réception** (une horloge décalée sur la VM
 Konnect ferait passer une remontée périmée pour fraîche).
