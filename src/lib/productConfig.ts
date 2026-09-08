@@ -119,6 +119,12 @@ export const DOMAINES: Record<string, Domaine> = {
     cleApiEnv: "KONNECT_API_KEY",
     libelle: "Synonymes d'examens propres au cabinet",
   },
+  "konnect.paires-examens": {
+    cle: "konnect.paires-examens",
+    produit: "konnect",
+    cleApiEnv: "KONNECT_API_KEY",
+    libelle: "Réglage des examens faits dans la même visite",
+  },
 };
 
 export function trouverDomaine(cle: string | null): Domaine | null {
