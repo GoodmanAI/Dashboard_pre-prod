@@ -400,6 +400,14 @@ export const KonnectMenuitems: SidebarItem[] = [
     icon: IconPhoneCall,
     href: "/client/c/{USER_ID}/konnect/demandes-rappel",
   },
+  {
+    // Alimenté par la remontée du portail (lot E), pas par une lecture : le
+    // Dashboard ne peut pas interroger Konnect, qui passe derrière un VPN.
+    id: uniqueId(),
+    title: "Statistiques",
+    icon: IconChartHistogram,
+    href: "/client/c/{USER_ID}/konnect/statistiques",
+  },
 
   { navlabel: true, subheader: "Assistance" },
   {
