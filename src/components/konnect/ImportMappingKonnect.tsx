@@ -12,8 +12,6 @@ import {
   Typography,
 } from "@mui/material";
 import { IconDownload, IconUpload } from "@tabler/icons-react";
-import * as XLSX from "xlsx";
-
 /**
  * Télécharger le modèle du mapping, et le réimporter rempli (lot C).
  *
@@ -36,6 +34,20 @@ import * as XLSX from "xlsx";
  * nommée dans le rapport, jamais créée : le catalogue vient du référentiel, on
  * n'y ajoute pas d'examen par un tableur.
  */
+
+/**
+ * `xlsx` est chargé À LA DEMANDE, jamais à l'ouverture de la page.
+ *
+ * En import statique, la librairie pèse ~140 ko et part dans le bundle initial :
+ * l'écran de mapping est passé de 8,8 ko à 150 ko au premier déploiement, soit
+ * 338 ko de JS pour afficher un tableau. Or presque personne n'importe de fichier,
+ * et ceux qui le font attendent volontiers une demi-seconde de plus. Ce sont des
+ * secrétaires, parfois sur des postes anciens : la page qu'on ouvre tous les jours
+ * doit rester légère, pas celle qu'on utilise une fois.
+ */
+async function chargerXlsx() {
+  return import("xlsx");
+}
 
 /** Structurel : la page garde son propre type, on n'impose pas d'import croisé. */
 export type LigneMappingImportable = {
@@ -124,7 +136,8 @@ export default function ImportMappingKonnect<T extends LigneMappingImportable>({
   const [rapport, setRapport] = useState<Rapport | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
 
-  function telechargerModele() {
+  async function telechargerModele() {
+    const XLSX = await chargerXlsx();
     const donnees = lignes.map((l) => ({
       [CLE]: l.codeExamen,
       [COLONNES.examen]: l.libelle ?? "",
@@ -147,6 +160,7 @@ export default function ImportMappingKonnect<T extends LigneMappingImportable>({
   async function importer(fichier: File) {
     setErreur(null);
     try {
+      const XLSX = await chargerXlsx();
       const buffer = await fichier.arrayBuffer();
       const classeur = XLSX.read(buffer, { type: "array" });
       const feuille = classeur.Sheets[classeur.SheetNames[0]];
@@ -265,7 +279,7 @@ export default function ImportMappingKonnect<T extends LigneMappingImportable>({
           size="small"
           variant="outlined"
           startIcon={<IconDownload size={16} />}
-          onClick={telechargerModele}
+          onClick={() => void telechargerModele()}
           sx={{ textTransform: "none", whiteSpace: "nowrap" }}
         >
           Télécharger le tableau
