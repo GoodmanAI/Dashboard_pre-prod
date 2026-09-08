@@ -47,8 +47,13 @@ import { PRODUITS } from "@/lib/produits";
  * `messagerie` : les canaux d'envoi sont-ils réellement en service chez ce centre.
  * C'est le point 08 de la revue du 02/09 — le cabinet voyait « SMS : activé » alors
  * que rien ne partait.
+ *
+ * `funnel` : où les patients s'arrêtent dans le parcours, sur 30 jours. Point 10 de
+ * la même revue. Konnect ne l'envoie que toutes les six heures, bien moins souvent
+ * que le reste : la fusion section par section fait que la dernière valeur connue
+ * reste en place entre deux calculs.
  */
-const SECTIONS = new Set(["messagerie"]);
+const SECTIONS = new Set(["messagerie", "funnel"]);
 
 /** Garde de taille : au-delà, c'est une erreur d'appel, pas un état. */
 const MAX_OCTETS_CHARGE = 64 * 1024;
