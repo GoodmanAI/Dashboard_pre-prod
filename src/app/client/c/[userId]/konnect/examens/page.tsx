@@ -27,6 +27,7 @@ import PageContainer from "@/app/(DashboardLayout)/components/container/PageCont
 import ExamTypeBadge, { EXAM_TYPE_SHORT } from "@/components/shared/ExamTypeBadge";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
+import ImportMappingKonnect from "@/components/konnect/ImportMappingKonnect";
 
 /**
  * Mapping d'examens LyraeKonnect d'un centre.
@@ -449,6 +450,10 @@ export default function MappingExamensKonnect() {
               <MenuItem value="bout_en_bout">Réservable en ligne</MenuItem>
               <MenuItem value="rappel">Sur rappel</MenuItem>
             </TextField>
+            {/* Remplir 266 codes à la main est le vrai coût de l'installation.
+                L'import ne fait que préparer l'état de l'écran : c'est le bouton
+                « Enregistrer » du bas qui écrit, comme pour une saisie manuelle. */}
+            <ImportMappingKonnect lignes={lignes} onAppliquer={setLignes} />
             <Box sx={{ flexGrow: 1 }} />
             <Chip
               label={`${attribues} examen${attribues > 1 ? "s" : ""} proposé${

@@ -197,6 +197,30 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: err?.message ?? "Valeur invalide" }, { status: 400 });
   }
 
+  // `cloudOcrActif` est un consentement du cabinet à ce qu'une image d'ordonnance
+  // sorte vers un prestataire HDS, pas un réglage de secrétariat. La page client
+  // ne l'envoie pas, ce qui suffit à l'écran mais pas à la route : sans cette
+  // garde, un CLIENT le basculerait en forgeant la requête.
+  //
+  // Le niveau exigé est celui de Konnect, dont cette route reprend la propriété :
+  // `PUT /console/cabinets/{id}/cloud-ocr` est en `require_super_admin`. Déplacer
+  // la propriété vers le Dashboard ne doit pas affaiblir le contrôle au passage.
+  //
+  // La comparaison porte sur la valeur EFFECTIVE, pas sur la présence du champ :
+  // un client qui renvoie l'objet entier relu par le GET ne doit pas être refusé
+  // parce qu'il a réémis la valeur déjà en base.
+  const estAdmin =
+    auth.session.user.role === "ADMIN" || auth.session.user.role === "SUPER_ADMIN";
+  if (config.cloudOcrActif !== actuelle.cloudOcrActif && !estAdmin) {
+    return NextResponse.json(
+      {
+        error:
+          "Le consentement à la lecture des ordonnances par notre prestataire se règle avec nous. Contactez-nous.",
+      },
+      { status: 403 }
+    );
+  }
+
   // Règle métier reprise de Konnect : le questionnaire clinique peut bloquer un
   // RDV, et l'écran de blocage invite à appeler le secrétariat. Sans numéro, le
   // patient est dans une impasse.

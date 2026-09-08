@@ -8,11 +8,13 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  FormControlLabel,
   MenuItem,
   Paper,
   Select,
   Snackbar,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from "@mui/material";
@@ -200,6 +202,12 @@ export default function InstallationKonnect() {
   const [risBaseUrl, setRisBaseUrl] = useState("");
   const [risCodeSite, setRisCodeSite] = useState("");
 
+  // Consentement à l'OCR cloud. `null` tant qu'il n'est pas lu : on ne montre pas
+  // un interrupteur « non » avant de savoir, ce serait afficher un refus qui n'a
+  // pas été exprimé.
+  const [cloudOcr, setCloudOcr] = useState<boolean | null>(null);
+  const [cloudOcrEnregistre, setCloudOcrEnregistre] = useState<boolean | null>(null);
+
   const recharger = useCallback(async (garder?: number) => {
     try {
       const r = await fetch("/api/konnect-installation");
@@ -248,6 +256,32 @@ export default function InstallationKonnect() {
     setTenantId(centre?.tenantId ?? "");
     setRisBaseUrl(centre?.risBaseUrl ?? "");
     setRisCodeSite(centre?.risCodeSite ?? "");
+
+    // Le consentement ne vient pas de `/api/konnect-installation` : il est lu à la
+    // route qui en est propriétaire, comme les autres blocs de cette page. Une
+    // valeur de plus dans l'état d'installation ferait deux sources pour la même
+    // chose.
+    setCloudOcr(null);
+    setCloudOcrEnregistre(null);
+    if (!centre) return;
+    let abandonne = false;
+    void (async () => {
+      try {
+        const r = await fetch(
+          `/api/konnect-configuration?userProductId=${centre.userProductId}`
+        );
+        if (!r.ok) return;
+        const d = await r.json();
+        if (abandonne) return;
+        setCloudOcr(Boolean(d.cloud_ocr_actif));
+        setCloudOcrEnregistre(Boolean(d.cloud_ocr_actif));
+      } catch {
+        // Le bloc reste en chargement plutôt que d'afficher un « non » inventé.
+      }
+    })();
+    return () => {
+      abandonne = true;
+    };
   }, [centre]);
 
   async function appeler(url: string, methode: string, corps: unknown, succes: string) {
@@ -320,6 +354,22 @@ export default function InstallationKonnect() {
       "Rattachement au logiciel du centre enregistré."
     );
     if (ok) await recharger(centre.userProductId);
+  }
+
+  async function enregistrerCloudOcr() {
+    if (!centre || cloudOcr === null) return;
+    // Un seul champ dans le corps : le `PUT` fusionne sur l'existant, et les seize
+    // autres réglages appartiennent au client. Les renvoyer d'ici, c'est risquer
+    // d'écraser une saisie faite entre-temps dans son espace.
+    const ok = await appeler(
+      `/api/konnect-configuration?userProductId=${centre.userProductId}`,
+      "PUT",
+      { cloudOcrActif: cloudOcr },
+      cloudOcr
+        ? "Accord enregistré. La lecture par le prestataire est active."
+        : "Accord retiré. Plus aucune image ne sort de nos serveurs."
+    );
+    if (ok) setCloudOcrEnregistre(cloudOcr);
   }
 
   if (chargement) {
@@ -518,6 +568,66 @@ export default function InstallationKonnect() {
                 ici ne déclenche jamais d&apos;appel vers le logiciel d&apos;un centre.
               </Alert>
             </Bloc>
+
+            {/* Pas de numéro : ce n'est pas une étape à franchir. Un centre qui
+                refuse est installé aussi bien qu'un centre qui accepte, et le
+                marquer « manquant » dirait le contraire. */}
+            <Paper variant="outlined" sx={{ borderColor: BORDER, borderRadius: 2, p: 2, mb: 2 }}>
+              <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: INK, mb: 0.5 }}>
+                Lecture des ordonnances par notre prestataire
+              </Typography>
+              <Typography sx={{ fontSize: 12, color: INK_MUTED, mb: 1.5 }}>
+                Avec l&apos;accord du centre, la photo de l&apos;ordonnance est envoyée à
+                notre prestataire pour y lire l&apos;examen demandé. L&apos;image sort alors
+                de nos serveurs. Sans accord, la lecture se limite à ce qui tourne chez
+                nous : elle reconnaît moins de cas, et le patient désigne son examen
+                lui-même plus souvent.
+              </Typography>
+              <Typography sx={{ fontSize: 12, color: INK_MUTED, mb: 1.5 }}>
+                Se relève à l&apos;installation et se règle ici. Le centre ne peut pas le
+                changer depuis son espace : c&apos;est un engagement sur des données de
+                santé, pas un réglage de secrétariat.
+              </Typography>
+              {cloudOcr === null ? (
+                <Typography sx={{ fontSize: 12, color: INK_MUTED }}>Lecture en cours…</Typography>
+              ) : (
+                <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={cloudOcr}
+                        onChange={(e) => setCloudOcr(e.target.checked)}
+                        disabled={occupe}
+                      />
+                    }
+                    label={
+                      <Typography sx={{ fontSize: 13, color: INK }}>
+                        {cloudOcr
+                          ? "Le centre a donné son accord"
+                          : "Pas d'accord : aucune image ne sort"}
+                      </Typography>
+                    }
+                  />
+                  <Button
+                    variant="contained"
+                    disableElevation
+                    disabled={occupe || cloudOcr === cloudOcrEnregistre}
+                    onClick={() => void enregistrerCloudOcr()}
+                    sx={{ textTransform: "none", bgcolor: "var(--accent)" }}
+                  >
+                    Enregistrer
+                  </Button>
+                </Stack>
+              )}
+              {cloudOcr === true && cloudOcrEnregistre === true && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  Le portail cesse d&apos;envoyer des images de lui-même si le Dashboard
+                  reste injoignable plus de 24 heures. L&apos;accord est relu à chaque
+                  synchronisation, un retrait s&apos;applique donc sans intervention sur le
+                  portail.
+                </Alert>
+              )}
+            </Paper>
 
             <Typography sx={{ fontSize: 12.5, color: INK_MUTED, mt: 3, mb: 1.5 }}>
               Ce qui suit appartient au client et se règle dans son espace. Affiché ici

@@ -126,6 +126,13 @@ export default function ParametrageKonnectPage() {
   const { userProductId } = useCentreProduit();
 
   const [config, setConfig] = useState<Config | null>(null);
+  // Ce que le portail a remonté de lui-même (lot E). `null` = rien reçu, ce qui est
+  // l'état d'un centre neuf ou sans trafic : la remontée se greffe sur le parcours
+  // patient, pas sur une horloge. On ne le prend jamais pour une panne.
+  const [messagerie, setMessagerie] = useState<{
+    mail_en_service: boolean;
+    sms_en_service: boolean;
+  } | null>(null);
   const [chargement, setChargement] = useState(true);
   const [enregistrement, setEnregistrement] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -143,6 +150,25 @@ export default function ParametrageKonnectPage() {
         const data = await res.json();
         if (res.ok) setConfig(data);
         else setErreur(data.error || "Impossible de charger la configuration.");
+
+        // Séparé, et volontairement silencieux en cas d'échec : l'état des canaux
+        // enrichit l'écran, il ne le conditionne pas. Une remontée absente ne doit
+        // pas empêcher de régler ses paramètres.
+        try {
+          const rEtat = await fetch(`/api/konnect-remontee?userProductId=${userProductId}`);
+          if (rEtat.ok) {
+            const dEtat = await rEtat.json();
+            const m = dEtat?.charge?.messagerie;
+            if (m && typeof m === "object") {
+              setMessagerie({
+                mail_en_service: m.mail_en_service === true,
+                sms_en_service: m.sms_en_service === true,
+              });
+            }
+          }
+        } catch {
+          // On reste sur « pas encore reçu ».
+        }
       } catch {
         setErreur("Une erreur inattendue s'est produite.");
       } finally {
@@ -361,23 +387,59 @@ export default function ParametrageKonnectPage() {
           <Typography variant="h6">Notifications au patient</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Ces interrupteurs disent quels canaux vous <em>souhaitez</em> utiliser.
-            Leur mise en service dépend de la configuration technique de la
-            messagerie, gérée par l&apos;équipe Lyrae.
-          </Alert>
+          {/* Point 08 de la revue du 02/09 : « le cabinet voit SMS activé et rien
+              ne part ». Cocher dit ce qu'on SOUHAITE ; ce qui décide vraiment vit
+              chez Konnect (prestataire configuré, envoi armé). Depuis le lot E, le
+              portail le remonte de lui-même et l'écran peut enfin le dire.
+              Tant que rien n'est remonté, on ne prétend pas savoir : on avertit. */}
+          {messagerie === null ? (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Cocher une case ne suffit pas à envoyer. Il faut aussi que votre
+              messagerie soit branchée de notre côté, et le portail ne nous l&apos;a
+              pas encore confirmé. Si vos patients ne reçoivent rien alors que la case
+              est cochée, dites-le nous.
+            </Alert>
+          ) : (
+            <Alert
+              severity={
+                (config.envoi_email && !messagerie.mail_en_service) ||
+                (config.envoi_sms && !messagerie.sms_en_service)
+                  ? "warning"
+                  : "success"
+              }
+              sx={{ mb: 2 }}
+            >
+              {(config.envoi_email && !messagerie.mail_en_service) ||
+              (config.envoi_sms && !messagerie.sms_en_service)
+                ? "Un canal est coché mais n'est pas encore en service : rien ne partira. Dites-le nous, nous le branchons."
+                : "Vos canaux cochés sont en service. Vos patients reçoivent bien leurs messages."}
+            </Alert>
+          )}
           <Reglage
             titre="Email"
             description="Confirmation et rappels envoyés par email."
             actif={config.envoi_email}
             onChange={(v) => maj("envoi_email", v)}
+            avertissement={
+              messagerie === null
+                ? "Rien ne part tant que la messagerie n'est pas branchée de notre côté."
+                : messagerie.mail_en_service
+                  ? undefined
+                  : "Pas encore en service : rien ne part pour l'instant."
+            }
           />
           <Reglage
             titre="SMS"
             description="Confirmation et rappels envoyés par SMS."
             actif={config.envoi_sms}
             onChange={(v) => maj("envoi_sms", v)}
-            avertissement="Le crédit SMS est partagé avec les relances de LyraeTalk."
+            avertissement={
+              messagerie === null
+                ? "Rien ne part tant que la messagerie n'est pas branchée de notre côté. Le crédit SMS est partagé avec les relances de LyraeTalk."
+                : messagerie.sms_en_service
+                  ? "Le crédit SMS est partagé avec les relances de LyraeTalk."
+                  : "Pas encore en service : rien ne part pour l'instant."
+            }
           />
         </AccordionDetails>
       </Accordion>
