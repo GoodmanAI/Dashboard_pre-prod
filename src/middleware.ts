@@ -73,6 +73,12 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // en ligne, pour que le secretariat le rappelle. Lecture et mise a jour
   // reservees a une session.
   /^\/api\/konnect-demandes-rappel$/,
+  // Remontee d'etat (2026-09-08, lot E) : la SECONDE et derniere route ou Konnect
+  // ECRIT. Il y depose ce qu'il observe et que le Dashboard ne peut pas deduire
+  // (canaux d'envoi reellement en service, agregats de parcours). Konnect passe
+  // derriere un VPN : le Dashboard ne peut pas aller le lire, d'ou ce push.
+  // Aucune configuration ni donnee patient n'entre par la. Lecture par session.
+  /^\/api\/konnect-remontee$/,
 ];
 
 function isPublicApi(pathname: string): boolean {

@@ -376,6 +376,12 @@ export const KonnectMenuitems: SidebarItem[] = [
   },
   {
     id: uniqueId(),
+    title: "Examens qui vont ensemble",
+    icon: IconArrowsJoin,
+    href: "/client/c/{USER_ID}/konnect/paires-examens",
+  },
+  {
+    id: uniqueId(),
     title: "Mots du cabinet",
     icon: IconAbc,
     href: "/client/c/{USER_ID}/konnect/mots-cabinet",

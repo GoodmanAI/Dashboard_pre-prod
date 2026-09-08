@@ -77,14 +77,38 @@ irrécupérable retombe sur `fr`, comportement historique.
 Toutes en **lecture seule** : le `PUT` de ces routes refuse un appel par clé, la
 configuration se pilote depuis le Dashboard.
 
-**Une seule exception, et elle est délibérée** :
-`POST /api/konnect-demandes-rappel?userProductId=NN` (02/09/2026). Konnect y dépose la
+**Deux exceptions, et elles sont délibérées.**
+
+**1.** `POST /api/konnect-demandes-rappel?userProductId=NN` (02/09/2026). Konnect y dépose la
 demande de rappel d'un patient dont l'examen n'est pas coché « Réservable en ligne »
 dans le mapping. Corps : `referenceKonnect`, `nom`, `prenom`, `telephone`,
 `examenLibelle`. Le `POST` est réservé à la clé (une session est refusée en 403 : le
 dépôt vient du portail patient, pas d'un utilisateur du Dashboard) ; le `GET` et le
 `PATCH` sont réservés à une session (Konnect ne relit jamais ce qu'il a déposé).
 `referenceKonnect` rend le dépôt idempotent.
+
+**2.** `POST /api/konnect-remontee?userProductId=NN` (08/09/2026, lot E). Konnect y
+pousse ce qu'il **observe** et que le Dashboard ne peut pas déduire. Corps : un objet
+dont les clés sont des sections ; seule `messagerie` est connue à ce jour
+(`notifier_arme`, `mail_en_service`, `sms_en_service`). Le `POST` est réservé à la clé,
+le `GET` à une session. Stocké dans `KonnectRemontee`, une ligne par centre, fusionnée
+section par section, horodatée **à la réception** (une horloge décalée sur la VM
+Konnect ferait passer une remontée périmée pour fraîche).
+
+**Pourquoi un push et pas une lecture** : Konnect passe derrière un VPN, le Dashboard
+est sur un VPS public. Aucun appel du Dashboard vers Konnect ne l'atteindrait. Ce n'est
+pas un arbitrage, c'est la topologie (`lyrae/DECISIONS.md`, 08/09/2026). Tout futur
+besoin de ce genre passe par ici, et **il ne doit pas y avoir de troisième route où la
+clé écrit** sans décision explicite.
+
+⚠️ **Une remontée ne porte JAMAIS de configuration.** Elle appartient au Dashboard, et
+la lui renvoyer rouvrirait la double vérité fermée le 28/08/2026. Ni donnée patient :
+ce sont des agrégats. La route filtre par liste blanche de sections, ce qui écarte
+d'office ce qu'un émetteur trop bavard déposerait.
+
+Migration : `prisma/migrations/manual/2026_09_08_konnect_remontee.sql`, à appliquer
+**avant** le déploiement du code. Sans elle le `POST` échoue, Konnect le traite comme
+« indisponible », et rien ne casse côté patient.
 
 ⚠️ **`KonnectDemandesRappel` est la SEULE table de cette base qui porte de la donnée
 patient** (nom, prénom, téléphone). Q33 et Q34 restent ouverts. Trois règles qui ne se
