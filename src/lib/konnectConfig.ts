@@ -40,6 +40,10 @@ export type ConfigKonnect = {
   // Notifications
   envoiEmail: boolean;
   envoiSms: boolean;
+  // Le portail relance le patient avant son rendez-vous (rappels J-N). Distinct des
+  // deux precedents : ceux-la disent PAR QUEL CANAL on ecrit, celui-ci dit SI l'on
+  // relance. Un centre peut vouloir confirmer sans relancer.
+  rappelsActifs: boolean;
   // Parcours patient
   ocrActif: boolean;
   modeSaisieExamen: ModeSaisieExamen;
@@ -67,6 +71,10 @@ export const KONNECT_DEFAUTS: ConfigKonnect = {
   telephoneSecretariat: null,
   envoiEmail: true,
   envoiSms: true,
+  // Fail-closed, comme le reste de la configuration sensible : ecrire au patient se
+  // demande. Un defaut `true` ferait partir des relances chez tous les centres des
+  // l'armement de `KONNECT_NOTIFIER_ENABLED`.
+  rappelsActifs: false,
   ocrActif: true,
   modeSaisieExamen: "traditionnel",
   choixRadiologueActif: false,
@@ -91,6 +99,7 @@ export const COLONNES_KONNECT = [
   "telephoneSecretariat",
   "envoiEmail",
   "envoiSms",
+  "rappelsActifs",
   "ocrActif",
   "modeSaisieExamen",
   "choixRadiologueActif",
@@ -169,6 +178,7 @@ export function normaliserConfigKonnect(
     telephoneSecretariat: versTexte(brut.telephoneSecretariat),
     envoiEmail: versBooleen(brut.envoiEmail, KONNECT_DEFAUTS.envoiEmail),
     envoiSms: versBooleen(brut.envoiSms, KONNECT_DEFAUTS.envoiSms),
+    rappelsActifs: versBooleen(brut.rappelsActifs, KONNECT_DEFAUTS.rappelsActifs),
     ocrActif: versBooleen(brut.ocrActif, KONNECT_DEFAUTS.ocrActif),
     modeSaisieExamen,
     choixRadiologueActif: versBooleen(
@@ -203,6 +213,7 @@ export function versPayloadKonnect(config: ConfigKonnect) {
     telephone_secretariat: config.telephoneSecretariat,
     envoi_email: config.envoiEmail,
     envoi_sms: config.envoiSms,
+    rappels_actifs: config.rappelsActifs,
     ocr_actif: config.ocrActif,
     mode_saisie_examen: config.modeSaisieExamen,
     choix_radiologue_actif: config.choixRadiologueActif,

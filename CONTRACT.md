@@ -160,10 +160,23 @@ champ sur `ParametresOut` de Konnect (`backend/app/cabinet/api.py`), pour qu'il 
 sans traduction. Renommer une de ces clés casse le portail patient en silence. La frontière
 camelCase ↔ snake_case est dans `src/lib/konnectConfig.ts`, et nulle part ailleurs.
 
-**17 champs depuis le 28/08/2026** (lot G4). Trois s'ajoutent aux 14 d'origine :
-`annulation_directe`, `sms_rappel_mode`, `code_caracteristique_confirmation_xplore`.
-Ils n'avaient jusque-là aucune interface, ni ici ni dans la console cabinet de
-Konnect, et n'étaient modifiables qu'en SQL direct.
+**18 champs depuis le 08/09/2026.** Trois se sont ajoutés aux 14 d'origine le
+28/08 (lot G4) : `annulation_directe`, `sms_rappel_mode`,
+`code_caracteristique_confirmation_xplore`. Ils n'avaient jusque-là aucune interface,
+ni ici ni dans la console cabinet de Konnect, et n'étaient modifiables qu'en SQL
+direct.
+
+Le dix-huitième est `rappels_actifs` (08/09/2026) : le portail relance-t-il le
+patient avant sa venue (rappels J-N) ? Il ne dit pas par quel canal, les deux champs
+`envoi_*` s'en chargent, mais **si** l'on relance. Sans lui,
+`app.rappels.service` itérait sur tous les tenants sans garde par cabinet : armer
+`KONNECT_NOTIFIER_ENABLED` pour un client aurait mis tous les centres à relancer,
+cabinet de démonstration compris. **Défaut `false`**, fail-closed comme le reste ;
+un vrai client doit donc cocher la case.
+
+⚠️ **L'ordre de déploiement d'un nouveau champ n'est pas négociable.** Le Dashboard
+doit savoir le servir AVANT que Konnect ne l'ajoute à `CHAMPS_PILOTES` : dans
+l'autre sens, la première synchronisation le remet à son défaut, en silence.
 
 ⚠️ **Deux d'entre eux commandent des effets irréversibles chez le patient.**
 `annulation_directe` à `true` fait qu'un « non » du patient **supprime** son

@@ -48,6 +48,7 @@ type Config = {
   telephone_secretariat: string | null;
   envoi_email: boolean;
   envoi_sms: boolean;
+  rappels_actifs: boolean;
   ocr_actif: boolean;
   mode_saisie_examen: "traditionnel" | "anatomique";
   choix_radiologue_actif: boolean;
@@ -200,6 +201,7 @@ export default function ParametrageKonnectPage() {
             telephoneSecretariat: config.telephone_secretariat,
             envoiEmail: config.envoi_email,
             envoiSms: config.envoi_sms,
+            rappelsActifs: config.rappels_actifs,
             ocrActif: config.ocr_actif,
             modeSaisieExamen: config.mode_saisie_examen,
             choixRadiologueActif: config.choix_radiologue_actif,
@@ -440,6 +442,16 @@ export default function ParametrageKonnectPage() {
                   ? "Le crédit SMS est partagé avec les relances de LyraeTalk."
                   : "Pas encore en service : rien ne part pour l'instant."
             }
+          />
+          {/* Distinct des deux canaux ci-dessus : ceux-la disent PAR QUEL MOYEN on
+              ecrit, celui-ci dit SI l'on relance. Un centre peut vouloir confirmer
+              sans relancer, et c'est le cas d'un cabinet de demonstration. */}
+          <Reglage
+            titre="Rappel avant le rendez-vous"
+            description="Le portail écrit au patient quelques jours avant sa venue pour lui rappeler son rendez-vous."
+            actif={config.rappels_actifs}
+            onChange={(v) => maj("rappels_actifs", v)}
+            avertissement="Les rappels partent tous les jours à 8 h. Décochez si vous préférez les faire vous-même."
           />
         </AccordionDetails>
       </Accordion>
