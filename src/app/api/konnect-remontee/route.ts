@@ -52,8 +52,14 @@ import { PRODUITS } from "@/lib/produits";
  * la même revue. Konnect ne l'envoie que toutes les six heures, bien moins souvent
  * que le reste : la fusion section par section fait que la dernière valeur connue
  * reste en place entre deux calculs.
+ *
+ * `catalogue` : les codes RIS saisis ici correspondent-ils à ce que le logiciel du
+ * centre déclare ouvert à la réservation en ligne. Point 04. **Ce sont des écarts
+ * constatés, jamais des corrections** : le client saisit, sa saisie fait autorité, on
+ * se contente de dire ce qui ne colle pas. Poussée une fois par nuit par un job cron,
+ * seul morceau du pont qui appelle le RIS.
  */
-const SECTIONS = new Set(["messagerie", "funnel"]);
+const SECTIONS = new Set(["messagerie", "funnel", "catalogue"]);
 
 /** Garde de taille : au-delà, c'est une erreur d'appel, pas un état. */
 const MAX_OCTETS_CHARGE = 64 * 1024;

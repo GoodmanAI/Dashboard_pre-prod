@@ -94,8 +94,14 @@ dont les clés sont des sections. Deux sont connues : `messagerie`
 (`fenetre_jours`, `demandes`, `conversion_globale`, `abandons`,
 `sorties_humaines`, `etapes[]`). **Une section inconnue est ignorée, pas refusée** :
 un Konnect plus récent peut en envoyer une que ce Dashboard ne sait pas encore lire.
-Les deux sections ont des rythmes différents (quinze minutes, six heures) et la
-fusion se fait section par section : une remontée partielle n'efface pas le reste. Le `POST` est réservé à la clé,
+Une troisième, `catalogue`, porte les **écarts constatés** entre les codes RIS saisis
+ici et ce que le logiciel du centre déclare ouvert à la réservation en ligne
+(`nb_codes_inconnus`, `nb_types_incoherents`, `nb_absents_du_mapping`, plus les
+listes tronquées à 40). **Ce sont des constats, jamais des corrections** : la saisie
+du client fait autorité, et rien de cette section n'écrit dans `KonnectExamens`.
+Les trois sections ont des rythmes différents (quinze minutes, six heures, une fois
+par nuit) et la fusion se fait section par section : une remontée partielle
+n'efface pas le reste. Le `POST` est réservé à la clé,
 le `GET` à une session. Stocké dans `KonnectRemontee`, une ligne par centre, fusionnée
 section par section, horodatée **à la réception** (une horloge décalée sur la VM
 Konnect ferait passer une remontée périmée pour fraîche).
