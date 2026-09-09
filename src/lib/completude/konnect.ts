@@ -74,7 +74,11 @@ export const REGISTRE_KONNECT: Exigence<ConfigKonnect>[] = [
   {
     cle: "konnect.examens",
     libelle: "Catalogue d'examens",
-    proprietaire: "client",
+    // ADMIN, ET NON CLIENT (09/09/2026). Le mapping se remplit a l'installation,
+    // avec nous : un centre qui decouvre son portail n'a pas a etre accueilli par
+    // un bandeau rouge sur un travail qui nous incombe. Le manque reste visible
+    // dans `/admin/parc` et sur l'ecran d'installation, la ou on le traite.
+    proprietaire: "admin",
     criticite: "bloquant",
     manque:
       "Aucun examen n'a de code : le portail ne reconnaîtra aucune demande de patient.",
@@ -94,7 +98,9 @@ export const REGISTRE_KONNECT: Exigence<ConfigKonnect>[] = [
   {
     cle: "konnect.examens-reservables",
     libelle: "Examens réservables en ligne",
-    proprietaire: "client",
+    // Admin pour la meme raison que `konnect.examens` : c'est une case du mapping,
+    // et le mapping se regle avec nous.
+    proprietaire: "admin",
     // Le deuxième chemin (demande de rappel) est légitime : ce n'est pas une
     // panne, mais le patient ne voit aucune date, et le cabinet doit le savoir.
     criticite: "degrade",
