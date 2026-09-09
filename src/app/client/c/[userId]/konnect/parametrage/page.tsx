@@ -24,6 +24,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elements/CustomTextField";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
+import IdentiteVisuelleKonnect from "@/components/konnect/IdentiteVisuelleKonnect";
 
 /**
  * Configuration LyraeKonnect d'un centre — le portail patient web.
@@ -43,6 +44,8 @@ import PageContainer from "@/app/(DashboardLayout)/components/container/PageCont
 
 type Config = {
   logo_url: string | null;
+  couleur_principale: string | null;
+  couleur_secondaire: string | null;
   depassement_honoraires: boolean;
   consignes_generales: string | null;
   telephone_secretariat: string | null;
@@ -196,6 +199,8 @@ export default function ParametrageKonnectPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             logoUrl: config.logo_url,
+            couleurPrincipale: config.couleur_principale,
+            couleurSecondaire: config.couleur_secondaire,
             depassementHonoraires: config.depassement_honoraires,
             consignesGenerales: config.consignes_generales,
             telephoneSecretariat: config.telephone_secretariat,
@@ -283,15 +288,21 @@ export default function ParametrageKonnectPage() {
               }
               helperText="Affiché au patient dont le rendez-vous est bloqué et qui doit vous appeler. Sans ce numéro, il se retrouve dans une impasse."
             />
-            <CustomTextField
-              label="URL du logo"
-              variant="outlined"
-              fullWidth
-              value={config.logo_url ?? ""}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                maj("logo_url", e.target.value)
-              }
-              helperText="Adresse d'une image déjà hébergée. Le fichier n'est pas stocké ici."
+            <Divider textAlign="left">
+              <Typography variant="body2" color="text.secondary">
+                Couleurs et logo
+              </Typography>
+            </Divider>
+            <Typography variant="body2" color="text.secondary">
+              Le portail s&apos;affiche dans votre site. Ces deux couleurs et votre logo lui
+              donnent votre allure, pour que le patient reste chez vous.
+            </Typography>
+            <IdentiteVisuelleKonnect
+              userProductId={userProductId}
+              couleurPrincipale={config.couleur_principale}
+              couleurSecondaire={config.couleur_secondaire}
+              onCouleurPrincipale={(v) => maj("couleur_principale", v)}
+              onCouleurSecondaire={(v) => maj("couleur_secondaire", v)}
             />
             <CustomTextField
               label="Consignes générales"

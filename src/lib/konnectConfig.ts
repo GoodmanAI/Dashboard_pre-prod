@@ -33,7 +33,21 @@ export type SmsRappelMode = "conditionnel" | "opt_out_si_ics" | "toujours";
 
 export type ConfigKonnect = {
   // Identité du centre
+  //
+  // `logoUrl` N'EST PLUS UNE SOURCE depuis le 09/09/2026 : il n'a jamais rien affiché
+  // (absent de `/cabinet-public`, aucun `<img>` dans le parcours, et la CSP de
+  // l'iframe interdit les images tierces). Le logo est désormais TÉLÉVERSÉ et stocké
+  // en base ; il ne transite pas par ce payload, il a sa propre route.
   logoUrl: string | null;
+  // Les deux couleurs de la charte du cabinet, en `#rrggbb`. `null` = palette Lyrae,
+  // et c'est le même fail-closed que le reste : un centre non paramétré garde le
+  // portail livré plutôt que de tomber sur du noir ou du blanc.
+  //
+  // La PRINCIPALE peint les boutons, les liens et les états actifs ; ses dérivés
+  // (survol, fonds clairs) sont CALCULÉS côté Konnect, pas saisis ici. La SECONDAIRE
+  // peint le bandeau du haut.
+  couleurPrincipale: string | null;
+  couleurSecondaire: string | null;
   depassementHonoraires: boolean;
   consignesGenerales: string | null;
   telephoneSecretariat: string | null;
@@ -66,6 +80,8 @@ export type ConfigKonnect = {
 /** Défauts *fail-closed*, alignés sur `cabinet_parametres` de Konnect. */
 export const KONNECT_DEFAUTS: ConfigKonnect = {
   logoUrl: null,
+  couleurPrincipale: null,
+  couleurSecondaire: null,
   depassementHonoraires: false,
   consignesGenerales: null,
   telephoneSecretariat: null,
@@ -94,6 +110,8 @@ export const KONNECT_DEFAUTS: ConfigKonnect = {
 /** Colonnes de `KonnectSettings`, dans l'ordre. Sert à bâtir les requêtes SQL. */
 export const COLONNES_KONNECT = [
   "logoUrl",
+  "couleurPrincipale",
+  "couleurSecondaire",
   "depassementHonoraires",
   "consignesGenerales",
   "telephoneSecretariat",
@@ -127,6 +145,35 @@ function versTexte(valeur: unknown): string | null {
   if (typeof valeur !== "string") return null;
   const propre = valeur.trim();
   return propre === "" ? null : propre;
+}
+
+/** `#rrggbb` en minuscules. La forme courte `#abc` est acceptée et développée. */
+const COULEUR_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/**
+ * Une couleur de charte : `#rrggbb`, ou `null` si le centre n'en a pas choisi.
+ *
+ * En mode strict (écriture), une saisie invalide lève plutôt que de retomber
+ * silencieusement sur `null` : un client qui a tapé une couleur et voit le portail
+ * rester bleu croirait à une panne du portail, pas à sa faute de frappe.
+ *
+ * La forme est normalisée ici, une fois : Konnect reçoit toujours six chiffres en
+ * minuscules et n'a aucune variante à gérer.
+ */
+function versCouleur(valeur: unknown, champ: string, strict: boolean): string | null {
+  if (valeur === null || valeur === undefined || valeur === "") return null;
+  if (typeof valeur !== "string" || !COULEUR_RE.test(valeur.trim())) {
+    if (strict) {
+      throw new Error(`${champ} doit être une couleur hexadécimale, par exemple #1268c4.`);
+    }
+    return null;
+  }
+  const propre = valeur.trim().toLowerCase();
+  // `#abc` → `#aabbcc` : une seule forme circule ensuite.
+  if (propre.length === 4) {
+    return `#${propre[1]}${propre[1]}${propre[2]}${propre[2]}${propre[3]}${propre[3]}`;
+  }
+  return propre;
 }
 
 /**
@@ -170,6 +217,8 @@ export function normaliserConfigKonnect(
 
   return {
     logoUrl: versTexte(brut.logoUrl),
+    couleurPrincipale: versCouleur(brut.couleurPrincipale, "couleurPrincipale", strict),
+    couleurSecondaire: versCouleur(brut.couleurSecondaire, "couleurSecondaire", strict),
     depassementHonoraires: versBooleen(
       brut.depassementHonoraires,
       KONNECT_DEFAUTS.depassementHonoraires
@@ -208,6 +257,8 @@ export function normaliserConfigKonnect(
 export function versPayloadKonnect(config: ConfigKonnect) {
   return {
     logo_url: config.logoUrl,
+    couleur_principale: config.couleurPrincipale,
+    couleur_secondaire: config.couleurSecondaire,
     depassement_honoraires: config.depassementHonoraires,
     consignes_generales: config.consignesGenerales,
     telephone_secretariat: config.telephoneSecretariat,

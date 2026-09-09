@@ -160,7 +160,7 @@ champ sur `ParametresOut` de Konnect (`backend/app/cabinet/api.py`), pour qu'il 
 sans traduction. Renommer une de ces clés casse le portail patient en silence. La frontière
 camelCase ↔ snake_case est dans `src/lib/konnectConfig.ts`, et nulle part ailleurs.
 
-**18 champs depuis le 08/09/2026.** Trois se sont ajoutés aux 14 d'origine le
+**20 champs depuis le 09/09/2026.** Trois se sont ajoutés aux 14 d'origine le
 28/08 (lot G4) : `annulation_directe`, `sms_rappel_mode`,
 `code_caracteristique_confirmation_xplore`. Ils n'avaient jusque-là aucune interface,
 ni ici ni dans la console cabinet de Konnect, et n'étaient modifiables qu'en SQL
@@ -173,6 +173,18 @@ patient avant sa venue (rappels J-N) ? Il ne dit pas par quel canal, les deux ch
 `KONNECT_NOTIFIER_ENABLED` pour un client aurait mis tous les centres à relancer,
 cabinet de démonstration compris. **Défaut `false`**, fail-closed comme le reste ;
 un vrai client doit donc cocher la case.
+
+Les dix-neuvième et vingtième sont `couleur_principale` et `couleur_secondaire`
+(09/09/2026). Konnect s'affiche en iframe **dans** le site du cabinet : bleu Lyrae au
+milieu d'un site vert, l'encart a l'air d'un corps étranger. La principale peint les
+boutons, les liens et les états actifs ; la secondaire peint le bandeau du haut. Format
+`#rrggbb`, **normalisé ici** (`versCouleur`, qui développe aussi la forme courte
+`#abc`) : Konnect ne reçoit qu'une seule forme, et la revalide avant de l'écrire dans
+un attribut de style. `null` = palette Lyrae, fail-closed comme le reste.
+
+Les dérivés (survol, fonds clairs) ne sont **pas** transmis : Konnect les calcule, avec
+les mêmes formules que l'aperçu du Dashboard. Deux formules qui divergeraient feraient
+mentir l'aperçu.
 
 ⚠️ **L'ordre de déploiement d'un nouveau champ n'est pas négociable.** Le Dashboard
 doit savoir le servir AVANT que Konnect ne l'ajoute à `CHAMPS_PILOTES` : dans
@@ -190,6 +202,26 @@ depuis ici.
 `COLONNES_KONNECT` ici d'abord, déployés ; puis `CHAMPS_PILOTES` chez Konnect.
 L'inverse remet le champ à son défaut à la première synchronisation, sans erreur
 visible.
+
+### `GET|PUT|DELETE /api/konnect-logo` — le seul binaire du pont (09/09/2026)
+
+Le logo du cabinet, **téléversé** par le client (PUT multipart, session uniquement) et
+**tiré** par Konnect (GET, `x-api-key: KONNECT_API_KEY`). Il ne passe **pas** par
+`konnect-configuration` : un binaire dans ce payload le ferait transiter à chaque
+synchronisation, toutes les quelques minutes et par cabinet, pour une image que rien
+n'a changée. Ici Konnect envoie son `If-None-Match` et reçoit un 304.
+
+**Pourquoi Konnect en garde une copie**, alors que le Dashboard fait foi : la CSP de
+son iframe est `img-src 'self'`. Une image servie par le Dashboard, ou par le site du
+cabinet, serait bloquée dans le navigateur du patient. Le seul moyen de l'afficher est
+de la servir depuis l'origine de Konnect, donc de l'avoir en local (`cabinet_logo`).
+
+**404 est une réponse, pas une panne** : « ce centre n'a pas de logo ». Konnect vide
+alors son cache, sans quoi un logo retiré resterait affiché au patient indéfiniment.
+
+Contraintes du dépôt : PNG, JPEG, WEBP ou SVG, 512 Ko maximum. L'ancien champ
+`logo_url` **n'est plus une source** ; il n'a d'ailleurs jamais rien affiché. Il reste
+en base comme trace, et reste servi dans le payload de configuration.
 
 `GET /api/product-config` est le **socle générique** (lot B) : un objet JSON par
 (centre, domaine), que le Dashboard stocke sans l'interpréter. Trois règles y sont

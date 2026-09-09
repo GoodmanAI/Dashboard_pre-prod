@@ -79,6 +79,11 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // derriere un VPN : le Dashboard ne peut pas aller le lire, d'ou ce push.
   // Aucune configuration ni donnee patient n'entre par la. Lecture par session.
   /^\/api\/konnect-remontee$/,
+  // Logo du cabinet (2026-09-09) : Konnect TIRE le binaire et le sert ensuite depuis
+  // sa propre origine. Il ne peut pas faire autrement, la CSP de son iframe est
+  // `img-src 'self'` : une image servie par le Dashboard serait bloquee dans le
+  // navigateur du patient. Lecture par cle, depot et retrait reserves a une session.
+  /^\/api\/konnect-logo$/,
 ];
 
 function isPublicApi(pathname: string): boolean {
