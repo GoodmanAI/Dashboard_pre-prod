@@ -22,6 +22,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { useSession } from "next-auth/react";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import ExamTypeBadge, { EXAM_TYPE_SHORT } from "@/components/shared/ExamTypeBadge";
@@ -205,6 +206,14 @@ export default function MappingExamensKonnect() {
   // Ecarts constates par le portail entre ce qui est saisi ici et ce que le
   // logiciel du centre declare (lot I). Purement informatif : on ne corrige rien,
   // la saisie du client fait autorite. `null` = aucun rapprochement recu.
+  // LE RAPPROCHEMENT EST UN OUTIL D'INSTALLATION, PAS UN REPROCHE AU CLIENT.
+  // Un centre qui ouvre son ecran de mapping n'a pas a decouvrir 69 codes en
+  // rouge sur un travail qu'on fait avec lui. Le calcul reste le meme pour tous,
+  // seul l'affichage est reserve : c'est nous qui traitons ces ecarts.
+  const { data: session } = useSession();
+  const estAdmin =
+    session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN";
+
   const [ecarts, setEcarts] = useState<{
     nb_codes_inconnus: number;
     nb_types_incoherents: number;
@@ -409,7 +418,7 @@ export default function MappingExamensKonnect() {
             corrige pas. Le client sait ce qu'il fait ; ce qu'il ne peut pas savoir,
             c'est qu'un code mal recopie ne produit aucune erreur, juste un examen que
             le portail ne saura jamais reserver. */}
-        {ecarts && ecarts.nb_codes_inconnus > 0 && (
+        {estAdmin && ecarts && ecarts.nb_codes_inconnus > 0 && (
           <Alert severity="error" sx={{ mb: 2 }}>
             <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.5 }}>
               {ecarts.nb_codes_inconnus} code
@@ -428,7 +437,7 @@ export default function MappingExamensKonnect() {
           </Alert>
         )}
 
-        {ecarts && ecarts.nb_types_incoherents > 0 && (
+        {estAdmin && ecarts && ecarts.nb_types_incoherents > 0 && (
           <Alert severity="error" sx={{ mb: 2 }}>
             <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.5 }}>
               {ecarts.nb_types_incoherents} type
@@ -451,7 +460,7 @@ export default function MappingExamensKonnect() {
           </Alert>
         )}
 
-        {ecarts && ecarts.nb_absents_du_mapping > 0 && (
+        {estAdmin && ecarts && ecarts.nb_absents_du_mapping > 0 && (
           <Alert severity="info" sx={{ mb: 2 }}>
             <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.5 }}>
               {ecarts.nb_absents_du_mapping} examen
