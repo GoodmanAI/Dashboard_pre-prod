@@ -100,7 +100,12 @@ function Reglage({
           {description}
         </Typography>
         {avertissement && actif && (
-          <Typography variant="caption" color="warning.main" component="p" sx={{ mt: 0.5 }}>
+          <Typography
+            variant="caption"
+            color="warning.main"
+            component="p"
+            sx={{ mt: 0.5 }}
+          >
             {avertissement}
           </Typography>
         )}
@@ -149,7 +154,7 @@ export default function ParametrageKonnectPage() {
       setErreur(null);
       try {
         const res = await fetch(
-          `/api/konnect-configuration?userProductId=${userProductId}`
+          `/api/konnect-configuration?userProductId=${userProductId}`,
         );
         const data = await res.json();
         if (res.ok) setConfig(data);
@@ -159,7 +164,9 @@ export default function ParametrageKonnectPage() {
         // enrichit l'écran, il ne le conditionne pas. Une remontée absente ne doit
         // pas empêcher de régler ses paramètres.
         try {
-          const rEtat = await fetch(`/api/konnect-remontee?userProductId=${userProductId}`);
+          const rEtat = await fetch(
+            `/api/konnect-remontee?userProductId=${userProductId}`,
+          );
           if (rEtat.ok) {
             const dEtat = await rEtat.json();
             const m = dEtat?.charge?.messagerie;
@@ -219,7 +226,7 @@ export default function ParametrageKonnectPage() {
             codeCaracteristiqueConfirmationXplore:
               config.code_caracteristique_confirmation_xplore,
           }),
-        }
+        },
       );
       const data = await res.json();
       if (res.ok) {
@@ -237,7 +244,10 @@ export default function ParametrageKonnectPage() {
 
   if (chargement) {
     return (
-      <PageContainer title="Paramètres LyraeKonnect" description="Configuration du portail patient">
+      <PageContainer
+        title="Paramètres LyraeKonnect"
+        description="Configuration du portail patient"
+      >
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
           <CircularProgress />
         </Box>
@@ -247,8 +257,13 @@ export default function ParametrageKonnectPage() {
 
   if (!config) {
     return (
-      <PageContainer title="Paramètres LyraeKonnect" description="Configuration du portail patient">
-        <Alert severity="error">{erreur ?? "Configuration indisponible."}</Alert>
+      <PageContainer
+        title="Paramètres LyraeKonnect"
+        description="Configuration du portail patient"
+      >
+        <Alert severity="error">
+          {erreur ?? "Configuration indisponible."}
+        </Alert>
       </PageContainer>
     );
   }
@@ -256,417 +271,480 @@ export default function ParametrageKonnectPage() {
   const secretariatManquant = !config.telephone_secretariat?.trim();
 
   return (
-    <PageContainer title="Paramètres LyraeKonnect" description="Configuration du portail patient">
+    <PageContainer
+      title="Paramètres LyraeKonnect"
+      description="Configuration du portail patient"
+    >
       {/* `PageContainer` type ses enfants `JSX.Element | JSX.Element[]` : un
           rendu conditionnel y produirait `false | Element`, que TypeScript
           refuse. D'où ce conteneur unique. */}
       <Box>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>
-          Portail patient
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Ce que voit et peut faire un patient qui prend rendez-vous en ligne.
-          Les modifications s&apos;appliquent au prochain parcours démarré.
-        </Typography>
-      </Box>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h5" fontWeight={700}>
+            Portail patient
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Ce que voit et peut faire un patient qui prend rendez-vous en ligne.
+            Les modifications s&apos;appliquent au prochain parcours démarré.
+          </Typography>
+        </Box>
 
-      {/* ---------------- Identité du centre ---------------- */}
-      <Accordion defaultExpanded>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6">Identité du centre</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Stack spacing={2.5}>
-            <CustomTextField
-              label="Téléphone du secrétariat"
-              variant="outlined"
-              fullWidth
-              value={config.telephone_secretariat ?? ""}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                maj("telephone_secretariat", e.target.value)
-              }
-              helperText="Affiché au patient dont le rendez-vous est bloqué et qui doit vous appeler. Sans ce numéro, il se retrouve dans une impasse."
-            />
-            <Divider textAlign="left">
-              <Typography variant="body2" color="text.secondary">
-                Couleurs et logo
-              </Typography>
-            </Divider>
-            <Typography variant="body2" color="text.secondary">
-              Le portail s&apos;affiche dans votre site. Ces deux couleurs et votre logo lui
-              donnent votre allure, pour que le patient reste chez vous.
-            </Typography>
-            <IdentiteVisuelleKonnect
-              userProductId={userProductId}
-              couleurPrincipale={config.couleur_principale}
-              couleurSecondaire={config.couleur_secondaire}
-              onCouleurPrincipale={(v) => maj("couleur_principale", v)}
-              onCouleurSecondaire={(v) => maj("couleur_secondaire", v)}
-            />
-            <CustomTextField
-              label="Consignes générales"
-              variant="outlined"
-              fullWidth
-              multiline
-              minRows={3}
-              value={config.consignes_generales ?? ""}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                maj("consignes_generales", e.target.value)
-              }
-              helperText="Affichées au patient pendant sa prise de rendez-vous : accès, stationnement, pièces à apporter."
+        {/* ---------------- Identité du centre ---------------- */}
+        <Accordion defaultExpanded>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6">Identité du centre</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Stack spacing={2.5}>
+              <CustomTextField
+                label="Téléphone du secrétariat"
+                variant="outlined"
+                fullWidth
+                value={config.telephone_secretariat ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  maj("telephone_secretariat", e.target.value)
+                }
+                helperText="Affiché au patient dont le rendez-vous est bloqué et qui doit vous appeler. Sans ce numéro, il se retrouve dans une impasse."
+              />
+              {/* Repliée par défaut : on ne la règle qu'une fois, à l'installation,
+                alors que le numéro du secrétariat et les consignes se relisent. La
+                laisser dépliée poussait tout le reste de l'écran vers le bas. */}
+              <Accordion
+                disableGutters
+                sx={{ boxShadow: "none", border: "1px solid #e0e4ea" }}
+              >
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Box>
+                    <Typography variant="body1" fontWeight={600}>
+                      Couleurs et logo
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Le portail s&apos;affiche dans votre site. Donnez-lui
+                      votre allure, pour que le patient reste chez vous.
+                    </Typography>
+                  </Box>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <IdentiteVisuelleKonnect
+                    userProductId={userProductId}
+                    couleurPrincipale={config.couleur_principale}
+                    couleurSecondaire={config.couleur_secondaire}
+                    onCouleurPrincipale={(v) => maj("couleur_principale", v)}
+                    onCouleurSecondaire={(v) => maj("couleur_secondaire", v)}
+                  />
+                </AccordionDetails>
+              </Accordion>
+              <CustomTextField
+                label="Consignes générales"
+                variant="outlined"
+                fullWidth
+                multiline
+                minRows={3}
+                value={config.consignes_generales ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  maj("consignes_generales", e.target.value)
+                }
+                helperText="Affichées au patient pendant sa prise de rendez-vous : accès, stationnement, pièces à apporter."
+              />
+              <Reglage
+                titre="Dépassement d'honoraires"
+                description="Signale au patient que le centre pratique un complément d'honoraires."
+                actif={config.depassement_honoraires}
+                onChange={(v) => maj("depassement_honoraires", v)}
+              />
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
+
+        {/* ---------------- Parcours patient ---------------- */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6">Parcours patient</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Reglage
+              titre="Lecture automatique de l'ordonnance"
+              description="Le patient photographie son ordonnance et les examens sont reconnus automatiquement. Désactivé, il saisit ses examens dans un parcours guidé. La photo reste demandée dans les deux cas."
+              actif={config.ocr_actif}
+              onChange={(v) => maj("ocr_actif", v)}
             />
             <Reglage
-              titre="Dépassement d'honoraires"
-              description="Signale au patient que le centre pratique un complément d'honoraires."
-              actif={config.depassement_honoraires}
-              onChange={(v) => maj("depassement_honoraires", v)}
+              titre="Choix du radiologue"
+              description="Le patient choisit le praticien parmi ceux habilités à son examen. Rallonge le parcours et peut réduire les créneaux proposés."
+              actif={config.choix_radiologue_actif}
+              onChange={(v) => maj("choix_radiologue_actif", v)}
             />
-          </Stack>
-        </AccordionDetails>
-      </Accordion>
+            <Reglage
+              titre="Bilan à deux examens"
+              description="Autorise la réservation de deux examens en une seule prise de rendez-vous."
+              actif={config.multi_examen_actif}
+              onChange={(v) => maj("multi_examen_actif", v)}
+            />
 
-      {/* ---------------- Parcours patient ---------------- */}
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6">Parcours patient</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Reglage
-            titre="Lecture automatique de l'ordonnance"
-            description="Le patient photographie son ordonnance et les examens sont reconnus automatiquement. Désactivé, il saisit ses examens dans un parcours guidé. La photo reste demandée dans les deux cas."
-            actif={config.ocr_actif}
-            onChange={(v) => maj("ocr_actif", v)}
-          />
-          <Reglage
-            titre="Choix du radiologue"
-            description="Le patient choisit le praticien parmi ceux habilités à son examen. Rallonge le parcours et peut réduire les créneaux proposés."
-            actif={config.choix_radiologue_actif}
-            onChange={(v) => maj("choix_radiologue_actif", v)}
-          />
-          <Reglage
-            titre="Bilan à deux examens"
-            description="Autorise la réservation de deux examens en une seule prise de rendez-vous."
-            actif={config.multi_examen_actif}
-            onChange={(v) => maj("multi_examen_actif", v)}
-          />
+            <Divider sx={{ my: 2.5 }} />
 
-          <Divider sx={{ my: 2.5 }} />
-
-          <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
-            Écran « partie du corps »
-          </Typography>
-          <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1 }}>
-            Change uniquement la présentation. Les examens proposés sont les mêmes
-            dans les deux cas.
-          </Typography>
-          <RadioGroup
-            value={config.mode_saisie_examen}
-            onChange={(e) =>
-              maj("mode_saisie_examen", e.target.value as Config["mode_saisie_examen"])
-            }
-          >
-            <FormControlLabel
-              value="traditionnel"
-              control={<Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />}
-              label={
-                <Box>
-                  <Typography variant="body2">Liste</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Le patient choisit dans une liste déroulante.
-                  </Typography>
-                </Box>
+            <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
+              Écran « partie du corps »
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              component="p"
+              sx={{ mb: 1 }}
+            >
+              Change uniquement la présentation. Les examens proposés sont les
+              mêmes dans les deux cas.
+            </Typography>
+            <RadioGroup
+              value={config.mode_saisie_examen}
+              onChange={(e) =>
+                maj(
+                  "mode_saisie_examen",
+                  e.target.value as Config["mode_saisie_examen"],
+                )
               }
-            />
-            <FormControlLabel
-              value="anatomique"
-              control={<Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />}
-              label={
-                <Box>
-                  <Typography variant="body2">Schéma du corps</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Le patient désigne la zone sur une silhouette.
-                  </Typography>
-                </Box>
-              }
-            />
-          </RadioGroup>
-        </AccordionDetails>
-      </Accordion>
+            >
+              <FormControlLabel
+                value="traditionnel"
+                control={
+                  <Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">Liste</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Le patient choisit dans une liste déroulante.
+                    </Typography>
+                  </Box>
+                }
+              />
+              <FormControlLabel
+                value="anatomique"
+                control={
+                  <Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">Schéma du corps</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Le patient désigne la zone sur une silhouette.
+                    </Typography>
+                  </Box>
+                }
+              />
+            </RadioGroup>
+          </AccordionDetails>
+        </Accordion>
 
-      {/* ---------------- Notifications ---------------- */}
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6">Notifications au patient</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          {/* Point 08 de la revue du 02/09 : « le cabinet voit SMS activé et rien
+        {/* ---------------- Notifications ---------------- */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6">Notifications au patient</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            {/* Point 08 de la revue du 02/09 : « le cabinet voit SMS activé et rien
               ne part ». Cocher dit ce qu'on SOUHAITE ; ce qui décide vraiment vit
               chez Konnect (prestataire configuré, envoi armé). Depuis le lot E, le
               portail le remonte de lui-même et l'écran peut enfin le dire.
               Tant que rien n'est remonté, on ne prétend pas savoir : on avertit. */}
-          {messagerie === null ? (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              Cocher une case ne suffit pas à envoyer. Il faut aussi que votre
-              messagerie soit branchée de notre côté, et le portail ne nous l&apos;a
-              pas encore confirmé. Si vos patients ne reçoivent rien alors que la case
-              est cochée, dites-le nous.
-            </Alert>
-          ) : (
-            <Alert
-              severity={
-                (config.envoi_email && !messagerie.mail_en_service) ||
+            {messagerie === null ? (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Cocher une case ne suffit pas à envoyer. Il faut aussi que votre
+                messagerie soit branchée de notre côté, et le portail ne nous
+                l&apos;a pas encore confirmé. Si vos patients ne reçoivent rien
+                alors que la case est cochée, dites-le nous.
+              </Alert>
+            ) : (
+              <Alert
+                severity={
+                  (config.envoi_email && !messagerie.mail_en_service) ||
+                  (config.envoi_sms && !messagerie.sms_en_service)
+                    ? "warning"
+                    : "success"
+                }
+                sx={{ mb: 2 }}
+              >
+                {(config.envoi_email && !messagerie.mail_en_service) ||
                 (config.envoi_sms && !messagerie.sms_en_service)
-                  ? "warning"
-                  : "success"
+                  ? "Un canal est coché mais n'est pas encore en service : rien ne partira. Dites-le nous, nous le branchons."
+                  : "Vos canaux cochés sont en service. Vos patients reçoivent bien leurs messages."}
+              </Alert>
+            )}
+            <Reglage
+              titre="Email"
+              description="Confirmation et rappels envoyés par email."
+              actif={config.envoi_email}
+              onChange={(v) => maj("envoi_email", v)}
+              avertissement={
+                messagerie === null
+                  ? "Rien ne part tant que la messagerie n'est pas branchée de notre côté."
+                  : messagerie.mail_en_service
+                    ? undefined
+                    : "Pas encore en service : rien ne part pour l'instant."
               }
-              sx={{ mb: 2 }}
-            >
-              {(config.envoi_email && !messagerie.mail_en_service) ||
-              (config.envoi_sms && !messagerie.sms_en_service)
-                ? "Un canal est coché mais n'est pas encore en service : rien ne partira. Dites-le nous, nous le branchons."
-                : "Vos canaux cochés sont en service. Vos patients reçoivent bien leurs messages."}
-            </Alert>
-          )}
-          <Reglage
-            titre="Email"
-            description="Confirmation et rappels envoyés par email."
-            actif={config.envoi_email}
-            onChange={(v) => maj("envoi_email", v)}
-            avertissement={
-              messagerie === null
-                ? "Rien ne part tant que la messagerie n'est pas branchée de notre côté."
-                : messagerie.mail_en_service
-                  ? undefined
-                  : "Pas encore en service : rien ne part pour l'instant."
-            }
-          />
-          <Reglage
-            titre="SMS"
-            description="Confirmation et rappels envoyés par SMS."
-            actif={config.envoi_sms}
-            onChange={(v) => maj("envoi_sms", v)}
-            avertissement={
-              messagerie === null
-                ? "Rien ne part tant que la messagerie n'est pas branchée de notre côté. Le crédit SMS est partagé avec les relances de LyraeTalk."
-                : messagerie.sms_en_service
-                  ? "Le crédit SMS est partagé avec les relances de LyraeTalk."
-                  : "Pas encore en service : rien ne part pour l'instant."
-            }
-          />
-          {/* Distinct des deux canaux ci-dessus : ceux-la disent PAR QUEL MOYEN on
+            />
+            <Reglage
+              titre="SMS"
+              description="Confirmation et rappels envoyés par SMS."
+              actif={config.envoi_sms}
+              onChange={(v) => maj("envoi_sms", v)}
+              avertissement={
+                messagerie === null
+                  ? "Rien ne part tant que la messagerie n'est pas branchée de notre côté. Le crédit SMS est partagé avec les relances de LyraeTalk."
+                  : messagerie.sms_en_service
+                    ? "Le crédit SMS est partagé avec les relances de LyraeTalk."
+                    : "Pas encore en service : rien ne part pour l'instant."
+              }
+            />
+            {/* Distinct des deux canaux ci-dessus : ceux-la disent PAR QUEL MOYEN on
               ecrit, celui-ci dit SI l'on relance. Un centre peut vouloir confirmer
               sans relancer, et c'est le cas d'un cabinet de demonstration. */}
-          <Reglage
-            titre="Rappel avant le rendez-vous"
-            description="Le portail écrit au patient quelques jours avant sa venue pour lui rappeler son rendez-vous."
-            actif={config.rappels_actifs}
-            onChange={(v) => maj("rappels_actifs", v)}
-            avertissement="Les rappels partent tous les jours à 8 h. Décochez si vous préférez les faire vous-même."
-          />
-        </AccordionDetails>
-      </Accordion>
+            <Reglage
+              titre="Rappel avant le rendez-vous"
+              description="Le portail écrit au patient quelques jours avant sa venue pour lui rappeler son rendez-vous."
+              actif={config.rappels_actifs}
+              onChange={(v) => maj("rappels_actifs", v)}
+              avertissement="Les rappels partent tous les jours à 8 h. Décochez si vous préférez les faire vous-même."
+            />
+          </AccordionDetails>
+        </Accordion>
 
-      {/* ---------------- Sécurité clinique ---------------- */}
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            <Typography variant="h6">Sécurité clinique</Typography>
-            {config.clinique_actif && (
-              <Chip
-                label="Questionnaire actif"
-                size="small"
-                sx={{
-                  bgcolor: "rgba(var(--accent-rgb), 0.15)",
-                  color: "var(--accent-deep)",
-                  fontWeight: 600,
-                }}
-              />
+        {/* ---------------- Sécurité clinique ---------------- */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Typography variant="h6">Sécurité clinique</Typography>
+              {config.clinique_actif && (
+                <Chip
+                  label="Questionnaire actif"
+                  size="small"
+                  sx={{
+                    bgcolor: "rgba(var(--accent-rgb), 0.15)",
+                    color: "var(--accent-deep)",
+                    fontWeight: 600,
+                  }}
+                />
+              )}
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Reglage
+              titre="Questionnaire clinique"
+              description="Interroge le patient sur ses contre-indications avant de confirmer. Une contre-indication majeure n'annule jamais le rendez-vous : elle le renvoie à votre validation."
+              actif={config.clinique_actif}
+              onChange={(v) => maj("clinique_actif", v)}
+              disabled={secretariatManquant && !config.clinique_actif}
+              avertissement="À activer après relecture par un radiologue."
+            />
+            {secretariatManquant && !config.clinique_actif && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Renseignez d&apos;abord le téléphone du secrétariat : c&apos;est
+                le numéro affiché au patient dont le rendez-vous est bloqué par
+                le questionnaire.
+              </Alert>
             )}
-          </Stack>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Reglage
-            titre="Questionnaire clinique"
-            description="Interroge le patient sur ses contre-indications avant de confirmer. Une contre-indication majeure n'annule jamais le rendez-vous : elle le renvoie à votre validation."
-            actif={config.clinique_actif}
-            onChange={(v) => maj("clinique_actif", v)}
-            disabled={secretariatManquant && !config.clinique_actif}
-            avertissement="À activer après relecture par un radiologue."
-          />
-          {secretariatManquant && !config.clinique_actif && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              Renseignez d&apos;abord le téléphone du secrétariat : c&apos;est le
-              numéro affiché au patient dont le rendez-vous est bloqué par le
-              questionnaire.
-            </Alert>
-          )}
 
-          <Divider sx={{ my: 2.5 }} />
+            <Divider sx={{ my: 2.5 }} />
 
-          <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
-            Limites de gabarit
-          </Typography>
-          <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 2 }}>
-            Au-delà du seuil, le rendez-vous est bloqué et le patient invité à
-            vous appeler. Laisser vide si la question ne se pose pas pour cette
-            famille d&apos;examens.
-          </Typography>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-            <CustomTextField
-              label="Poids maximum IRM (kg)"
-              type="number"
-              variant="outlined"
-              fullWidth
-              value={config.poids_max_irm_kg ?? ""}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                maj(
-                  "poids_max_irm_kg",
-                  e.target.value === "" ? null : Number(e.target.value)
-                )
-              }
-            />
-            <CustomTextField
-              label="Poids maximum scanner (kg)"
-              type="number"
-              variant="outlined"
-              fullWidth
-              value={config.poids_max_scanner_kg ?? ""}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                maj(
-                  "poids_max_scanner_kg",
-                  e.target.value === "" ? null : Number(e.target.value)
-                )
-              }
-            />
-          </Stack>
-        </AccordionDetails>
-      </Accordion>
+            <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
+              Limites de gabarit
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              component="p"
+              sx={{ mb: 2 }}
+            >
+              Au-delà du seuil, le rendez-vous est bloqué et le patient invité à
+              vous appeler. Laisser vide si la question ne se pose pas pour
+              cette famille d&apos;examens.
+            </Typography>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <CustomTextField
+                label="Poids maximum IRM (kg)"
+                type="number"
+                variant="outlined"
+                fullWidth
+                value={config.poids_max_irm_kg ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  maj(
+                    "poids_max_irm_kg",
+                    e.target.value === "" ? null : Number(e.target.value),
+                  )
+                }
+              />
+              <CustomTextField
+                label="Poids maximum scanner (kg)"
+                type="number"
+                variant="outlined"
+                fullWidth
+                value={config.poids_max_scanner_kg ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  maj(
+                    "poids_max_scanner_kg",
+                    e.target.value === "" ? null : Number(e.target.value),
+                  )
+                }
+              />
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
 
-      {/* Confirmation de rendez-vous. Ces trois réglages vivaient dans la console
+        {/* Confirmation de rendez-vous. Ces trois réglages vivaient dans la console
           cabinet de Konnect ; ils arrivent ici avant sa fermeture, sans quoi plus
           rien ne permettrait de les régler. */}
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography fontWeight={600}>Confirmation de rendez-vous</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Reglage
-            titre="Une annulation du patient retire le rendez-vous"
-            description="Quand c'est actif, un patient qui répond « non » libère lui-même son créneau dans votre logiciel. Sinon vous recevez une alerte, et c'est vous qui décidez."
-            actif={config.annulation_directe}
-            onChange={(v) => maj("annulation_directe", v)}
-            avertissement="Le créneau est rendu sans que personne ne le relise."
-          />
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography fontWeight={600}>
+              Confirmation de rendez-vous
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Reglage
+              titre="Une annulation du patient retire le rendez-vous"
+              description="Quand c'est actif, un patient qui répond « non » libère lui-même son créneau dans votre logiciel. Sinon vous recevez une alerte, et c'est vous qui décidez."
+              actif={config.annulation_directe}
+              onChange={(v) => maj("annulation_directe", v)}
+              avertissement="Le créneau est rendu sans que personne ne le relise."
+            />
 
-          <Typography variant="body2" fontWeight={600} sx={{ mt: 2, mb: 0.5 }}>
-            SMS de rappel de secours
-          </Typography>
-          <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1 }}>
-            Quand envoyer le SMS qui redemande au patient s&apos;il vient.
-          </Typography>
-          <RadioGroup
-            value={config.sms_rappel_mode}
-            onChange={(e) =>
-              maj("sms_rappel_mode", e.target.value as Config["sms_rappel_mode"])
-            }
+            <Typography
+              variant="body2"
+              fontWeight={600}
+              sx={{ mt: 2, mb: 0.5 }}
+            >
+              SMS de rappel de secours
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              component="p"
+              sx={{ mb: 1 }}
+            >
+              Quand envoyer le SMS qui redemande au patient s&apos;il vient.
+            </Typography>
+            <RadioGroup
+              value={config.sms_rappel_mode}
+              onChange={(e) =>
+                maj(
+                  "sms_rappel_mode",
+                  e.target.value as Config["sms_rappel_mode"],
+                )
+              }
+            >
+              <FormControlLabel
+                value="conditionnel"
+                control={
+                  <Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">
+                      S&apos;il n&apos;a pas encore répondu
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Le choix le plus sobre : pas de SMS à qui a déjà confirmé.
+                    </Typography>
+                  </Box>
+                }
+              />
+              <FormControlLabel
+                value="opt_out_si_ics"
+                control={
+                  <Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">
+                      Sauf s&apos;il a mis le rendez-vous dans son agenda
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      On considère qu&apos;il a son rappel.
+                    </Typography>
+                  </Box>
+                }
+              />
+              <FormControlLabel
+                value="toujours"
+                control={
+                  <Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">Dans tous les cas</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Un SMS part même si le patient a déjà répondu.
+                    </Typography>
+                  </Box>
+                }
+              />
+            </RadioGroup>
+
+            <Typography
+              variant="body2"
+              fontWeight={600}
+              sx={{ mt: 3, mb: 0.5 }}
+            >
+              Code de confirmation dans votre logiciel
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              component="p"
+              sx={{ mb: 1.5 }}
+            >
+              Le code de la caractéristique de confirmation, paramétrée dans
+              l&apos;administration de votre logiciel de gestion. Sans lui, la
+              réponse du patient ne peut pas y être inscrite. Il vous est
+              communiqué à l&apos;installation.
+            </Typography>
+            <CustomTextField
+              label="Code de confirmation"
+              variant="outlined"
+              fullWidth
+              value={config.code_caracteristique_confirmation_xplore ?? ""}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                maj(
+                  "code_caracteristique_confirmation_xplore",
+                  e.target.value.trim() === "" ? null : e.target.value,
+                )
+              }
+            />
+          </AccordionDetails>
+        </Accordion>
+
+        {erreur && (
+          <Alert severity="error" sx={{ mt: 3 }}>
+            {erreur}
+          </Alert>
+        )}
+
+        <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
+          <Button
+            variant="contained"
+            size="large"
+            onClick={enregistrer}
+            disabled={enregistrement}
+            sx={{
+              bgcolor: "var(--accent)",
+              fontWeight: 600,
+              "&:hover": { bgcolor: "var(--accent-press)" },
+            }}
           >
-            <FormControlLabel
-              value="conditionnel"
-              control={<Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />}
-              label={
-                <Box>
-                  <Typography variant="body2">S&apos;il n&apos;a pas encore répondu</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Le choix le plus sobre : pas de SMS à qui a déjà confirmé.
-                  </Typography>
-                </Box>
-              }
-            />
-            <FormControlLabel
-              value="opt_out_si_ics"
-              control={<Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />}
-              label={
-                <Box>
-                  <Typography variant="body2">
-                    Sauf s&apos;il a mis le rendez-vous dans son agenda
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    On considère qu&apos;il a son rappel.
-                  </Typography>
-                </Box>
-              }
-            />
-            <FormControlLabel
-              value="toujours"
-              control={<Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />}
-              label={
-                <Box>
-                  <Typography variant="body2">Dans tous les cas</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Un SMS part même si le patient a déjà répondu.
-                  </Typography>
-                </Box>
-              }
-            />
-          </RadioGroup>
+            {enregistrement ? "Enregistrement…" : "Enregistrer"}
+          </Button>
+        </Box>
 
-          <Typography variant="body2" fontWeight={600} sx={{ mt: 3, mb: 0.5 }}>
-            Code de confirmation dans votre logiciel
-          </Typography>
-          <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1.5 }}>
-            Le code de la caractéristique de confirmation, paramétrée dans
-            l&apos;administration de votre logiciel de gestion. Sans lui, la réponse du
-            patient ne peut pas y être inscrite. Il vous est communiqué à
-            l&apos;installation.
-          </Typography>
-          <CustomTextField
-            label="Code de confirmation"
-            variant="outlined"
-            fullWidth
-            value={config.code_caracteristique_confirmation_xplore ?? ""}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              maj(
-                "code_caracteristique_confirmation_xplore",
-                e.target.value.trim() === "" ? null : e.target.value
-              )
-            }
-          />
-        </AccordionDetails>
-      </Accordion>
-
-      {erreur && (
-        <Alert severity="error" sx={{ mt: 3 }}>
-          {erreur}
-        </Alert>
-      )}
-
-      <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
-        <Button
-          variant="contained"
-          size="large"
-          onClick={enregistrer}
-          disabled={enregistrement}
-          sx={{
-            bgcolor: "var(--accent)",
-            fontWeight: 600,
-            "&:hover": { bgcolor: "var(--accent-press)" },
-          }}
+        <Snackbar
+          open={succes}
+          autoHideDuration={4000}
+          onClose={() => setSucces(false)}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
         >
-          {enregistrement ? "Enregistrement…" : "Enregistrer"}
-        </Button>
-      </Box>
-
-      <Snackbar
-        open={succes}
-        autoHideDuration={4000}
-        onClose={() => setSucces(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert severity="success" onClose={() => setSucces(false)}>
-          Configuration enregistrée.
-        </Alert>
-      </Snackbar>
+          <Alert severity="success" onClose={() => setSucces(false)}>
+            Configuration enregistrée.
+          </Alert>
+        </Snackbar>
       </Box>
     </PageContainer>
   );
