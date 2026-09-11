@@ -45,6 +45,9 @@ import ExamTypeBadge, {
   EXAM_TYPE_SHORT,
 } from "@/components/shared/ExamTypeBadge";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import ImportExportMapping, {
+  CHAMPS_TALK,
+} from "@/components/mapping/ImportExportMapping";
 
 /**
  * Correspondance des examens (refonte design 2026-08-06).
@@ -97,6 +100,17 @@ interface ExamRow {
 
 type AttribFilter = "all" | "yes" | "no";
 
+/**
+ * Le code RIS est-il rempli ? C'est l'axe qui manquait, et c'est LA question qu'on se
+ * pose devant 287 lignes à compléter : « lesquelles me restent ? ».
+ *
+ * ⚠️ DISTINCT DE `AttribFilter`, et il faut garder les deux. « Attribué à Lyrae »
+ * (`performed`) veut dire que le centre confie cet examen au robot ; avoir un code RIS
+ * est autre chose. Chez LyraeKonnect, le mot « attribué » désigne justement le code
+ * RIS : même mot, deux sens selon le produit. On ne les fond donc pas.
+ */
+type CodeRisFilter = "all" | "yes" | "no";
+
 interface TalkPageProps {
   params: { id: string };
 }
@@ -122,6 +136,7 @@ export default function MappingExam({ params }: TalkPageProps) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [attribFilter, setAttribFilter] = useState<AttribFilter>("all");
+  const [codeRisFilter, setCodeRisFilter] = useState<CodeRisFilter>("all");
   const [page, setPage] = useState(0);
 
   // ---- Fetch initial ----
@@ -197,6 +212,9 @@ export default function MappingExam({ params }: TalkPageProps) {
       if (typeFilter !== "all" && row.typeExamen !== typeFilter) return false;
       if (attribFilter === "yes" && !row.performed) return false;
       if (attribFilter === "no" && row.performed) return false;
+      const aUnCodeRis = Boolean((row.codeExamenClient ?? "").trim());
+      if (codeRisFilter === "yes" && !aUnCodeRis) return false;
+      if (codeRisFilter === "no" && aUnCodeRis) return false;
       if (!q) return true;
       const hay = [
         row.libelle,
@@ -210,7 +228,7 @@ export default function MappingExam({ params }: TalkPageProps) {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [data, search, typeFilter, attribFilter]);
+  }, [data, search, typeFilter, attribFilter, codeRisFilter]);
 
   const pageRows = useMemo(
     () => filtered.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE),
@@ -220,7 +238,7 @@ export default function MappingExam({ params }: TalkPageProps) {
   // Reset page on filter change
   useEffect(() => {
     setPage(0);
-  }, [search, typeFilter, attribFilter]);
+  }, [search, typeFilter, attribFilter, codeRisFilter]);
 
   // ---- Compteur de modifications ----
   const dirtyCount = useMemo(() => {
@@ -234,6 +252,18 @@ export default function MappingExam({ params }: TalkPageProps) {
 
   // ---- KPIs ----
   const attribCount = useMemo(() => data.filter((r) => r.performed).length, [data]);
+
+  /**
+   * Attribué à Lyrae, mais sans code RIS : le robot ANNONCE cet examen au patient et
+   * ne saura pas le réserver. C'est exactement l'état que la garde de
+   * `/api/configuration/get/mapping` évite de créer toute seule (11/09/2026), mais
+   * rien n'empêche de le produire à la main en cochant une ligne vide. On le compte
+   * donc, et on le montre.
+   */
+  const attribSansCode = useMemo(
+    () => data.filter((r) => r.performed && !(r.codeExamenClient ?? "").trim()).length,
+    [data]
+  );
 
   // ---- Guard : previens l'utilisateur qui navigue avec des modifs non sauvees
   const guard = useUnsavedChangesGuard(dirtyCount > 0, {
@@ -442,6 +472,41 @@ export default function MappingExam({ params }: TalkPageProps) {
             <ToggleButton value="yes">Attribués</ToggleButton>
             <ToggleButton value="no">Non attribués</ToggleButton>
           </ToggleButtonGroup>
+
+          {/* Filtre code RIS : le seul qui reponde a « qu'est-ce qu'il me reste ? » */}
+          <ToggleButtonGroup
+            value={codeRisFilter}
+            exclusive
+            size="small"
+            onChange={(_, v) => v && setCodeRisFilter(v as CodeRisFilter)}
+            sx={{
+              bgcolor: SURFACE_MUTED,
+              "& .MuiToggleButton-root": {
+                textTransform: "none",
+                border: `1px solid ${BORDER}`,
+                fontSize: 13,
+                color: INK_MUTED,
+                px: 1.5,
+                "&.Mui-selected": {
+                  bgcolor: BRAND,
+                  color: "#fff",
+                  "&:hover": { bgcolor: BRAND_DARK },
+                },
+              },
+            }}
+          >
+            <ToggleButton value="all">Tous</ToggleButton>
+            <ToggleButton value="yes">Avec code</ToggleButton>
+            <ToggleButton value="no">Sans code</ToggleButton>
+          </ToggleButtonGroup>
+
+          {!readOnly && (
+            <ImportExportMapping
+              lignes={data}
+              champs={CHAMPS_TALK}
+              onAppliquer={setData}
+            />
+          )}
         </Stack>
 
         {/* KPIs ligne */}
@@ -475,6 +540,27 @@ export default function MappingExam({ params }: TalkPageProps) {
               "& .MuiChip-icon": { color: "#fff" },
             }}
           />
+          {attribSansCode > 0 && (
+            <Chip
+              size="small"
+              label={`${attribSansCode} attribué${
+                attribSansCode > 1 ? "s" : ""
+              } sans code RIS`}
+              onClick={() => {
+                setAttribFilter("yes");
+                setCodeRisFilter("no");
+              }}
+              sx={{
+                bgcolor: "#FFF4E5",
+                color: "#B4602A",
+                border: "1px solid #F5C79A",
+                fontWeight: 600,
+                fontSize: 12,
+                height: 24,
+                cursor: "pointer",
+              }}
+            />
+          )}
           {dirtyCount > 0 && (
             <Chip
               size="small"

@@ -13,12 +13,19 @@ import {
 } from "@mui/material";
 import { IconDownload, IconUpload } from "@tabler/icons-react";
 /**
- * Télécharger le modèle du mapping, et le réimporter rempli (lot C).
+ * Télécharger le modèle du mapping, et le réimporter rempli.
+ *
+ * SERT LES DEUX PRODUITS (LyraeKonnect depuis le 08/09/2026, LyraeTalk depuis le
+ * 11/09/2026). Il vivait sous `components/konnect/`, ce qui devenait trompeur : dans
+ * ce workspace « Konnect » est le nom d'une brique, pas d'un composant d'écran.
  *
  * POURQUOI CE N'EST PAS UNE ROUTE. Konnect expose bien
  * `POST /cabinet/config/mapping/import`, mais cette route est gardée : depuis que
  * le Dashboard est propriétaire du catalogue, elle répond 409 dès que le pont est
- * actif. L'import doit donc se faire ici, sur `KonnectExamens`.
+ * actif. L'import doit donc se faire ici, sur l'écran.
+ *
+ * CÔTÉ LYRAETALK IL N'Y A JAMAIS EU DE ROUTE D'IMPORT DU TOUT : le mapping s'y
+ * saisissait ligne à ligne, 287 fois, pour chaque nouveau centre.
  *
  * Et il se fait **dans le navigateur, sans écrire**. Le fichier est rapproché des
  * lignes affichées, le rapport est montré, et rien n'est enregistré tant que
@@ -50,37 +57,78 @@ async function chargerXlsx() {
 }
 
 /** Structurel : la page garde son propre type, on n'impose pas d'import croisé. */
+/**
+ * Le SEUL contrat commun aux deux produits : un code de notre référentiel, et un
+ * libellé pour que le client reconnaisse la ligne dans son tableur.
+ *
+ * ⚠️ RIEN D'AUTRE N'EST COMMUN, et c'est le piège qu'il a fallu défaire. Ce type
+ * exigeait autrefois `reservableEnLigne`, `ordoOblig`, `examenInjecte` et
+ * `listeAttenteActive`, qui n'existent que chez LyraeKonnect ; le composant se disait
+ * générique tout en étant figé sur un seul produit. Et le code d'injection ne porte
+ * même pas le même nom des deux côtés : `codeExamenInjection` chez Konnect,
+ * `codeExamenClientInject` chez LyraeTalk.
+ *
+ * Les colonnes sont donc DÉCRITES PAR L'APPELANT (`champs`), qui seul sait comment
+ * elles s'appellent chez lui.
+ */
 export type LigneMappingImportable = {
   codeExamen: string;
   libelle: string | null;
-  codeExamenClient: string;
-  codeExamenInjection: string;
-  typeExamenClient: string;
-  libelleClient: string;
-  performed: boolean;
-  reservableEnLigne: boolean;
-  ordoOblig: boolean;
-  examenInjecte: boolean;
-  listeAttenteActive: boolean;
 };
 
 /**
- * En-têtes du modèle. Ce sont eux que le client voit dans son tableur, donc ils
- * sont en français et sans jargon. `CLE` n'est pas modifiable : c'est notre code.
+ * Une colonne du tableau, telle que le client la voit et telle qu'elle se range.
+ *
+ * `colonne` est l'en-tête affiché dans le tableur : en français, sans jargon, c'est
+ * ce que le client lit. `cle` est le champ de SA ligne à lui. `type` dit comment
+ * interpréter la cellule au retour.
+ */
+export type ChampMapping<T> = {
+  colonne: string;
+  cle: keyof T & string;
+  type: "texte" | "booleen";
+};
+
+/**
+ * `CLE` n'est pas modifiable : c'est notre code de référentiel, et c'est lui qui relie
+ * chaque ligne du fichier à un examen. `COLONNE_EXAMEN` est un repère de lecture pour
+ * le client, jamais réimporté.
+ *
+ * Les deux sont communs aux produits ; tout le reste vient de `champs`.
  */
 const CLE = "Code NEURACORP";
-const COLONNES = {
-  examen: "Examen",
-  codeRis: "Code RIS",
-  codeRisInjection: "Code RIS avec injection",
-  typeRis: "Type RIS",
-  libelleClient: "Libellé affiché au patient",
-  performed: "Proposé au patient",
-  reservable: "Réservable en ligne",
-  ordoOblig: "Ordonnance obligatoire",
-  injecte: "Injecté",
-  listeAttente: "Liste d'attente",
-} as const;
+const COLONNE_EXAMEN = "Examen";
+
+/** Les colonnes de LyraeKonnect. Passées par sa page, gardées ici par commodité. */
+export const CHAMPS_KONNECT = [
+  { colonne: "Code RIS", cle: "codeExamenClient", type: "texte" },
+  { colonne: "Code RIS avec injection", cle: "codeExamenInjection", type: "texte" },
+  { colonne: "Type RIS", cle: "typeExamenClient", type: "texte" },
+  { colonne: "Libellé affiché au patient", cle: "libelleClient", type: "texte" },
+  { colonne: "Proposé au patient", cle: "performed", type: "booleen" },
+  { colonne: "Réservable en ligne", cle: "reservableEnLigne", type: "booleen" },
+  { colonne: "Ordonnance obligatoire", cle: "ordoOblig", type: "booleen" },
+  { colonne: "Injecté", cle: "examenInjecte", type: "booleen" },
+  { colonne: "Liste d'attente", cle: "listeAttenteActive", type: "booleen" },
+] as const;
+
+/**
+ * Les colonnes de LyraeTalk : le strict nécessaire au mapping (décision du
+ * 11/09/2026). Les synonymes, l'interrogatoire, le commentaire et la configuration
+ * horaire restent à l'écran : ce sont des listes et des objets, qu'un tableur rend
+ * pénibles à remplir et faciles à corrompre.
+ *
+ * « Attribué à Lyrae » et non « Proposé au patient » : chez LyraeTalk, `performed`
+ * veut dire que le centre confie cet examen au robot. Même champ, autre sens, autre
+ * mot.
+ */
+export const CHAMPS_TALK = [
+  { colonne: "Code RIS", cle: "codeExamenClient", type: "texte" },
+  { colonne: "Code RIS avec injection", cle: "codeExamenClientInject", type: "texte" },
+  { colonne: "Type RIS", cle: "typeExamenClient", type: "texte" },
+  { colonne: "Libellé affiché au patient", cle: "libelleClient", type: "texte" },
+  { colonne: "Attribué à Lyrae", cle: "performed", type: "booleen" },
+] as const;
 
 type Rapport = {
   lues: number;
@@ -125,11 +173,14 @@ function oui(v: boolean): string {
  * ne touche pas (`typeExamen`, le type de notre référentiel). Les figer ici les
  * ferait disparaître à chaque import, en silence.
  */
-export default function ImportMappingKonnect<T extends LigneMappingImportable>({
+export default function ImportExportMapping<T extends LigneMappingImportable>({
   lignes,
+  champs,
   onAppliquer,
 }: {
   lignes: T[];
+  /** Les colonnes de CE produit. Voir `CHAMPS_KONNECT` / `CHAMPS_TALK`. */
+  champs: readonly ChampMapping<T>[];
   onAppliquer: (lignes: T[]) => void;
 }) {
   const champFichier = useRef<HTMLInputElement>(null);
@@ -138,19 +189,17 @@ export default function ImportMappingKonnect<T extends LigneMappingImportable>({
 
   async function telechargerModele() {
     const XLSX = await chargerXlsx();
-    const donnees = lignes.map((l) => ({
-      [CLE]: l.codeExamen,
-      [COLONNES.examen]: l.libelle ?? "",
-      [COLONNES.codeRis]: l.codeExamenClient,
-      [COLONNES.codeRisInjection]: l.codeExamenInjection,
-      [COLONNES.typeRis]: l.typeExamenClient,
-      [COLONNES.libelleClient]: l.libelleClient,
-      [COLONNES.performed]: oui(l.performed),
-      [COLONNES.reservable]: oui(l.reservableEnLigne),
-      [COLONNES.ordoOblig]: oui(l.ordoOblig),
-      [COLONNES.injecte]: oui(l.examenInjecte),
-      [COLONNES.listeAttente]: oui(l.listeAttenteActive),
-    }));
+    const donnees = lignes.map((l) => {
+      const ligne: Record<string, string> = {
+        [CLE]: l.codeExamen,
+        [COLONNE_EXAMEN]: l.libelle ?? "",
+      };
+      for (const c of champs) {
+        const v = l[c.cle];
+        ligne[c.colonne] = c.type === "booleen" ? oui(Boolean(v)) : String(v ?? "");
+      }
+      return ligne;
+    });
     const feuille = XLSX.utils.json_to_sheet(donnees);
     const classeur = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(classeur, feuille, "Examens");
@@ -185,9 +234,9 @@ export default function ImportMappingKonnect<T extends LigneMappingImportable>({
       }
       // Les colonnes absentes ne sont pas une erreur : on n'importe que ce qui est
       // là. On le dit quand même, sinon un fichier tronqué passe pour complet.
-      const colonnesManquantes = Object.values(COLONNES).filter(
-        (c) => c !== COLONNES.examen && !entetes.includes(c)
-      );
+      const colonnesManquantes = champs
+        .map((c) => c.colonne)
+        .filter((c) => !entetes.includes(c));
 
       const parCode = new Map(lignes.map((l) => [l.codeExamen, l]));
       const inconnues: string[] = [];
@@ -202,52 +251,46 @@ export default function ImportMappingKonnect<T extends LigneMappingImportable>({
           continue;
         }
         const base = misAJour.get(code) ?? actuelle;
-        misAJour.set(code, {
-          ...base,
-          codeExamenClient: entetes.includes(COLONNES.codeRis)
-            ? versTexte(brute[COLONNES.codeRis], base.codeExamenClient)
-            : base.codeExamenClient,
-          codeExamenInjection: entetes.includes(COLONNES.codeRisInjection)
-            ? versTexte(brute[COLONNES.codeRisInjection], base.codeExamenInjection)
-            : base.codeExamenInjection,
-          typeExamenClient: entetes.includes(COLONNES.typeRis)
-            ? versTexte(brute[COLONNES.typeRis], base.typeExamenClient)
-            : base.typeExamenClient,
-          libelleClient: entetes.includes(COLONNES.libelleClient)
-            ? versTexte(brute[COLONNES.libelleClient], base.libelleClient)
-            : base.libelleClient,
-          performed: entetes.includes(COLONNES.performed)
-            ? versBooleen(brute[COLONNES.performed], base.performed)
-            : base.performed,
-          reservableEnLigne: entetes.includes(COLONNES.reservable)
-            ? versBooleen(brute[COLONNES.reservable], base.reservableEnLigne)
-            : base.reservableEnLigne,
-          ordoOblig: entetes.includes(COLONNES.ordoOblig)
-            ? versBooleen(brute[COLONNES.ordoOblig], base.ordoOblig)
-            : base.ordoOblig,
-          examenInjecte: entetes.includes(COLONNES.injecte)
-            ? versBooleen(brute[COLONNES.injecte], base.examenInjecte)
-            : base.examenInjecte,
-          listeAttenteActive: entetes.includes(COLONNES.listeAttente)
-            ? versBooleen(brute[COLONNES.listeAttente], base.listeAttenteActive)
-            : base.listeAttenteActive,
-        });
+        // Une colonne absente du fichier laisse la valeur en place : on n'importe que
+        // ce qui est là. Un fichier tronqué ne doit pas effacer le reste.
+        const maj: Record<string, unknown> = {};
+        for (const c of champs) {
+          if (!entetes.includes(c.colonne)) continue;
+          const actuel = base[c.cle];
+          maj[c.cle] =
+            c.type === "booleen"
+              ? versBooleen(brute[c.colonne], Boolean(actuel))
+              : versTexte(brute[c.colonne], String(actuel ?? ""));
+        }
+        misAJour.set(code, { ...base, ...(maj as Partial<T>) });
       }
 
       const fusionnees = lignes.map((l) => misAJour.get(l.codeExamen) ?? l);
 
-      // Le `PUT` refuse deux examens sur le même code RIS, et il a raison : Konnect
-      // ne saurait pas lequel appliquer. Le dire ici évite un refus sec au moment
-      // d'enregistrer, quand l'utilisateur ne saura plus quelle ligne du fichier
-      // l'a causé.
+      // DEUX EXAMENS SUR LE MÊME CODE RIS, et le produit ne saurait pas lequel
+      // appliquer. Konnect le refuse à l'enregistrement ; LyraeTalk, lui, l'accepte en
+      // base mais le robot se retrouve avec deux examens indiscernables au téléphone.
+      // Le dire ICI vaut mieux dans les deux cas : au moment d'enregistrer,
+      // l'utilisateur ne saurait plus quelle ligne du fichier l'a causé.
+      //
+      // Le code RIS et « attribué » sont les deux seuls champs que ce contrôle
+      // suppose, et les deux produits les ont. On les lit par leur description plutôt
+      // que par un nom en dur, faute de quoi ce bloc rendrait le composant à nouveau
+      // spécifique à un produit.
+      const cleCodeRis = champs.find((c) => c.colonne === "Code RIS")?.cle;
+      const cleAttribue = champs.find((c) => c.type === "booleen")?.cle;
       const vus = new Map<string, string>();
       const conflits: string[] = [];
-      for (const l of fusionnees) {
-        const c = l.codeExamenClient.trim();
-        if (!c || !l.performed) continue;
-        const premier = vus.get(c);
-        if (premier !== undefined) conflits.push(`${c} (${premier} et ${l.codeExamen})`);
-        else vus.set(c, l.codeExamen);
+      if (cleCodeRis) {
+        for (const l of fusionnees) {
+          const c = String(l[cleCodeRis] ?? "").trim();
+          // Un examen non attribué ne part pas au RIS : deux d'entre eux peuvent
+          // porter le même code sans conséquence.
+          if (!c || (cleAttribue && !l[cleAttribue])) continue;
+          const premier = vus.get(c);
+          if (premier !== undefined) conflits.push(`${c} (${premier} et ${l.codeExamen})`);
+          else vus.set(c, l.codeExamen);
+        }
       }
 
       const modifiees = fusionnees.filter(
