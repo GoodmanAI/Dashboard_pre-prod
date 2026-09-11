@@ -324,7 +324,7 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 | Origine | Tables |
 |---|---|
 | Prisma (17) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `Call`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
-| SQL manuel (17) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `KonnectSites`, `KonnectDemandesRappel`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus`, `CentreStatut` |
+| SQL manuel (18) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `KonnectSites`, `KonnectDemandesRappel`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus`, `CentreStatut`, `ReferentielExamens` |
 
 `CentreStatut` (07/09/2026) porte le statut de cycle de vie d'un centre :
 `integration`, `production` ou `arrete`, une ligne par `userProductId`, donc **par couple
@@ -341,6 +341,21 @@ robot répond ou transfère, réversible à la minute) et `DeploymentStatus` (l'
 **L'absence de ligne vaut `integration`**, donc silence : le classement est un geste
 volontaire, et reclasser un centre en intégration éteint ses alertes sans redéploiement.
 Administrée par `/api/centre-statut` (session NextAuth, admin — **pas** machine-à-machine).
+
+`ReferentielExamens` (11/09/2026) porte la **nomenclature d'examens commune à tous les
+centres**, et amorce le mapping d'un centre jamais configuré, LyraeTalk comme
+LyraeKonnect. Elle remplace la lecture d'un blob Azure au fil de l'eau : une donnée de
+référence qui change quelques fois par an n'a pas à dépendre d'une chaîne de connexion
+présente sur chaque serveur (Q35, la variable manquait en production).
+
+⚠️ **Elle ne porte AUCUN code RIS client.** `codeExamenClient` appartient au cabinet et
+diffère par définition d'un centre à l'autre : c'est exactement ce que le client
+remplit. Elle est semée depuis le mapping LyraeTalk d'un centre de référence
+(`scripts/data-provisioning/2026_09_11_semer_referentiel_examens.sql`), dont seuls
+`codeExamen`, `typeExamen` et `libelle` sont repris.
+
+Le blob Azure reste le moyen de **rafraîchir** cette table quand NEURACORP publie une
+nomenclature ; il n'est plus sur le chemin critique d'un écran client.
 
 `KonnectTenantMapping` (24/08/2026) relie un cabinet Konnect (`tenantId`, UUID) à un centre
 du Dashboard (`userProductId`). **1 ↔ 1 contraint dans les deux sens**, à la différence
@@ -529,4 +544,4 @@ composent : `2026_08_10_deployment_status.sql` (création) et
   en base à dessein — un `DELETE` sur `Product` cascade sur tout ce qui pend à `UserProduct`.
   Le modèle Prisma est conservé pour la même raison. Q14 close.
 - `SPECIAL_CENTRE_PAIRS` codé en dur (`auth-helpers.ts:32`).
-- Aucun test. `schema.prisma` ne couvre pas les 9 tables SQL manuelles.
+- Aucun test. `schema.prisma` ne couvre pas les 18 tables SQL manuelles.

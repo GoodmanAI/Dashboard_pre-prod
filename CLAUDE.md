@@ -24,8 +24,8 @@ Prod : VPS OVH, PM2. `git pull` → `npm run build` → `pm2 restart`. Pas de CI
 1. **Prisma** — `prisma/migrations/<timestamp>_<slug>/migration.sql`, générées par `prisma migrate dev`, appliquées par `prisma migrate deploy`.
 2. **SQL manuel** — `prisma/migrations/manual/AAAA_MM_JJ_<sujet>.sql`, écrites à la main, **jamais vues par Prisma**, appliquées en prod par `psql "$DATABASE_URL" -f <fichier>`.
 
-Dix tables n'existent **que** côté SQL manuel et sont absentes de `schema.prisma` :
-`AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`.
+Onze tables n'existent **que** côté SQL manuel et sont absentes de `schema.prisma` :
+`AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `ReferentielExamens`.
 
 > ⚠️ **`KonnectDemandesRappel` (02/09/2026) est la seule table de cette base qui porte
 > de la donnée patient** : nom, prénom, téléphone d'un patient qui a demandé à être

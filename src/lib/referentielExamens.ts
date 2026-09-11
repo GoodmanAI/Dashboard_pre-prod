@@ -7,20 +7,31 @@ import { PRODUITS } from "@/lib/produits";
  * Référentiel d'examens NEURACORP — notre vocabulaire interne, commun à tous les
  * centres et indépendant de tout RIS.
  *
- * Il vit dans un blob Azure (un classeur Excel), déjà utilisé par
- * `/api/data/exams` et `/api/configuration/get/mapping` pour LyraeTalk. Ce module
- * existe pour deux raisons :
+ * **IL VIT EN BASE DEPUIS LE 11/09/2026** (`ReferentielExamens`), plus dans un blob
+ * Azure lu à chaque affichage d'écran. C'est une donnée de RÉFÉRENCE : elle change
+ * quelques fois par an et ne dépend d'aucun client. La faire reposer sur une chaîne de
+ * connexion présente dans l'environnement de chaque serveur, un container, un nom de
+ * blob et la disponibilité d'Azure à l'instant T, c'était quatre points de rupture pour
+ * une liste figée.
  *
- * 1. **`/api/data/exams` renvoie du CSV**, pas du JSON — pratique pour un export,
- *    inutilisable pour amorcer un écran. (L'écran de mapping de LyraeTalk appelle
- *    pourtant `.json()` dessus en repli : ce chemin échouerait s'il était emprunté.
- *    Il ne l'est jamais en pratique, `TalkSettings` existant toujours.)
- * 2. **L'amorçage doit dégrader proprement.** Si la variable de connexion manque,
- *    on renvoie une liste vide et une `source` explicite, pour que l'écran dise ce
- *    qui se passe au lieu d'afficher un tableau vide sans explication.
+ * Et ils ont rompu : la variable manque sur le VPS de production depuis au moins le
+ * 03/09/2026 (Q35). Un nouveau client LyraeTalk arrivait donc sur un tableau vide.
  *
- * Le blob est lu à chaque appel : il ne change qu'à la main, et l'amorçage n'a lieu
- * qu'à l'ouverture d'un centre jamais configuré.
+ * ORDRE D'AMORÇAGE, du plus spécifique au plus général :
+ *
+ * 1. le mapping **LyraeTalk du même client**, s'il existe — ses codes RIS sont déjà
+ *    attribués, on ne les redemande pas ;
+ * 2. la table `ReferentielExamens`, semée depuis un mapping de référence ;
+ * 3. le blob Azure, en dernier recours et seulement s'il est configuré.
+ *
+ * LE BLOB N'A PAS DISPARU : il reste le moyen de RAFRAÎCHIR la table quand NEURACORP
+ * publie une nomenclature. Ce qui a disparu, c'est sa présence sur le chemin critique
+ * d'un écran client.
+ *
+ * ⚠️ **Aucune de ces sources ne remplit `codeExamenClient`**, sauf la première. Le code
+ * RIS appartient au cabinet, il diffère par définition d'un centre à l'autre, et c'est
+ * exactement ce que le client doit saisir. Le semer depuis un autre centre donnerait
+ * des rendez-vous posés sur des codes qui n'existent pas chez lui.
  */
 
 export type LigneReferentiel = {
@@ -47,12 +58,19 @@ export type Referentiel = {
    * - `blob`         : référentiel NEURACORP, colonnes client vides ;
    * - `indisponible` : ni l'un ni l'autre.
    */
-  source: "talk" | "blob" | "indisponible";
+  /**
+   * D'où vient la liste proposée. Affiché au client, donc jamais du jargon :
+   * l'écran traduit. `referentiel` = la table semée, `talk` = son propre mapping
+   * LyraeTalk, `blob` = Azure, `indisponible` = aucune source n'a répondu.
+   */
+  source: "talk" | "referentiel" | "blob" | "indisponible";
   /** Renseigné quand `source` vaut `indisponible` — affiché à l'utilisateur. */
   motif?: string;
 };
 
-async function streamToBuffer(stream?: NodeJS.ReadableStream | null): Promise<Buffer> {
+async function streamToBuffer(
+  stream?: NodeJS.ReadableStream | null,
+): Promise<Buffer> {
   if (!stream) return Buffer.alloc(0);
   const chunks: Buffer[] = [];
   for await (const chunk of stream) {
@@ -66,7 +84,8 @@ function texte(v: unknown): string {
 }
 
 export async function referentielNeuracorp(): Promise<Referentiel> {
-  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING_NEURACORP_EXAMS;
+  const connectionString =
+    process.env.AZURE_STORAGE_CONNECTION_STRING_NEURACORP_EXAMS;
   const containerName = process.env.NEURACORP_EXAMS_CONTAINER;
   const blobName = process.env.NEURACORP_EXAMS_BLOB;
 
@@ -84,7 +103,9 @@ export async function referentielNeuracorp(): Promise<Referentiel> {
     const blob = BlobServiceClient.fromConnectionString(connectionString)
       .getContainerClient(containerName)
       .getBlobClient(blobName);
-    const buffer = await streamToBuffer((await blob.download()).readableStreamBody);
+    const buffer = await streamToBuffer(
+      (await blob.download()).readableStreamBody,
+    );
 
     const classeur = XLSX.read(buffer, { type: "buffer" });
     const feuille = classeur.Sheets[classeur.SheetNames[0]];
@@ -140,7 +161,7 @@ export async function referentielNeuracorp(): Promise<Referentiel> {
  * ensuite indépendants — modifier celui de Talk ne touchera plus celui de Konnect.
  */
 export async function mappingDepuisTalk(
-  userProductIdKonnect: number
+  userProductIdKonnect: number,
 ): Promise<LigneReferentiel[]> {
   const res = await db.query<{ exams: unknown }>(
     `SELECT ts."exams"
@@ -152,7 +173,7 @@ export async function mappingDepuisTalk(
       WHERE konnect."id" = $1
         AND lower(p."name") = lower($2)
       LIMIT 1`,
-    [userProductIdKonnect, PRODUITS.talk.nom]
+    [userProductIdKonnect, PRODUITS.talk.nom],
   );
 
   if (!res.rowCount) return [];
@@ -198,17 +219,68 @@ function safeParse(s: string): unknown {
 }
 
 /**
- * Amorce du mapping d'un centre Konnect jamais configuré.
+ * Le référentiel tel qu'il est stocké en base, sans aucun code client.
  *
- * Ordre de préférence : le mapping LyraeTalk du même client d'abord (codes RIS déjà
- * attribués), le référentiel NEURACORP ensuite. Un client qui n'a que Konnect et un
- * serveur sans configuration Azure aboutit à une liste vide — dite explicitement,
- * plutôt qu'un tableau muet.
+ * C'est la source d'amorçage normale depuis le 11/09/2026. Vide tant que le semis n'a
+ * pas eu lieu (`scripts/data-provisioning/2026_09_11_semer_referentiel_examens.sql`),
+ * ce qui fait retomber l'appelant sur le blob : la bascule est donc sans risque même
+ * si le déploiement du code précède celui de la donnée.
  */
-export async function amorcerMapping(userProductIdKonnect: number): Promise<Referentiel> {
-  const depuisTalk = await mappingDepuisTalk(userProductIdKonnect);
-  if (depuisTalk.length > 0) {
-    return { lignes: depuisTalk, source: "talk" };
+export async function referentielEnBase(): Promise<LigneReferentiel[]> {
+  const res = await db.query<{
+    codeExamen: string;
+    typeExamen: string | null;
+    libelle: string | null;
+  }>(
+    `SELECT "codeExamen", "typeExamen", "libelle"
+       FROM "ReferentielExamens"
+      ORDER BY "typeExamen" NULLS LAST, "libelle" ASC`,
+  );
+
+  return res.rows.map((r) => ({
+    codeExamen: r.codeExamen,
+    typeExamen: r.typeExamen,
+    libelle: r.libelle,
+    // Vides, et ce n'est pas un oubli : le code RIS appartient au cabinet.
+    codeExamenClient: "",
+    codeExamenInjection: "",
+    typeExamenClient: "",
+    libelleClient: "",
+    // Tout est proposé par défaut : le client décoche ce qu'il ne pratique pas, ce qui
+    // est plus rapide que de tout cocher. Même choix que LyraeTalk et que le blob.
+    performed: true,
+    reservableEnLigne: true,
+    ordoOblig: false,
+    examenInjecte: false,
+    listeAttenteActive: false,
+  }));
+}
+
+/**
+ * Amorce du mapping d'un centre jamais configuré, Konnect comme LyraeTalk.
+ *
+ * Trois sources, du plus spécifique au plus général : le mapping LyraeTalk du **même**
+ * client (ses codes RIS sont déjà attribués), puis le référentiel en base, puis le blob
+ * Azure. Les trois échouent → liste vide avec un motif explicite, pour que l'écran dise
+ * ce qui se passe au lieu d'afficher un tableau muet.
+ *
+ * `userProductId` omis (ou sans jumeau LyraeTalk) → on saute la première source. C'est
+ * le cas d'un tout nouveau client, celui que Q35 laissait sans rien.
+ */
+export async function amorcerMapping(
+  userProductIdKonnect?: number,
+): Promise<Referentiel> {
+  if (userProductIdKonnect !== undefined) {
+    const depuisTalk = await mappingDepuisTalk(userProductIdKonnect);
+    if (depuisTalk.length > 0) {
+      return { lignes: depuisTalk, source: "talk" };
+    }
   }
+
+  const enBase = await referentielEnBase();
+  if (enBase.length > 0) {
+    return { lignes: enBase, source: "referentiel" };
+  }
+
   return referentielNeuracorp();
 }

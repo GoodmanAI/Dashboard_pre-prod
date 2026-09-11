@@ -144,8 +144,28 @@ export default function MappingExam({ params }: TalkPageProps) {
             horaire: row.horaire ?? { enabled: false, position: "below", time: "" },
           }));
         } else if (res.status === 404) {
-          const fallbackRes = await fetch("/api/data/exams");
-          rows = await fallbackRes.json();
+          // CENTRE JAMAIS CONFIGURÉ : on amorce depuis le référentiel.
+          //
+          // Ce repli appelait `/api/data/exams`, qui renvoie du **CSV** : le `.json()`
+          // levait, le `catch` affichait « Erreur de chargement des examens », et un
+          // nouveau client se retrouvait devant un tableau vide. Il n'a jamais
+          // fonctionné, indépendamment d'Azure. Personne ne l'avait vu parce qu'il ne
+          // s'emprunte que sur un centre sans `TalkSettings`, donc à l'installation.
+          //
+          // `/api/referentiel-examens` sert du JSON à la forme d'`ExamRow`, et tire du
+          // référentiel en base plutôt que du blob (corrigé le 11/09/2026, Q35).
+          const amorce = await fetch(
+            `/api/referentiel-examens?userProductId=${userProductId}`
+          );
+          if (amorce.ok) {
+            const json = await amorce.json();
+            rows = Array.isArray(json?.examens) ? json.examens : [];
+            if (rows.length === 0 && json?.motif) {
+              // `error` et pas `warning` : le composant ne connaît que deux tons,
+              // et un amorçage vide empêche bel et bien de configurer le centre.
+              setSnack({ open: true, message: json.motif, severity: "error" });
+            }
+          }
         }
         setData(rows);
         setOriginalData(JSON.parse(JSON.stringify(rows)));
