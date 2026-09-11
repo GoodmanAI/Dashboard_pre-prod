@@ -303,7 +303,7 @@ une erreur de rendu laisse une page blanche au patient et aucune trace côté se
 | Cible | Détail |
 |---|---|
 | **Brevo** | `api.brevo.com/v3/smtp/email` (URL en dur) |
-| **Azure Blob `neuracorp-exams`** | `/api/data/exams`, `/api/configuration/get/mapping`, `/api/configuration/exam` — **partagé avec les Azure Functions, couplage non identifié jusqu'ici [?] Q3** |
+| **Azure Blob `neuracorp-exams`** | `/api/data/exams`, `/api/configuration/exam` — **partagé avec les Azure Functions, couplage non identifié jusqu'ici [?] Q3**. `/api/configuration/get/mapping` ne le lit plus (11/09/2026) : la nomenclature vient de `ReferentielExamens`, le blob n'étant qu'un repli tant que la table est vide |
 | **ClamAV** | socket Unix local |
 | **SMTP nodemailer** | uniquement `api/files/validation` — legacy |
 | **PostgreSQL** | `DATABASE_URL` |
@@ -455,6 +455,25 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 | **Sondes de déploiement** (3 VMs) | `POST /api/deployments` toutes les 15 min |
 
 ---
+
+### `GET /api/configuration/get/mapping` — ce que `performed` veut dire
+
+Cette route renvoie le mapping d'examens d'un centre : ses propres réglages
+(`TalkSettings.exams`), **complétés** par la nomenclature commune pour les codes qu'il
+n'a jamais configurés. LyraeTalk l'interroge pour savoir quels examens il peut proposer.
+
+⚠️ **`performed` d'une ligne AJOUTÉE par cette complétion vaut `false` quand le centre a
+déjà un mapping** (11/09/2026). Le robot lit ce champ : à `true` il annonce l'examen au
+patient et tente la réservation (`confirmExam.js` : « Examen non bookable
+(performed=false) → redirection »). Or une ligne que le centre n'a jamais configurée
+n'a **aucun code RIS**, donc aucun rendez-vous possible.
+
+Sans cette règle, le passage du référentiel de 264 à 287 entrées aurait fait apparaître
+21 examens « pratiqués » chez chaque client en service, que le robot aurait promis au
+téléphone sans pouvoir les réserver.
+
+**Sur un centre vierge, `performed` vaut `true`** : le client décoche ce qu'il ne
+pratique pas, plus rapide que de tout cocher. C'est le comportement d'origine.
 
 ## Invariants à ne pas casser
 
