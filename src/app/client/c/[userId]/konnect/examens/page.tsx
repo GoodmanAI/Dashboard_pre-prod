@@ -20,6 +20,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
@@ -28,12 +30,15 @@ import ExamTypeBadge, { EXAM_TYPE_SHORT } from "@/components/shared/ExamTypeBadg
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 import {
+  CarteMapping,
   CaseMapping,
   CelluleCodeLibelle,
   CelluleExamen,
   CelluleInjection,
   CelluleType,
   EnTeteMapping,
+  RangeeChamp,
+  SEUIL_FICHES,
 } from "@/components/mapping/cellules";
 import ImportExportMapping, {
   CHAMPS_KONNECT,
@@ -121,6 +126,15 @@ type FiltreChemin = "tous" | "bout_en_bout" | "rappel";
 
 export default function MappingExamensKonnect() {
   const { userProductId } = useCentreProduit();
+
+  /**
+   * En dessous du seuil, chaque examen devient une fiche : tous ses champs visibles
+   * d'un coup, au lieu d'un tableau qu'il faudrait pousser vers la gauche pour
+   * atteindre la colonne qu'on remplit. Même seuil que LyraeTalk, voir
+   * `SEUIL_FICHES`.
+   */
+  const theme = useTheme();
+  const enFiches = useMediaQuery(theme.breakpoints.down(SEUIL_FICHES));
 
   const [lignes, setLignes] = useState<Ligne[]>([]);
   const [initial, setInitial] = useState<Ligne[]>([]);
@@ -555,11 +569,92 @@ export default function MappingExamensKonnect() {
           </Stack>
         </Paper>
 
+        {/* `TableContainer component={Paper}` : c'est lui qui porte le cadre et le
+            `overflow-x: auto`. En fiches il n'y a rien a faire defiler, la regle est
+            donc inerte, et un second conteneur n'apporterait rien. */}
         <TableContainer
           component={Paper}
           variant="outlined"
           sx={{ overflowX: "auto", borderColor: BORDER, borderRadius: 2 }}
         >
+          {enFiches ? (
+            /* Écran étroit : une fiche par examen, tous ses champs visibles. */
+            <Stack spacing={1.25} sx={{ p: 1.5 }}>
+              {visibles.map((l) => {
+                const enDouble =
+                  l.performed && codesEnDouble.has(l.codeExamenClient.trim());
+                const inactif = !l.performed;
+                return (
+                  <CarteMapping
+                    key={l.codeExamen}
+                    performed={l.performed}
+                    onPerformed={(v) => maj(l.codeExamen, "performed", v)}
+                    typeExamen={l.typeExamen}
+                    libelle={l.libelle}
+                    codeExamen={l.codeExamen}
+                  >
+                    <RangeeChamp libelle="Code / Libellé patient">
+                      <CelluleCodeLibelle
+                        code={l.codeExamenClient}
+                        libelle={l.libelleClient}
+                        placeholderLibelle={l.libelle ?? ""}
+                        onCode={(v) => maj(l.codeExamen, "codeExamenClient", v)}
+                        onLibelle={(v) => maj(l.codeExamen, "libelleClient", v)}
+                        disabled={inactif}
+                        erreurCode={enDouble}
+                        messageErreur="Code en double"
+                      />
+                    </RangeeChamp>
+
+                    <RangeeChamp libelle="Type">
+                      <CelluleType
+                        valeur={l.typeExamenClient}
+                        options={typesClient}
+                        onChange={(v) => maj(l.codeExamen, "typeExamenClient", v)}
+                        disabled={inactif}
+                      />
+                    </RangeeChamp>
+
+                    <RangeeChamp libelle="Injecté">
+                      <CelluleInjection
+                        injecte={l.examenInjecte}
+                        code={l.codeExamenInjection ?? ""}
+                        onInjecte={(v) => maj(l.codeExamen, "examenInjecte", v)}
+                        onCode={(v) => maj(l.codeExamen, "codeExamenInjection", v)}
+                        disabled={inactif}
+                      />
+                    </RangeeChamp>
+
+                    <RangeeChamp libelle="Réservable en ligne">
+                      <CaseMapping
+                        coche={l.reservableEnLigne}
+                        disabled={inactif}
+                        onChange={(v) => maj(l.codeExamen, "reservableEnLigne", v)}
+                      />
+                    </RangeeChamp>
+
+                    <RangeeChamp libelle="Ordonnance">
+                      <CaseMapping
+                        coche={l.ordoOblig}
+                        disabled={inactif}
+                        onChange={(v) => maj(l.codeExamen, "ordoOblig", v)}
+                      />
+                    </RangeeChamp>
+                  </CarteMapping>
+                );
+              })}
+              {filtrees.length === 0 && (
+                <Typography
+                  variant="body2"
+                  sx={{ color: INK_MUTED, textAlign: "center", py: 5 }}
+                >
+                  {lignes.length === 0
+                    ? "Aucun examen au référentiel."
+                    : "Aucun examen ne correspond à ces filtres."}
+                </Typography>
+              )}
+            </Stack>
+          ) : (
           <Table size="small" sx={{ minWidth: 1180 }}>
             <TableHead>
               <TableRow>
@@ -698,6 +793,7 @@ export default function MappingExamensKonnect() {
               )}
             </TableBody>
           </Table>
+          )}
           <TablePagination
             component="div"
             count={filtrees.length}

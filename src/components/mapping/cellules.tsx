@@ -358,3 +358,122 @@ export function CelluleInjection({
     </Stack>
   );
 }
+
+/**
+ * Une rangée « libellé + champ » dans la fiche compacte.
+ *
+ * Le libellé est indispensable : en tableau, l'en-tête de colonne dit ce qu'on
+ * remplit ; en fiche, il n'y a plus d'en-tête, et un champ nu ne se devine pas.
+ */
+export function RangeeChamp({
+  libelle,
+  children,
+}: {
+  libelle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Stack
+      direction={{ xs: "column", sm: "row" }}
+      spacing={{ xs: 0.5, sm: 1.5 }}
+      alignItems={{ xs: "stretch", sm: "center" }}
+      sx={{ width: "100%" }}
+    >
+      <Typography
+        sx={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: P.inkMuted,
+          textTransform: "uppercase",
+          letterSpacing: "0.04em",
+          flex: { sm: "0 0 150px" },
+          pt: { sm: 0.5 },
+        }}
+      >
+        {libelle}
+      </Typography>
+      <Box sx={{ flex: 1, minWidth: 0 }}>{children}</Box>
+    </Stack>
+  );
+}
+
+/**
+ * La ligne du tableau **dépliée en fiche**, pour les écrans trop étroits.
+ *
+ * POURQUOI UNE FICHE ET PAS UN DÉFILEMENT. Le tableau fait 1 180 px de colonnes et
+ * défile déjà horizontalement, ce qui suffit pour LIRE. Mais cet écran sert à
+ * SAISIR 287 lignes : devoir pousser le tableau vers la gauche pour atteindre le
+ * champ qu'on remplit, ligne après ligne, est une autre affaire. En dessous du
+ * seuil, chaque examen devient donc un bloc où tous ses champs sont visibles d'un
+ * coup, l'un sous l'autre.
+ *
+ * L'en-tête de la fiche porte les trois choses qui identifient l'examen et qu'on ne
+ * saisit pas : la case « pratiqué », la pastille de modalité, le libellé et le code
+ * de notre référentiel. C'est le même contenu que les deux premières colonnes du
+ * tableau, dans le même ordre.
+ *
+ * Les champs, eux, sont passés par l'appelant : chaque produit a les siens, et cette
+ * fiche n'en connaît aucun. Même raison que pour les cellules, et c'est la leçon du
+ * 14/09/2026 : un composant partagé ne doit pas porter les invariants d'un produit.
+ */
+export function CarteMapping({
+  performed,
+  onPerformed,
+  typeExamen,
+  libelle,
+  codeExamen,
+  disabled,
+  children,
+}: {
+  performed: boolean;
+  onPerformed: (v: boolean) => void;
+  typeExamen: string | null;
+  libelle: string | null;
+  codeExamen: string;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Box
+      sx={{
+        border: `1px solid ${P.border}`,
+        borderRadius: 2,
+        p: 1.5,
+        bgcolor: P.surface,
+        // Même atténuation qu'en tableau : un examen non pratiqué s'efface du regard
+        // sans disparaître de la liste.
+        opacity: performed ? 1 : 0.55,
+      }}
+    >
+      <Stack direction="row" alignItems="flex-start" spacing={1}>
+        <Box sx={{ mt: -0.5, ml: -0.5 }}>
+          <CaseMapping coche={performed} onChange={onPerformed} disabled={disabled} />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <CelluleExamen
+            typeExamen={typeExamen}
+            libelle={libelle}
+            codeExamen={codeExamen}
+          />
+        </Box>
+      </Stack>
+
+      <Stack spacing={1.25} sx={{ mt: 1.5, pl: { sm: 0.5 } }}>
+        {children}
+      </Stack>
+    </Box>
+  );
+}
+
+/**
+ * Le seuil en dessous duquel les deux écrans passent en fiches.
+ *
+ * `lg` = 1 200 px de fenêtre. La zone de contenu est plus étroite que la fenêtre, le
+ * menu latéral en prenant environ 270 px : en dessous de ce seuil, les 1 180 px de
+ * colonnes ne tiennent plus sans défilement horizontal. Au-dessus, le tableau reste,
+ * parce qu'il montre plus de lignes d'un coup et que c'est ce qu'on veut quand on
+ * relit un mapping.
+ *
+ * Une seule constante, pour que les deux produits basculent au même endroit.
+ */
+export const SEUIL_FICHES = "lg" as const;

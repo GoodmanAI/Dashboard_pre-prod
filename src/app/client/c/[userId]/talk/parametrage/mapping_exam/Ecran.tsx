@@ -27,6 +27,8 @@ import {
   ToggleButtonGroup,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {
   IconArrowLeft,
@@ -48,12 +50,15 @@ import ImportExportMapping, {
   CHAMPS_TALK,
 } from "@/components/mapping/ImportExportMapping";
 import {
+  CarteMapping,
   CaseMapping,
   CelluleCodeLibelle,
   CelluleExamen,
   CelluleInjection,
   CelluleType,
   EnTeteMapping,
+  RangeeChamp,
+  SEUIL_FICHES,
 } from "@/components/mapping/cellules";
 
 /**
@@ -150,6 +155,14 @@ export default function MappingExam({ params }: TalkPageProps) {
   const basePath = useTalkBasePath(userProductId);
   const { data: sessionData } = useSession();
   const readOnly = !!sessionData?.user?.isSecretary;
+
+  /**
+   * En dessous du seuil, chaque examen devient une fiche : tous ses champs visibles
+   * d'un coup, au lieu d'un tableau qu'il faudrait pousser vers la gauche pour
+   * atteindre la colonne qu'on remplit. Voir `SEUIL_FICHES`.
+   */
+  const theme = useTheme();
+  const enFiches = useMediaQuery(theme.breakpoints.down(SEUIL_FICHES));
 
   const [data, setData] = useState<ExamRow[]>([]);
   const [originalData, setOriginalData] = useState<ExamRow[]>([]);
@@ -720,6 +733,20 @@ export default function MappingExam({ params }: TalkPageProps) {
             overflow: "hidden",
           }}
         >
+          {enFiches ? (
+            /* Écran étroit : une fiche par examen, tous ses champs visibles. */
+            <Stack spacing={1.25} sx={{ p: 1.5 }}>
+              {pageRows.map((row) => (
+                <FicheExamen
+                  key={row.codeExamen}
+                  row={row}
+                  disabled={readOnly}
+                  onChange={handleChange}
+                  typesClient={typesClient}
+                />
+              ))}
+            </Stack>
+          ) : (
           <TableContainer sx={{ maxHeight: "none" }}>
             <Table stickyHeader size="small" sx={{ minWidth: 1180 }}>
               <TableHead>
@@ -770,6 +797,7 @@ export default function MappingExam({ params }: TalkPageProps) {
               </TableBody>
             </Table>
           </TableContainer>
+          )}
 
           <TablePagination
             component="div"
@@ -922,6 +950,96 @@ export default function MappingExam({ params }: TalkPageProps) {
 // ---------------------------------------------------------------------------
 // Ligne de la table (memo-friendly)
 // ---------------------------------------------------------------------------
+/**
+ * « Injecté » n'est PAS un champ de LyraeTalk, contrairement à Konnect : ici la
+ * vérité est la présence d'un code d'injection. La case n'est donc qu'un volet
+ * d'affichage, tenu en état local, qui ouvre le champ sur un examen qui n'a pas
+ * encore de code. Cochée sans rien saisir, elle ne se retrouve pas au rechargement,
+ * et c'est normal : il n'y aurait rien à enregistrer.
+ *
+ * Le tableau et la fiche partagent ce comportement, d'où ce bout de code commun.
+ */
+// Le prefixe `use` est impose par React, pas un anglicisme de confort : la regle
+// `react-hooks/rules-of-hooks` ne reconnait un hook qu'a son nom. Meme convention que
+// `useCentreProduit` et `useSuiviModifications` ailleurs dans le depot.
+function useVoletInjection(code: string) {
+  const [ouvert, setOuvert] = useState(false);
+  return { injecte: ouvert || code.trim() !== "", setOuvert };
+}
+
+/** Ce que l'injection permet, et le message quand elle ne s'applique pas. */
+function motifNonInjectable(typeExamen: string): string | undefined {
+  return INJECTABLE_TYPES.has(typeExamen)
+    ? undefined
+    : "L'injection ne s'applique qu'aux scanners (CT) et IRM (MR)";
+}
+
+/**
+ * L'examen en fiche, pour les écrans trop étroits pour le tableau.
+ *
+ * Mêmes champs, même ordre, mêmes libellés que les colonnes. C'est la même saisie,
+ * dépliée : rien n'est retiré, rien n'est ajouté, et la bascule ne doit donc jamais
+ * changer ce qu'on peut régler.
+ */
+function FicheExamen({ row, disabled, onChange, typesClient }: ExamRowProps) {
+  const codeInjection = row.codeExamenClientInject ?? "";
+  const { injecte, setOuvert } = useVoletInjection(codeInjection);
+  const inactif = disabled || !row.performed;
+  const nonApplicable = motifNonInjectable(row.typeExamen);
+
+  return (
+    <CarteMapping
+      performed={!!row.performed}
+      onPerformed={(v) => onChange(row.codeExamen, "performed", v)}
+      typeExamen={row.typeExamen}
+      libelle={row.libelle}
+      codeExamen={row.codeExamen}
+      disabled={disabled}
+    >
+      <RangeeChamp libelle="Code / Libellé">
+        <CelluleCodeLibelle
+          code={row.codeExamenClient ?? ""}
+          libelle={row.libelleClient ?? ""}
+          placeholderLibelle={row.libelle ?? ""}
+          onCode={(v) => onChange(row.codeExamen, "codeExamenClient", v)}
+          onLibelle={(v) => onChange(row.codeExamen, "libelleClient", v)}
+          disabled={inactif}
+        />
+      </RangeeChamp>
+
+      <RangeeChamp libelle="Type">
+        <CelluleType
+          valeur={row.typeExamenClient ?? ""}
+          options={typesClient}
+          onChange={(v) => onChange(row.codeExamen, "typeExamenClient", v)}
+          disabled={inactif}
+        />
+      </RangeeChamp>
+
+      <RangeeChamp libelle="Injecté">
+        <CelluleInjection
+          injecte={injecte}
+          code={codeInjection}
+          onInjecte={setOuvert}
+          onCode={(v) =>
+            onChange(row.codeExamen, "codeExamenClientInject", v === "" ? null : v)
+          }
+          disabled={inactif}
+          nonApplicable={nonApplicable}
+        />
+      </RangeeChamp>
+
+      <RangeeChamp libelle="Créneau horaire">
+        <HoraireCell
+          horaire={row.horaire}
+          disabled={inactif}
+          onChange={(next) => onChange(row.codeExamen, "horaire", next)}
+        />
+      </RangeeChamp>
+    </CarteMapping>
+  );
+}
+
 interface ExamRowProps {
   row: ExamRow;
   disabled: boolean;
@@ -944,17 +1062,8 @@ interface ExamRowProps {
  * par un composant partagé : c'est la leçon du 14/09/2026 sur le code RIS.
  */
 function ExamTableRow({ row, disabled, onChange, typesClient }: ExamRowProps) {
-  const isInjectable = INJECTABLE_TYPES.has(row.typeExamen);
   const codeInjection = row.codeExamenClientInject ?? "";
-
-  /**
-   * « Injecté » n'est PAS un champ de LyraeTalk, contrairement à Konnect : ici la
-   * vérité est la présence d'un code d'injection. La case n'est donc qu'un volet,
-   * tenu en état local, qui ouvre le champ sur un examen qui n'a pas encore de code.
-   * Cochée sans rien saisir, elle ne se retrouve pas au rechargement, et c'est
-   * normal : il n'y aurait rien à enregistrer.
-   */
-  const [voletInjection, setVoletInjection] = useState(false);
+  const { injecte, setOuvert } = useVoletInjection(codeInjection);
 
   const inactif = disabled || !row.performed;
 
@@ -1013,21 +1122,14 @@ function ExamTableRow({ row, disabled, onChange, typesClient }: ExamRowProps) {
       {/* Injecté, et le code qui n'apparaît qu'une fois coché */}
       <TableCell sx={{ verticalAlign: "top" }}>
         <CelluleInjection
-          injecte={voletInjection || codeInjection.trim() !== ""}
+          injecte={injecte}
           code={codeInjection}
-          onInjecte={(v) => {
-            setVoletInjection(v);
-            // Décocher n'effface pas le code : voir `CelluleInjection`.
-          }}
+          onInjecte={setOuvert}
           onCode={(v) =>
             onChange(row.codeExamen, "codeExamenClientInject", v === "" ? null : v)
           }
           disabled={inactif}
-          nonApplicable={
-            isInjectable
-              ? undefined
-              : "L'injection ne s'applique qu'aux scanners (CT) et IRM (MR)"
-          }
+          nonApplicable={motifNonInjectable(row.typeExamen)}
         />
       </TableCell>
 
