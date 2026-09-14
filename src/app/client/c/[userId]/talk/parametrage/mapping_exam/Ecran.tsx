@@ -57,6 +57,7 @@ import {
   CelluleInjection,
   CelluleType,
   EnTeteMapping,
+  OPTIONS_SEUIL,
   RangeeChamp,
   SEUIL_FICHES,
 } from "@/components/mapping/cellules";
@@ -162,7 +163,7 @@ export default function MappingExam({ params }: TalkPageProps) {
    * atteindre la colonne qu'on remplit. Voir `SEUIL_FICHES`.
    */
   const theme = useTheme();
-  const enFiches = useMediaQuery(theme.breakpoints.down(SEUIL_FICHES));
+  const enFiches = useMediaQuery(theme.breakpoints.down(SEUIL_FICHES), OPTIONS_SEUIL);
 
   const [data, setData] = useState<ExamRow[]>([]);
   const [originalData, setOriginalData] = useState<ExamRow[]>([]);

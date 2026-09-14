@@ -263,6 +263,10 @@ export function CelluleType({
       freeSolo
       size="small"
       disabled={disabled}
+      // `freeSolo` masque la fleche par defaut, et le champ ressemblait alors a une
+      // simple saisie de texte : rien ne disait qu'une liste existe. Constate a
+      // l'ecran le 14/09/2026. C'est tout l'interet de la colonne, il faut le voir.
+      forcePopupIcon
       options={options}
       value={valeur}
       // `onInputChange` et pas `onChange` : `freeSolo` ne déclenche `onChange` qu'à
@@ -376,7 +380,11 @@ export function RangeeChamp({
     <Stack
       direction={{ xs: "column", sm: "row" }}
       spacing={{ xs: 0.5, sm: 1.5 }}
-      alignItems={{ xs: "stretch", sm: "center" }}
+      // `flex-start` et pas `center` : une rangee peut porter DEUX champs (le code et
+      // le libelle) ou une case plus un champ (l'injection). Centre, le libelle se
+      // posait alors a mi-hauteur, en face de rien. Aligne en haut, il designe
+      // toujours le premier element de sa rangee. Constate a l'ecran le 14/09/2026.
+      alignItems={{ xs: "stretch", sm: "flex-start" }}
       sx={{ width: "100%" }}
     >
       <Typography
@@ -386,13 +394,20 @@ export function RangeeChamp({
           color: P.inkMuted,
           textTransform: "uppercase",
           letterSpacing: "0.04em",
+          lineHeight: 1.3,
           flex: { sm: "0 0 150px" },
-          pt: { sm: 0.5 },
+          // Aligne le libelle sur la PREMIERE ligne de texte du champ, pas sur le
+          // haut de sa bordure.
+          pt: { sm: 0.9 },
         }}
       >
         {libelle}
       </Typography>
-      <Box sx={{ flex: 1, minWidth: 0 }}>{children}</Box>
+      {/* Borne la zone de saisie. Sans elle, un code de quatre caracteres se voyait
+          offrir 800 px sur un ecran large, la fiche etant une seule colonne. La
+          valeur reprend l'ordre de grandeur des colonnes du tableau (220 px pour le
+          code et le libelle), avec de la marge. */}
+      <Box sx={{ flex: 1, minWidth: 0, maxWidth: 340 }}>{children}</Box>
     </Stack>
   );
 }
@@ -464,6 +479,25 @@ export function CarteMapping({
     </Box>
   );
 }
+
+/**
+ * Les options passées à `useMediaQuery` pour évaluer le seuil.
+ *
+ * `noSsr: true` supprime le double rendu de `useMediaQuery` : sans lui, le hook
+ * renvoie d'abord `false` (le serveur ne connaît aucune largeur), puis la vraie
+ * mesure au rendu suivant. Ces deux écrans sont derrière une session et ne sont
+ * jamais indexés : il n'y a rien à gagner à les rendre côté serveur, et un rendu de
+ * plus à perdre.
+ *
+ * ⚠️ Ce drapeau ne protège d'AUCUN clignotement ici, contrairement à ce que j'avais
+ * écrit le 14/09/2026 en voyant un `MuiTable-root` dans le HTML servi. Ce tableau-là
+ * venait de la page d'aperçu jetable, qui n'a pas d'état de chargement. Les deux
+ * écrans réels ne rendent leur tableau qu'une fois les données arrivées
+ * (`loading` / `chargement`, vrais au départ), donc après la mesure : le HTML du
+ * serveur ne porte jamais la mauvaise disposition. Le gain est d'un rendu, pas d'un
+ * clignotement.
+ */
+export const OPTIONS_SEUIL = { noSsr: true } as const;
 
 /**
  * Le seuil en dessous duquel les deux écrans passent en fiches.
