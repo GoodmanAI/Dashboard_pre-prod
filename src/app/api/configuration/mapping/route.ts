@@ -16,23 +16,30 @@ import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog
  *
  * LES VALIDATIONS, ET POURQUOI ELLES ARRIVENT SI TARD (14/09/2026).
  * Cette route n'en avait aucune : elle acceptait n'importe quel tableau et l'écrivait
- * tel quel. Le `PUT` de `/api/konnect-examens` validait les mêmes règles depuis le
- * premier jour. L'uniformisation des deux écrans de mapping (11/09/2026) a rendu
- * l'asymétrie intenable : même composant d'import, même filtrage, mêmes gestes, et
- * deux niveaux de sévérité selon le produit. Le vocabulaire des messages est donc
- * repris mot pour mot de la route Konnect.
+ * tel quel, là où le `PUT` de `/api/konnect-examens` refusait les configurations
+ * contradictoires depuis le premier jour. L'uniformisation des deux écrans de mapping
+ * (11/09/2026) a rendu l'asymétrie intenable : même composant d'import, même filtrage,
+ * mêmes gestes, et deux niveaux de sévérité selon le produit. Le vocabulaire des
+ * messages est donc repris mot pour mot de la route Konnect.
+ *
+ * MAIS UNE SEULE DES DEUX RÈGLES DE KONNECT S'APPLIQUE ICI, et c'est la leçon du lot.
+ * Les deux avaient été reprises ; l'audit de production a montré que la seconde
+ * (« un code RIS ne sert qu'à un examen ») interdisait la configuration normale de
+ * dix centres en service. Voir l'encadré dans `contradictions()`.
  *
  * CE QUI BLOQUE, ET CE QUI SE CONTENTE DE PRÉVENIR. La distinction n'est pas de
  * confort, elle vient de l'état d'un centre neuf :
  *
- * - **Bloquant** : deux lignes sur le même code NEURACORP, ou deux examens attribués
- *   au même code RIS. Dans les deux cas la configuration est contradictoire et le
- *   robot n'a aucune façon raisonnable de choisir.
+ * - **Bloquant** : deux lignes sur le même code NEURACORP. C'est la clé du mapping,
+ *   deux lignes sur la même clé sont contradictoires et le robot n'a aucune façon
+ *   raisonnable de choisir. Plus une ligne sans code NEURACORP du tout.
  * - **Non bloquant** : un examen attribué à Lyrae sans code RIS. C'est l'état
  *   dangereux (le robot ANNONCE l'examen au patient et ne sait pas le réserver), mais
  *   c'est aussi l'état de départ de tout centre vierge, dont les 287 lignes arrivent
  *   à `performed: true` sans code. Le refuser interdirait le premier enregistrement.
  *   La route le compte, le renvoie, et l'écran le dit.
+ * - **Pas une règle du tout** : plusieurs examens sur un même code RIS. Le modèle du
+ *   RIS l'exige (`MAIN` sert à cinq examens chez Pontivy).
  */
 
 /** Ce que l'écran envoie. Les autres champs sont conservés sans être relus. */
@@ -72,11 +79,13 @@ function normaliser(brut: any, index: number): LigneEnvoyee {
 }
 
 /**
- * Les deux règles contradictoires, dans l'ordre où elles se lisent.
+ * La seule configuration contradictoire que cette route refuse.
  *
- * Chaque règle nomme **toutes** les valeurs fautives, pas seulement la première :
- * devant 287 lignes, un message qui n'en désigne qu'une fait recommencer autant de
- * fois qu'il y a de doublons.
+ * Elle nomme **tous** les codes fautifs, pas seulement le premier : devant 287 lignes,
+ * un message qui n'en désigne qu'un fait recommencer autant de fois qu'il y a de
+ * doublons.
+ *
+ * Lire l'encadré plus bas avant d'en ajouter une seconde par symétrie avec Konnect.
  */
 function contradictions(lignes: LigneEnvoyee[]): string | null {
   const vus = new Set<string>();
@@ -92,23 +101,35 @@ function contradictions(lignes: LigneEnvoyee[]): string | null {
       : `Ces codes NEURACORP apparaissent plusieurs fois : ${liste}.`;
   }
 
-  // Deux lignes ne peuvent pas viser le même code RIS : le robot ne saurait pas
-  // laquelle appliquer, et la réservation deviendrait imprévisible. On ne regarde
-  // que les lignes attribuées : une ligne non confiée au robot ne réserve rien, et
-  // deux centres d'un même groupe peuvent légitimement réutiliser un code ailleurs.
-  const codesRis = new Set<string>();
-  const risEnDouble = new Set<string>();
-  for (const l of lignes) {
-    if (!l.codeExamenClient || !l.performed) continue;
-    if (codesRis.has(l.codeExamenClient)) risEnDouble.add(l.codeExamenClient);
-    codesRis.add(l.codeExamenClient);
-  }
-  if (risEnDouble.size > 0) {
-    const liste = Array.from(risEnDouble).sort().join(", ");
-    return risEnDouble.size === 1
-      ? `Le code RIS « ${liste} » est attribué à deux examens différents.`
-      : `Ces codes RIS sont attribués à deux examens différents : ${liste}.`;
-  }
+  /**
+   * ⚠️ IL N'Y A PAS DE SECONDE RÈGLE, ET C'EST LE POINT À NE PAS « CORRIGER ».
+   *
+   * `PUT /api/konnect-examens` refuse qu'un même code RIS soit attribué à deux
+   * examens. Cette route l'a refusé aussi pendant une heure, le 14/09/2026, par
+   * symétrie. **C'était faux, et l'audit de production l'a montré avant la mise en
+   * service** : 223 groupes de lignes partagent un code RIS chez les centres en
+   * service. Ce n'est pas de la donnée sale, c'est le modèle du RIS. Pontivy attribue
+   * `MAIN` à cinq examens (main droite, main gauche, les deux…), `PIED` à cinq,
+   * `AVTBRAS` à deux : le code RIS désigne l'examen générique, la latéralité vit
+   * ailleurs.
+   *
+   * POURQUOI LA RÈGLE EST JUSTE CHEZ KONNECT ET FAUSSE ICI. Ce n'est pas une question
+   * de rigueur, c'est le SENS DE LA LECTURE :
+   *
+   * - LyraeTalk lit `codeExamen` → `codeExamenClient` (`getExamCodes.js` :
+   *   `data[rdv.internal_code]`). La clé est le code NEURACORP, l'entrée est unique,
+   *   et le partage d'un code RIS ne crée aucune ambiguïté.
+   * - Konnect lit dans l'autre sens : `versCatalogueKonnect` émet le code RIS comme
+   *   `examen_code`, c'est-à-dire comme l'IDENTITÉ de l'examen réservable. Deux lignes
+   *   sur le même code y produisent deux entrées de catalogue indistinguables, et le
+   *   portail demande le côté séparément.
+   *
+   * Deux produits, deux façons de porter la latéralité, donc une règle qui ne se
+   * partage pas. La seule lecture inverse côté Talk est
+   * `POST /api/configuration/get/mapping/getLibelle` (code RIS → libellé, premier
+   * trouvé), et son ambiguïté est inhérente : le RIS ne rend que `MAIN`, aucune
+   * configuration ne peut lui faire rendre « main droite ».
+   */
 
   return null;
 }

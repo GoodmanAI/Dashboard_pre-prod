@@ -477,16 +477,31 @@ pratique pas, plus rapide que de tout cocher. C'est le comportement d'origine.
 
 **Ce que la donnée servie garantit désormais, et ce qu'elle ne garantit pas**
 (14/09/2026). `POST /api/configuration/mapping`, l'écriture en amont (session
-uniquement, aucune clé d'API n'y entre), refuse deux configurations contradictoires :
-un même code NEURACORP sur deux lignes, et un même code RIS attribué à deux examens
-`performed`. Ce sont les règles que `PUT /api/konnect-examens` appliquait déjà.
-**Conséquence pour le robot** : un code RIS lu ici désigne au plus un examen. Il pouvait
-en désigner deux jusqu'à cette date, la route n'ayant aucune validation.
+uniquement, aucune clé d'API n'y entre), refuse qu'un même **code NEURACORP** porte deux
+lignes, et refuse une ligne sans code NEURACORP. C'est la clé du mapping, et
+`get/mapping` sert donc une entrée par code.
 
-En revanche un examen `performed: true` **sans** code RIS reste possible, et le restera :
-c'est l'état de départ de tout centre neuf, dont les 287 lignes arrivent à `true` sans
-code. Le refuser interdirait le premier enregistrement. Le robot doit donc continuer à
-traiter le cas, il n'est pas devenu impossible.
+Deux états restent possibles, et le robot doit continuer à les traiter :
+
+- **Un examen `performed: true` sans code RIS.** C'est l'état de départ de tout centre
+  neuf, dont les 287 lignes arrivent à `true` sans code : le refuser interdirait le
+  premier enregistrement. La route le compte et l'écran le dit, elle ne le bloque pas.
+- ⚠️ **Plusieurs examens sur un même code RIS, et c'est voulu.** `PUT
+  /api/konnect-examens` l'interdit ; cette route l'a interdit aussi pendant une heure,
+  par symétrie, et l'audit de production a montré que la règle cassait dix centres :
+  **223 groupes de lignes partagent un code RIS**, `MAIN` en servant cinq chez Pontivy
+  (main droite, main gauche, les deux…). Le code RIS désigne l'examen générique, la
+  latéralité vit ailleurs.
+
+  La règle est juste chez Konnect parce que le sens de lecture y est inverse : son
+  catalogue porte le code RIS comme **identité** de l'examen réservable, et le portail
+  demande le côté séparément. LyraeTalk lit `codeExamen` → `codeExamenClient`, une
+  entrée par clé, aucune ambiguïté. **Ne pas « uniformiser » cette règle.**
+
+  Corollaire à connaître sur `POST /api/configuration/get/mapping/getLibelle`, la seule
+  lecture en sens inverse : elle rend le **premier** examen trouvé pour un code RIS.
+  L'ambiguïté est inhérente, le RIS ne rendant que `MAIN` ; aucune configuration ne peut
+  lui faire rendre « main droite ».
 
 ## Invariants à ne pas casser
 
