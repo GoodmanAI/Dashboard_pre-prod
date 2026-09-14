@@ -554,7 +554,16 @@ export default function MappingExamensKonnect() {
             {/* Remplir 266 codes à la main est le vrai coût de l'installation.
                 L'import ne fait que préparer l'état de l'écran : c'est le bouton
                 « Enregistrer » du bas qui écrit, comme pour une saisie manuelle. */}
-            <ImportExportMapping lignes={lignes} champs={CHAMPS_KONNECT} onAppliquer={setLignes} />
+            {/* `codeRisUnique` : le catalogue de Konnect porte le code RIS comme
+                identité de l'examen réservable, deux lignes sur le même code y sont
+                indistinguables. C'est propre à ce produit, LyraeTalk partage les
+                siens. Voir la prop du composant. */}
+            <ImportExportMapping
+              lignes={lignes}
+              champs={CHAMPS_KONNECT}
+              onAppliquer={setLignes}
+              codeRisUnique
+            />
             <Box sx={{ flexGrow: 1 }} />
             <Chip
               label={`${attribues} examen${attribues > 1 ? "s" : ""} proposé${

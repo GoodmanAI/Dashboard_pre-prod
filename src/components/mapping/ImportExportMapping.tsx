@@ -31,14 +31,17 @@ import { IconDownload, IconUpload } from "@tabler/icons-react";
  * lignes affichées, le rapport est montré, et rien n'est enregistré tant que
  * l'utilisateur n'a pas cliqué sur « Enregistrer » dans la barre du bas. Un import
  * qui écrirait directement priverait le client de la seule chose qui compte :
- * voir ce qui va changer avant que ça change. La validation serveur
- * (doublons de code NEURACORP, deux examens sur le même code RIS) reste le dernier
+ * voir ce qui va changer avant que ça change. La validation serveur reste le dernier
  * mot ; ce qui est fait ici l'anticipe pour donner un message utile plus tôt.
  *
- * Cette phrase n'était vraie que d'un côté jusqu'au 14/09/2026 : le `PUT` de
- * `/api/konnect-examens` validait, le `POST` de `/api/configuration/mapping`
- * n'avait aucune validation et écrivait ce qu'on lui donnait. Les deux règles y
- * sont désormais, avec les mêmes messages.
+ * ⚠️ ET ELLE N'EST PAS LA MÊME DES DEUX CÔTÉS. Les deux routes refusent un code
+ * NEURACORP en double ; seul le `PUT` de `/api/konnect-examens` refuse qu'un code RIS
+ * serve à deux examens, parce que son catalogue en fait l'identité de l'examen
+ * réservable. Chez LyraeTalk c'est le modèle normal, et ce contrôle y bloquait l'import
+ * de dix centres. D'où la prop `codeRisUnique`, réclamée par l'appelant.
+ *
+ * `POST /api/configuration/mapping` n'avait, lui, aucune validation jusqu'au
+ * 14/09/2026 : il écrivait ce qu'on lui donnait.
  *
  * LA CLÉ DE RAPPROCHEMENT EST LE CODE NEURACORP, et lui seul. C'est la seule
  * colonne que le client ne saisit pas : elle identifie la ligne de notre
@@ -182,11 +185,34 @@ export default function ImportExportMapping<T extends LigneMappingImportable>({
   lignes,
   champs,
   onAppliquer,
+  codeRisUnique = false,
 }: {
   lignes: T[];
   /** Les colonnes de CE produit. Voir `CHAMPS_KONNECT` / `CHAMPS_TALK`. */
   champs: readonly ChampMapping<T>[];
   onAppliquer: (lignes: T[]) => void;
+  /**
+   * Un code RIS ne peut-il servir qu'à UN examen, chez ce produit ?
+   *
+   * ⚠️ `true` pour LyraeKonnect **uniquement**, et le défaut `false` est délibéré :
+   * une règle de ce genre doit être réclamée par l'appelant qui la connaît, pas
+   * héritée par un composant partagé.
+   *
+   * Konnect émet le code RIS comme `examen_code`, c'est-à-dire comme l'IDENTITÉ de
+   * l'examen réservable : deux lignes sur le même code y produisent deux entrées de
+   * catalogue indistinguables. LyraeTalk lit dans l'autre sens, `codeExamen` →
+   * `codeExamenClient`, et **plusieurs examens y partagent légitimement un code RIS** :
+   * relevé du 14/09/2026 en production, 223 groupes chez dix centres, `MAIN` servant à
+   * cinq examens chez Pontivy. Le code RIS désigne l'examen générique, la latéralité
+   * vit ailleurs.
+   *
+   * Ce contrôle était appliqué aux deux produits jusqu'au 14/09/2026, sur la foi d'un
+   * commentaire qui disait « le robot se retrouve avec deux examens indiscernables au
+   * téléphone ». C'est faux : sa clé de lecture est le code NEURACORP. La conséquence
+   * était concrète, l'import CSV refusant d'appliquer quoi que ce soit chez ces dix
+   * centres, y compris le simple réimport du fichier qu'on venait d'exporter.
+   */
+  codeRisUnique?: boolean;
 }) {
   const champFichier = useRef<HTMLInputElement>(null);
   const [rapport, setRapport] = useState<Rapport | null>(null);
@@ -272,17 +298,20 @@ export default function ImportExportMapping<T extends LigneMappingImportable>({
 
       const fusionnees = lignes.map((l) => misAJour.get(l.codeExamen) ?? l);
 
-      // DEUX EXAMENS SUR LE MÊME CODE RIS, et le produit ne saurait pas lequel
-      // appliquer. Konnect le refuse à l'enregistrement ; LyraeTalk, lui, l'accepte en
-      // base mais le robot se retrouve avec deux examens indiscernables au téléphone.
-      // Le dire ICI vaut mieux dans les deux cas : au moment d'enregistrer,
-      // l'utilisateur ne saurait plus quelle ligne du fichier l'a causé.
+      // DEUX EXAMENS SUR LE MÊME CODE RIS, là où le produit ne saurait pas lequel
+      // appliquer. Le dire ICI vaut mieux qu'au moment d'enregistrer : l'utilisateur ne
+      // saurait plus quelle ligne du fichier l'a causé.
       //
-      // Le code RIS et « attribué » sont les deux seuls champs que ce contrôle
-      // suppose, et les deux produits les ont. On les lit par leur description plutôt
-      // que par un nom en dur, faute de quoi ce bloc rendrait le composant à nouveau
-      // spécifique à un produit.
-      const cleCodeRis = champs.find((c) => c.colonne === "Code RIS")?.cle;
+      // ⚠️ SEULEMENT SI L'APPELANT LE DEMANDE (`codeRisUnique`). Voir le commentaire de
+      // la prop : chez LyraeTalk le partage est le modèle normal, et ce contrôle y
+      // bloquait l'import chez dix centres. Le défaut est donc « pas de contrôle ».
+      //
+      // Le code RIS et « attribué » sont les deux seuls champs qu'il suppose, et les
+      // deux produits les ont. On les lit par leur description plutôt que par un nom en
+      // dur, faute de quoi ce bloc rendrait le composant à nouveau spécifique.
+      const cleCodeRis = codeRisUnique
+        ? champs.find((c) => c.colonne === "Code RIS")?.cle
+        : undefined;
       const cleAttribue = champs.find((c) => c.type === "booleen")?.cle;
       const vus = new Map<string, string>();
       const conflits: string[] = [];
