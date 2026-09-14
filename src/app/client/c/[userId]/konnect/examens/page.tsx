@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
-  Checkbox,
   Chip,
   CircularProgress,
   MenuItem,
@@ -28,6 +27,14 @@ import PageContainer from "@/app/(DashboardLayout)/components/container/PageCont
 import ExamTypeBadge, { EXAM_TYPE_SHORT } from "@/components/shared/ExamTypeBadge";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
+import {
+  CaseMapping,
+  CelluleCodeLibelle,
+  CelluleExamen,
+  CelluleInjection,
+  CelluleType,
+  EnTeteMapping,
+} from "@/components/mapping/cellules";
 import ImportExportMapping, {
   CHAMPS_KONNECT,
 } from "@/components/mapping/ImportExportMapping";
@@ -44,13 +51,33 @@ import ImportExportMapping, {
  * équivalents de son RIS à droite. Quand il a déjà LyraeTalk, les codes en sont
  * repris : même logiciel de gestion, donc mêmes codes.
  *
- * Quatre réglages n'existent que dans ce produit, parce qu'ils pilotent des écrans
- * du parcours web que le robot vocal n'a pas :
+ * LES DEUX ÉCRANS ONT CONVERGÉ LE 14/09/2026, à la demande du client. Ce qui est
+ * commun vit dans `components/mapping/cellules.tsx` et se présente identiquement des
+ * deux côtés, dans cet ordre : la case « pratiqué » ouvre la ligne, la ligne
+ * s'estompe quand elle est décochée, puis l'examen de notre référentiel, puis le code
+ * du RIS et le libellé patient **l'un au-dessus de l'autre** (c'était la disposition
+ * de LyraeTalk), puis le type, puis « injecté » et son code.
+ *
+ * ⚠️ Seules les CELLULES sont partagées, jamais la ligne. Une ligne générique aurait
+ * dû connaître les colonnes des deux produits, donc leurs invariants : c'est
+ * exactement ce qui a cassé le 14/09/2026, le composant d'import partagé appliquant à
+ * LyraeTalk une règle propre à Konnect.
+ *
+ * Deux réglages restent propres à ce produit, parce qu'ils pilotent des écrans du
+ * parcours web que le robot vocal n'a pas :
  *
  * - Réservable en ligne : le patient choisit son créneau seul, ou on le rappelle ;
- * - Ordonnance obligatoire : le portail exige le dépôt d'une ordonnance ;
- * - Injecté : déclenche le questionnaire d'injection ;
- * - Liste d'attente : le patient s'inscrit si aucun créneau ne lui convient.
+ * - Ordonnance obligatoire : le portail demande le dépôt de l'ordonnance et signale
+ *   le dossier au secrétariat tant qu'elle n'est pas validée. Il ne bloque pas la
+ *   réservation (règle `_ordonnance_obligatoire_non_validee` de Konnect, criticité
+ *   haute, `INFORMER` + `MARQUER_VALIDATION`).
+ *
+ * ⚠️ « LISTE D'ATTENTE » N'A PLUS DE COLONNE (14/09/2026), et sa valeur est
+ * néanmoins chargée, gardée dans l'état et renvoyée par le `PUT`. Sans cela, retirer
+ * la colonne l'aurait remise à `false` chez tous les centres, en silence : le `PUT`
+ * remplace la ligne entière, et `normaliser` lit `listeAttenteActive === true`. La
+ * règle « un champ absent d'un PUT doit être préservé » s'applique aussi quand c'est
+ * l'écran qui cesse de l'afficher.
  *
  * Depuis le chantier `2026-09-konnect-deux-chemins`, cet écran est le SEUL endroit
  * où se décide le chemin d'une demande. L'écran « Modes de traitement », ses trois
@@ -71,7 +98,6 @@ const BORDER = "#E4EAEE";
 const SURFACE = "#FFFFFF";
 const SURFACE_MUTED = "#F7FAFB";
 const SURFACE_HOVER = "#F5FBFA";
-const DANGER = "#E1573B";
 
 const PAR_PAGE = 25;
 
@@ -92,101 +118,6 @@ type Ligne = {
 
 type FiltreAttribution = "tous" | "attribues" | "non_attribues";
 type FiltreChemin = "tous" | "bout_en_bout" | "rappel";
-
-function EnTete({
-  children,
-  aide,
-  largeur,
-  align = "left",
-}: {
-  children: React.ReactNode;
-  aide?: string;
-  largeur?: number;
-  align?: "left" | "center";
-}) {
-  const cellule = (
-    <TableCell
-      align={align}
-      sx={{
-        bgcolor: SURFACE_MUTED,
-        color: INK_MUTED,
-        fontWeight: 600,
-        fontSize: 11.5,
-        textTransform: "uppercase",
-        letterSpacing: "0.05em",
-        borderBottom: `1px solid ${BORDER}`,
-        width: largeur,
-        whiteSpace: "nowrap",
-        py: 1.25,
-      }}
-    >
-      {children}
-    </TableCell>
-  );
-  return aide ? (
-    <Tooltip title={aide} placement="top">
-      {cellule}
-    </Tooltip>
-  ) : (
-    cellule
-  );
-}
-
-/** Champ de saisie compact, à la densité de la table de LyraeTalk. */
-function Champ({
-  valeur,
-  onChange,
-  disabled,
-  erreur,
-  placeholder,
-}: {
-  valeur: string;
-  onChange: (v: string) => void;
-  disabled?: boolean;
-  erreur?: boolean;
-  placeholder?: string;
-}) {
-  return (
-    <TextField
-      size="small"
-      fullWidth
-      value={valeur}
-      disabled={disabled}
-      error={erreur}
-      placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
-      sx={{
-        "& .MuiOutlinedInput-root": {
-          fontSize: 13,
-          bgcolor: disabled ? "transparent" : SURFACE,
-          "& fieldset": { borderColor: BORDER },
-          "&:hover fieldset": { borderColor: BRAND },
-          "&.Mui-focused fieldset": { borderColor: BRAND },
-        },
-      }}
-    />
-  );
-}
-
-/** Case à cocher aux couleurs du produit actif. */
-function Case({
-  coche,
-  onChange,
-  disabled,
-}: {
-  coche: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <Checkbox
-      checked={coche}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.checked)}
-      sx={{ color: BORDER, "&.Mui-checked": { color: BRAND } }}
-    />
-  );
-}
 
 export default function MappingExamensKonnect() {
   const { userProductId } = useCentreProduit();
@@ -286,6 +217,23 @@ export default function MappingExamensKonnect() {
   const types = useMemo(() => {
     const set = new Set<string>();
     lignes.forEach((l) => l.typeExamen && set.add(l.typeExamen));
+    return Array.from(set).sort();
+  }, [lignes]);
+
+  /**
+   * Les types que CE client a déjà saisis, proposés dans la colonne « Type ».
+   *
+   * Distincts des `types` ci-dessus, qui sont ceux de notre référentiel et servent
+   * au filtre. Un centre emploie trois ou quatre codes de type pour ses 287
+   * examens : les proposer évite la faute de frappe qui casse le couple
+   * (type, code) attendu par le RIS sans lever la moindre erreur.
+   */
+  const typesClient = useMemo(() => {
+    const set = new Set<string>();
+    lignes.forEach((l) => {
+      const t = l.typeExamenClient.trim();
+      if (t) set.add(t);
+    });
     return Array.from(set).sort();
   }, [lignes]);
 
@@ -589,68 +537,51 @@ export default function MappingExamensKonnect() {
           variant="outlined"
           sx={{ overflowX: "auto", borderColor: BORDER, borderRadius: 2 }}
         >
-          <Table size="small" sx={{ minWidth: 1440 }}>
+          <Table size="small" sx={{ minWidth: 1180 }}>
             <TableHead>
               <TableRow>
-                <EnTete
+                <EnTeteMapping
                   aide="Le centre fait cet examen. Décoché, le portail ne le reconnaît pas et le patient qui le demande voit votre numéro de téléphone."
-                  largeur={90}
+                  largeur={80}
                   align="center"
                 >
                   Pratiqué
-                </EnTete>
-                <EnTete aide="Notre référentiel : modalité, libellé et code internes.">
+                </EnTeteMapping>
+                <EnTeteMapping aide="Notre référentiel : modalité, libellé et code internes.">
                   Examen
-                </EnTete>
-                <EnTete
-                  aide="Le code de cet examen dans votre logiciel de gestion. Sans lui, l'examen n'est pas réservable."
-                  largeur={150}
+                </EnTeteMapping>
+                <EnTeteMapping
+                  aide="Le code de cet examen dans votre logiciel de gestion, et en dessous ce que lit le patient. Sans le code, l'examen n'est pas réservable. Libellé laissé vide, notre libellé est utilisé."
+                  largeur={220}
                 >
-                  Code
-                </EnTete>
-                <EnTete
-                  aide="Le code de la version AVEC injection, si votre logiciel en a un distinct. Laissez vide sinon."
-                  largeur={150}
+                  Code / Libellé patient
+                </EnTeteMapping>
+                <EnTeteMapping
+                  aide="Le type dans votre logiciel. La liste propose ceux que vous avez déjà saisis. Facultatif."
+                  largeur={130}
                 >
-                  Code injecté
-                </EnTete>
-                <EnTete aide="Le type dans votre logiciel. Facultatif." largeur={110}>
                   Type
-                </EnTete>
-                <EnTete
-                  aide="Ce que lit le patient. Laissé vide, notre libellé est utilisé."
-                  largeur={210}
+                </EnTeteMapping>
+                <EnTeteMapping
+                  aide="Examen avec produit de contraste. Déclenche le questionnaire d'injection. Cochez pour saisir le code de la version injectée, si votre logiciel en a un distinct."
+                  largeur={150}
                 >
-                  Libellé patient
-                </EnTete>
-                <EnTete
+                  Injecté
+                </EnTeteMapping>
+                <EnTeteMapping
                   aide="Le patient choisit son créneau et le rendez-vous est posé. Décoché, aucun créneau ne lui est proposé : on lui offre de laisser son numéro et vous le rappelez."
                   largeur={130}
                   align="center"
                 >
                   Réservable en ligne
-                </EnTete>
-                <EnTete
-                  aide="Le portail exige le dépôt d'une ordonnance pour cet examen."
+                </EnTeteMapping>
+                <EnTeteMapping
+                  aide="Le portail demande au patient de déposer son ordonnance, et signale le dossier au secrétariat tant qu'elle n'est pas validée. Il ne bloque pas la réservation."
                   largeur={105}
                   align="center"
                 >
                   Ordonnance
-                </EnTete>
-                <EnTete
-                  aide="Examen avec produit de contraste. Déclenche le questionnaire d'injection."
-                  largeur={90}
-                  align="center"
-                >
-                  Injecté
-                </EnTete>
-                <EnTete
-                  aide="Le patient peut s'inscrire si aucun créneau ne lui convient. Sans réservation en ligne, il n'y a pas de créneau, donc pas de liste d'attente."
-                  largeur={120}
-                  align="center"
-                >
-                  Liste d&apos;attente
-                </EnTete>
+                </EnTeteMapping>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -668,97 +599,64 @@ export default function MappingExamensKonnect() {
                     }}
                   >
                     <TableCell align="center">
-                      <Case
+                      <CaseMapping
                         coche={l.performed}
                         onChange={(v) => maj(l.codeExamen, "performed", v)}
                       />
                     </TableCell>
 
                     <TableCell>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <ExamTypeBadge type={l.typeExamen ?? ""} />
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography
-                            sx={{
-                              fontWeight: 600,
-                              fontSize: 13,
-                              color: INK,
-                              lineHeight: 1.3,
-                            }}
-                          >
-                            {l.libelle ?? l.codeExamen}
-                          </Typography>
-                          <Typography
-                            sx={{ fontSize: 11, color: INK_MUTED, fontFamily: "monospace" }}
-                          >
-                            {l.codeExamen}
-                          </Typography>
-                        </Box>
-                      </Stack>
+                      <CelluleExamen
+                        typeExamen={l.typeExamen}
+                        libelle={l.libelle}
+                        codeExamen={l.codeExamen}
+                      />
                     </TableCell>
 
                     <TableCell>
-                      <Champ
-                        valeur={l.codeExamenClient}
-                        erreur={enDouble}
+                      <CelluleCodeLibelle
+                        code={l.codeExamenClient}
+                        libelle={l.libelleClient}
+                        placeholderLibelle={l.libelle ?? ""}
+                        onCode={(v) => maj(l.codeExamen, "codeExamenClient", v)}
+                        onLibelle={(v) => maj(l.codeExamen, "libelleClient", v)}
                         disabled={!l.performed}
-                        onChange={(v) => maj(l.codeExamen, "codeExamenClient", v)}
-                      />
-                      {enDouble && (
-                        <Typography sx={{ fontSize: 11, color: DANGER, mt: 0.25 }}>
-                          Code en double
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Champ
-                        valeur={l.codeExamenInjection ?? ""}
-                        disabled={!l.performed}
-                        onChange={(v) => maj(l.codeExamen, "codeExamenInjection", v)}
+                        erreurCode={enDouble}
+                        messageErreur="Code en double"
                       />
                     </TableCell>
+
                     <TableCell>
-                      <Champ
+                      <CelluleType
                         valeur={l.typeExamenClient}
-                        disabled={!l.performed}
+                        options={typesClient}
                         onChange={(v) => maj(l.codeExamen, "typeExamenClient", v)}
+                        disabled={!l.performed}
                       />
                     </TableCell>
+
                     <TableCell>
-                      <Champ
-                        valeur={l.libelleClient}
-                        placeholder={l.libelle ?? ""}
+                      <CelluleInjection
+                        injecte={l.examenInjecte}
+                        code={l.codeExamenInjection ?? ""}
+                        onInjecte={(v) => maj(l.codeExamen, "examenInjecte", v)}
+                        onCode={(v) => maj(l.codeExamen, "codeExamenInjection", v)}
                         disabled={!l.performed}
-                        onChange={(v) => maj(l.codeExamen, "libelleClient", v)}
                       />
                     </TableCell>
 
                     <TableCell align="center">
-                      <Case
+                      <CaseMapping
                         coche={l.reservableEnLigne}
                         disabled={!l.performed}
                         onChange={(v) => maj(l.codeExamen, "reservableEnLigne", v)}
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <Case
+                      <CaseMapping
                         coche={l.ordoOblig}
                         disabled={!l.performed}
                         onChange={(v) => maj(l.codeExamen, "ordoOblig", v)}
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Case
-                        coche={l.examenInjecte}
-                        disabled={!l.performed}
-                        onChange={(v) => maj(l.codeExamen, "examenInjecte", v)}
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Case
-                        coche={l.listeAttenteActive && l.reservableEnLigne}
-                        disabled={!l.performed || !l.reservableEnLigne}
-                        onChange={(v) => maj(l.codeExamen, "listeAttenteActive", v)}
                       />
                     </TableCell>
                   </TableRow>
@@ -766,7 +664,7 @@ export default function MappingExamensKonnect() {
               })}
               {filtrees.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                     <Typography variant="body2" sx={{ color: INK_MUTED }}>
                       {lignes.length === 0
                         ? "Aucun examen au référentiel."

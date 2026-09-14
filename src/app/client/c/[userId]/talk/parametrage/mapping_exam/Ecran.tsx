@@ -33,7 +33,6 @@ import {
   IconCircleCheck,
   IconClock,
   IconDeviceFloppy,
-  IconInfoCircle,
   IconSearch,
   IconSettings,
   IconX,
@@ -48,6 +47,14 @@ import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import ImportExportMapping, {
   CHAMPS_TALK,
 } from "@/components/mapping/ImportExportMapping";
+import {
+  CaseMapping,
+  CelluleCodeLibelle,
+  CelluleExamen,
+  CelluleInjection,
+  CelluleType,
+  EnTeteMapping,
+} from "@/components/mapping/cellules";
 
 /**
  * Correspondance des examens (refonte design 2026-08-06).
@@ -62,6 +69,28 @@ import ImportExportMapping, {
  * -----------------------------------------------------------------------------
  * Logique data inchangee : GET /api/configuration/get/mapping,
  * POST /api/configuration/mapping. Meme structure de row.
+ * -----------------------------------------------------------------------------
+ * CONVERGENCE AVEC L'ECRAN DE LYRAEKONNECT (14/09/2026), a la demande du client.
+ *
+ * Ce qui vient de Konnect : la case « attribue a Lyrae » ouvre la ligne sous forme
+ * de case a cocher (c'etait un interrupteur, a droite), la ligne s'estompe quand
+ * elle est decochee, et les champs du client s'y desactivent. On coche d'abord, on
+ * saisit ensuite.
+ *
+ * Ce qui reste de LyraeTalk, et que les deux ecrans adoptent : le code du RIS et le
+ * libelle patient l'un AU-DESSUS de l'autre, dans une seule colonne.
+ *
+ * Ce qui est nouveau des deux cotes : la colonne « Type » propose les types que ce
+ * client a deja saisis (`typesClient`), et « Injecte » est une case qui ouvre le
+ * champ du code d'injection. Ici cette case n'est qu'un volet d'affichage : la
+ * verite de LyraeTalk est la presence d'un code, il n'y a pas de booleen a stocker.
+ *
+ * Ce qui reste propre a cet ecran : la colonne « Creneau horaire ».
+ *
+ * Les cellules communes vivent dans `components/mapping/cellules.tsx`. La LIGNE,
+ * elle, reste ici, et c'est delibere : une ligne partagee aurait du connaitre les
+ * colonnes des deux produits, donc leurs invariants, ce qui est exactement l'erreur
+ * qui a bloque dix centres le meme jour.
  */
 
 const BRAND = "var(--accent)";
@@ -202,6 +231,23 @@ export default function MappingExam({ params }: TalkPageProps) {
   const availableTypes = useMemo(() => {
     const set = new Set<string>();
     data.forEach((r) => r.typeExamen && set.add(r.typeExamen));
+    return Array.from(set).sort();
+  }, [data]);
+
+  /**
+   * Les types que CE client a déjà saisis, proposés dans la colonne « Type ».
+   *
+   * Distincts d'`availableTypes`, qui sont les modalités de notre référentiel et
+   * servent au filtre. Un centre emploie trois ou quatre codes de type pour ses 287
+   * examens : les proposer évite la faute de frappe qui casse le couple (type, code)
+   * attendu par le RIS sans lever la moindre erreur.
+   */
+  const typesClient = useMemo(() => {
+    const set = new Set<string>();
+    data.forEach((r) => {
+      const t = (r.typeExamenClient ?? "").trim();
+      if (t) set.add(t);
+    });
     return Array.from(set).sort();
   }, [data]);
 
@@ -662,17 +708,40 @@ export default function MappingExam({ params }: TalkPageProps) {
           }}
         >
           <TableContainer sx={{ maxHeight: "none" }}>
-            <Table stickyHeader size="small" sx={{ minWidth: 1100 }}>
+            <Table stickyHeader size="small" sx={{ minWidth: 1180 }}>
               <TableHead>
                 <TableRow>
-                  <HeaderCell width="26%">Examen (Neuracorp)</HeaderCell>
-                  <HeaderCell width="18%">Code / Libellé côté client</HeaderCell>
-                  <HeaderCell width="10%">Type client</HeaderCell>
-                  <HeaderCell width="10%" align="center">
+                  <EnTeteMapping
+                    aide="Le centre confie cet examen au robot. Décoché, le robot ne le propose pas au téléphone."
+                    largeur={80}
+                    align="center"
+                  >
                     Attribué à Lyrae
-                  </HeaderCell>
-                  <HeaderCell width="16%">Code avec injection</HeaderCell>
-                  <HeaderCell width="20%">Créneau horaire</HeaderCell>
+                  </EnTeteMapping>
+                  <EnTeteMapping aide="Notre référentiel : modalité, libellé et code internes.">
+                    Examen
+                  </EnTeteMapping>
+                  <EnTeteMapping
+                    aide="Le code de cet examen dans votre logiciel de gestion, et en dessous ce que le robot annonce au patient. Sans le code, l'examen n'est pas réservable."
+                    largeur={220}
+                  >
+                    Code / Libellé patient
+                  </EnTeteMapping>
+                  <EnTeteMapping
+                    aide="Le type dans votre logiciel. La liste propose ceux que vous avez déjà saisis. Facultatif."
+                    largeur={130}
+                  >
+                    Type
+                  </EnTeteMapping>
+                  <EnTeteMapping
+                    aide="Examen avec produit de contraste, scanners et IRM seulement. Cochez pour saisir le code de la version injectée."
+                    largeur={150}
+                  >
+                    Injecté
+                  </EnTeteMapping>
+                  <EnTeteMapping aide="Une consigne d'horaire annoncée avec le créneau." largeur={220}>
+                    Créneau horaire
+                  </EnTeteMapping>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -682,6 +751,7 @@ export default function MappingExam({ params }: TalkPageProps) {
                     row={row}
                     disabled={readOnly}
                     onChange={handleChange}
+                    typesClient={typesClient}
                   />
                 ))}
               </TableBody>
@@ -831,48 +901,43 @@ export default function MappingExam({ params }: TalkPageProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Header cell (stylee)
-// ---------------------------------------------------------------------------
-function HeaderCell({
-  children,
-  width,
-  align = "left",
-}: {
-  children: React.ReactNode;
-  width?: string;
-  align?: "left" | "center" | "right";
-}) {
-  return (
-    <TableCell
-      align={align}
-      sx={{
-        bgcolor: SURFACE_MUTED,
-        color: INK_MUTED,
-        fontWeight: 600,
-        fontSize: 11.5,
-        textTransform: "uppercase",
-        letterSpacing: "0.05em",
-        borderBottom: `1px solid ${BORDER}`,
-        width,
-        py: 1.25,
-      }}
-    >
-      {children}
-    </TableCell>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Ligne de la table (memo-friendly)
 // ---------------------------------------------------------------------------
 interface ExamRowProps {
   row: ExamRow;
   disabled: boolean;
   onChange: (codeExamen: string, key: string, value: any) => void;
+  /** Les types que ce client a déjà saisis, proposés dans la colonne « Type ». */
+  typesClient: readonly string[];
 }
 
-function ExamTableRow({ row, disabled, onChange }: ExamRowProps) {
+/**
+ * La ligne du tableau, alignée sur celle de LyraeKonnect (14/09/2026).
+ *
+ * Ce qui a changé, et qui vient de Konnect : la case « Attribué à Lyrae » ouvre la
+ * ligne, la ligne s'estompe quand elle est décochée, et les champs du client s'y
+ * désactivent. On coche d'abord, on saisit ensuite. Ce qui reste de LyraeTalk : le
+ * code et le libellé l'un au-dessus de l'autre, et la colonne « Créneau horaire »,
+ * qui n'existe pas chez Konnect.
+ *
+ * Les cellules communes vivent dans `components/mapping/cellules.tsx` ; la ligne,
+ * elle, reste ici. Aucune règle de Konnect ne doit pouvoir descendre dans cet écran
+ * par un composant partagé : c'est la leçon du 14/09/2026 sur le code RIS.
+ */
+function ExamTableRow({ row, disabled, onChange, typesClient }: ExamRowProps) {
   const isInjectable = INJECTABLE_TYPES.has(row.typeExamen);
+  const codeInjection = row.codeExamenClientInject ?? "";
+
+  /**
+   * « Injecté » n'est PAS un champ de LyraeTalk, contrairement à Konnect : ici la
+   * vérité est la présence d'un code d'injection. La case n'est donc qu'un volet,
+   * tenu en état local, qui ouvre le champ sur un examen qui n'a pas encore de code.
+   * Cochée sans rien saisir, elle ne se retrouve pas au rechargement, et c'est
+   * normal : il n'y aurait rien à enregistrer.
+   */
+  const [voletInjection, setVoletInjection] = useState(false);
+
+  const inactif = disabled || !row.performed;
 
   return (
     <TableRow
@@ -881,177 +946,81 @@ function ExamTableRow({ row, disabled, onChange }: ExamRowProps) {
         "&:nth-of-type(odd)": { bgcolor: "#FBFDFC" },
         "&:hover": { bgcolor: SURFACE_HOVER + " !important" },
         "& > td": { borderBottom: `1px solid ${BORDER}`, py: 1 },
+        // Repris de Konnect : une ligne non confiée au robot s'efface du regard sans
+        // disparaître du tableau.
+        opacity: row.performed ? 1 : 0.45,
       }}
     >
+      {/* Attribué à Lyrae */}
+      <TableCell align="center" sx={{ verticalAlign: "top", pt: 1.25 }}>
+        <CaseMapping
+          coche={!!row.performed}
+          onChange={(v) => onChange(row.codeExamen, "performed", v)}
+          disabled={disabled}
+        />
+      </TableCell>
+
       {/* Examen NEURACORP */}
       <TableCell sx={{ verticalAlign: "top" }}>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <ExamTypeBadge type={row.typeExamen} />
-          <Box sx={{ minWidth: 0 }}>
-            <Typography
-              sx={{
-                fontWeight: 600,
-                fontSize: 13,
-                color: INK,
-                lineHeight: 1.3,
-              }}
-            >
-              {row.libelle}
-            </Typography>
-            <Typography
-              sx={{
-                fontSize: 11,
-                color: INK_MUTED,
-                fontFamily: "monospace",
-                mt: 0.25,
-              }}
-            >
-              {row.codeExamen}
-            </Typography>
-          </Box>
-        </Stack>
+        <CelluleExamen
+          typeExamen={row.typeExamen}
+          libelle={row.libelle}
+          codeExamen={row.codeExamen}
+        />
       </TableCell>
 
-      {/* Code / Libelle client (2 champs stackes) */}
+      {/* Code et libellé du client, l'un au-dessus de l'autre */}
       <TableCell sx={{ verticalAlign: "top" }}>
-        <Stack spacing={0.75}>
-          <CompactInput
-            placeholder="Code"
-            value={row.codeExamenClient ?? ""}
-            onChange={(v) => onChange(row.codeExamen, "codeExamenClient", v)}
-            disabled={disabled}
-            monospace
-          />
-          <CompactInput
-            placeholder="Libellé"
-            value={row.libelleClient ?? ""}
-            onChange={(v) => onChange(row.codeExamen, "libelleClient", v)}
-            disabled={disabled}
-          />
-        </Stack>
+        <CelluleCodeLibelle
+          code={row.codeExamenClient ?? ""}
+          libelle={row.libelleClient ?? ""}
+          placeholderLibelle={row.libelle ?? ""}
+          onCode={(v) => onChange(row.codeExamen, "codeExamenClient", v)}
+          onLibelle={(v) => onChange(row.codeExamen, "libelleClient", v)}
+          disabled={inactif}
+        />
       </TableCell>
 
-      {/* Type client */}
+      {/* Type du client */}
       <TableCell sx={{ verticalAlign: "top" }}>
-        <CompactInput
-          placeholder="Ex : RX"
-          value={row.typeExamenClient ?? ""}
+        <CelluleType
+          valeur={row.typeExamenClient ?? ""}
+          options={typesClient}
           onChange={(v) => onChange(row.codeExamen, "typeExamenClient", v)}
-          disabled={disabled}
-          monospace
+          disabled={inactif}
         />
       </TableCell>
 
-      {/* Attribue a Lyrae */}
-      <TableCell align="center" sx={{ verticalAlign: "top", pt: 1.5 }}>
-        <Switch
-          size="small"
-          checked={!!row.performed}
-          onChange={(e) => onChange(row.codeExamen, "performed", e.target.checked)}
-          disabled={disabled}
-          sx={{
-            "& .MuiSwitch-switchBase.Mui-checked": { color: BRAND },
-            "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
-              bgcolor: BRAND,
-              opacity: 1,
-            },
-            "& .MuiSwitch-track": { bgcolor: "#CBD5DB", opacity: 1 },
-          }}
-        />
-      </TableCell>
-
-      {/* Code avec injection */}
+      {/* Injecté, et le code qui n'apparaît qu'une fois coché */}
       <TableCell sx={{ verticalAlign: "top" }}>
-        {isInjectable ? (
-          <CompactInput
-            placeholder="Code injection"
-            value={row.codeExamenClientInject ?? ""}
-            onChange={(v) =>
-              onChange(row.codeExamen, "codeExamenClientInject", v === "" ? null : v)
-            }
-            disabled={disabled}
-            monospace
-          />
-        ) : (
-          <Tooltip
-            title="L'injection ne s'applique qu'aux scanners (CT) et IRM (MR)"
-            arrow
-          >
-            <Stack
-              direction="row"
-              alignItems="center"
-              spacing={0.75}
-              sx={{
-                bgcolor: SURFACE_DISABLED,
-                border: `1px dashed ${BORDER}`,
-                borderRadius: 1,
-                px: 1,
-                py: 0.75,
-                color: INK_MUTED,
-              }}
-            >
-              <IconInfoCircle size={13} />
-              <Typography sx={{ fontSize: 12 }}>
-                Non applicable
-              </Typography>
-            </Stack>
-          </Tooltip>
-        )}
+        <CelluleInjection
+          injecte={voletInjection || codeInjection.trim() !== ""}
+          code={codeInjection}
+          onInjecte={(v) => {
+            setVoletInjection(v);
+            // Décocher n'effface pas le code : voir `CelluleInjection`.
+          }}
+          onCode={(v) =>
+            onChange(row.codeExamen, "codeExamenClientInject", v === "" ? null : v)
+          }
+          disabled={inactif}
+          nonApplicable={
+            isInjectable
+              ? undefined
+              : "L'injection ne s'applique qu'aux scanners (CT) et IRM (MR)"
+          }
+        />
       </TableCell>
 
-      {/* Creneau horaire */}
+      {/* Créneau horaire, propre à LyraeTalk */}
       <TableCell sx={{ verticalAlign: "top" }}>
         <HoraireCell
           horaire={row.horaire}
-          disabled={disabled}
+          disabled={inactif}
           onChange={(next) => onChange(row.codeExamen, "horaire", next)}
         />
       </TableCell>
     </TableRow>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Input compact stylise (tres dense pour tenir dans la table)
-// ---------------------------------------------------------------------------
-function CompactInput({
-  value,
-  onChange,
-  placeholder,
-  disabled,
-  monospace = false,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  disabled?: boolean;
-  monospace?: boolean;
-}) {
-  return (
-    <TextField
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      size="small"
-      fullWidth
-      disabled={disabled}
-      variant="outlined"
-      sx={{
-        "& .MuiOutlinedInput-root": {
-          bgcolor: SURFACE,
-          fontSize: 13,
-          ...(monospace && { fontFamily: "monospace" }),
-          "& fieldset": { borderColor: BORDER },
-          "&:hover fieldset": { borderColor: "#B9C7CE" },
-          "&.Mui-focused fieldset": { borderColor: BRAND, borderWidth: 1.5 },
-          "&.Mui-disabled": { bgcolor: SURFACE_DISABLED },
-        },
-        "& .MuiOutlinedInput-input": {
-          py: 0.75,
-          px: 1,
-        },
-      }}
-    />
   );
 }
 
