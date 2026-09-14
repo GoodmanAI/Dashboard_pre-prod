@@ -289,13 +289,40 @@ export default function MappingExam({ params }: TalkPageProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userProductId, data }),
       });
-      if (!response.ok) throw new Error("Failed to save");
+      const json = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        // La route refuse deux configurations contradictoires : un code NEURACORP en
+        // double, un code RIS attribué à deux examens (14/09/2026). Elle nomme les
+        // codes fautifs, donc on montre SON message : « Erreur lors de la
+        // sauvegarde » obligerait à chercher la ligne à la main dans 287 lignes.
+        setSnack({
+          open: true,
+          message: json?.error ?? "Erreur lors de la sauvegarde",
+          severity: "error",
+        });
+        return;
+      }
+
       setOriginalData(JSON.parse(JSON.stringify(data)));
+      const enregistre = `${dirtyCount} modification${
+        dirtyCount > 1 ? "s" : ""
+      } enregistrée${dirtyCount > 1 ? "s" : ""}`;
+      // Non bloquant à dessein (c'est l'état de départ d'un centre vierge), mais dit
+      // à l'enregistrement plutôt qu'attendu dans une pastille : le robot annonce ces
+      // examens au patient sans savoir les réserver. La pastille orange de la barre
+      // d'outils filtre les lignes concernées.
+      const sansCode = Number(json?.attribuesSansCode ?? 0);
       setSnack({
         open: true,
-        message: `${dirtyCount} modification${
-          dirtyCount > 1 ? "s" : ""
-        } enregistrée${dirtyCount > 1 ? "s" : ""}`,
+        message:
+          sansCode > 0
+            ? `${enregistre}. ${sansCode} examen${
+                sansCode > 1 ? "s" : ""
+              } attribué${sansCode > 1 ? "s" : ""} à Lyrae sans code RIS : le robot ${
+                sansCode > 1 ? "les annonce" : "l'annonce"
+              } sans savoir ${sansCode > 1 ? "les" : "le"} réserver.`
+            : enregistre,
         severity: "success",
       });
     } catch {
@@ -781,7 +808,10 @@ export default function MappingExam({ params }: TalkPageProps) {
         <Snackbar
           anchorOrigin={{ vertical: "top", horizontal: "right" }}
           open={snack.open}
-          autoHideDuration={3000}
+          // Trois secondes suffisent pour « 4 modifications enregistrées ». Depuis que
+          // la route nomme les codes en conflit, le message peut demander à être lu :
+          // il disparaissait avant qu'on ait fini.
+          autoHideDuration={snack.message.length > 60 ? 9000 : 3000}
           onClose={() => setSnack((s) => ({ ...s, open: false }))}
         >
           <Alert

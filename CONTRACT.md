@@ -475,6 +475,19 @@ téléphone sans pouvoir les réserver.
 **Sur un centre vierge, `performed` vaut `true`** : le client décoche ce qu'il ne
 pratique pas, plus rapide que de tout cocher. C'est le comportement d'origine.
 
+**Ce que la donnée servie garantit désormais, et ce qu'elle ne garantit pas**
+(14/09/2026). `POST /api/configuration/mapping`, l'écriture en amont (session
+uniquement, aucune clé d'API n'y entre), refuse deux configurations contradictoires :
+un même code NEURACORP sur deux lignes, et un même code RIS attribué à deux examens
+`performed`. Ce sont les règles que `PUT /api/konnect-examens` appliquait déjà.
+**Conséquence pour le robot** : un code RIS lu ici désigne au plus un examen. Il pouvait
+en désigner deux jusqu'à cette date, la route n'ayant aucune validation.
+
+En revanche un examen `performed: true` **sans** code RIS reste possible, et le restera :
+c'est l'état de départ de tout centre neuf, dont les 287 lignes arrivent à `true` sans
+code. Le refuser interdirait le premier enregistrement. Le robot doit donc continuer à
+traiter le cas, il n'est pas devenu impossible.
+
 ## Invariants à ne pas casser
 
 1. **Header `x-api-key`** — le renommer casse LyraeTalk **et** AI2Xplore simultanément.

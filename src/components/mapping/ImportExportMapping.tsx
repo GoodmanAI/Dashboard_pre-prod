@@ -31,9 +31,14 @@ import { IconDownload, IconUpload } from "@tabler/icons-react";
  * lignes affichées, le rapport est montré, et rien n'est enregistré tant que
  * l'utilisateur n'a pas cliqué sur « Enregistrer » dans la barre du bas. Un import
  * qui écrirait directement priverait le client de la seule chose qui compte :
- * voir ce qui va changer avant que ça change. La validation serveur du `PUT`
+ * voir ce qui va changer avant que ça change. La validation serveur
  * (doublons de code NEURACORP, deux examens sur le même code RIS) reste le dernier
  * mot ; ce qui est fait ici l'anticipe pour donner un message utile plus tôt.
+ *
+ * Cette phrase n'était vraie que d'un côté jusqu'au 14/09/2026 : le `PUT` de
+ * `/api/konnect-examens` validait, le `POST` de `/api/configuration/mapping`
+ * n'avait aucune validation et écrivait ce qu'on lui donnait. Les deux règles y
+ * sont désormais, avec les mêmes messages.
  *
  * LA CLÉ DE RAPPROCHEMENT EST LE CODE NEURACORP, et lui seul. C'est la seule
  * colonne que le client ne saisit pas : elle identifie la ligne de notre
