@@ -433,10 +433,24 @@ export default function MappingExamensKonnect() {
           variant="outlined"
           sx={{ p: 2, mb: 2, borderColor: BORDER, borderRadius: 2, bgcolor: SURFACE }}
         >
+          {/*
+            BARRE REPLIABLE (14/09/2026). Quatre filtres, deux boutons d'import et
+            deux pastilles de comptage font plus de 1 400 px sur une ligne : sous
+            cette largeur, tout ce qui etait a droite sortait de l'ecran sans meme
+            une barre de defilement.
+
+            `useFlexGap` est indispensable : le `spacing` de Stack pose des MARGES,
+            qui ne savent pas se replier proprement, la ou `gap` suit le passage a la
+            ligne. Et le remplisseur `flexGrow` qui poussait les pastilles a droite a
+            ete remplace par un `ml: auto` sur leur groupe : dans un conteneur qui se
+            replie, une boite qui grandit prend une ligne entiere pour elle seule.
+          */}
           <Stack
-            direction={{ xs: "column", md: "row" }}
+            direction={{ xs: "column", sm: "row" }}
             spacing={1.5}
-            alignItems={{ md: "center" }}
+            useFlexGap
+            flexWrap="wrap"
+            alignItems={{ sm: "center" }}
           >
             <TextField
               size="small"
@@ -446,7 +460,7 @@ export default function MappingExamensKonnect() {
                 setRecherche(e.target.value);
                 setPage(0);
               }}
-              sx={{ minWidth: 260 }}
+              sx={{ flex: "1 1 240px", minWidth: 200 }}
             />
             <TextField
               size="small"
@@ -512,23 +526,32 @@ export default function MappingExamensKonnect() {
               onAppliquer={setLignes}
               codeRisUnique
             />
-            <Box sx={{ flexGrow: 1 }} />
-            <Chip
-              label={`${attribues} examen${attribues > 1 ? "s" : ""} proposé${
-                attribues > 1 ? "s" : ""
-              } au patient`}
-              sx={{
-                fontWeight: 600,
-                color: attribues > 0 ? BRAND_DARK : INK_MUTED,
-                bgcolor: attribues > 0 ? "rgba(var(--accent-rgb), 0.12)" : SURFACE_MUTED,
-              }}
-            />
-            {surRappel > 0 && (
+            {/* A droite quand la place le permet, sur leur propre ligne sinon. */}
+            <Stack
+              direction="row"
+              spacing={1}
+              useFlexGap
+              flexWrap="wrap"
+              alignItems="center"
+              sx={{ ml: { sm: "auto" } }}
+            >
               <Chip
-                label={`dont ${surRappel} sur rappel`}
-                sx={{ fontWeight: 600, color: "#B4602A", bgcolor: "#FCF0E6" }}
+                label={`${attribues} examen${attribues > 1 ? "s" : ""} proposé${
+                  attribues > 1 ? "s" : ""
+                } au patient`}
+                sx={{
+                  fontWeight: 600,
+                  color: attribues > 0 ? BRAND_DARK : INK_MUTED,
+                  bgcolor: attribues > 0 ? "rgba(var(--accent-rgb), 0.12)" : SURFACE_MUTED,
+                }}
               />
-            )}
+              {surRappel > 0 && (
+                <Chip
+                  label={`dont ${surRappel} sur rappel`}
+                  sx={{ fontWeight: 600, color: "#B4602A", bgcolor: "#FCF0E6" }}
+                />
+              )}
+            </Stack>
           </Stack>
         </Paper>
 

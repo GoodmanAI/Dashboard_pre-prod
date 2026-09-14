@@ -351,7 +351,11 @@ export default function ImportExportMapping<T extends LigneMappingImportable>({
 
   return (
     <>
-      <Stack direction="row" spacing={1}>
+      {/* `useFlexGap` + `flexWrap` : les deux boutons portent `nowrap` et forment un
+          bloc d'environ 300 px. Sur un ecran etroit ils passent l'un sous l'autre au
+          lieu d'etre rognes par le bord. `spacing` seul poserait des marges, qui ne
+          savent pas se replier. */}
+      <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
         <Button
           size="small"
           variant="outlined"

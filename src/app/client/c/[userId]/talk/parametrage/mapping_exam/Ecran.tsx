@@ -456,10 +456,22 @@ export default function MappingExam({ params }: TalkPageProps) {
           px: { xs: 2, sm: 3 },
         }}
       >
+        {/*
+          BARRE REPLIABLE (14/09/2026). Recherche, filtre de type, deux groupes de
+          bascules et deux boutons d'import font plus de 1 300 px sur une ligne :
+          entre `md` et cette largeur, les boutons d'import sortaient de l'ecran.
+
+          `useFlexGap` est indispensable : le `spacing` de Stack pose des MARGES, qui
+          ne savent pas se replier proprement, la ou `gap` suit le passage a la ligne.
+          Le point de bascule descend a `sm` parce qu'une colonne unique n'est utile
+          qu'au telephone ; entre les deux, le repli fait mieux le travail.
+        */}
         <Stack
-          direction={{ xs: "column", md: "row" }}
+          direction={{ xs: "column", sm: "row" }}
           spacing={1.5}
-          alignItems={{ xs: "stretch", md: "center" }}
+          useFlexGap
+          flexWrap="wrap"
+          alignItems={{ xs: "stretch", sm: "center" }}
         >
           {/* Recherche */}
           <TextField
@@ -468,8 +480,8 @@ export default function MappingExam({ params }: TalkPageProps) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             sx={{
-              flex: 1,
-              minWidth: { md: 320 },
+              flex: "1 1 280px",
+              minWidth: 220,
               "& .MuiOutlinedInput-root": {
                 bgcolor: SURFACE_MUTED,
                 "& fieldset": { borderColor: BORDER },
@@ -586,6 +598,7 @@ export default function MappingExam({ params }: TalkPageProps) {
         <Stack
           direction="row"
           spacing={2}
+          useFlexGap
           sx={{ mt: 1.5, flexWrap: "wrap", alignItems: "center" }}
         >
           <Chip
@@ -793,6 +806,12 @@ export default function MappingExam({ params }: TalkPageProps) {
           py: 1.25,
           boxShadow: "0 10px 30px rgba(15, 42, 63, 0.10)",
           alignItems: "center",
+          // Meme garde-fou que `BarreEnregistrement`, la barre equivalente de
+          // Konnect : ancree a droite sans largeur maximale, elle depassait par la
+          // GAUCHE de l'ecran sur un petit ecran, hors de toute barre de defilement.
+          flexWrap: "wrap",
+          justifyContent: "flex-end",
+          maxWidth: "min(560px, calc(100vw - 48px))",
         }}
       >
         {dirtyCount > 0 && !readOnly && (
