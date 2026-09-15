@@ -552,7 +552,6 @@ function ProductsPanel({ clients, loading }: { clients: Client[]; loading: boole
 
   // Saisie du tenant Konnect, séparée de `rows` pour rester éditable sans
   // recharger toute la liste à chaque frappe.
-  const [tenantSaisi, setTenantSaisi] = useState("");
 
   const selectedClient = useMemo(
     () => clients.find((c) => c.id === selectedId) ?? null,
@@ -567,8 +566,6 @@ function ProductsPanel({ clients, loading }: { clients: Client[]; loading: boole
       const data = await res.json();
       if (res.ok) {
         setRows(data.rows ?? []);
-        const konnect = (data.rows ?? []).find((r: LigneProduit) => r.slug === "konnect");
-        setTenantSaisi(konnect?.tenantId ?? "");
       } else {
         setErrorMessage(data.error || "Échec du chargement des produits.");
       }
@@ -639,39 +636,8 @@ function ProductsPanel({ clients, loading }: { clients: Client[]; loading: boole
     }
   };
 
-  const enregistrerTenant = async (ligne: LigneProduit) => {
-    if (!ligne.userProductId) return;
-    setSubmitting("tenant");
-    setSuccessMessage(null);
-    setErrorMessage(null);
-    try {
-      const res = await fetch("/api/konnect-tenant-mapping", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userProductId: ligne.userProductId,
-          tenantId: tenantSaisi.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSuccessMessage(
-          `Cabinet Konnect rattaché au userProductId ${ligne.userProductId}.`
-        );
-        if (typeof selectedId === "number") await charger(selectedId);
-      } else {
-        setErrorMessage(data.error || "Échec du rattachement.");
-      }
-    } catch {
-      setErrorMessage("Une erreur inattendue s'est produite.");
-    } finally {
-      setSubmitting(null);
-    }
-  };
 
   const ligneKonnect = rows.find((r) => r.slug === "konnect") ?? null;
-  const tenantValide = UUID_RE.test(tenantSaisi.trim());
-  const tenantInchange = (ligneKonnect?.tenantId ?? "") === tenantSaisi.trim();
 
   return (
     <Stack spacing={3} sx={{ maxWidth: 720 }}>
@@ -777,44 +743,41 @@ function ProductsPanel({ clients, loading }: { clients: Client[]; loading: boole
                   pas avant. */}
               {ligne.slug === "konnect" && ligne.affilie && (
                 <>
+                  {/*
+                    ⚠️ CE BLOC N'ÉCRIT PLUS, depuis le 15/09/2026. Il affiche et il renvoie.
+
+                    L'identifiant du cabinet se saisissait à TROIS endroits : ici, dans
+                    « Identifiants externes » et dans « Installation Konnect ». Trois
+                    écrans pour une valeur qui n'en admet qu'une, donc trois façons de la
+                    saisir différemment sans qu'aucune ne fasse autorité.
+
+                    « Identifiants externes » est l'écran qui règle : `ARCHITECTURE.md`
+                    3.10 et le `CLAUDE.md` du workspace le désignent comme celui d'où se
+                    pilote la montée en charge des cabinets.
+                  */}
                   <Divider sx={{ my: 2 }} />
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                    Cabinet Konnect rattaché à ce centre. C&apos;est le <code>tenant_id</code>{" "}
-                    (UUID) de Konnect — sa clé d&apos;isolation. Un cabinet ne peut être
-                    rattaché qu&apos;à un seul centre.
+                    Cabinet Konnect rattaché à ce centre. Un cabinet ne peut être rattaché
+                    qu&apos;à un seul centre, et ce rattachement se règle depuis les
+                    identifiants externes.
                   </Typography>
-                  <Stack direction="row" spacing={1.5} alignItems="flex-start">
-                    <CustomTextField
-                      label="tenant_id"
-                      variant="outlined"
-                      fullWidth
-                      value={tenantSaisi}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        setTenantSaisi(e.target.value)
-                      }
-                      disabled={submitting !== null}
-                      error={tenantSaisi.trim() !== "" && !tenantValide}
-                      helperText={
-                        tenantSaisi.trim() !== "" && !tenantValide
-                          ? "Format UUID attendu"
-                          : ligne.tenantId
-                          ? "Enregistré"
-                          : "Aucun cabinet rattaché"
-                      }
-                    />
-                    <Button
-                      variant="contained"
-                      disabled={submitting !== null || !tenantValide || tenantInchange}
-                      onClick={() => enregistrerTenant(ligne)}
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    <Typography
                       sx={{
-                        mt: 1,
-                        bgcolor: "var(--accent)",
-                        fontWeight: 600,
-                        whiteSpace: "nowrap",
-                        "&:hover": { bgcolor: "#3BA992" },
+                        fontFamily: "monospace",
+                        fontSize: 13,
+                        color: ligne.tenantId ? "text.primary" : "text.secondary",
                       }}
                     >
-                      Enregistrer
+                      {ligne.tenantId ?? "Aucun cabinet rattaché"}
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      href="/admin/external-mapping"
+                      sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+                    >
+                      {ligne.tenantId ? "Modifier" : "Rattacher un cabinet"}
                     </Button>
                   </Stack>
                 </>

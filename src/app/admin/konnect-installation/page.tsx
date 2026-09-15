@@ -198,7 +198,6 @@ export default function InstallationKonnect() {
   const [motDePasse, setMotDePasse] = useState("");
 
   // Saisies des blocs actionnables.
-  const [tenantId, setTenantId] = useState("");
   const [risBaseUrl, setRisBaseUrl] = useState("");
   const [risCodeSite, setRisCodeSite] = useState("");
 
@@ -253,7 +252,6 @@ export default function InstallationKonnect() {
   // Les champs suivent le centre choisi : on n'édite jamais à l'aveugle une valeur
   // qui appartient à un autre.
   useEffect(() => {
-    setTenantId(centre?.tenantId ?? "");
     setRisBaseUrl(centre?.risBaseUrl ?? "");
     setRisCodeSite(centre?.risCodeSite ?? "");
 
@@ -329,16 +327,6 @@ export default function InstallationKonnect() {
     }
   }
 
-  async function rattacher() {
-    if (!centre) return;
-    const ok = await appeler(
-      "/api/konnect-tenant-mapping",
-      "POST",
-      { userProductId: centre.userProductId, tenantId: tenantId.trim().toLowerCase() },
-      "Portail rattaché."
-    );
-    if (ok) await recharger(centre.userProductId);
-  }
 
   async function enregistrerRis() {
     if (!centre) return;
@@ -382,7 +370,6 @@ export default function InstallationKonnect() {
     );
   }
 
-  const tenantValide = UUID_RE.test(tenantId.trim());
   const risComplet = Boolean(risBaseUrl.trim()) && Boolean(risCodeSite.trim());
 
   return (
@@ -487,33 +474,45 @@ export default function InstallationKonnect() {
               fait={!chercher(centre, "konnect.rattachement")}
               manque={chercher(centre, "konnect.rattachement")?.manque ?? ""}
             >
+              {/*
+                ⚠️ CE BLOC N'ÉCRIT PLUS, depuis le 15/09/2026. Il affiche et il renvoie.
+
+                L'identifiant du portail se saisissait à TROIS endroits : ici, dans
+                « Identifiants externes », et dans l'onglet Produits de la gestion des
+                clients. Trois écrans pour une seule valeur, donc trois façons de la
+                saisir différemment et aucune qui fasse autorité.
+
+                C'est « Identifiants externes » qui règle, et ce n'est pas un choix
+                arbitraire : `ARCHITECTURE.md` 3.10 et le `CLAUDE.md` du workspace
+                désignent cet écran comme celui d'où se pilote la montée en charge.
+
+                Et cette page a été conçue pour ne rien régler. Le lot G6 le disait :
+                « Elle ne règle rien : chaque ligne renvoie vers l'écran qui règle. Un
+                tableau de bord qui devient un second endroit où saisir recréerait le
+                problème qu'on vient de fermer. » Elle avait dérivé.
+              */}
               <Typography sx={{ fontSize: 12, color: INK_MUTED, mb: 1.5 }}>
                 L&apos;identifiant technique du portail, communiqué à son installation. Il
                 relie ce compte au portail patient : sans lui, aucun réglage de cette page
                 n&apos;atteint le centre.
               </Typography>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="flex-start">
-                <TextField
-                  size="small"
-                  fullWidth
-                  label="Identifiant du portail"
-                  placeholder="11111111-1111-1111-1111-111111111111"
-                  value={tenantId}
-                  error={tenantId.trim() !== "" && !tenantValide}
-                  helperText={
-                    tenantId.trim() !== "" && !tenantValide ? "Format attendu : un UUID." : " "
-                  }
-                  onChange={(e) => setTenantId(e.target.value)}
-                  sx={{ maxWidth: 420 }}
-                />
-                <Button
-                  variant="contained"
-                  disableElevation
-                  disabled={occupe || !tenantValide || tenantId.trim() === centre.tenantId}
-                  onClick={() => void rattacher()}
-                  sx={{ textTransform: "none", bgcolor: "var(--accent)", mt: 0.25 }}
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center">
+                <Typography
+                  sx={{
+                    fontFamily: "monospace",
+                    fontSize: 13,
+                    color: centre.tenantId ? INK : INK_MUTED,
+                  }}
                 >
-                  Rattacher
+                  {centre.tenantId ?? "Aucun portail rattaché"}
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  href="/admin/external-mapping"
+                  sx={{ textTransform: "none" }}
+                >
+                  {centre.tenantId ? "Modifier dans Identifiants externes" : "Rattacher un portail"}
                 </Button>
               </Stack>
             </Bloc>

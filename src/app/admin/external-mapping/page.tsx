@@ -200,11 +200,13 @@ export default function ExternalMappingPage() {
         global.
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        <strong>Cabinet Konnect</strong> : le <code>tenant_id</code> du cabinet dans
-        le portail patient. Il est <em>généré par Konnect</em>, on ne fait que le
-        référencer ici ; un cabinet ne peut être rattaché qu&apos;à un seul centre.
-        Le Dashboard ne peut pas vérifier qu&apos;il existe, les deux bases étant
-        séparées. Copiez-le depuis Konnect plutôt que de le saisir.
+        <strong>Cabinet Konnect</strong> : l&apos;identifiant du cabinet dans le portail
+        patient. Depuis le 15/09/2026 il est <em>attribué automatiquement</em> quand on
+        affilie le portail à un centre, et le portail crée le cabinet de son côté à sa
+        prochaine synchronisation. Vous n&apos;avez donc rien à saisir pour un centre
+        neuf. Ce champ reste là pour réparer : rattacher un cabinet né avant cette date,
+        ou corriger une correspondance. Un cabinet ne peut être rattaché qu&apos;à un
+        seul centre.
       </Typography>
 
       {error && (
@@ -290,8 +292,10 @@ export default function ExternalMappingPage() {
                   </TableCell>
 
                   {/* Cabinet Konnect — n'a de sens que sur une ligne LyraeKonnect.
-                      Le tenant_id est genere par Konnect, jamais ici : ce champ
-                      enregistre une reference vers un cabinet deja provisionne. */}
+                      ⚠️ Depuis le lot 4E (15/09/2026), l'identifiant est ATTRIBUE par le
+                      Dashboard a l'affiliation, et le portail vient le lire. Ce champ ne
+                      sert plus a installer un centre neuf : il repare un cabinet ne chez
+                      Konnect avant cette date, ou une correspondance fausse. */}
                   <TableCell>
                     {row.tenantId === undefined ? null : estKonnect(row.productName) ? (
                       <Stack direction="row" spacing={1}>

@@ -1,6 +1,8 @@
+import fs from "fs/promises";
+import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requireAdmin } from "@/lib/auth-helpers";
+import { requireAuth, requireSuperAdmin } from "@/lib/auth-helpers";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 
 /**
@@ -13,14 +15,59 @@ import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog
  * `confirmName` égal au `User.name` stocké en BDD — protège contre
  * un DELETE accidentel par saisie d'URL.
  */
+/**
+ * Retire les deux CSV que la création du client avait déposés dans `public/upload/`.
+ *
+ * **Le défaut que ça referme** (constaté le 15/09/2026, en supprimant un centre d'essai).
+ * `POST /api/admin/create-client` copie deux modèles nommés d'après le client. La
+ * suppression du compte emportait bien les lignes en base, mais **pas les fichiers** :
+ * ils restaient sur le disque, servis publiquement sous `/upload/…`, avec le nom du
+ * client dans l'URL. Un client supprimé restait donc nommable par quiconque connaissait
+ * l'adresse, et le dossier grossissait à chaque création.
+ *
+ * ⚠️ **Le nom de fichier vient du nom du client, qui n'est plus unique.** Deux homonymes
+ * écrivent le même fichier, donc supprimer l'un retire celui de l'autre. Sans
+ * conséquence : rien de fonctionnel ne lit ces CSV, ce sont des vestiges du premier
+ * provisionnement, conservés parce que `LyraeTalkDetails` et `FileSubmission` y
+ * renvoient. Le jour où ces vestiges partiront, ce bloc partira avec eux.
+ *
+ * **Non bloquant**, comme la copie qui l'a créé : le compte est déjà supprimé quand on
+ * arrive ici, et échouer sur un fichier absent ferait répondre 500 pour une suppression
+ * qui a réussi.
+ */
+async function retirerFichiersDuClient(nom: string | null): Promise<void> {
+  if (!nom) return;
+  const dossier = path.join(process.cwd(), "public", "upload");
+  for (const fichier of [`talkInfo-${nom}.csv`, `talkLibeles-${nom}.csv`]) {
+    try {
+      await fs.unlink(path.join(dossier, fichier));
+    } catch (err: any) {
+      // `ENOENT` est le cas normal : un client sans LyraeTalk n'en a jamais eu.
+      if (err?.code !== "ENOENT") {
+        console.warn("[delete-client] fichier non retiré (vestige, sans effet) :", err);
+      }
+    }
+  }
+}
+
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
-  const adminErr = requireAdmin(auth.session);
-  if (adminErr) return adminErr;
+
+  // ⚠️ Relevé au SUPER_ADMIN le 15/09/2026. Supprimer un compte client existait à DEUX
+  // endroits avec DEUX gardes différentes pour le même effet : ici en ADMIN avec un nom
+  // à confirmer, et `DELETE /api/admin/users/:id` en SUPER_ADMIN sans confirmation.
+  //
+  // C'est la garde la plus faible qui comptait, puisqu'un ADMIN pouvait supprimer un
+  // client par cette route-ci. Or créer un client est réservé au SUPER_ADMIN
+  // (`/api/admin/create-client`) : pouvoir supprimer ce qu'on ne peut pas créer était
+  // l'asymétrie à refermer. La confirmation par le nom, elle, est conservée : elle
+  // protège d'un `DELETE` tapé à la main, ce que le rôle ne fait pas.
+  const superErr = requireSuperAdmin(auth.session);
+  if (superErr) return superErr;
 
   const id = Number(params.id);
   if (!Number.isFinite(id)) {
@@ -62,6 +109,7 @@ export async function DELETE(
 
   try {
     await prisma.user.delete({ where: { id } });
+    await retirerFichiersDuClient(user.name);
     auditLog("account", "delete-client", {
       actor: {
         id: auth.session.user.id,

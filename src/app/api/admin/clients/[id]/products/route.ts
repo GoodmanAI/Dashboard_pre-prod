@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireAdmin } from "@/lib/auth-helpers";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
-import { NOMS_PRODUITS, ORDRE_PRODUITS, PRODUITS, produitDepuisNom } from "@/lib/produits";
+import { NOMS_PRODUITS, ORDRE_PRODUITS, PRODUITS, produitDepuisNom } from "@/lib/produits";
+import { amorcerProduit } from "@/lib/amorcageProduit";
 
 /**
  * Affiliation d'un client aux produits (admin uniquement).
@@ -195,6 +196,12 @@ export async function POST(
     create: { userId: id, productId },
     select: { id: true, assignedAt: true, removedAt: true },
   });
+
+  // Un produit affilié doit être configurable tout de suite (lot 4A). Sans cette ligne,
+  // `GET /api/configuration` répond 404 sur un centre LyraeTalk neuf, et son écran de
+  // paramétrage s'ouvre sur une erreur. L'amorçage ne pré-remplit rien : il crée une
+  // ligne vide, et la complétude continue d'annoncer ce qui manque.
+  await amorcerProduit(affiliation.id, produit.name);
 
   auditLog("account", "affilier-produit", {
     actor: {
