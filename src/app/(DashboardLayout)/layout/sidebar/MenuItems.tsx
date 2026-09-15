@@ -18,6 +18,9 @@ import {
   IconRocket,
   IconChecklist,
   IconListDetails,
+  IconUserPlus,
+  IconFileSpreadsheet,
+  IconUsers,
   IconMapPin,
   IconPhoneCall,
   IconSortAscending,
@@ -196,6 +199,44 @@ export const AdminMenuitems: SidebarItem[] = [
     title: "Déploiements",
     icon: IconRocket,
     href: "/admin/deployments",
+  },
+  {
+    // La mise en service d'un client, de bout en bout (lot 4B, 15/09/2026). Elle
+    // demandait douze etapes, deux outils et neuf ecrans : les gestes existaient tous,
+    // mais ranges par geste et non par centre, donc il fallait les connaitre et les
+    // faire dans le bon ordre.
+    //
+    // Placee en tete du bloc « client » de l'administration : on cree un centre, puis
+    // on le retrouve dans la vue d'ensemble, puis on suit son installation.
+    id: uniqueId(),
+    title: "Nouveau centre",
+    icon: IconUserPlus,
+    href: "/admin/nouveau-centre",
+  },
+  {
+    // Le pack de configuration : exporter un centre entier dans un classeur, le faire
+    // remplir hors ligne, puis l'appliquer (lot 4D, 15/09/2026). Sert aussi a ouvrir un
+    // centre frere : on prend le pack d'un centre modele et on substitue l'identite.
+    //
+    // Placee juste apres « Nouveau centre » : l'assistant cree et degrossit, le pack
+    // remplit le reste en une fois.
+    id: uniqueId(),
+    title: "Pack de configuration",
+    icon: IconFileSpreadsheet,
+    href: "/admin/pack",
+  },
+  {
+    // La vue d'ensemble : les clients par produit, leurs comptes et les droits de
+    // chacun (lot 3, 15/09/2026). L'information existait, dispersee sur cinq ecrans
+    // ranges PAR GESTE plutot que par client, ce qui obligeait a en ouvrir trois et
+    // a recouper a la main pour repondre a « qui a acces a quoi chez ce client ? ».
+    //
+    // Placee AVANT « Parc clients » : on cherche d'abord un client, on regarde
+    // ensuite ou en est son installation.
+    id: uniqueId(),
+    title: "Clients et comptes",
+    icon: IconUsers,
+    href: "/admin/comptes",
   },
   {
     // Où en est chaque centre : en intégration, en production, ou arrêté. Le

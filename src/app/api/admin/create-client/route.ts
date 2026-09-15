@@ -12,6 +12,8 @@ import path from "path";
 import { passwordSchema } from "@/lib/passwordSchema";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { NOMS_PRODUITS, estProduit } from "@/lib/produits";
+import { presetSecretaire } from "@/lib/permissions";
+import { amorcerProduit } from "@/lib/amorcageProduit";
 
 const CreateUserSchema = z.object({
   // Historiquement nommé "email" mais c'est en fait un identifiant libre (peut
@@ -126,22 +128,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Vérifier si un utilisateur avec cet email ou nom existe déjà
+    // L'identifiant de connexion doit être unique, c'est lui qui désigne le compte.
+    //
+    // ⚠️ **Le NOM ne l'est plus, depuis le 15/09/2026 (lot 4A).** Cette route refusait
+    // deux clients portant le même nom. Or « Imagerie Médicale » ou « Centre d'Imagerie
+    // du Centre » sont des noms que plusieurs cabinets portent réellement, sans aucun
+    // rapport entre eux, et rien en base n'exige cette unicité : c'était une règle
+    // applicative qui bloquait un cas légitime.
+    //
+    // Le nom sert à reconnaître un client à l'écran ; l'homonymie s'y lit très bien, les
+    // deux lignes portant leur identifiant juste en dessous.
     const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [{ email: normalizedEmail }, { name }],
-      },
+      where: { email: normalizedEmail },
     });
     if (existingUser) {
-      const duplicateField =
-        existingUser.email === normalizedEmail ? "email" : "name";
       return NextResponse.json(
         {
-          error: `A user with this ${duplicateField} already exists.`,
+          error: "Cet identifiant de connexion est déjà pris.",
           details: [
             {
-              field: duplicateField,
-              message: `${duplicateField} is already in use.`,
+              field: "email",
+              message: "Choisissez un autre identifiant : celui-ci est déjà utilisé.",
             },
           ],
         },
@@ -161,6 +168,18 @@ export async function POST(request: NextRequest) {
         name,
         role: "CLIENT",
         isSecretary: isSecretary ?? false,
+        // Un compte secrétaire naît désormais avec ses permissions ÉCRITES (15/09/2026),
+        // au lieu de dépendre de la branche héritée de `hasPermission`.
+        //
+        // Ce n'est pas un simple déplacement. Le booléen est une règle implicite qui
+        // s'applique à toute page, y compris celles qui n'existent pas encore : c'est ce
+        // qui a failli donner l'écriture sur toute la configuration de Konnect aux
+        // comptes secrétaire quand ses treize pages ont été déclarées, le 14/09. Des
+        // permissions explicites ne bougent pas quand le catalogue de pages grandit.
+        //
+        // `isSecretary` reste écrit, le temps que les comptes existants soient repris
+        // (`scripts/data-provisioning/2026_09_15_preset_secretaire.sql`).
+        permissions: isSecretary ? (presetSecretaire() as any) : undefined,
         centreRole: centreRole ?? null,
         managerId: managerId ?? null,
       },
@@ -186,6 +205,19 @@ export async function POST(request: NextRequest) {
           assignedAt: new Date(assignedAt),
         })),
       });
+
+      // Chaque produit affilié doit être configurable immédiatement (lot 4A).
+      // Jusqu'au 15/09/2026, cette route créait le compte et ses affiliations sans la
+      // moindre ligne de configuration : `GET /api/configuration` répondait 404 sur un
+      // centre LyraeTalk neuf, et le client découvrait son produit par un message
+      // d'erreur. `createMany` ne rend pas les lignes créées, d'où cette relecture.
+      const affiliations = await prisma.userProduct.findMany({
+        where: { userId: newUser.id, productId: { in: selectedProductIds } },
+        select: { id: true, product: { select: { name: true } } },
+      });
+      for (const a of affiliations) {
+        await amorcerProduit(a.id, a.product.name);
+      }
     }
 
     // Récupérer les IDs des produits du catalogue (évite les magic numbers 1/2)
@@ -213,9 +245,27 @@ export async function POST(request: NextRequest) {
       const talkInfoTemplatePath = path.join(templateDir, "talkInfo-template.csv");
       const talkLibelesTemplatePath = path.join(templateDir, "talkLibeles-template.csv");
 
-      // Copie les templates si présents (sinon lève une erreur)
-      await fs.copyFile(talkInfoTemplatePath, talkInfoFilePath);
-      await fs.copyFile(talkLibelesTemplatePath, talkLibelesFilePath);
+      // ⚠️ NON BLOQUANT depuis le 15/09/2026 (lot 4A). Ces deux copies levaient, et le
+      // `catch` global renvoyait alors « An unexpected error occurred » avec un 500.
+      //
+      // Or le compte est DÉJÀ créé à ce stade : un modèle manquant laissait donc un
+      // client à moitié provisionné derrière un message qui ne disait rien. Et rien de
+      // fonctionnel ne lit ces CSV : ce sont des vestiges du premier provisionnement,
+      // conservés parce que `LyraeTalkDetails` et `FileSubmission` y renvoient.
+      //
+      // Second défaut du même bloc, qui devient possible aujourd'hui : le nom du fichier
+      // vient de `newUser.name`, et le nom de client n'est plus unique. Deux homonymes
+      // écrivent donc le même fichier. Sans conséquence tant que personne ne les lit,
+      // à reprendre le jour où ces vestiges seront retirés.
+      try {
+        await fs.copyFile(talkInfoTemplatePath, talkInfoFilePath);
+        await fs.copyFile(talkLibelesTemplatePath, talkLibelesFilePath);
+      } catch (err) {
+        console.warn(
+          "[create-client] modèles CSV LyraeTalk non copiés (vestige, sans effet) :",
+          err
+        );
+      }
 
       // Ensure UserProduct Talk
       const userProductTalk = await prisma.userProduct.upsert({
