@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
-import { rejectIfSecretary } from "@/lib/authGuards";
+import { requirePagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
+import { journaliserEcritureConfig } from "@/lib/auditConfig";
 
 export async function POST(req: Request) {
   try {
-    const secretaryBlock = await rejectIfSecretary();
-    if (secretaryBlock) return secretaryBlock;
+    const droitEcritureErr = await requirePagePermission(PAGES.INFORMATIONNEL, "write");
+    if (droitEcritureErr) return droitEcritureErr;
 
     const auth = await requireAuth();
     if (auth.error) return auth.error;
@@ -51,6 +53,12 @@ export async function POST(req: Request) {
     const totalSections = Object.keys(formData).length;
     // --------------------------------------------------------------------
 
+    // Qui a change quoi. Voir auditConfig.ts. Sur l'ECRITURE seulement : journaliser
+    // la lecture noierait le signal, et un audit illisible ne sert a rien.
+    journaliserEcritureConfig(req, session, "talk-informationnel-update", userProductId, {
+      champs: totalSections,
+    });
+
     return NextResponse.json({
       success: true,
       message: "Configuration enregistrée avec succès",
@@ -86,6 +94,9 @@ export async function GET(req: Request) {
 
     const ownershipErr = await assertUserProductOwnership(session, userProductId);
     if (ownershipErr) return ownershipErr;
+
+    const droitErr = await requirePagePermission(PAGES.INFORMATIONNEL, "read");
+    if (droitErr) return droitErr;
 
     const userProduct = await prisma.userProduct.findUnique({
       where: { id: userProductId },

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { assertUserProductOwnership, requireAuth } from "@/lib/auth-helpers";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * POST /api/prescriptions/rejected/[id]/resolve
@@ -75,6 +77,9 @@ export async function POST(
 
   const ownErr = await assertUserProductOwnership(auth.session, record.userProductId);
   if (ownErr) return ownErr;
+
+  const droitErr = await requirePagePermission(PAGES.ORDONNANCES, "write");
+  if (droitErr) return droitErr;
 
   if (record.status !== "REJECTED") {
     return NextResponse.json(

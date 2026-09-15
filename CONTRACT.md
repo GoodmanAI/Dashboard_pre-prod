@@ -73,7 +73,12 @@ irrécupérable retombe sur `fr`, comportement historique.
 `GET /api/konnect-configuration?userProductId=NN` (ou `?tenantId=<uuid>`),
 `GET /api/product-config?userProductId=NN&domaine=X`,
 `GET /api/konnect-examens?userProductId=NN`,
-`GET /api/konnect-sites?userProductId=NN`.
+`GET /api/konnect-sites?userProductId=NN`,
+`GET /api/konnect-logo?userProductId=NN` (le seul binaire, conditionnel par ETag),
+`GET /api/konnect-tenants-attendus` (15/09/2026, **aucun paramètre de cabinet** : c'est
+la liste des cabinets que le Dashboard attend, dont il attribue l'identifiant et le
+`slug` à l'affiliation du produit ; Konnect la tire toutes les heures et crée ceux qui
+lui manquent. Les cabinets nés avant le 15/09 n'ont pas de slug et n'y figurent pas).
 Toutes en **lecture seule** : le `PUT` de ces routes refuse un appel par clé, la
 configuration se pilote depuis le Dashboard.
 
@@ -254,7 +259,13 @@ reflog trop court pour remonter au démarrage). Le traiter comme `false` ferait
 disparaître de vraies alertes de restart — à la lecture, seul `false` explicite
 requalifie un `restart_pending` en `up_to_date`.
 
-Whitelist dans `src/middleware.ts:13-33`. **Toute nouvelle route M2M doit y être ajoutée.**
+Whitelist dans `src/middleware.ts:11-119`. **Toute nouvelle route M2M doit y être ajoutée**,
+faute de quoi elle répond 401 avant d'atteindre le handler.
+
+⚠️ **Ancrer les motifs** (14/09/2026). Un motif de branche comme `/^\/api\/rdv\//` expose
+toute route qu'on ajoutera dessous : c'est ce qui a laissé `/api/rdv/dev-seed`, qui écrit
+en base, joignable sans session. Cette route est fermée depuis le 14/09/2026, et
+`/api/calls/test` a été retirée.
 
 ### Routes applicatives (71 au total)
 Auth NextAuth, comptes (`/api/admin/users*`, `/api/admin/clients*`), tickets, notifications, RDV/SMS, ordonnances, mapping de centres externes, numéros, fichiers, statistiques, produits, données d'examens.
@@ -266,6 +277,30 @@ uniquement, jamais appelées par une brique** :
   registre `src/lib/completude/`. Un client n'y reçoit que les informations dont il est
   propriétaire, le filtrage est côté serveur. Sans `userProductId`, elle renvoie tout le
   parc (admin seul).
+
+**Depuis le 15/09/2026, chaque route de session déclare sa page et son niveau.**
+`requirePagePermission(page, 'read' | 'write')` (`src/lib/authGuards.ts`) est appelée par
+toutes les routes de configuration, Talk et Konnect ; le JSON `User.permissions` édité
+dans « Clients et comptes » gouverne enfin ce que les routes acceptent, et pas seulement
+ce que le menu affiche. Le défaut s'est inversé : une URL non déclarée dans
+`src/lib/pageAccess.ts` est refusée, plus autorisée. Une garde de layout couvre tout
+`/admin`, `/api/admin/overview` et les deux routes d'installation exigent un
+administrateur, et `DELETE /api/admin/clients/:id` est réservée au SUPER_ADMIN
+(un ADMIN reçoit 403 ; il pouvait supprimer un client qu'il n'avait pas le droit de
+créer). Les écritures de configuration passent par le journal d'audit de
+`src/lib/auditConfig.ts`.
+
+Le booléen `User.isSecretary` devient un préréglage de permissions écrit à la création
+(`presetSecretaire()`). Sa branche héritée reste lue tant que
+`scripts/data-provisioning/2026_09_15_preset_secretaire.sql` n'a pas repris les comptes
+existants.
+
+Trois routes administratives nouvelles, session uniquement : `GET /api/admin/clients-comptes`
+(la jointure client, produits, comptes, droits de l'écran « Clients et comptes »),
+`GET|POST /api/admin/pack` (export et import d'un centre entier en classeur) et l'assistant
+`/admin/nouveau-centre`, qui n'appelle que des routes existantes. L'affiliation d'un
+produit **amorce** désormais sa configuration (`src/lib/amorcageProduit.ts`) : Talk ne
+répond plus 404 à un centre jamais enregistré.
 
 ### Pages patient publiques
 `/c`, `/d`, `/confirm` — token 8 caractères + `verificationCode` haché bcrypt.
@@ -319,7 +354,7 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 
 **Migrations à deux vitesses** :
 - Prisma : `prisma/migrations/YYYYMMDDHHMMSS_*/migration.sql` (6 dossiers)
-- Manuel : `prisma/migrations/manual/*.sql` (17 fichiers) — **ces tables ne sont pas dans `schema.prisma`**
+- Manuel : `prisma/migrations/manual/*.sql` (35 fichiers au 15/09/2026) — **ces tables ne sont pas dans `schema.prisma`**
 
 | Origine | Tables |
 |---|---|
@@ -357,7 +392,8 @@ remplit. Elle est semée depuis le mapping LyraeTalk d'un centre de référence
 Le blob Azure reste le moyen de **rafraîchir** cette table quand NEURACORP publie une
 nomenclature ; il n'est plus sur le chemin critique d'un écran client.
 
-`KonnectTenantMapping` (24/08/2026) relie un cabinet Konnect (`tenantId`, UUID) à un centre
+`KonnectTenantMapping` (24/08/2026, `slug` ajouté le 15/09/2026 par
+`2026_09_15_konnect_tenant_identite.sql`) relie un cabinet Konnect (`tenantId`, UUID) à un centre
 du Dashboard (`userProductId`). **1 ↔ 1 contraint dans les deux sens**, à la différence
 d'`ExternalCenterMapping` qui accepte N codes pour un `UserProduct` : le Dashboard doit
 pouvoir résoudre le tenant d'un centre sans ambiguïté, pas seulement l'inverse.
@@ -367,7 +403,12 @@ machine-à-machine (clé API seule, surface minimale : elle ne renvoie qu'un ent
 à Konnect à apprendre son `userProductId` une fois pour toutes.
 
 Depuis le lot A, cette table n'est plus sur le chemin critique de chaque lecture : Konnect
-retient l'identifiant de son côté. Elle reste **la seule autorité** du rattachement — ce que
+retient l'identifiant de son côté. **Depuis le 15/09/2026, c'est le Dashboard qui
+attribue l'identifiant** (UUID et `slug`) à l'affiliation du produit, et Konnect crée le
+cabinet d'après `GET /api/konnect-tenants-attendus` ; l'écran « Identifiants externes »
+garde sa saisie comme outil de réparation. Le `slug` est nullable et unique quand il est
+posé : les cabinets nés chez Konnect avant cette date gardent `NULL` et ne bougent pas.
+Elle reste **la seule autorité** du rattachement — ce que
 Konnect garde est un cache, effacé et re-résolu dès qu'un 404 révèle qu'il est caduc.
 
 `KonnectSettings` (24/08/2026) porte la configuration du portail patient, une ligne par
@@ -449,10 +490,15 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 |---|---|
 | **LyraeTalk** | 6 endpoints, dont toute sa configuration métier par centre. **S'ils tombent, le robot n'a plus de config.** |
 | **AI2Xplore** | 8 endpoints RDV + ordonnances, en polling |
-| **LyraeKonnect** | 5 endpoints : résolution d'identité, configuration cabinet, socle générique par domaine, mapping d'examens, sites. **Le pont est éteint par défaut** (`KONNECT_DASHBOARD_BASE_URL` vide côté Konnect) ; branché, une panne du Dashboard fige sa configuration mais n'arrête pas le portail patient — il sert son cache |
+| **LyraeKonnect** | 9 chemins, dont 2 en écriture : cabinets attendus, résolution d'identité, configuration cabinet, socle générique par domaine, mapping d'examens, sites. **Le pont est éteint par défaut** (`KONNECT_DASHBOARD_BASE_URL` vide côté Konnect) ; branché, une panne du Dashboard fige sa configuration mais n'arrête pas le portail patient — il sert son cache |
 | **Grafana** | format des logs d'audit |
 | **daily-report** | `GET /api/deployments` — section « Déploiement » du mail quotidien. Dégradation gracieuse de son côté : si la route tombe, la section disparaît, le mail part quand même |
 | **Sondes de déploiement** (3 VMs) | `POST /api/deployments` toutes les 15 min |
+
+**Je n'appelle jamais Konnect, et je ne le pourrai pas** : il passe derrière un VPN, je
+suis sur un VPS public (`DECISIONS.md` du workspace, 08/09/2026). Tout sens retour est un
+push de sa part, et un cabinet naît chez lui d'une **lecture** de ma liste, jamais d'un
+appel de ma part.
 
 ---
 
@@ -591,4 +637,9 @@ Deux états restent possibles, et le robot doit continuer à les traiter :
   en base à dessein — un `DELETE` sur `Product` cascade sur tout ce qui pend à `UserProduct`.
   Le modèle Prisma est conservé pour la même raison. Q14 close.
 - `SPECIAL_CENTRE_PAIRS` codé en dur (`auth-helpers.ts:32`).
-- Aucun test. `schema.prisma` ne couvre pas les 18 tables SQL manuelles.
+- Aucun test. `schema.prisma` ne couvre pas les tables SQL manuelles.
+- Deux comptes secrétaire dépendent encore de la branche héritée `isSecretary` (relevé
+  du 15/09/2026) : passer `scripts/data-provisioning/2026_09_15_preset_secretaire.sql`,
+  puis retirer la branche quand son contrôle final rend zéro.
+- La création d'un compte client part de trois écrans plus l'assistant ; les trois
+  anciens doivent se réduire à un renvoi vers `/admin/nouveau-centre`.

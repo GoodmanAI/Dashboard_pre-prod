@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/utils/prisma";
+// Migré de `@/utils/prisma` (client legacy) vers le client canonique le
+// 14/09/2026, comme le demande le CLAUDE.md du dépôt quand on passe sur un
+// fichier. `@/lib/prisma` n'a pas d'export par défaut, d'où l'import nommé.
+import { prisma } from "@/lib/prisma";
+import { requireAuth, requireAdmin } from "@/lib/auth-helpers";
 
 interface ProductStat {
   id: number;
@@ -8,6 +12,17 @@ interface ProductStat {
 }
 
 export async function GET(request: NextRequest) {
+  // ⚠️ Cette route n'avait AUCUNE garde de rôle jusqu'au 14/09/2026 : ni session
+  // vérifiée dans le handler, ni contrôle d'appartenance. Seul le middleware
+  // exigeait une session, donc tout compte client authentifié lisait la
+  // répartition hebdomadaire des affiliations de tous les produits, c'est-à-dire
+  // le rythme commercial de Lyrae. Elle est sous `/api/admin/`, elle n'alimente
+  // que la page `/admin/overview` : `requireAdmin` est le bon niveau.
+  const auth = await requireAuth();
+  if (auth.error) return auth.error;
+  const adminErr = requireAdmin(auth.session);
+  if (adminErr) return adminErr;
+
   try {
     // Récupérer la liste des produits et leurs clients affiliés
     const productStats: ProductStat[] = await prisma.product.findMany({

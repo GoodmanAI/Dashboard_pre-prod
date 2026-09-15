@@ -6,6 +6,8 @@ import {
   normalizeAlertAfterHours,
 } from "@/lib/prescriptionConfig";
 import { PAST_APPOINTMENT_SQL } from "@/lib/prescriptionAlerts";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * GET /api/prescriptions/alerts/count?userProductId=X
@@ -42,6 +44,9 @@ export async function GET(req: NextRequest) {
 
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownErr) return ownErr;
+
+  const droitErr = await requirePagePermission(PAGES.ORDONNANCES, "read");
+  if (droitErr) return droitErr;
 
   // Config alertAfterHours (fallback DEFAULT si pas de ligne PrescriptionConfig)
   const cfgRes = await db.query<{ alertAfterHours: number }>(

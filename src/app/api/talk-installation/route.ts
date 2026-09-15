@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth-helpers";
+import { requireAuth, requireAdmin } from "@/lib/auth-helpers";
 import { evaluerCentre, type Manque } from "@/lib/completude";
 import { lireCentresTalk } from "@/lib/completude/lecture";
 import type { StatutCentre } from "@/lib/centreStatut";
@@ -48,6 +48,13 @@ type LigneInstallation = {
 export async function GET(_req: NextRequest) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
+
+  // ⚠️ Garde ajoutée le 14/09/2026, même défaut que sur `/api/konnect-installation`.
+  // `requireAuth` seul laissait n'importe quel compte authentifié lire
+  // `lireCentresTalk()`, qui renvoie TOUS les centres du parc avec le nom du
+  // client et son e-mail. La page qui consomme cette route vit sous `/admin/`.
+  const adminErr = requireAdmin(auth.session);
+  if (adminErr) return adminErr;
 
   const centres = await lireCentresTalk();
 

@@ -4,7 +4,8 @@ import {
   assertUserProductOwnership,
   requireAuth,
 } from "@/lib/auth-helpers";
-import { rejectIfSecretary } from "@/lib/authGuards";
+import { requirePagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 import {
   DEFAULT_PRESCRIPTION_ENABLED,
   DEFAULT_ALERT_AFTER_HOURS,
@@ -124,8 +125,8 @@ export async function GET(req: NextRequest) {
  * Renvoie l'etat final normalise.
  */
 export async function POST(req: NextRequest) {
-  const secretaryErr = await rejectIfSecretary();
-  if (secretaryErr) return secretaryErr;
+  const droitEcritureErr = await requirePagePermission(PAGES.PARAMETRAGE, "write");
+  if (droitEcritureErr) return droitEcritureErr;
 
   const auth = await requireAuth();
   if (auth.error) return auth.error;

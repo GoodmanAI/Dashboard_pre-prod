@@ -27,7 +27,9 @@ import { useSession } from "next-auth/react";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import ExamTypeBadge, { EXAM_TYPE_SHORT } from "@/components/shared/ExamTypeBadge";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 import {
   CarteMapping,
@@ -125,7 +127,10 @@ type Ligne = {
 type FiltreAttribution = "tous" | "attribues" | "non_attribues";
 type FiltreChemin = "tous" | "bout_en_bout" | "rappel";
 
-export default function MappingExamensKonnect() {
+export default function MappingExamensKonnect() {
+  // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
+  // apres la saisie. La garde serveur reste seule responsable du refus reel.
+  const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_EXAMENS);
   const { userProductId } = useCentreProduit();
 
   /**
@@ -825,13 +830,13 @@ export default function MappingExamensKonnect() {
           enregistrement={enregistrement}
           onEnregistrer={enregistrer}
           onAnnuler={amorce ? undefined : () => setLignes(initial)}
-          blocage={
+          blocage={raisonLectureSeule ?? (
             codesEnDouble.size > 0
               ? "Un même code est attribué à plusieurs examens."
               : lignes.length === 0
                 ? "Aucun examen à enregistrer."
                 : null
-          }
+          )}
           libelle="Enregistrer le mapping"
         />
 

@@ -4,7 +4,8 @@ import {
   assertUserProductOwnership,
   requireAuth,
 } from "@/lib/auth-helpers";
-import { rejectIfSecretary } from "@/lib/authGuards";
+import { requirePagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 import {
   EXAM_TYPE_KEYS,
   normalizeEnabled,
@@ -144,8 +145,8 @@ export async function GET(req: NextRequest) {
  * activation/désactivation ne les perd pas ; ils sont juste masqués au GET.
  */
 export async function POST(req: NextRequest) {
-  const secretaryErr = await rejectIfSecretary();
-  if (secretaryErr) return secretaryErr;
+  const droitEcritureErr = await requirePagePermission(PAGES.PARAMETRAGE, "write");
+  if (droitEcritureErr) return droitEcritureErr;
 
   const auth = await requireAuth();
   if (auth.error) return auth.error;

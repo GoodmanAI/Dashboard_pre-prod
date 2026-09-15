@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +53,9 @@ export async function GET(req: NextRequest) {
 
     const ownershipErr = await assertUserProductOwnership(session, userProductId);
     if (ownershipErr) return ownershipErr;
+
+    const droitErr = await requirePagePermission(PAGES.PLANNING_COMPLET, "read");
+    if (droitErr) return droitErr;
 
     const from = fromParam ? new Date(fromParam) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const to = toParam ? new Date(toParam) : new Date();

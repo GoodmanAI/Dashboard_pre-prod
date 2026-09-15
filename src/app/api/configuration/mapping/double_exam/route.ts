@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma"; // adapte le chemin si besoin
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
-import { rejectIfSecretary } from "@/lib/authGuards";
+import { requirePagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
+import { journaliserEcritureConfig } from "@/lib/auditConfig";
 
 // =========================
 // GET
@@ -25,6 +27,9 @@ export async function GET(req: NextRequest) {
     const ownershipErr = await assertUserProductOwnership(session, userProductId);
     if (ownershipErr) return ownershipErr;
 
+    const droitErr = await requirePagePermission(PAGES.MAPPING_EXAM, "read");
+    if (droitErr) return droitErr;
+
     const talkSettings = await prisma.talkSettings.findUnique({
       where: { userProductId },
       select: { multiExamMapping: true },
@@ -47,8 +52,8 @@ export async function GET(req: NextRequest) {
 // =========================
 export async function POST(req: NextRequest) {
   try {
-    const secretaryErr = await rejectIfSecretary();
-    if (secretaryErr) return secretaryErr;
+    const droitEcritureErr = await requirePagePermission(PAGES.MAPPING_EXAM, "write");
+    if (droitEcritureErr) return droitEcritureErr;
 
     const auth = await requireAuth();
     if (auth.error) return auth.error;
@@ -80,6 +85,10 @@ export async function POST(req: NextRequest) {
         multiExamMapping: body,
       },
     });
+
+    // Qui a change quoi. Sans cette ligne, une modification de configuration
+    // faite par un sous-compte ne laissait aucune trace. Voir auditConfig.ts.
+    journaliserEcritureConfig(req, session, "talk-double-examen-update", userProductId);
 
     return NextResponse.json(updated.multiExamMapping);
   } catch (error) {

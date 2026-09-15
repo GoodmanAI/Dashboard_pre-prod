@@ -31,6 +31,7 @@
  */
 
 import { PRODUITS, type SlugProduit } from "@/lib/produits";
+import { PAGES, type PageKey } from "@/lib/permissions";
 
 export type Domaine = {
   /** Slug stable, namespacé par produit. Le renommer orpheline les données. */
@@ -40,6 +41,19 @@ export type Domaine = {
   cleApiEnv: string;
   /** À quoi sert ce domaine — repris tel quel dans l'écran d'administration. */
   libelle: string;
+  /**
+   * Page du modèle de droits qui régit ce domaine, ou `"admin"` quand il n'est
+   * réglable que par un administrateur (ajouté le 14/09/2026).
+   *
+   * **Pourquoi ici et pas dans le handler.** `/api/product-config` est une seule
+   * route qui sert **sept écrans clients** plus l'écran d'administration
+   * `talk-config`, discriminés par le paramètre `domaine`. Sans cette colonne, elle
+   * ne pouvait exiger qu'un droit unique, donc le plus large, ce qui aurait donné à
+   * un sous-compte réglant l'ordre des créneaux l'accès aux règles cliniques. La
+   * déclarer à côté de `cleApiEnv` garde la table de correspondance au même endroit
+   * que le reste de la définition du domaine.
+   */
+  page: PageKey | "admin";
 };
 
 /**
@@ -75,55 +89,64 @@ export const DOMAINES: Record<string, Domaine> = {
     cle: "talk.site",
     produit: "talk",
     cleApiEnv: "BOT_API_KEY",
-    libelle: "Configuration du robot vocal par centre",
+    libelle: "Configuration du robot vocal par centre",
+    page: "admin",
   },
   "konnect.regles-etat": {
     cle: "konnect.regles-etat",
     produit: "konnect",
     cleApiEnv: "KONNECT_API_KEY",
-    libelle: "Activation des règles cliniques par cabinet",
+    libelle: "Activation des règles cliniques par cabinet",
+    page: PAGES.KONNECT_REGLES_CLINIQUES,
   },
   "konnect.regles-fusion": {
     cle: "konnect.regles-fusion",
     produit: "konnect",
     cleApiEnv: "KONNECT_API_KEY",
-    libelle: "Règles de fusion d'examens",
+    libelle: "Règles de fusion d'examens",
+    page: PAGES.KONNECT_REGLES_FUSION,
   },
   "konnect.regles-coexistence": {
     cle: "konnect.regles-coexistence",
     produit: "konnect",
     cleApiEnv: "KONNECT_API_KEY",
-    libelle: "Règles de coexistence d'examens",
+    libelle: "Règles de coexistence d'examens",
+    page: PAGES.KONNECT_REGLES_COEXISTENCE,
   },
   "konnect.entonnoir-ordre": {
     cle: "konnect.entonnoir-ordre",
     produit: "konnect",
     cleApiEnv: "KONNECT_API_KEY",
-    libelle: "Ordre d'affichage de l'entonnoir",
+    libelle: "Ordre d'affichage de l'entonnoir",
+    page: PAGES.KONNECT_ENTONNOIR,
   },
   "konnect.slot-ranking": {
     cle: "konnect.slot-ranking",
     produit: "konnect",
     cleApiEnv: "KONNECT_API_KEY",
-    libelle: "Ordre intelligent des créneaux",
+    libelle: "Ordre intelligent des créneaux",
+    page: PAGES.KONNECT_CRENEAUX,
   },
   "konnect.ris-identite": {
     cle: "konnect.ris-identite",
     produit: "konnect",
     cleApiEnv: "KONNECT_API_KEY",
-    libelle: "Rattachement au logiciel de gestion du centre",
+    libelle: "Rattachement au logiciel de gestion du centre",
+    page: "admin",
   },
   "konnect.synonymes": {
     cle: "konnect.synonymes",
     produit: "konnect",
     cleApiEnv: "KONNECT_API_KEY",
-    libelle: "Synonymes d'examens propres au cabinet",
+    libelle: "Synonymes d'examens propres au cabinet",
+    page: PAGES.KONNECT_MOTS,
   },
   "konnect.paires-examens": {
     cle: "konnect.paires-examens",
     produit: "konnect",
     cleApiEnv: "KONNECT_API_KEY",
-    libelle: "Réglage des examens faits dans la même visite",
+    libelle: "Réglage des examens faits dans la même visite",
+    page: PAGES.KONNECT_PAIRES,
   },
 };
 

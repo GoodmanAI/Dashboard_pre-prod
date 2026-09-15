@@ -25,14 +25,37 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // Confirmation de RDV par SMS :
   //  - /api/rdv/init, /api/rdv/pending-events, /api/rdv/ack → API key (handler)
   //  - /api/rdv/[token], /api/rdv/[token]/respond → public, protégés par le token
-  /^\/api\/rdv(\/|$)/,
+  //
+  // ⚠️ Ce bloc remplace `/^\/api\/rdv(\/|$)/`, un motif de BRANCHE qui whitelistait
+  // toute route ajoutée dessous. C'est lui qui a laissé `/api/rdv/dev-seed`
+  // joignable sans session jusqu'au 14/09/2026, alors qu'elle écrit en base et
+  // renvoie le nom et la ville du centre.
+  //
+  // ⚠️ RISQUE RÉSIDUEL, à connaître avant d'ajouter une route ici : le motif de
+  // jeton ci-dessous accepte n'importe quel segment unique, faute de pouvoir
+  // distinguer un jeton d'un nom de route. Toute nouvelle route
+  // `/api/rdv/<quelque-chose>` sera donc whitelistée par accident. Si tu en
+  // ajoutes une, ajoute-la à la liste d'exclusion du `(?!…)`, ou garde-la
+  // toi-même dans son handler.
+  /^\/api\/rdv\/(?:init|ack|pending-events|reminder-sent|stats)$/,
+  /^\/api\/rdv\/(?!dev-seed$)[^/]+$/,
+  /^\/api\/rdv\/(?!dev-seed$)[^/]+\/respond$/,
   // Config "envoi SMS par type d'examen" — auth mixte (API key OU session) côté handler.
   /^\/api\/sms-confirmation-config$/,
   // Dépôt d'ordonnance patient :
-  //  - /api/prescriptions/init, /pending, /[id]/download, /[id]/ack → API key (handler)
+  //  - /api/prescriptions/init, /pending, /download/[id], /ack/[id] → API key (handler)
   //  - /api/prescriptions/[token]/status, /upload → public, protégés par le token
-  //  - /api/prescriptions/config → auth mixte (API key OU session) côté handler
-  /^\/api\/prescriptions(\/|$)/,
+  //
+  // ⚠️ Ce bloc remplace `/^\/api\/prescriptions(\/|$)/`, même motif de branche que
+  // pour `rdv` et même risque. Le commentaire précédent annonçait `config` en
+  // « auth mixte » : c'est faux, `config/route.ts` appelle `requireAuth`, qui est
+  // session seule. `config`, `alerts`, `alerts/count`, `alerts/[id]`, `rejected`
+  // et `stats` sont donc SORTIS de la whitelist : leur handler exigeait déjà une
+  // session, le middleware la refuse maintenant plus tôt. Aucun appelant par clé
+  // ne peut régresser, puisqu'aucun ne passait le handler.
+  /^\/api\/prescriptions\/(?:init|pending)$/,
+  /^\/api\/prescriptions\/(?:ack|download)\/[^/]+$/,
+  /^\/api\/prescriptions\/[^/]+\/(?:status|upload)$/,
   // Suivi de dérive de déploiement (chantier 2026-08-10) :
   //  - POST : sonde deploy/deployment-probe.js des 3 VMs → API key (handler)
   //  - GET  : page /admin/deployments (session admin) OU daily-report (API key),
@@ -55,6 +78,13 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // `/api/konnect-tenant-mapping` administre la correspondance et reste
   // réservée à une session admin — ne pas la whitelister.
   /^\/api\/konnect-tenant-mapping\/resolve$/,
+  // Les cabinets que le Dashboard attend (lot 4E, 2026-09-15). Konnect tire cette
+  // liste et cree les cabinets manquants lui-meme : c'est ainsi que l'identifiant de
+  // cabinet nait ici sans que le Dashboard ait a appeler Konnect, ce qu'il ne peut
+  // pas faire (VPN, decision du 2026-09-08).
+  // Cle API SEULE cote handler, jamais une session : la liste couvre tout le parc,
+  // et `requireAuthOrApiKey` l'ouvrirait a n'importe quel compte client.
+  /^\/api\/konnect-tenants-attendus$/,
   // Socle de configuration générique (lot B, 2026-08-26) : une brique vient lire
   // un domaine de configuration de son centre. La clé attendue DÉPEND du domaine
   // (KONNECT_API_KEY, BOT_API_KEY…) et est résolue dans le handler via le
@@ -68,10 +98,12 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // Sites du centre (lot C) : Konnect vient lire les adresses saisies par le
   // client, que le RIS n'expose pas. Lecture par cle, ecriture par session.
   /^\/api\/konnect-sites$/,
-  // Demandes de rappel (2026-09-02) : la SEULE route `konnect-*` ou Konnect
-  // ECRIT. Il y depose la demande d'un patient dont l'examen n'est pas reservable
-  // en ligne, pour que le secretariat le rappelle. Lecture et mise a jour
-  // reservees a une session.
+  // Demandes de rappel (2026-09-02) : la PREMIERE des deux routes `konnect-*` ou
+  // Konnect ECRIT, et la seule qui porte de la donnee patient. Il y depose la
+  // demande d'un patient dont l'examen n'est pas reservable en ligne, pour que le
+  // secretariat le rappelle. Lecture et mise a jour reservees a une session.
+  // (Ce commentaire disait « la SEULE » jusqu'au 14/09/2026, ce que celui de
+  // `konnect-remontee`, huit lignes plus bas, dementait deja.)
   /^\/api\/konnect-demandes-rappel$/,
   // Remontee d'etat (2026-09-08, lot E) : la SECONDE et derniere route ou Konnect
   // ECRIT. Il y depose ce qu'il observe et que le Dashboard ne peut pas deduire

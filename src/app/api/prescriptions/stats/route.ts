@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { assertUserProductOwnership, requireAuth } from "@/lib/auth-helpers";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * GET /api/prescriptions/stats?userProductId=X&from=YYYY-MM-DD&to=YYYY-MM-DD
@@ -46,6 +48,9 @@ export async function GET(req: NextRequest) {
 
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownErr) return ownErr;
+
+  const droitErr = await requirePagePermission(PAGES.ORDONNANCES, "read");
+  if (droitErr) return droitErr;
 
   const fromRaw = req.nextUrl.searchParams.get("from");
   const toRaw = req.nextUrl.searchParams.get("to");

@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { assertUserProductOwnership, requireAuth } from "@/lib/auth-helpers";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { triggerAzureRebuildWebhook } from "@/lib/moduleInfoWebhook";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * PATCH  /api/module-info/items/[id] -> modif partielle
@@ -66,6 +68,9 @@ export async function PATCH(
 
   const ownErr = await assertUserProductOwnership(auth.session, existing.userProductId);
   if (ownErr) return ownErr;
+
+  const droitErr = await requirePagePermission(PAGES.INFORMATIONNEL, "write");
+  if (droitErr) return droitErr;
 
   const result = await prisma.$transaction(async (tx) => {
     const updated = await tx.moduleInfoItem.update({
@@ -132,6 +137,9 @@ export async function DELETE(
 
   const ownErr = await assertUserProductOwnership(auth.session, existing.userProductId);
   if (ownErr) return ownErr;
+
+  const droitErr = await requirePagePermission(PAGES.INFORMATIONNEL, "write");
+  if (droitErr) return droitErr;
 
   const result = await prisma.$transaction(async (tx) => {
     await tx.moduleInfoItem.delete({ where: { id } });

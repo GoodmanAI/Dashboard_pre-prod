@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
-import { rejectIfSecretary } from "@/lib/authGuards";
+import { requirePagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
+import { journaliserEcritureConfig } from "@/lib/auditConfig";
 
 export async function POST(request: Request) {
-    const secretaryErr = await rejectIfSecretary();
-    if (secretaryErr) return secretaryErr;
+    const droitEcritureErr = await requirePagePermission(PAGES.PARAMETRAGE, "write");
+    if (droitEcritureErr) return droitEcritureErr;
 
     const auth = await requireAuth();
     if (auth.error) return auth.error;
@@ -26,6 +28,10 @@ export async function POST(request: Request) {
         update: { reconnaissance },
         create: { userProductId, reconnaissance },
         });
+
+        // Qui a change quoi. Sans cette ligne, une modification de configuration
+        // faite par un sous-compte ne laissait aucune trace. Voir auditConfig.ts.
+        journaliserEcritureConfig(request, session, "talk-reconnaissance-update", Number(userProductId));
 
         return NextResponse.json(settings);
     } catch (error) {

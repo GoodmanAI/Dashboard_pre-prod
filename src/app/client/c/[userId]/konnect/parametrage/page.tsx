@@ -21,7 +21,9 @@ import {
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { useCentreProduit } from "@/hooks/useCentreProduit";
+import { useCentreProduit } from "@/hooks/useCentreProduit";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elements/CustomTextField";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import IdentiteVisuelleKonnect from "@/components/konnect/IdentiteVisuelleKonnect";
@@ -133,6 +135,11 @@ function Reglage({
 
 export default function ParametrageKonnectPage() {
   const { userProductId } = useCentreProduit();
+
+  // Lecture seule (15/09/2026). Cet écran est le seul écran de configuration Konnect
+  // sans `BarreEnregistrement` : il porte son propre bouton, et n'avait donc aucun
+  // moyen de dire qu'un sous-compte n'a pas le droit d'enregistrer.
+  const { peutEcrire, raisonLectureSeule } = useDroitPage(PAGES.KONNECT_PARAMETRAGE);
 
   const [config, setConfig] = useState<Config | null>(null);
   // Ce que le portail a remonté de lui-même (lot E). `null` = rien reçu, ce qui est
@@ -719,12 +726,18 @@ export default function ParametrageKonnectPage() {
           </Alert>
         )}
 
+        {raisonLectureSeule && (
+          <Alert severity="info" sx={{ mt: 3 }}>
+            {raisonLectureSeule}
+          </Alert>
+        )}
+
         <Box sx={{ mt: 3, display: "flex", justifyContent: "flex-end" }}>
           <Button
             variant="contained"
             size="large"
             onClick={enregistrer}
-            disabled={enregistrement}
+            disabled={enregistrement || !peutEcrire}
             sx={{
               bgcolor: "var(--accent)",
               fontWeight: 600,

@@ -2,7 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma'
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
-import { rejectIfSecretary } from "@/lib/authGuards";
+import { requirePagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
+import { journaliserEcritureConfig } from "@/lib/auditConfig";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,6 +20,9 @@ export async function GET(req: NextRequest) {
 
     const ownershipErr = await assertUserProductOwnership(session, userProductId);
     if (ownershipErr) return ownershipErr;
+
+    const droitErr = await requirePagePermission(PAGES.PARAMETRAGE, "read");
+    if (droitErr) return droitErr;
 
     const userProduct = await prisma.userProduct.findUnique({
       where: { id: userProductId },
@@ -43,8 +48,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const secretaryErr = await rejectIfSecretary();
-    if (secretaryErr) return secretaryErr;
+    const droitEcritureErr = await requirePagePermission(PAGES.PARAMETRAGE, "write");
+    if (droitEcritureErr) return droitEcritureErr;
 
     const auth = await requireAuth();
     if (auth.error) return auth.error;
@@ -74,6 +79,10 @@ export async function POST(req: NextRequest) {
         weeklyHours: weeklyHours,
       },
     });
+
+    // Qui a change quoi. Sans cette ligne, une modification de configuration
+    // faite par un sous-compte ne laissait aucune trace. Voir auditConfig.ts.
+    journaliserEcritureConfig(req, session, "talk-horaires-update", userProductId);
 
     return NextResponse.json({ success: true, data: upserted });
   } catch (err) {

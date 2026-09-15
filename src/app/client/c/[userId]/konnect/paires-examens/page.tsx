@@ -21,7 +21,9 @@ import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 
 /**
@@ -129,7 +131,10 @@ function Minutes({
   );
 }
 
-export default function PairesExamensKonnect() {
+export default function PairesExamensKonnect() {
+  // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
+  // apres la saisie. La garde serveur reste seule responsable du refus reel.
+  const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_PAIRES);
   const { userProductId } = useCentreProduit();
 
   const [paires, setPaires] = useState<Paire[]>([]);
@@ -515,7 +520,8 @@ export default function PairesExamensKonnect() {
         <BarreEnregistrement
           modifications={modifications}
           enregistrement={enregistrement}
-          onEnregistrer={enregistrer}
+          onEnregistrer={enregistrer}
+          blocage={raisonLectureSeule}
           onAnnuler={() => setPaires(initial)}
           libelle="Enregistrer les paires"
         />

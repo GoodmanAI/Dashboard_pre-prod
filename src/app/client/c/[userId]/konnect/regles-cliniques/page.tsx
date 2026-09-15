@@ -14,7 +14,9 @@ import {
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 
 /**
@@ -62,7 +64,10 @@ type Etats = Record<string, boolean>;
 
 const DEFAUT: Etats = Object.fromEntries(REGLES_ACTIVABLES.map((r) => [r.id, false]));
 
-export default function ReglesCliniquesKonnect() {
+export default function ReglesCliniquesKonnect() {
+  // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
+  // apres la saisie. La garde serveur reste seule responsable du refus reel.
+  const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_REGLES_CLINIQUES);
   const { userProductId } = useCentreProduit();
 
   const [etats, setEtats] = useState<Etats>(DEFAUT);
@@ -212,7 +217,8 @@ export default function ReglesCliniquesKonnect() {
         <BarreEnregistrement
           modifications={modifications}
           enregistrement={enregistrement}
-          onEnregistrer={enregistrer}
+          onEnregistrer={enregistrer}
+          blocage={raisonLectureSeule}
           onAnnuler={() => setEtats(initial)}
           libelle="Enregistrer les règles"
         />

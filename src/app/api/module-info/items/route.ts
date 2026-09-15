@@ -7,6 +7,8 @@ import { assertUserProductOwnership, requireAuth } from "@/lib/auth-helpers";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { slugifyQuestion, uniqueSlug } from "@/lib/moduleInfoSlug";
 import { triggerAzureRebuildWebhook } from "@/lib/moduleInfoWebhook";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * CRUD interne ModuleInfoItem (chantier 2026-08-05).
@@ -37,6 +39,9 @@ export async function GET(req: NextRequest) {
 
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownErr) return ownErr;
+
+  const droitErr = await requirePagePermission(PAGES.INFORMATIONNEL, "read");
+  if (droitErr) return droitErr;
 
   const items = await prisma.moduleInfoItem.findMany({
     where: { userProductId },
@@ -100,6 +105,9 @@ export async function POST(req: NextRequest) {
 
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownErr) return ownErr;
+
+  const droitErr = await requirePagePermission(PAGES.INFORMATIONNEL, "write");
+  if (droitErr) return droitErr;
 
   // Slug lisible auto. La PK est globale a la table (pas par centre) :
   // on cherche donc les slugs GLOBALEMENT (LIKE prefixe) pour eviter les

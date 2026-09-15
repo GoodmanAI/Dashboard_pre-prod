@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { PRODUITS } from "@/lib/produits";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * Ce que Konnect remonte au Dashboard (lot E du plan
@@ -178,6 +180,14 @@ export async function GET(req: NextRequest) {
 
   const ownershipErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownershipErr) return ownershipErr;
+
+  // L'etat des canaux d'envoi s'affiche sur l'ecran des parametres, le funnel sur
+  // celui des statistiques : les deux pages ouvrent cette lecture.
+  const droitErr = await requireAnyPagePermission(
+    [PAGES.KONNECT_STATS, PAGES.KONNECT_PARAMETRAGE],
+    "read"
+  );
+  if (droitErr) return droitErr;
 
   const res = await db.query<{ charge: unknown; recuAt: Date }>(
     `SELECT "charge", "recuAt" FROM "KonnectRemontee" WHERE "userProductId" = $1`,

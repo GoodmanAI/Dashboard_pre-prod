@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-helpers";
 import { amorcerMapping } from "@/lib/referentielExamens";
+import { requirePagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * La liste d'examens qui amorce le mapping d'un centre jamais configuré.
@@ -29,6 +31,13 @@ import { amorcerMapping } from "@/lib/referentielExamens";
 export async function GET(req: NextRequest) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
+
+  // Droit par page (14/09/2026). Cette route sert le referentiel d'examens a l'ecran
+  // de mapping de LyraeTalk, son seul appelant. `requireAuth` seul la laissait ouverte
+  // a n'importe quel compte authentifie, y compris un sous-compte a qui le mapping
+  // n'avait pas ete accorde.
+  const droitErr = await requirePagePermission(PAGES.MAPPING_EXAM, "read");
+  if (droitErr) return droitErr;
 
   const brut = new URL(req.url).searchParams.get("userProductId");
   const userProductId = brut === null ? undefined : Number(brut);

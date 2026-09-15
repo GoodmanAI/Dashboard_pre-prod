@@ -10,7 +10,7 @@ import NavGroup from "./NavGroup";
 import { useCentre } from "@/app/context/CentreContext";
 import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
 import { hasPermission } from "@/lib/permissions";
-import { getPageFromHref } from "@/lib/pageAccess";
+import { verdictAccesHref } from "@/lib/pageAccess";
 import { trouverProduit, ORDRE_PRODUITS, PRODUITS, type SlugProduit } from "@/lib/produits";
 import { lireCheminCentre } from "@/lib/cheminsCentre";
 
@@ -159,18 +159,23 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
     // Items LYRAE (démos produits) : masqués pour tous les rôles par défaut.
     if (item.title?.toUpperCase().includes("LYRAE")) return false;
 
-    // Filtre par permissions granulaires (chantier 3, Lot B).
-    // - Les headers de section (navlabel) restent visibles (peuvent contenir
-    //   au moins un item accessible). On les nettoie apres coup.
-    // - Les items sans page mapped (Support, Overview, Actions, etc.) sont
-    //   toujours affiches si le role de base y a acces (ADMIN/SUPER_ADMIN
-    //   ont deja acces a tout par role, CLIENT via la liste Menuitems).
-    // - Les items avec page mapped : hidden si !hasPermission read.
+    // Filtre par permissions granulaires (chantier 3, Lot B), revu le 15/09/2026
+    // avec l'inversion du defaut.
+    // - Les headers de section (navlabel) restent visibles : ils peuvent contenir au
+    //   moins un item accessible. On les nettoie apres coup.
+    // - `admin`   : visible seulement pour ADMIN / SUPER_ADMIN.
+    // - `exempt`  : toujours visible (Support, profil…).
+    // - `page`    : visible si hasPermission read.
+    // - `inconnu` : MASQUE. Avant, un item hors mapping etait affiche par defaut,
+    //   et c'est ce qui laissait tout le menu Konnect visible pour un sous-compte
+    //   a qui aucune page Konnect n'avait ete accordee.
     if (item.navlabel) return true;
     if (!item.href || !session?.user) return true;
-    const page = getPageFromHref(item.href);
-    if (!page) return true; // Item hors mapping = affiche par defaut
-    return hasPermission(session.user as any, page, "read");
+    const verdict = verdictAccesHref(item.href);
+    if (verdict.genre === "exempt") return true;
+    if (verdict.genre === "admin") return isAdmin;
+    if (verdict.genre === "inconnu") return false;
+    return hasPermission(session.user as any, verdict.page, "read");
   });
 
   // Nettoyage : retire les headers de section (navlabel) qui n'ont plus

@@ -40,6 +40,8 @@ import PageContainer from "@/app/(DashboardLayout)/components/container/PageCont
 import SectionHeader from "@/components/admin/SectionHeader";
 import ExamTypeBadge, { toExamTypeCode } from "@/components/shared/ExamTypeBadge";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 
 /**
@@ -260,6 +262,9 @@ function ChoixMultiple({
 }
 
 export default function ReglesCoexistenceKonnect() {
+  // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
+  // apres la saisie. La garde serveur reste seule responsable du refus reel.
+  const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_REGLES_COEXISTENCE);
   const { userProductId } = useCentreProduit();
 
   const [regles, setRegles] = useState<Regle[]>([]);
@@ -769,7 +774,7 @@ export default function ReglesCoexistenceKonnect() {
             setRegles(initial);
             setOuverte(null);
           }}
-          blocage={blocage}
+          blocage={raisonLectureSeule ?? blocage}
           libelle="Enregistrer les règles"
         />
 

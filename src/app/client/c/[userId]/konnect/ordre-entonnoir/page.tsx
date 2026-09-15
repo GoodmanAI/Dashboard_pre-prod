@@ -23,7 +23,9 @@ import ExamTypeBadge, {
   EXAM_TYPE_LABELS,
   toExamTypeCode,
 } from "@/components/shared/ExamTypeBadge";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 
 /**
@@ -118,7 +120,10 @@ function deplacer<T>(liste: T[], index: number, delta: number): T[] {
   return copie;
 }
 
-export default function OrdreEntonnoirKonnect() {
+export default function OrdreEntonnoirKonnect() {
+  // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
+  // apres la saisie. La garde serveur reste seule responsable du refus reel.
+  const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_ENTONNOIR);
   const { userProductId } = useCentreProduit();
 
   const [modalites, setModalites] = useState<string[]>(MODALITES_DEFAUT);
@@ -393,7 +398,8 @@ export default function OrdreEntonnoirKonnect() {
         <BarreEnregistrement
           modifications={modifications}
           enregistrement={enregistrement}
-          onEnregistrer={enregistrer}
+          onEnregistrer={enregistrer}
+          blocage={raisonLectureSeule}
           onAnnuler={
             initial
               ? () => {

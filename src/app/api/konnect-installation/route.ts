@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth-helpers";
+import { requireAuth, requireAdmin } from "@/lib/auth-helpers";
 import { evaluerCentre, type Manque } from "@/lib/completude";
 import { lireCentresKonnect } from "@/lib/completude/lecture";
 import type { StatutCentre } from "@/lib/centreStatut";
@@ -56,6 +56,16 @@ type LigneInstallation = {
 export async function GET(_req: NextRequest) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
+
+  // ⚠️ Garde ajoutée le 14/09/2026. `requireAuth` seul laissait N'IMPORTE QUEL
+  // compte authentifié lire `lireCentresKonnect()`, qui renvoie TOUS les centres
+  // avec le nom du client, son e-mail, son `tenantId`, et l'adresse comme le code
+  // site de son RIS. Un client d'un seul centre obtenait donc l'annuaire complet
+  // du parc depuis la console de son navigateur. La page qui consomme cette route
+  // vit sous `/admin/`, donc seuls des administrateurs l'ouvraient déjà : la garde
+  // ne retire l'accès à personne qui s'en servait.
+  const adminErr = requireAdmin(auth.session);
+  if (adminErr) return adminErr;
 
   const centres = await lireCentresKonnect();
 

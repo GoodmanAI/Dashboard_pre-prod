@@ -16,7 +16,9 @@ import {
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 
 /**
@@ -81,7 +83,10 @@ function Reglage({
   );
 }
 
-export default function OrdreCreneauxKonnect() {
+export default function OrdreCreneauxKonnect() {
+  // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
+  // apres la saisie. La garde serveur reste seule responsable du refus reel.
+  const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_CRENEAUX);
   const { userProductId } = useCentreProduit();
 
   const [config, setConfig] = useState<Config>(DEFAUT);
@@ -239,7 +244,8 @@ export default function OrdreCreneauxKonnect() {
         <BarreEnregistrement
           modifications={modifications}
           enregistrement={enregistrement}
-          onEnregistrer={enregistrer}
+          onEnregistrer={enregistrer}
+          blocage={raisonLectureSeule}
           onAnnuler={() => setConfig(initial)}
           libelle="Enregistrer l'ordre"
         />

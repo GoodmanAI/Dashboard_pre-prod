@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { db } from "@/lib/db";
 import { assertUserProductOwnership, requireAuth } from "@/lib/auth-helpers";
+import { requirePagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 import { mimeTypeFromStoragePath } from "@/lib/prescriptionFileType";
 
 /**
@@ -103,6 +105,21 @@ export async function GET(
       errorReason: "ownership refused",
     });
     return ownErr;
+  }
+
+  // Droit par page (14/09/2026). Telecharger une ordonnance refusee est un geste de
+  // l'ecran Ordonnances : un sous-compte qui n'y a pas acces ne doit pas pouvoir
+  // recuperer le document en appelant l'API directement. Le refus est journalise
+  // comme l'est celui d'appartenance, parce qu'il porte sur une donnee de sante.
+  const droitErr = await requirePagePermission(PAGES.ORDONNANCES, "read");
+  if (droitErr) {
+    await auditLog({
+      uploadId: record.id,
+      actorIp,
+      success: false,
+      errorReason: "droit de page refuse",
+    });
+    return droitErr;
   }
 
   if (record.status !== "REJECTED") {

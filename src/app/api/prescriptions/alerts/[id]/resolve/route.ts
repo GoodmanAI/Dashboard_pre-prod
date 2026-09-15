@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { assertUserProductOwnership, requireAuth } from "@/lib/auth-helpers";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * POST /api/prescriptions/alerts/[id]/resolve
@@ -47,6 +49,9 @@ export async function POST(
 
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownErr) return ownErr;
+
+  const droitErr = await requirePagePermission(PAGES.ORDONNANCES, "write");
+  if (droitErr) return droitErr;
 
   // Verif que la ligne appartient bien au centre de l'user (via
   // externalCenterCode → mapping → userProductId) et qu'elle est encore

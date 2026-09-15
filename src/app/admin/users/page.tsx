@@ -347,7 +347,23 @@ export default function UsersManagementPage() {
                       {u.name ?? "(sans nom)"}
                     </Typography>
                     <RoleChip role={u.role} />
-                    {u.isSecretary && <Chip label="Secretaire" size="small" />}
+                    {/*
+                      La pastille ne s'affiche plus que pour un compte secrétaire qui
+                      n'a PAS de permissions écrites (15/09/2026).
+
+                      Depuis que `/api/admin/create-client` pose le préréglage en clair,
+                      le booléen `isSecretary` et le JSON de permissions disent la même
+                      chose pour tout compte récent : deux pastilles pour un seul état.
+                      Restreinte ainsi, elle dit quelque chose d'utile et de vrai : ce
+                      compte dépend encore de la branche héritée de `hasPermission`, donc
+                      il reste à reprendre par
+                      `scripts/data-provisioning/2026_09_15_preset_secretaire.sql`.
+                    */}
+                    {u.isSecretary && !isSubAccount(u) && u.permissions == null && (
+                      <Tooltip title="Compte secrétaire dont les droits ne sont pas encore écrits. À reprendre par le script de migration.">
+                        <Chip label="Secrétaire (hérité)" size="small" />
+                      </Tooltip>
+                    )}
                     {isSubAccount(u) && (
                       <Chip
                         label="Sous-compte"

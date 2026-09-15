@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { requireAuthOrApiKey, requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { PRODUITS } from "@/lib/produits";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * Demandes de rappel des patients LyraeKonnect
@@ -196,6 +198,9 @@ export async function GET(req: NextRequest) {
   const ownershipErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownershipErr) return ownershipErr;
 
+  const droitErr = await requirePagePermission(PAGES.KONNECT_DEMANDES_RAPPEL, "read");
+  if (droitErr) return droitErr;
+
   if (!(await estCentreKonnect(userProductId))) {
     return NextResponse.json(
       { error: "Aucun centre LyraeKonnect pour cet identifiant" },
@@ -236,6 +241,11 @@ export async function PATCH(req: NextRequest) {
 
   const ownershipErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownershipErr) return ownershipErr;
+
+  // Marquer un patient comme rappele est du travail de secretariat, pas de la
+  // configuration : cette page reste accordable en ecriture a un sous-compte.
+  const droitErr = await requirePagePermission(PAGES.KONNECT_DEMANDES_RAPPEL, "write");
+  if (droitErr) return droitErr;
 
   let body: any;
   try {

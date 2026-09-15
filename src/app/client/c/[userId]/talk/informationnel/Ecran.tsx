@@ -1,7 +1,9 @@
 "use client";
 
 import { Alert, Box } from "@mui/material";
-import { useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 import ModuleInfoAdmin from "@/components/moduleInfo/ModuleInfoAdmin";
 
 /**
@@ -28,16 +30,19 @@ interface TalkPageProps {
 
 export default function DashboardTalkForm({ params }: TalkPageProps) {
   const userProductId = Number(params.id);
-  const { data: sessionData } = useSession();
-  const readOnly = !!sessionData?.user?.isSecretary;
+  // Lecture seule, revue le 15/09/2026 : elle se lisait sur le seul booleen
+  // herite `isSecretary`, donc un sous-compte moderne cree avec cette page en
+  // lecture voyait tous ses champs actifs et decouvrait le refus a
+  // l'enregistrement. `useDroitPage` couvre les deux cas.
+  const { peutEcrire, raisonLectureSeule } = useDroitPage(PAGES.INFORMATIONNEL);
+  const readOnly = !peutEcrire;
 
   return (
     <Box sx={{ my: 4, px: { xs: 2, sm: 4 } }}>
       {readOnly && (
         <Box sx={{ maxWidth: 960, mx: "auto", mb: 3 }}>
           <Alert severity="info">
-            Mode lecture seule — votre compte secrétaire ne permet pas de modifier
-            la configuration.
+            {raisonLectureSeule}
           </Alert>
         </Box>
       )}

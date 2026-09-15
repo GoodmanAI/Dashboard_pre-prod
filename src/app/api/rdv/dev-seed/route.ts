@@ -11,8 +11,21 @@ import {
  * sans dépendre de l'API métier. Désactivé en production.
  *
  * Usage : ouvrir `/api/rdv/dev-seed` (ou `/api/rdv/dev-seed?centerId=N`) dans le navigateur.
+ *
+ * ⚠️ La phrase « Désactivé en production » ci-dessus était une intention, pas un
+ * comportement : jusqu'au 14/09/2026 rien ne la mettait en oeuvre. Le motif
+ * `/^\/api\/rdv(\/|$)/` de `middleware.ts` whiteliste toute la branche `rdv`, donc
+ * cette route était joignable SANS session, et elle écrit en base
+ * (`INSERT ... ON CONFLICT DO UPDATE` sur `AppointmentConfirmation`) tout en renvoyant
+ * le nom et la ville du centre. Un inconnu pouvait donc énumérer les centres clients
+ * en bouclant sur `?centerId=`. La garde ci-dessous applique enfin ce que le
+ * commentaire annonçait.
  */
 export async function GET(req: NextRequest) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   if (!process.env.APPOINTMENT_HMAC_SECRET) {
     return NextResponse.json(
       {

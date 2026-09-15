@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { assertUserProductOwnership, requireAuthOrApiKey } from "@/lib/auth-helpers";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * GET /api/rdv/stats
@@ -113,6 +115,13 @@ export async function GET(req: NextRequest) {
     }
     const ownErr = await assertUserProductOwnership(auth.session, userProductId);
     if (ownErr) return ownErr;
+
+    // Deux ecrans lisent ces statistiques : Stats no-show et Stats appels.
+    const droitErr = await requireAnyPagePermission(
+      [PAGES.STATS_NO_SHOW, PAGES.STATS_APPEL],
+      "read"
+    );
+    if (droitErr) return droitErr;
 
     const mapRes = await db.query<{ externalCenterCode: string }>(
       `SELECT "externalCenterCode"

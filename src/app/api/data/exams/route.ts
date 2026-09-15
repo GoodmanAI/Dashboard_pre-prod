@@ -4,6 +4,8 @@ import path from "path";
 import Papa from "papaparse"; // CSV parser
 import { BlobServiceClient } from "@azure/storage-blob";
 import * as XLSX from "xlsx";
+import { requirePagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 
@@ -18,6 +20,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  // Droit par page (14/09/2026). Cette route exporte le referentiel d'examens
+  // NEURACORP en CSV. Elle n'avait AUCUNE garde propre et ne devait sa protection
+  // qu'a son absence de la liste blanche du middleware, c'est-a-dire a une session.
+  // Son seul appelant est l'ecran de mapping de LyraeTalk.
+  const droitErr = await requirePagePermission(PAGES.MAPPING_EXAM, "read");
+  if (droitErr) return droitErr;
+
   try {
     const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING_NEURACORP_EXAMS;
     const containerName = process.env.NEURACORP_EXAMS_CONTAINER!;

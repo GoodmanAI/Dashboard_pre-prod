@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { PRODUITS } from "@/lib/produits";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * Sites d'un centre LyraeKonnect (lot C, second ticket).
@@ -68,6 +70,13 @@ export async function GET(req: NextRequest) {
   if (!auth.bot) {
     const ownershipErr = await assertUserProductOwnership(auth.session, userProductId);
     if (ownershipErr) return ownershipErr;
+
+    // L'ecran des regles de coexistence lit aussi les sites.
+    const droitErr = await requireAnyPagePermission(
+      [PAGES.KONNECT_SITES, PAGES.KONNECT_REGLES_COEXISTENCE],
+      "read"
+    );
+    if (droitErr) return droitErr;
   }
 
   if (!(await estCentreKonnect(userProductId))) {
@@ -143,6 +152,9 @@ export async function PUT(req: NextRequest) {
 
   const ownershipErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownershipErr) return ownershipErr;
+
+  const droitErr = await requirePagePermission(PAGES.KONNECT_SITES, "write");
+  if (droitErr) return droitErr;
 
   if (!(await estCentreKonnect(userProductId))) {
     return NextResponse.json(

@@ -12,6 +12,8 @@ import {
   COLONNES_KONNECT,
   type ConfigKonnect,
 } from "@/lib/konnectConfig";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * Configuration LyraeKonnect d'un centre.
@@ -145,6 +147,9 @@ export async function GET(req: NextRequest) {
   if (!auth.bot) {
     const ownershipErr = await assertUserProductOwnership(auth.session, cible.userProductId);
     if (ownershipErr) return ownershipErr;
+
+    const droitErr = await requirePagePermission(PAGES.KONNECT_PARAMETRAGE, "read");
+    if (droitErr) return droitErr;
   } else if (!(await estCentreKonnect(cible.userProductId))) {
     // Même réponse qu'un tenant non rattaché : de l'extérieur, « ce centre n'est
     // pas un centre Konnect » et « ce cabinet n'est rattaché à rien » sont le
@@ -179,6 +184,9 @@ export async function PUT(req: NextRequest) {
 
   const ownershipErr = await assertUserProductOwnership(auth.session, cible.userProductId);
   if (ownershipErr) return ownershipErr;
+
+  const droitErr = await requirePagePermission(PAGES.KONNECT_PARAMETRAGE, "write");
+  if (droitErr) return droitErr;
 
   let body: any;
   try {

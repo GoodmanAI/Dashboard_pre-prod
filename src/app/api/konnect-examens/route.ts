@@ -6,6 +6,8 @@ import { requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-help
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { PRODUITS } from "@/lib/produits";
 import { amorcerMapping } from "@/lib/referentielExamens";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * Mapping d'examens LyraeKonnect d'un centre (lot C).
@@ -136,6 +138,22 @@ export async function GET(req: NextRequest) {
   if (!auth.bot) {
     const ownershipErr = await assertUserProductOwnership(auth.session, userProductId);
     if (ownershipErr) return ownershipErr;
+
+    // Cinq ecrans lisent le catalogue : le mapping, l'ordre de l'entonnoir, les
+    // paires, les regles de fusion et celles de coexistence. Exiger la seule page
+    // « Mapping » couperait un sous-compte qui n'a legitimement que l'une des
+    // quatre autres.
+    const droitErr = await requireAnyPagePermission(
+      [
+        PAGES.KONNECT_EXAMENS,
+        PAGES.KONNECT_ENTONNOIR,
+        PAGES.KONNECT_PAIRES,
+        PAGES.KONNECT_REGLES_FUSION,
+        PAGES.KONNECT_REGLES_COEXISTENCE,
+      ],
+      "read"
+    );
+    if (droitErr) return droitErr;
   }
 
   if (!(await estCentreKonnect(userProductId))) {
@@ -235,6 +253,11 @@ export async function PUT(req: NextRequest) {
 
   const ownershipErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownershipErr) return ownershipErr;
+
+  // L'ecriture, elle, nomme une seule page : un droit accorde pour l'ordre de
+  // l'entonnoir n'a pas a ouvrir le mapping.
+  const droitErr = await requirePagePermission(PAGES.KONNECT_EXAMENS, "write");
+  if (droitErr) return droitErr;
 
   if (!(await estCentreKonnect(userProductId))) {
     return NextResponse.json(

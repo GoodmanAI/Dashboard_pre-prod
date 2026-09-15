@@ -25,7 +25,9 @@ import AddIcon from "@mui/icons-material/Add";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 
 /**
@@ -86,7 +88,10 @@ function EnTete({
   );
 }
 
-export default function SitesKonnect() {
+export default function SitesKonnect() {
+  // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
+  // apres la saisie. La garde serveur reste seule responsable du refus reel.
+  const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_SITES);
   const { userProductId } = useCentreProduit();
 
   const [sites, setSites] = useState<Site[]>([]);
@@ -342,7 +347,7 @@ export default function SitesKonnect() {
           enregistrement={enregistrement}
           onEnregistrer={enregistrer}
           onAnnuler={() => setSites(initial)}
-          blocage={blocage}
+          blocage={raisonLectureSeule ?? blocage}
           libelle="Enregistrer les sites"
         />
 

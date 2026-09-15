@@ -17,7 +17,9 @@ import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 
 /**
@@ -55,7 +57,10 @@ type Mot = { terme: string; cible: string };
 /** Une ligne vide est le geste d'ajout : on ne l'enregistre jamais telle quelle. */
 const LIGNE_VIDE: Mot = { terme: "", cible: "" };
 
-export default function MotsCabinetKonnect() {
+export default function MotsCabinetKonnect() {
+  // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
+  // apres la saisie. La garde serveur reste seule responsable du refus reel.
+  const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_MOTS);
   const { userProductId } = useCentreProduit();
 
   const [mots, setMots] = useState<Mot[]>([]);
@@ -290,7 +295,8 @@ export default function MotsCabinetKonnect() {
         <BarreEnregistrement
           modifications={modifications}
           enregistrement={enregistrement}
-          onEnregistrer={enregistrer}
+          onEnregistrer={enregistrer}
+          blocage={raisonLectureSeule}
           onAnnuler={() => setMots(initial)}
           libelle="Enregistrer les mots"
         />

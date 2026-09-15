@@ -22,7 +22,9 @@ import {
 } from "@mui/material";
 import SaveIcon from "@mui/icons-material/Save";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
-import { useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 
 interface PageProps {
   params: { id: string };
@@ -61,8 +63,12 @@ function parseStringArray(value?: string): string[] {
 export default function EditExamQuestions({ params }: PageProps) {
   const userProductId = Number(params.id);
   const router = useRouter();
-  const { data: sessionData } = useSession();
-  const readOnly = !!sessionData?.user?.isSecretary;
+  // Lecture seule, revue le 15/09/2026 : elle se lisait sur le seul booleen
+  // herite `isSecretary`, donc un sous-compte moderne cree avec cette page en
+  // lecture voyait tous ses champs actifs et decouvrait le refus a
+  // l'enregistrement. `useDroitPage` couvre les deux cas.
+  const { peutEcrire, raisonLectureSeule } = useDroitPage(PAGES.QUESTIONS_EXAM);
+  const readOnly = !peutEcrire;
 
   const [exams, setExams] = useState<Record<string, Exam>>({});
   const [search, setSearch] = useState("");
@@ -225,7 +231,7 @@ export default function EditExamQuestions({ params }: PageProps) {
 
         {readOnly && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Mode lecture seule — votre compte secrétaire ne permet pas de modifier les questions.
+            {raisonLectureSeule}
           </Alert>
         )}
 

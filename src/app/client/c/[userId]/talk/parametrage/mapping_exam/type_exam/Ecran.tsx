@@ -21,7 +21,9 @@ import {
   IconInfoCircle,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 import ExamTypeBadge, {
   EXAM_TYPE_LABELS,
 } from "@/components/shared/ExamTypeBadge";
@@ -96,8 +98,12 @@ interface Mapping {
 export default function EditTypeExam({ params }: TalkPageProps) {
   const userProductId = Number(params.id);
   const router = useRouter();
-  const { data: sessionData } = useSession();
-  const readOnly = !!sessionData?.user?.isSecretary;
+  // Lecture seule, revue le 15/09/2026 : elle se lisait sur le seul booleen
+  // herite `isSecretary`, donc un sous-compte moderne cree avec cette page en
+  // lecture voyait tous ses champs actifs et decouvrait le refus a
+  // l'enregistrement. `useDroitPage` couvre les deux cas.
+  const { peutEcrire, raisonLectureSeule } = useDroitPage(PAGES.MAPPING_EXAM);
+  const readOnly = !peutEcrire;
 
   const [mapping, setMapping] = useState<Mapping>({});
   const [originalMapping, setOriginalMapping] = useState<Mapping>({});
@@ -250,8 +256,7 @@ export default function EditTypeExam({ params }: TalkPageProps) {
 
       {readOnly && (
         <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
-          Mode lecture seule — votre compte secrétaire ne permet pas de modifier
-          la configuration.
+          {raisonLectureSeule}
         </Alert>
       )}
 

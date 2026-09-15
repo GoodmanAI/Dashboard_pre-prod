@@ -3,14 +3,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
-import { rejectIfSecretary } from "@/lib/authGuards";
+import { requirePagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 import {
   EXAM_TYPES,
   LIBELLE_STOCKE,
   indexerParType,
   diminutifDuType,
   type ExamType,
-} from "@/lib/examTypes";
+} from "@/lib/examTypes";
+import { journaliserEcritureConfig } from "@/lib/auditConfig";
 
 /**
  * Correspondance « type d'examen canonique → code court du centre » (diminutif).
@@ -93,8 +95,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const secretaryErr = await rejectIfSecretary();
-  if (secretaryErr) return secretaryErr;
+  const droitEcritureErr = await requirePagePermission(PAGES.MAPPING_EXAM, "write");
+  if (droitEcritureErr) return droitEcritureErr;
 
   const auth = await requireAuth();
   if (auth.error) return auth.error;
@@ -159,6 +161,10 @@ export async function POST(req: Request) {
     prisma.examMapping.deleteMany({ where: { userProductId: id } }),
     prisma.examMapping.createMany({ data: lignes }),
   ]);
+
+  // Qui a change quoi. Sans cette ligne, une modification de configuration
+  // faite par un sous-compte ne laissait aucune trace. Voir auditConfig.ts.
+  journaliserEcritureConfig(req, session, "talk-types-examens-update", id);
 
   return NextResponse.json({ success: true });
 }

@@ -26,7 +26,9 @@ import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import ExamTypeBadge, { toExamTypeCode } from "@/components/shared/ExamTypeBadge";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 
 /**
@@ -62,7 +64,10 @@ type Examen = { code: string; libelle: string; type: string | null };
 
 const REGLE_VIDE: Regle = { examens: [], code_ris: "", libelle_patient: "", actif: true };
 
-export default function ReglesFusionKonnect() {
+export default function ReglesFusionKonnect() {
+  // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
+  // apres la saisie. La garde serveur reste seule responsable du refus reel.
+  const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_REGLES_FUSION);
   const { userProductId } = useCentreProduit();
 
   const [regles, setRegles] = useState<Regle[]>([]);
@@ -361,7 +366,7 @@ export default function ReglesFusionKonnect() {
           enregistrement={enregistrement}
           onEnregistrer={enregistrer}
           onAnnuler={() => setRegles(initial)}
-          blocage={blocage}
+          blocage={raisonLectureSeule ?? blocage}
           libelle="Enregistrer les règles"
         />
 

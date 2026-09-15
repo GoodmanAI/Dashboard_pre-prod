@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma'
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
-import { rejectIfSecretary } from "@/lib/authGuards";
+import { requirePagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 
 /**
@@ -136,8 +137,8 @@ function contradictions(lignes: LigneEnvoyee[]): string | null {
 
 export async function POST(req: NextRequest) {
   try {
-    const secretaryErr = await rejectIfSecretary();
-    if (secretaryErr) return secretaryErr;
+    const droitEcritureErr = await requirePagePermission(PAGES.MAPPING_EXAM, "write");
+    if (droitEcritureErr) return droitEcritureErr;
 
     const auth = await requireAuth();
     if (auth.error) return auth.error;
@@ -260,6 +261,9 @@ export async function GET(req: Request) {
 
     const ownershipErr = await assertUserProductOwnership(session, Number(userProductId));
     if (ownershipErr) return ownershipErr;
+
+    const droitErr = await requirePagePermission(PAGES.MAPPING_EXAM, "read");
+    if (droitErr) return droitErr;
 
     const settings = await prisma.talkSettings.findUnique({
       where: { userProductId: Number(userProductId) },

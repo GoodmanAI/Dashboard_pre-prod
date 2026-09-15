@@ -51,7 +51,9 @@ import { useRouter } from "next/navigation";
 import { IconChevronLeft } from "@tabler/icons-react";
 import { useCentre } from "@/app/context/CentreContext";
 import { useTalkBasePath } from "@/utils/talkRoutes";
-import { useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import SmsConfirmationConfigCard from "./SmsConfirmationConfigCard";
 import SmsBookingConfirmationCard from "./SmsBookingConfirmationCard";
@@ -398,7 +400,12 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   const basePath = useTalkBasePath(userProductId);
   const { data: sessionData } = useSession();
   console.log("user", sessionData?.user);
-  const readOnly = !!sessionData?.user?.isSecretary;
+  // Lecture seule, revue le 15/09/2026 : elle se lisait sur le seul booleen
+  // herite `isSecretary`, donc un sous-compte moderne cree avec cette page en
+  // lecture voyait tous ses champs actifs et decouvrait le refus a
+  // l'enregistrement. `useDroitPage` couvre les deux cas.
+  const { peutEcrire, raisonLectureSeule } = useDroitPage(PAGES.PARAMETRAGE);
+  const readOnly = !peutEcrire;
   
   const [settings, setSettings] = useState<TalkSettings>(DEFAULTS);
   const [saving, setSaving] = useState(false);
@@ -723,7 +730,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
 
       {readOnly && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Mode lecture seule — votre compte secrétaire ne permet pas de modifier la configuration.
+          {raisonLectureSeule}
         </Alert>
       )}
 

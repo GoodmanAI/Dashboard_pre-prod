@@ -45,21 +45,120 @@ const PATH_MATCHERS: Array<{ pattern: RegExp; page: PageKey }> = [
   // Page racine talk (redirige generalement vers parametrage cote UI)
   { pattern: /\/talk(?:\/\d+)?\/?$/, page: PAGES.DASHBOARD },
 
+  // Konnect sous-sections (ajoutees le 14/09/2026).
+  //
+  // Les treize ecrans Konnect n'etaient mappes par AUCUN motif, et un chemin inconnu
+  // laisse passer (voir `getPageFromPathname` ci-dessous) : le produit entier etait
+  // donc hors du modele de droits. Un sous-compte a qui l'on n'avait coche que
+  // « Statistiques » voyait tout le menu Konnect et pouvait enregistrer le mapping.
+  //
+  // Meme `(?:\d+\/)?` que pour Talk, et pour la meme raison : l'ancienne forme
+  // `/client/services/konnect/{id}/...` cohabite avec `/client/c/{userId}/konnect/...`.
+  { pattern: /\/konnect\/(?:\d+\/)?parametrage(?:\/|$)/, page: PAGES.KONNECT_PARAMETRAGE },
+  { pattern: /\/konnect\/(?:\d+\/)?examens(?:\/|$)/, page: PAGES.KONNECT_EXAMENS },
+  { pattern: /\/konnect\/(?:\d+\/)?sites(?:\/|$)/, page: PAGES.KONNECT_SITES },
+  { pattern: /\/konnect\/(?:\d+\/)?ordre-entonnoir(?:\/|$)/, page: PAGES.KONNECT_ENTONNOIR },
+  { pattern: /\/konnect\/(?:\d+\/)?regles-fusion(?:\/|$)/, page: PAGES.KONNECT_REGLES_FUSION },
+  {
+    pattern: /\/konnect\/(?:\d+\/)?regles-coexistence(?:\/|$)/,
+    page: PAGES.KONNECT_REGLES_COEXISTENCE,
+  },
+  { pattern: /\/konnect\/(?:\d+\/)?ordre-creneaux(?:\/|$)/, page: PAGES.KONNECT_CRENEAUX },
+  { pattern: /\/konnect\/(?:\d+\/)?paires-examens(?:\/|$)/, page: PAGES.KONNECT_PAIRES },
+  { pattern: /\/konnect\/(?:\d+\/)?mots-cabinet(?:\/|$)/, page: PAGES.KONNECT_MOTS },
+  {
+    pattern: /\/konnect\/(?:\d+\/)?regles-cliniques(?:\/|$)/,
+    page: PAGES.KONNECT_REGLES_CLINIQUES,
+  },
+  {
+    pattern: /\/konnect\/(?:\d+\/)?demandes-rappel(?:\/|$)/,
+    page: PAGES.KONNECT_DEMANDES_RAPPEL,
+  },
+  { pattern: /\/konnect\/(?:\d+\/)?statistiques(?:\/|$)/, page: PAGES.KONNECT_STATS },
+
+  // Page racine konnect, en dernier des motifs Konnect : elle ne doit pas capter
+  // les sous-sections ci-dessus.
+  { pattern: /\/konnect(?:\/\d+)?\/?$/, page: PAGES.KONNECT_DASHBOARD },
+
   // Dashboard racine
   { pattern: /^\/client\/?$/, page: PAGES.DASHBOARD },
   { pattern: /^\/admin\/?$/, page: PAGES.DASHBOARD },
 ];
 
 /**
+ * Chemins volontairement HORS du modele de droits par page.
+ *
+ * Ajoutee le 15/09/2026, avec l'inversion du defaut. Ce n'est pas une liste de
+ * commodite : c'est elle qui rend l'inversion possible. Sans elle, refuser un chemin
+ * inconnu fermerait la page de connexion, le profil et les pages patient.
+ *
+ * **Toute entree ici est une decision.** Ajouter un chemin revient a dire « cet ecran
+ * n'est regi par aucun droit », ce qui doit rester rare et se justifier en une ligne.
+ */
+const CHEMINS_EXEMPTS: RegExp[] = [
+  /^\/$/, // racine : redirige selon le role, ne rend rien
+  /^\/authentication(?:\/|$)/, // connexion
+  /^\/c\/[^/]+\/?$/, // lien court patient (SMS)
+  /^\/d\/[^/]+\/?$/, // depot d'ordonnance patient
+  /^\/confirm\/[^/]+\/?$/, // confirmation patient (forme longue)
+  /^\/client\/profile\/?$/, // son propre profil : tout compte y a droit
+  /^\/client\/services\/talk-dentist\/?$/, // vitrine produit, aucune donnee client
+  /^\/apercu-mapping\/?$/, // page d'apercu, hors session
+  /^\/icons\/?$/, // gabarits du theme MUI, livres avec le modele
+  /^\/utilities\//,
+];
+
+/**
+ * Le verdict d'acces pour un chemin.
+ *
+ * **Trois genres, et pas deux, c'est tout l'enjeu.** Les chemins non declares ne sont
+ * pas tous des oublis : les pages d'administration relevent du ROLE et ne doivent
+ * jamais entrer dans le modele par page (un compte CLIENT ne doit pas pouvoir se voir
+ * cocher « gestion des utilisateurs »), et une poignee d'ecrans utilitaires ne sont
+ * regis par aucun droit. Un modele a deux genres fermerait les deux.
+ *
+ * `inconnu` est le defaut, et il REFUSE. C'est l'inverse du comportement d'avant le
+ * 15/09/2026, ou un chemin non reconnu laissait passer : c'est ce defaut ouvrant qui a
+ * laisse les treize ecrans Konnect hors du modele pendant des mois, sans que rien ne le
+ * signale. Desormais, tout ecran ajoute doit se declarer, sous peine d'etre refuse tout
+ * de suite et visiblement.
+ */
+export type VerdictAcces =
+  | { genre: "page"; page: PageKey }
+  | { genre: "admin" }
+  | { genre: "exempt" }
+  | { genre: "inconnu" };
+
+export function verdictAcces(pathname: string): VerdictAcces {
+  // Les motifs d'abord : ils couvrent `/admin/ticket` et `/admin`, qui sont de vraies
+  // pages du modele et non des ecrans d'administration.
+  for (const { pattern, page } of PATH_MATCHERS) {
+    if (pattern.test(pathname)) return { genre: "page", page };
+  }
+  if (/^\/admin(?:\/|$)/.test(pathname)) return { genre: "admin" };
+  for (const motif of CHEMINS_EXEMPTS) {
+    if (motif.test(pathname)) return { genre: "exempt" };
+  }
+  return { genre: "inconnu" };
+}
+
+/** Meme verdict, pour un href de menu qui peut porter `{USER_ID}` non resolu. */
+export function verdictAccesHref(href: string): VerdictAcces {
+  return verdictAcces(href.replace("{USER_ID}", "0"));
+}
+
+/**
  * Deduit la PageKey d'un pathname. Retourne null si le pathname ne correspond
- * a aucune page connue (auquel cas le middleware/layout laisse passer :
- * pages "utilitaires" comme /client/profile, /admin/settings, etc.).
+ * a aucune page connue.
+ *
+ * ⚠️ **Ne pas s'en servir pour decider d'un acces.** Elle confond « page
+ * d'administration », « ecran exempte » et « chemin inconnu » sous un meme `null`, ce
+ * qui etait precisement le defaut corrige le 15/09/2026. Utiliser `verdictAcces`.
+ * Conservee parce qu'elle reste juste pour repondre a « quelle page est-ce ? ».
  */
 export function getPageFromPathname(pathname: string): PageKey | null {
-  for (const { pattern, page } of PATH_MATCHERS) {
-    if (pattern.test(pathname)) return page;
-  }
-  return null;
+  const verdict = verdictAcces(pathname);
+  return verdict.genre === "page" ? verdict.page : null;
 }
 
 /**
@@ -93,6 +192,24 @@ export const PAGE_PRIORITY: PageKey[] = [
   PAGES.MAPPING_EXAM,
   PAGES.QUESTIONS_EXAM,
   PAGES.STATS,
+
+  // Konnect en fin de liste (14/09/2026) : Talk reste la porte d'entree par defaut
+  // d'un client qui porte les deux produits. Mais ces entrees sont NECESSAIRES, pas
+  // decoratives : sans elles, un sous-compte a qui l'on n'accorde QUE des pages
+  // Konnect ne trouve aucune URL et retombe sur l'ecran vide « aucun produit trouve ».
+  PAGES.KONNECT_DEMANDES_RAPPEL,
+  PAGES.KONNECT_DASHBOARD,
+  PAGES.KONNECT_STATS,
+  PAGES.KONNECT_EXAMENS,
+  PAGES.KONNECT_PARAMETRAGE,
+  PAGES.KONNECT_SITES,
+  PAGES.KONNECT_ENTONNOIR,
+  PAGES.KONNECT_PAIRES,
+  PAGES.KONNECT_REGLES_FUSION,
+  PAGES.KONNECT_REGLES_COEXISTENCE,
+  PAGES.KONNECT_CRENEAUX,
+  PAGES.KONNECT_MOTS,
+  PAGES.KONNECT_REGLES_CLINIQUES,
 ];
 
 /**
@@ -114,6 +231,38 @@ export function getClientPathForPage(
 ): string | null {
   if (page === PAGES.TICKETS) return "/client/ticket";
   if (userId == null) return null;
+
+  // Konnect (14/09/2026). Meme racine `/client/c/{userId}`, autre produit.
+  const baseKonnect = `/client/c/${userId}/konnect`;
+  switch (page) {
+    case PAGES.KONNECT_DASHBOARD:
+      return baseKonnect;
+    case PAGES.KONNECT_PARAMETRAGE:
+      return `${baseKonnect}/parametrage`;
+    case PAGES.KONNECT_EXAMENS:
+      return `${baseKonnect}/examens`;
+    case PAGES.KONNECT_SITES:
+      return `${baseKonnect}/sites`;
+    case PAGES.KONNECT_ENTONNOIR:
+      return `${baseKonnect}/ordre-entonnoir`;
+    case PAGES.KONNECT_REGLES_FUSION:
+      return `${baseKonnect}/regles-fusion`;
+    case PAGES.KONNECT_REGLES_COEXISTENCE:
+      return `${baseKonnect}/regles-coexistence`;
+    case PAGES.KONNECT_CRENEAUX:
+      return `${baseKonnect}/ordre-creneaux`;
+    case PAGES.KONNECT_PAIRES:
+      return `${baseKonnect}/paires-examens`;
+    case PAGES.KONNECT_MOTS:
+      return `${baseKonnect}/mots-cabinet`;
+    case PAGES.KONNECT_REGLES_CLINIQUES:
+      return `${baseKonnect}/regles-cliniques`;
+    case PAGES.KONNECT_DEMANDES_RAPPEL:
+      return `${baseKonnect}/demandes-rappel`;
+    case PAGES.KONNECT_STATS:
+      return `${baseKonnect}/statistiques`;
+  }
+
   const base = `/client/c/${userId}/talk`;
   switch (page) {
     case PAGES.DASHBOARD:

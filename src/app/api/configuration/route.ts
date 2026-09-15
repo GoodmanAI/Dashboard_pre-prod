@@ -4,6 +4,8 @@ import { codeEtendu } from "@/lib/examTypes";
 import { estObjetJson } from "@/lib/productConfig";
 import { db } from "@/lib/db";
 import { requireAuth, requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-helpers";
+import { requirePagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 import {
   normalizeSendConfirmationSms,
   DEFAULT_SEND_CONFIRMATION_SMS,
@@ -14,7 +16,8 @@ import {
   DEFAULT_PRESCRIPTION_ENABLED,
   DEFAULT_ALERT_AFTER_HOURS,
   PrescriptionEnabledExamTypes,
-} from "@/lib/prescriptionConfig";
+} from "@/lib/prescriptionConfig";
+import { journaliserEcritureConfig } from "@/lib/auditConfig";
 
 /**
  * GET /api/configuration?userProductId=XX
@@ -417,6 +420,14 @@ export async function POST(req: NextRequest) {
     const ownershipErr = await assertUserProductOwnership(session, userProductId);
     if (ownershipErr) return ownershipErr;
 
+    // Droit d'ecriture par page (14/09/2026). Cette route ecrit toute la
+    // configuration du robot pour un centre et n'avait AUCUNE garde d'ecriture :
+    // ni `rejectIfSecretary`, ni controle de niveau. Un sous-compte a qui l'on
+    // n'avait donne « Parametrage » qu'en lecture pouvait donc la reecrire
+    // entierement en appelant l'API directement.
+    const droitEcritureErr = await requirePagePermission(PAGES.PARAMETRAGE, "write");
+    if (droitEcritureErr) return droitEcritureErr;
+
     if (typeof reconnaissance !== "boolean") {
       return NextResponse.json(
         { error: "reconnaissance must be a boolean" },
@@ -478,6 +489,12 @@ export async function POST(req: NextRequest) {
         centerMail,
         options
       },
+    });
+
+    // Qui a change quoi. C'est l'ecriture la plus large du produit : elle reecrit
+    // toute la configuration du robot pour un centre. Voir auditConfig.ts.
+    journaliserEcritureConfig(req, session, "talk-configuration-update", userProductId, {
+      champs: Object.keys(body ?? {}).length,
     });
 
     return NextResponse.json(

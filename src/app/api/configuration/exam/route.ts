@@ -4,7 +4,9 @@ import { BlobServiceClient } from "@azure/storage-blob";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
-import { rejectIfSecretary } from "@/lib/authGuards";
+import { requirePagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
+import { journaliserEcritureConfig } from "@/lib/auditConfig";
 
 async function streamToBuffer(readableStream?: NodeJS.ReadableStream | null) {
   if (!readableStream) return Buffer.alloc(0);
@@ -34,6 +36,9 @@ export async function GET(req: Request) {
 
   const ownershipErr = await assertUserProductOwnership(session, userProductId);
   if (ownershipErr) return ownershipErr;
+
+  const droitErr = await requirePagePermission(PAGES.QUESTIONS_EXAM, "read");
+  if (droitErr) return droitErr;
 
   const settings = await prisma.talkSettings.findUnique({
     where: { userProductId },
@@ -133,8 +138,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const secretaryErr = await rejectIfSecretary();
-  if (secretaryErr) return secretaryErr;
+  const droitEcritureErr = await requirePagePermission(PAGES.QUESTIONS_EXAM, "write");
+  if (droitEcritureErr) return droitEcritureErr;
 
   const auth = await requireAuth();
   if (auth.error) return auth.error;
@@ -155,6 +160,10 @@ export async function POST(req: Request) {
       exams: exams,
     },
   });
+
+  // Qui a change quoi. Sans cette ligne, une modification de configuration
+  // faite par un sous-compte ne laissait aucune trace. Voir auditConfig.ts.
+  journaliserEcritureConfig(req, session, "talk-questions-examens-update", Number(userProductId));
 
   return NextResponse.json({ success: true });
 }

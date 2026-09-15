@@ -2,7 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-helpers";
+import {
+  requireAuthOrApiKey,
+  assertUserProductOwnership,
+  requireAuth,
+  requireAdmin,
+} from "@/lib/auth-helpers";
+import { requirePagePermission } from "@/lib/authGuards";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import {
   trouverDomaine,
@@ -52,6 +58,30 @@ type LigneConfig = {
 };
 
 /** Résout la cible et vérifie que le domaine, le produit et la clé concordent. */
+/**
+ * Le droit exigé pour un domaine, au niveau demandé.
+ *
+ * Ajoutée le 14/09/2026. Cette route sert **sept écrans clients** plus l'écran
+ * d'administration `talk-config`, tous discriminés par le paramètre `domaine` : un
+ * droit unique aurait forcément été trop large. `domaine.page` porte la
+ * correspondance, déclarée à côté de `cleApiEnv` dans `productConfig.ts`.
+ *
+ * `"admin"` couvre les domaines qui ne sont pas un réglage de secrétariat :
+ * `konnect.ris-identite` (rattachement au logiciel du centre, écrit depuis l'écran
+ * d'installation) et `talk.site`.
+ */
+async function gardeDuDomaine(
+  domaine: Domaine,
+  niveau: "read" | "write"
+): Promise<NextResponse | null> {
+  if (domaine.page === "admin") {
+    const auth = await requireAuth();
+    if (auth.error) return auth.error;
+    return requireAdmin(auth.session);
+  }
+  return requirePagePermission(domaine.page, niveau);
+}
+
 async function resoudreCible(
   req: NextRequest
 ): Promise<{ userProductId: number; domaine: Domaine } | { error: NextResponse }> {
@@ -115,6 +145,12 @@ export async function GET(req: NextRequest) {
   if (!auth.bot) {
     const ownershipErr = await assertUserProductOwnership(auth.session, userProductId);
     if (ownershipErr) return ownershipErr;
+
+    // Droit par page (14/09/2026). `domaine.page` dit quel écran régit ce domaine :
+    // sans lui, cette route unique servait sept écrans clients sous un droit unique,
+    // donc forcément trop large. `"admin"` = réglage réservé à l'administration.
+    const droitErr = await gardeDuDomaine(domaine, "read");
+    if (droitErr) return droitErr;
   }
 
   if (!(await centrePorteLeProduit(userProductId, domaine))) {
@@ -168,6 +204,9 @@ export async function PUT(req: NextRequest) {
 
   const ownershipErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownershipErr) return ownershipErr;
+
+  const droitErr = await gardeDuDomaine(domaine, "write");
+  if (droitErr) return droitErr;
 
   if (!(await centrePorteLeProduit(userProductId, domaine))) {
     return NextResponse.json(

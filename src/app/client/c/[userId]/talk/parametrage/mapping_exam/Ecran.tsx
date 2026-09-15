@@ -40,7 +40,9 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 import { useTalkBasePath } from "@/utils/talkRoutes";
 import ExamTypeBadge, {
   EXAM_TYPE_SHORT,
@@ -154,8 +156,14 @@ export default function MappingExam({ params }: TalkPageProps) {
   const router = useRouter();
   const userProductId = Number(params.id);
   const basePath = useTalkBasePath(userProductId);
-  const { data: sessionData } = useSession();
-  const readOnly = !!sessionData?.user?.isSecretary;
+
+  // Lecture seule, revue le 15/09/2026. Elle se lisait sur le seul booléen hérité
+  // `isSecretary`, donc un sous-compte moderne créé avec « Mapping examens » en
+  // lecture voyait tous ses champs actifs et découvrait le refus à l'enregistrement.
+  // `useDroitPage` couvre les deux : il passe par `hasPermission`, qui applique le
+  // préréglage hérité des comptes secrétaire ET le JSON de permissions.
+  const { peutEcrire, raisonLectureSeule } = useDroitPage(PAGES.MAPPING_EXAM);
+  const readOnly = !peutEcrire;
 
   /**
    * En dessous du seuil, chaque examen devient une fiche : tous ses champs visibles
@@ -452,8 +460,8 @@ export default function MappingExam({ params }: TalkPageProps) {
 
       {readOnly && (
         <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
-          Mode lecture seule — votre compte secrétaire ne permet pas de modifier
-          la correspondance des examens.
+          {raisonLectureSeule ??
+            "Vous avez cette page en lecture seule. Demandez les droits d'écriture à votre administrateur."}
         </Alert>
       )}
 

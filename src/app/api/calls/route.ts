@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { indexerParType, diminutifDuType } from "@/lib/examTypes";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +72,15 @@ export async function GET(request: NextRequest) {
 
     const ownershipErr = await assertUserProductOwnership(session, userProductId);
     if (ownershipErr) return ownershipErr;
+
+    // Trois ecrans lisent les appels : Appels, Incidents et Statistiques d'appels.
+    // Exiger la seule page « Appels » couperait un sous-compte qui n'a legitimement
+    // qu'« Incidents ».
+    const droitErr = await requireAnyPagePermission(
+      [PAGES.CALLS, PAGES.INCIDENTS, PAGES.STATS_APPEL],
+      "read"
+    );
+    if (droitErr) return droitErr;
 
     // ==========================
     // CAS 1 : UN SEUL CALL

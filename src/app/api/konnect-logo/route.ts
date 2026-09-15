@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { PRODUITS } from "@/lib/produits";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * Logo du cabinet affiché dans le portail patient LyraeKonnect.
@@ -139,6 +141,9 @@ export async function GET(req: NextRequest) {
   if (!auth.bot) {
     const ownershipErr = await assertUserProductOwnership(auth.session, userProductId);
     if (ownershipErr) return ownershipErr;
+
+    const droitErr = await requirePagePermission(PAGES.KONNECT_PARAMETRAGE, "read");
+    if (droitErr) return droitErr;
   }
 
   if (!(await estCentreKonnect(userProductId))) {
@@ -197,6 +202,9 @@ export async function PUT(req: NextRequest) {
 
   const ownershipErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownershipErr) return ownershipErr;
+
+  const droitErr = await requirePagePermission(PAGES.KONNECT_PARAMETRAGE, "write");
+  if (droitErr) return droitErr;
 
   if (!(await estCentreKonnect(userProductId))) {
     return NextResponse.json(
@@ -274,6 +282,9 @@ export async function DELETE(req: NextRequest) {
 
   const ownershipErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownershipErr) return ownershipErr;
+
+  const droitErr = await requirePagePermission(PAGES.KONNECT_PARAMETRAGE, "write");
+  if (droitErr) return droitErr;
 
   // `logoMaj` est mis à jour, pas effacé : c'est lui qui porte l'ETag, et Konnect doit
   // voir que quelque chose a changé pour vider son propre cache. L'effacer ferait

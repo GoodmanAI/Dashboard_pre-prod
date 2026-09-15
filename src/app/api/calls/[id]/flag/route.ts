@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import { PAGES } from "@/lib/permissions";
 
 export async function PATCH(req: Request, { params }: any) {
   const auth = await requireAuth();
@@ -22,6 +24,10 @@ export async function PATCH(req: Request, { params }: any) {
 
   const ownershipErr = await assertUserProductOwnership(session, existing.userProductId);
   if (ownershipErr) return ownershipErr;
+
+  // Signaler un appel est le geste de l'ecran Incidents.
+  const droitErr = await requirePagePermission(PAGES.INCIDENTS, "write");
+  if (droitErr) return droitErr;
 
   const { flagged } = await req.json();
 
