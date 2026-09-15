@@ -131,10 +131,10 @@ const AdminActionsPage = () => {
               </Grid>
               <Grid item xs={12} md={6}>
                 <ActionCard
-                  title="Créer un client"
-                  description="Provisionner un nouveau compte client (LyraeTalk)"
+                  title="Nouveau centre"
+                  description="Créer le compte d'un centre et le mettre en service, pas à pas"
                   icon={<IconUserPlus size={22} />}
-                  onClick={() => router.push("/admin/create-client")}
+                  onClick={() => router.push("/admin/nouveau-centre")}
                 />
               </Grid>
             </Grid>

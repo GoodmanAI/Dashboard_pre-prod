@@ -641,5 +641,7 @@ Deux états restent possibles, et le robot doit continuer à les traiter :
 - Deux comptes secrétaire dépendent encore de la branche héritée `isSecretary` (relevé
   du 15/09/2026) : passer `scripts/data-provisioning/2026_09_15_preset_secretaire.sql`,
   puis retirer la branche quand son contrôle final rend zéro.
-- La création d'un compte client part de trois écrans plus l'assistant ; les trois
-  anciens doivent se réduire à un renvoi vers `/admin/nouveau-centre`.
+- ~~La création d'un compte client part de trois écrans plus l'assistant.~~ **Fait le
+  15/09/2026** : `/admin/create-client` renvoie vers l'assistant, les deux écrans
+  d'installation et la page Actions y mènent, et la grille de droits offre le
+  préréglage secrétaire qui remplace la case de l'ancien formulaire.

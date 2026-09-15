@@ -7,7 +7,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Divider,
   FormControlLabel,
   MenuItem,
   Paper,
@@ -23,7 +22,6 @@ import Link from "next/link";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import { cheminCentre } from "@/lib/cheminsCentre";
 import SectionHeader from "@/components/admin/SectionHeader";
-import { PRODUITS } from "@/lib/produits";
 import type { Manque } from "@/lib/completude/types";
 import type { StatutCentre } from "@/lib/centreStatut";
 
@@ -188,15 +186,6 @@ export default function InstallationKonnect() {
   const [message, setMessage] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
 
-  // Création d'un compte. `Product.name` n'est connu que de `produits.ts` : on
-  // résout son identifiant au chargement plutôt que de l'écrire en dur, sinon un
-  // renommage en base casserait la création sans la moindre erreur.
-  const [produitId, setProduitId] = useState<number | null>(null);
-  const [creation, setCreation] = useState(false);
-  const [nom, setNom] = useState("");
-  const [identifiant, setIdentifiant] = useState("");
-  const [motDePasse, setMotDePasse] = useState("");
-
   // Saisies des blocs actionnables.
   const [risBaseUrl, setRisBaseUrl] = useState("");
   const [risCodeSite, setRisCodeSite] = useState("");
@@ -227,21 +216,6 @@ export default function InstallationKonnect() {
 
   useEffect(() => {
     void recharger();
-    void (async () => {
-      try {
-        const r = await fetch("/api/products");
-        if (!r.ok) return;
-        const liste = await r.json();
-        const konnect = (Array.isArray(liste) ? liste : []).find(
-          (p: { name?: string }) =>
-            (p.name ?? "").toLowerCase() === PRODUITS.konnect.nom.toLowerCase()
-        );
-        if (konnect?.id) setProduitId(Number(konnect.id));
-      } catch {
-        // Sans identifiant produit, la création est simplement désactivée : le
-        // reste de la page fonctionne.
-      }
-    })();
   }, [recharger]);
 
   const centre = useMemo(
@@ -300,30 +274,6 @@ export default function InstallationKonnect() {
       return null;
     } finally {
       setOccupe(false);
-    }
-  }
-
-  async function creerCompte() {
-    if (produitId === null) return;
-    const data = await appeler(
-      "/api/admin/create-client",
-      "POST",
-      {
-        email: identifiant.trim(),
-        password: motDePasse,
-        name: nom.trim(),
-        products: [{ productId: produitId, assignedAt: new Date().toISOString() }],
-        isSecretary: false,
-        centreRole: "ADMIN_USER",
-      },
-      "Compte créé. Rattachez maintenant le portail."
-    );
-    if (data) {
-      setCreation(false);
-      setNom("");
-      setIdentifiant("");
-      setMotDePasse("");
-      await recharger();
     }
   }
 
@@ -406,64 +356,15 @@ export default function InstallationKonnect() {
               ))}
             </Select>
             <Button
+              component={Link}
+              href="/admin/nouveau-centre"
               startIcon={<IconPlus size={16} />}
-              onClick={() => setCreation((v) => !v)}
               sx={{ textTransform: "none", whiteSpace: "nowrap" }}
             >
-              {creation ? "Annuler" : "Nouveau centre"}
+              Nouveau centre
             </Button>
           </Stack>
 
-          {creation && (
-            <Box sx={{ mt: 2 }}>
-              <Divider sx={{ mb: 2 }} />
-              <Typography sx={{ fontSize: 12, color: INK_MUTED, mb: 1.5 }}>
-                Le compte est créé avec le produit LyraeKonnect déjà affilié. Le mot de
-                passe suit la politique du Dashboard, et le client pourra le changer.
-              </Typography>
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                <TextField
-                  size="small"
-                  fullWidth
-                  label="Nom du centre"
-                  value={nom}
-                  onChange={(e) => setNom(e.target.value)}
-                />
-                <TextField
-                  size="small"
-                  fullWidth
-                  label="Identifiant de connexion"
-                  value={identifiant}
-                  onChange={(e) => setIdentifiant(e.target.value)}
-                />
-                <TextField
-                  size="small"
-                  fullWidth
-                  type="password"
-                  label="Mot de passe"
-                  value={motDePasse}
-                  onChange={(e) => setMotDePasse(e.target.value)}
-                />
-              </Stack>
-              <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
-                <Button
-                  variant="contained"
-                  disableElevation
-                  disabled={
-                    occupe ||
-                    produitId === null ||
-                    !nom.trim() ||
-                    identifiant.trim().length < 3 ||
-                    !motDePasse
-                  }
-                  onClick={() => void creerCompte()}
-                  sx={{ textTransform: "none", bgcolor: "var(--accent)" }}
-                >
-                  Créer le centre
-                </Button>
-              </Box>
-            </Box>
-          )}
         </Paper>
 
         {centre && (
@@ -669,10 +570,10 @@ export default function InstallationKonnect() {
           </>
         )}
 
-        {!centre && !creation && centres.length === 0 && (
+        {!centre && centres.length === 0 && (
           <Alert severity="info">
-            Aucun centre n&apos;a le produit LyraeKonnect. Créez-en un ci-dessus, ou
-            affiliez le produit à un client existant depuis la gestion des clients.
+            Aucun centre n&apos;a le produit LyraeKonnect. Créez-en un depuis « Nouveau centre »,
+            ou affiliez le produit à un client existant depuis « Clients et comptes ».
           </Alert>
         )}
 

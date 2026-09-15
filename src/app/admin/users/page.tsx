@@ -280,13 +280,13 @@ export default function UsersManagementPage() {
                 variant="contained"
                 size="small"
                 startIcon={<IconPlus size={16} />}
-                onClick={() => router.push("/admin/create-client")}
+                onClick={() => router.push("/admin/nouveau-centre")}
                 sx={{
                   bgcolor: BRAND_TEAL,
                   "&:hover": { bgcolor: "#3aa896" },
                 }}
               >
-                Nouveau client
+                Nouveau centre
               </Button>
             )}
             {tab === "sub-accounts" && (

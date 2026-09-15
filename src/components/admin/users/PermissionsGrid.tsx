@@ -2,6 +2,7 @@
 
 import {
   Box,
+  Button,
   FormControl,
   FormControlLabel,
   Radio,
@@ -10,7 +11,13 @@ import {
   Switch,
   Typography,
 } from "@mui/material";
-import { AccessLevel, PageKey, PAGE_GROUPS, PAGE_LABELS } from "@/lib/permissions";
+import {
+  AccessLevel,
+  PageKey,
+  PAGE_GROUPS,
+  PAGE_LABELS,
+  presetSecretaire,
+} from "@/lib/permissions";
 
 const BRAND_TEAL = "var(--accent)";
 
@@ -115,8 +122,52 @@ export default function PermissionsGrid({ value, onChange, disabled }: Props) {
     );
   };
 
+  // Préréglages (15/09/2026). L'ancien formulaire de création avait une case
+  // « Secrétaire » ; depuis que la création part de l'assistant, c'est ici qu'on pose
+  // ce profil, puis qu'on l'ajuste page par page. `presetSecretaire()` est la même
+  // fonction que celle appelée à la création d'un compte, donc le même résultat.
+  const toutEnLecture = () => {
+    const next: Partial<Record<PageKey, AccessLevel>> = {};
+    for (const groupe of PAGE_GROUPS) for (const page of groupe.pages) next[page] = "read";
+    onChange(next);
+  };
+
   return (
     <Stack spacing={2.5}>
+      <Stack spacing={0.75}>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={disabled}
+            onClick={() => onChange(presetSecretaire())}
+            sx={{ textTransform: "none" }}
+          >
+            Préréglage secrétaire
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={disabled}
+            onClick={toutEnLecture}
+            sx={{ textTransform: "none" }}
+          >
+            Tout en lecture
+          </Button>
+          <Button
+            size="small"
+            disabled={disabled}
+            onClick={() => onChange({})}
+            sx={{ textTransform: "none" }}
+          >
+            Tout décocher
+          </Button>
+        </Stack>
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+          Le préréglage secrétaire donne l&apos;écriture partout sauf sur la configuration,
+          qui reste en lecture. Vous pouvez ensuite ajuster page par page.
+        </Typography>
+      </Stack>
       {PAGE_GROUPS.map((groupe) => (
         <Stack key={groupe.titre} spacing={1}>
           <Typography
