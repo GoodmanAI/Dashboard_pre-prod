@@ -25,8 +25,11 @@ export async function PATCH(req: Request, { params }: any) {
   const ownershipErr = await assertUserProductOwnership(session, existing.userProductId);
   if (ownershipErr) return ownershipErr;
 
-  // Signaler un appel est le geste de l'ecran Incidents.
-  const droitErr = await requirePagePermission(PAGES.INCIDENTS, "write");
+  // Signaler un appel se fait depuis DEUX ecrans : la liste des appels et celui des
+  // incidents. N'exiger que « Incidents » (jusqu'au 16/09/2026) laissait un sous-compte
+  // qui n'a que « Appels » cliquer sur le drapeau, le voir passer au rouge, et perdre le
+  // signalement au rechargement : l'ecran n'attendait pas la reponse pour se peindre.
+  const droitErr = await requireAnyPagePermission([PAGES.CALLS, PAGES.INCIDENTS], "write");
   if (droitErr) return droitErr;
 
   const { flagged } = await req.json();

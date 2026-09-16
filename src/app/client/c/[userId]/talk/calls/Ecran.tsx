@@ -591,11 +591,16 @@ export default function CallListPage({ params }: CallListPageProps) {
     }));
 
     try {
-      await fetch(`/api/calls/${call.id}/flag`, {
+      // Le drapeau est peint AVANT la reponse, pour que le clic soit instantane. Il
+      // faut donc defaire la peinture si le serveur refuse : sans ce test (jusqu'au
+      // 16/09/2026), un refus laissait le drapeau rouge a l'ecran, et le signalement
+      // disparaissait au rechargement suivant sans que personne ne comprenne pourquoi.
+      const res = await fetch(`/api/calls/${call.id}/flag`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ flagged: newValue }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       setCalls((prev) =>
         prev.map((c) =>
@@ -623,11 +628,15 @@ export default function CallListPage({ params }: CallListPageProps) {
 
     try {
 
-      await fetch(`/api/calls/${call.id}/treated`, {
+      // Meme piege que pour le drapeau : la case est cochee avant la reponse, donc un
+      // refus doit la decocher. Le commentaire ci-dessous disait deja « seulement apres
+      // succes » alors que rien ne verifiait le succes (corrige le 16/09/2026).
+      const res = await fetch(`/api/calls/${call.id}/treated`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ treated: newValue }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       // applique la transparence seulement après succès
       setCalls((prev) =>

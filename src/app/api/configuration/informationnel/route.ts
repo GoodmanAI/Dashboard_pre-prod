@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
-import { requirePagePermission } from "@/lib/authGuards";
+import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 import { journaliserEcritureConfig } from "@/lib/auditConfig";
 
@@ -95,7 +95,15 @@ export async function GET(req: Request) {
     const ownershipErr = await assertUserProductOwnership(session, userProductId);
     if (ownershipErr) return ownershipErr;
 
-    const droitErr = await requirePagePermission(PAGES.INFORMATIONNEL, "read");
+    // L'accueil du produit compte les sections remplies de ce module pour sa tuile
+    // « Module informationnel » : il lit donc cette route sans etre la page qui la
+    // regle. DASHBOARD ajoute le 16/09/2026, faute de quoi le compteur affichait 0/0
+    // en silence (l'ecran ne teste pas `res.ok`, il lit `json.success`).
+    // L'ECRITURE, elle, reste a la seule page « Module informationnel ».
+    const droitErr = await requireAnyPagePermission(
+      [PAGES.INFORMATIONNEL, PAGES.DASHBOARD],
+      "read"
+    );
     if (droitErr) return droitErr;
 
     const userProduct = await prisma.userProduct.findUnique({

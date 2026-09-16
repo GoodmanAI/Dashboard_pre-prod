@@ -148,7 +148,15 @@ export async function GET(req: NextRequest) {
     const ownershipErr = await assertUserProductOwnership(auth.session, cible.userProductId);
     if (ownershipErr) return ownershipErr;
 
-    const droitErr = await requirePagePermission(PAGES.KONNECT_PARAMETRAGE, "read");
+    // L'ecran « Paires d'examens » lit `multi_examen_actif` ici pour dire au client que
+    // le bilan a deux examens est eteint ; il ne porte pas la page « Parametrage ».
+    // KONNECT_PAIRES ajoute le 16/09/2026 : sans lui, l'avertissement ne s'affichait
+    // jamais pour un sous-compte qui n'a que cet ecran, et le refus passait inapercu.
+    // L'ECRITURE reste a la seule page « Parametrage » (voir le PUT plus bas).
+    const droitErr = await requireAnyPagePermission(
+      [PAGES.KONNECT_PARAMETRAGE, PAGES.KONNECT_PAIRES],
+      "read"
+    );
     if (droitErr) return droitErr;
   } else if (!(await estCentreKonnect(cible.userProductId))) {
     // Même réponse qu'un tenant non rattaché : de l'extérieur, « ce centre n'est

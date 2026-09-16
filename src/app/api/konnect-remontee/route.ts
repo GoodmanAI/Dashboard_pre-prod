@@ -182,9 +182,10 @@ export async function GET(req: NextRequest) {
   if (ownershipErr) return ownershipErr;
 
   // L'etat des canaux d'envoi s'affiche sur l'ecran des parametres, le funnel sur
-  // celui des statistiques : les deux pages ouvrent cette lecture.
+  // celui des statistiques, et les ecarts de catalogue sur celui des examens : les
+  // trois pages ouvrent cette lecture. KONNECT_EXAMENS ajoute le 16/09/2026.
   const droitErr = await requireAnyPagePermission(
-    [PAGES.KONNECT_STATS, PAGES.KONNECT_PARAMETRAGE],
+    [PAGES.KONNECT_STATS, PAGES.KONNECT_PARAMETRAGE, PAGES.KONNECT_EXAMENS],
     "read"
   );
   if (droitErr) return droitErr;

@@ -566,50 +566,73 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
    * déclenché soit directement, soit après confirmation utilisateur quand le
    * service est désactivé.
    */
+  /**
+   * Enregistre, et DIT CE QUI S'EST PASSE.
+   *
+   * Cet écran envoie trois requêtes vers trois routes distinctes. Jusqu'au 16/09/2026,
+   * aucune des trois ne testait `res.ok` : un refus du serveur (403 de droits, 500,
+   * validation) laissait passer, et le `setSnack("Paramètres enregistrés")` qui suivait
+   * s'affichait quand même. Pire, `snapshotRef` était remis à jour, donc le garde-fou
+   * « vous avez des modifications non enregistrées » se taisait lui aussi. Le client
+   * repartait convaincu d'avoir enregistré.
+   *
+   * Les trois appels restent indépendants, à dessein : si les horaires échouent, les
+   * autres réglages n'ont pas à être perdus avec eux. Mais un seul échec suffit à
+   * refuser le message de succès et à garder le snapshot d'avant.
+   */
   const proceedSave = async () => {
     setSaving(true);
-    try {
+
+    // Nom lisible par le client, pour dire QUOI n'a pas été enregistré.
+    const envoyer = async (
+      quoi: string,
+      url: string,
+      corps: unknown
+    ): Promise<string | null> => {
       try {
-        await fetch("/api/configuration", {
+        const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          body: JSON.stringify(corps),
+        });
+        if (res.ok) return null;
+        if (res.status === 403) return `${quoi} (vous êtes en lecture seule)`;
+        return quoi;
+      } catch (error) {
+        console.error(`Echec enregistrement ${quoi} :`, error);
+        return quoi;
+      }
+    };
+
+    try {
+      const echecs = (
+        await Promise.all([
+          envoyer("les paramètres", "/api/configuration", {
             userProductId,
             ...settings,
           }),
+          envoyer(
+            "les horaires",
+            `/api/configuration/informationnel/horaires?userProductId=${userProductId}`,
+            { userProductId, weeklyHours: settings.weeklyHours }
+          ),
+          envoyer(
+            "les doubles examens",
+            `/api/configuration/mapping/double_exam?userProductId=${userProductId}`,
+            doubleExamsMapping
+          ),
+        ])
+      ).filter((x): x is string => x !== null);
+
+      if (echecs.length > 0) {
+        setSnack({
+          open: true,
+          msg: `Rien n'a été perdu, mais ${echecs.join(", ")} n'ont pas pu être enregistrés. Réessayez, et prévenez votre administrateur si cela se reproduit.`,
+          sev: "error",
         });
-      } catch (error) {
-        console.error("Error updating setting:", error);
-      }
-
-      try {
-        await fetch(
-          `/api/configuration/informationnel/horaires?userProductId=${userProductId}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userProductId,
-              weeklyHours: settings.weeklyHours,
-            }),
-          }
-        );
-      } catch (error) {
-        console.error("Error updating setting:", error);
-      }
-
-      // Save des doubles examens (endpoint dédié).
-      try {
-        await fetch(
-          `/api/configuration/mapping/double_exam?userProductId=${userProductId}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(doubleExamsMapping),
-          }
-        );
-      } catch (error) {
-        console.error("Error updating double_exam mapping:", error);
+        // Le snapshot n'est PAS rafraîchi : l'écran garde ses modifications et
+        // continue d'avertir avant de quitter la page.
+        return;
       }
 
       setSnack({

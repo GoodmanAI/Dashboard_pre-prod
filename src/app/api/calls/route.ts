@@ -73,11 +73,29 @@ export async function GET(request: NextRequest) {
     const ownershipErr = await assertUserProductOwnership(session, userProductId);
     if (ownershipErr) return ownershipErr;
 
-    // Trois ecrans lisent les appels : Appels, Incidents et Statistiques d'appels.
-    // Exiger la seule page « Appels » couperait un sous-compte qui n'a legitimement
-    // qu'« Incidents ».
+    // QUATRE ecrans lisent les appels : Appels, Incidents, Statistiques d'appels, et
+    // l'accueil du produit, dont les tuiles et l'apercu sont construits a partir de
+    // cette route (`talk/Ecran.tsx`). Exiger la seule page « Appels » couperait un
+    // sous-compte qui n'a legitimement qu'« Incidents ».
+    //
+    // DASHBOARD ajoute le 16/09/2026. Sans lui, un sous-compte qui n'avait que
+    // l'accueil recevait un 403 que l'ecran avalait : toutes ses tuiles affichaient
+    // zero et son apercu restait vide, sans le moindre message. Un tableau de bord
+    // qui annonce zero appel est pire qu'un tableau de bord refuse.
+    //
+    // ⚠️ Ce que cela accorde, et c'est PLUS que ce que l'accueil affiche. La route rend
+    // les LIGNES d'appel ; l'accueil, lui, n'en tire que des comptes (tuiles par
+    // intention, histogramme par jour). Un sous-compte a qui l'on coche « Tableau de
+    // bord » peut donc lire les appels du centre en regardant la reponse reseau, alors
+    // que l'ecran ne lui en montre aucun. L'appartenance du centre reste verifiee
+    // au-dessus, donc il s'agit des appels de SON centre, jamais d'un autre.
+    //
+    // La forme propre serait un mode d'agregation sur cette route, que l'accueil
+    // appellerait a la place de `mode=all`. Tant qu'il n'existe pas, le choix est entre
+    // un tableau de bord qui ment en affichant zero et un droit un peu large : on prend
+    // le second, et on l'ecrit ici plutot que de le laisser se decouvrir.
     const droitErr = await requireAnyPagePermission(
-      [PAGES.CALLS, PAGES.INCIDENTS, PAGES.STATS_APPEL],
+      [PAGES.CALLS, PAGES.INCIDENTS, PAGES.STATS_APPEL, PAGES.DASHBOARD],
       "read"
     );
     if (droitErr) return droitErr;

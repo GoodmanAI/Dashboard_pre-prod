@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma"; // adapte le chemin si besoin
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
-import { requirePagePermission } from "@/lib/authGuards";
+import { requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 import { journaliserEcritureConfig } from "@/lib/auditConfig";
 
@@ -27,7 +27,16 @@ export async function GET(req: NextRequest) {
     const ownershipErr = await assertUserProductOwnership(session, userProductId);
     if (ownershipErr) return ownershipErr;
 
-    const droitErr = await requirePagePermission(PAGES.MAPPING_EXAM, "read");
+    // Les doubles examens se reglent depuis DEUX ecrans : « Mapping examens », qui
+    // porte la page du meme nom, et « Parametrage », dont la section « Doubles examens »
+    // lit et ecrit cette route. N'exiger que MAPPING_EXAM (jusqu'au 16/09/2026) faisait
+    // afficher toutes les combinaisons comme desactivees a un sous-compte qui n'avait
+    // que « Parametrage », puis acceptait sa saisie et annoncait « Parametres
+    // enregistres » alors que le serveur avait refuse.
+    const droitErr = await requireAnyPagePermission(
+      [PAGES.MAPPING_EXAM, PAGES.PARAMETRAGE],
+      "read"
+    );
     if (droitErr) return droitErr;
 
     const talkSettings = await prisma.talkSettings.findUnique({
@@ -52,7 +61,11 @@ export async function GET(req: NextRequest) {
 // =========================
 export async function POST(req: NextRequest) {
   try {
-    const droitEcritureErr = await requirePagePermission(PAGES.MAPPING_EXAM, "write");
+    // Meme raison qu'au GET : l'ecran « Parametrage » enregistre aussi ces couples.
+    const droitEcritureErr = await requireAnyPagePermission(
+      [PAGES.MAPPING_EXAM, PAGES.PARAMETRAGE],
+      "write"
+    );
     if (droitEcritureErr) return droitEcritureErr;
 
     const auth = await requireAuth();
