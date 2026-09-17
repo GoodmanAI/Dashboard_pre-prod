@@ -7,6 +7,7 @@ import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog
 import { PRODUITS } from "@/lib/produits";
 import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
+import { MOTIFS_RAPPEL, MOTIF_PAR_DEFAUT, estMotifRappel } from "@/lib/konnectDemandesRappel";
 
 /**
  * Demandes de rappel des patients LyraeKonnect
@@ -54,6 +55,7 @@ const MAX_TELEPHONE = 30;
 const MAX_EXAMEN = 500;
 const MAX_NOTE = 2000;
 const MAX_REFERENCE = 100;
+const MAX_LIEN = 1000;
 
 type DemandeRow = {
   id: number;
@@ -63,6 +65,9 @@ type DemandeRow = {
   telephone: string;
   examenLibelle: string;
   statut: string;
+  motif: string;
+  priorite: string;
+  lienOrdonnance: string | null;
   note: string;
   traiteePar: string | null;
   traiteeAt: Date | null;
@@ -160,27 +165,46 @@ export async function POST(req: NextRequest) {
   const prenom = texte(body?.prenom, MAX_NOM);
   const examenLibelle = texte(body?.examenLibelle, MAX_EXAMEN);
 
+  // Motif (18/09/2026). Absent : le cas historique. Inconnu : refusé, plutôt que
+  // rangé sous un motif qui mentirait à la secrétaire.
+  const motifBrut = body?.motif ?? MOTIF_PAR_DEFAUT;
+  if (!estMotifRappel(motifBrut)) {
+    return NextResponse.json({ error: `Le motif « ${String(motifBrut)} » n'existe pas.` }, { status: 400 });
+  }
+  const priorite = MOTIFS_RAPPEL[motifBrut].urgent ? "haute" : "normale";
+
+  // Lien vers l'ordonnance dans Konnect : https seulement. Le fichier reste chez Konnect.
+  const lienBrut = texte(body?.lienOrdonnance, MAX_LIEN);
+  if (lienBrut && !/^https:\/\/[^\s]+$/.test(lienBrut)) {
+    return NextResponse.json({ error: "Le lien vers l'ordonnance doit être une adresse https." }, { status: 400 });
+  }
+  const lienOrdonnance = lienBrut || null;
+
   // Idempotent sur (centre, référence). Un renvoi rafraîchit le numéro sans
   // ressusciter une demande que le secrétariat a déjà traitée.
   const res = await db.query<{ id: number; statut: string }>(
     `INSERT INTO "KonnectDemandesRappel"
-       ("userProductId", "referenceKonnect", "nom", "prenom", "telephone", "examenLibelle")
-     VALUES ($1, $2, $3, $4, $5, $6)
+       ("userProductId", "referenceKonnect", "nom", "prenom", "telephone", "examenLibelle",
+        "motif", "priorite", "lienOrdonnance")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      ON CONFLICT ("userProductId", "referenceKonnect") DO UPDATE
-       SET "telephone"     = EXCLUDED."telephone",
-           "nom"           = EXCLUDED."nom",
-           "prenom"        = EXCLUDED."prenom",
-           "examenLibelle" = EXCLUDED."examenLibelle",
-           "updatedAt"     = NOW()
+       SET "telephone"      = EXCLUDED."telephone",
+           "nom"            = EXCLUDED."nom",
+           "prenom"         = EXCLUDED."prenom",
+           "examenLibelle"  = EXCLUDED."examenLibelle",
+           "motif"          = EXCLUDED."motif",
+           "priorite"       = EXCLUDED."priorite",
+           "lienOrdonnance" = EXCLUDED."lienOrdonnance",
+           "updatedAt"      = NOW()
      RETURNING "id", "statut"`,
-    [userProductId, reference, nom, prenom, telephone, examenLibelle]
+    [userProductId, reference, nom, prenom, telephone, examenLibelle, motifBrut, priorite, lienOrdonnance]
   );
 
   // Volumes seulement. Ni nom, ni numéro, ni référence de dossier.
   auditLog("data", "konnect-demande-rappel-depot", {
     actor: { id: null, email: null, role: "konnect", ip: extractIpFromRequest(req), userAgent: extractUserAgent(req) },
     target: { type: "userProduct", id: userProductId },
-    metadata: { statut: res.rows[0].statut },
+    metadata: { statut: res.rows[0].statut, motif: motifBrut },
   });
 
   return NextResponse.json({ id: res.rows[0].id, statut: res.rows[0].statut }, { status: 201 });
@@ -210,14 +234,15 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Les demandes à rappeler d'abord, les plus anciennes en tête : c'est le patient
-  // qui attend depuis le plus longtemps qu'on rappelle en premier.
+  // Les demandes à rappeler d'abord, les urgences en tête (18/09/2026), puis les plus
+  // anciennes : c'est le patient qui attend depuis le plus longtemps qu'on rappelle.
   const res = await db.query<DemandeRow>(
     `SELECT "id", "referenceKonnect", "nom", "prenom", "telephone", "examenLibelle",
-            "statut", "note", "traiteePar", "traiteeAt", "createdAt"
+            "statut", "motif", "priorite", "lienOrdonnance",
+            "note", "traiteePar", "traiteeAt", "createdAt"
        FROM "KonnectDemandesRappel"
       WHERE "userProductId" = $1
-      ORDER BY ("statut" = 'a_rappeler') DESC, "createdAt" ASC
+      ORDER BY ("statut" = 'a_rappeler') DESC, ("priorite" = 'haute') DESC, "createdAt" ASC
       LIMIT 500`,
     [userProductId]
   );

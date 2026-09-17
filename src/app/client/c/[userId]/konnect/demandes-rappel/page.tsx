@@ -8,7 +8,9 @@ import {
   Chip,
   CircularProgress,
   Link as MuiLink,
+  MenuItem,
   Paper,
+  Select,
   Snackbar,
   Stack,
   Table,
@@ -24,6 +26,7 @@ import {
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
+import { MOTIFS_RAPPEL, type MotifRappel } from "@/lib/konnectDemandesRappel";
 
 /**
  * Demandes de rappel des patients LyraeKonnect
@@ -43,6 +46,13 @@ import SectionHeader from "@/components/admin/SectionHeader";
  *
  * Même direction artistique que les écrans de configuration du produit : mêmes
  * constantes de couleur, même densité de table.
+ *
+ * MOTIFS, PRIORITÉ ET FILTRES (18/09/2026). Plusieurs chemins du portail déposent
+ * maintenant une demande : plusieurs examens, ordonnance illisible, aucun créneau,
+ * incident de réservation, contre-indication à vérifier. Chaque ligne dit pourquoi
+ * rappeler, les urgences passent en tête (tri du serveur), et la secrétaire filtre par
+ * motif, par statut ou par patient. Le filtrage se fait ici : la route rend au plus 500
+ * lignes d'un seul centre.
  */
 
 const INK = "#0F2A3F";
@@ -59,6 +69,9 @@ type Demande = {
   telephone: string;
   examenLibelle: string;
   statut: string;
+  motif?: string;
+  priorite?: string;
+  lienOrdonnance?: string | null;
   note: string;
   traiteePar: string | null;
   traiteeAt: string | null;
@@ -132,6 +145,9 @@ export default function DemandesRappelKonnect() {
   const [enCours, setEnCours] = useState<number | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [filtreMotif, setFiltreMotif] = useState<string>("tous");
+  const [filtreStatut, setFiltreStatut] = useState<string>("a_rappeler");
+  const [recherche, setRecherche] = useState("");
 
   const charger = useCallback(async () => {
     if (!userProductId) return;
@@ -185,6 +201,26 @@ export default function DemandesRappelKonnect() {
     [demandes]
   );
 
+  const urgentes = useMemo(
+    () => demandes.filter((d) => d.statut === "a_rappeler" && d.priorite === "haute").length,
+    [demandes]
+  );
+
+  // L'ordre du serveur est gardé : à rappeler, urgentes, puis les plus anciennes.
+  const visibles = useMemo(() => {
+    const q = recherche.trim().toLowerCase().replace(/[\s.\-()]/g, "");
+    return demandes.filter((d) => {
+      if (filtreMotif !== "tous" && (d.motif ?? "examen_non_reservable") !== filtreMotif) return false;
+      if (filtreStatut === "a_rappeler" && d.statut !== "a_rappeler") return false;
+      if (filtreStatut === "traitees" && d.statut === "a_rappeler") return false;
+      if (!q) return true;
+      const botte = `${d.prenom}${d.nom}${d.nom}${d.prenom}${d.telephone}`
+        .toLowerCase()
+        .replace(/[\s.\-()]/g, "");
+      return botte.includes(q);
+    });
+  }, [demandes, filtreMotif, filtreStatut, recherche]);
+
   if (chargement) {
     return (
       <PageContainer title="Demandes de rappel" description="Les patients à rappeler">
@@ -218,19 +254,61 @@ export default function DemandesRappelKonnect() {
         />
 
         <Typography variant="body2" sx={{ color: INK_MUTED, mb: 2.5 }}>
-          Ces patients ont demandé un examen que vous ne laissez pas réserver en ligne.
-          Ils ont laissé leur numéro plutôt que d&apos;appeler eux-mêmes. Vous les
-          rappelez, vous cochez, et la ligne sort de la file. Pour changer les examens
-          concernés, allez dans le mapping d&apos;examens et la colonne
-          « Réservable en ligne ».
+          Ces patients n&apos;ont pas pu réserver en ligne et ont laissé leur numéro. Le
+          motif dit pourquoi : examen à réserver par téléphone, plusieurs examens,
+          ordonnance à lire, aucun créneau, problème pendant la réservation ou
+          contre-indication à vérifier. Les urgences sont en tête. Vous les rappelez, vous
+          cochez, et la ligne sort de la file.
         </Typography>
+
+        {urgentes > 0 && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            {urgentes === 1
+              ? "Une demande urgente attend en tête de file."
+              : `${urgentes} demandes urgentes attendent en tête de file.`}{" "}
+            Elles concernent une contre-indication à vérifier avant tout rendez-vous.
+          </Alert>
+        )}
+
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ mb: 2 }}>
+          <TextField
+            size="small"
+            placeholder="Chercher un patient ou un numéro"
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+            sx={{ minWidth: 260, bgcolor: SURFACE }}
+          />
+          <Select
+            size="small"
+            value={filtreMotif}
+            onChange={(e) => setFiltreMotif(String(e.target.value))}
+            sx={{ minWidth: 260, fontSize: 13, bgcolor: SURFACE }}
+          >
+            <MenuItem value="tous">Tous les motifs</MenuItem>
+            {(Object.keys(MOTIFS_RAPPEL) as MotifRappel[]).map((m) => (
+              <MenuItem key={m} value={m}>
+                {MOTIFS_RAPPEL[m].libelle}
+              </MenuItem>
+            ))}
+          </Select>
+          <Select
+            size="small"
+            value={filtreStatut}
+            onChange={(e) => setFiltreStatut(String(e.target.value))}
+            sx={{ minWidth: 200, fontSize: 13, bgcolor: SURFACE }}
+          >
+            <MenuItem value="a_rappeler">À rappeler</MenuItem>
+            <MenuItem value="traitees">Déjà traitées</MenuItem>
+            <MenuItem value="toutes">Toutes</MenuItem>
+          </Select>
+        </Stack>
 
         <TableContainer
           component={Paper}
           variant="outlined"
           sx={{ overflowX: "auto", borderColor: BORDER, borderRadius: 2 }}
         >
-          <Table size="small" sx={{ minWidth: 1100 }}>
+          <Table size="small" sx={{ minWidth: 1280 }}>
             <TableHead>
               <TableRow>
                 <EnTete aide="Depuis combien de temps le patient attend." largeur={130}>
@@ -239,6 +317,9 @@ export default function DemandesRappelKonnect() {
                 <EnTete largeur={220}>Patient</EnTete>
                 <EnTete aide="Cliquez pour composer depuis un poste équipé." largeur={160}>
                   Téléphone
+                </EnTete>
+                <EnTete aide="Pourquoi le patient n'a pas pu réserver en ligne." largeur={200}>
+                  Motif
                 </EnTete>
                 <EnTete aide="L'examen demandé, tel qu'il est nommé dans votre mapping.">
                   Examen demandé
@@ -251,7 +332,7 @@ export default function DemandesRappelKonnect() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {demandes.map((d) => {
+              {visibles.map((d) => {
                 const s = STATUTS[d.statut] ?? STATUTS.a_rappeler;
                 const traitee = d.statut !== "a_rappeler";
                 return (
@@ -290,9 +371,34 @@ export default function DemandesRappelKonnect() {
                     </TableCell>
 
                     <TableCell>
+                      {d.priorite === "haute" && (
+                        <Chip
+                          size="small"
+                          label="Urgent"
+                          sx={{ fontWeight: 700, fontSize: 11, color: "#B3261E", bgcolor: "#FDECEA", mb: 0.5 }}
+                        />
+                      )}
+                      <Typography sx={{ fontSize: 12.5, color: INK }}>
+                        {MOTIFS_RAPPEL[(d.motif ?? "examen_non_reservable") as MotifRappel]?.libelle ??
+                          "Autre"}
+                      </Typography>
+                    </TableCell>
+
+                    <TableCell>
                       <Typography sx={{ fontSize: 13, color: INK }}>
                         {d.examenLibelle || "Examen non précisé"}
                       </Typography>
+                      {d.lienOrdonnance && (
+                        <MuiLink
+                          href={d.lienOrdonnance}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          underline="hover"
+                          sx={{ fontSize: 12, color: "var(--accent-press)" }}
+                        >
+                          Voir l&apos;ordonnance
+                        </MuiLink>
+                      )}
                     </TableCell>
 
                     <TableCell>
@@ -367,12 +473,13 @@ export default function DemandesRappelKonnect() {
                 );
               })}
 
-              {demandes.length === 0 && (
+              {visibles.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
                     <Typography variant="body2" sx={{ color: INK_MUTED }}>
-                      Aucune demande de rappel. Soit tous vos examens sont réservables en
-                      ligne, soit aucun patient n&apos;a encore laissé son numéro.
+                      {demandes.length === 0
+                        ? "Aucune demande de rappel pour l'instant."
+                        : "Aucune demande ne correspond à ces filtres."}
                     </Typography>
                   </TableCell>
                 </TableRow>

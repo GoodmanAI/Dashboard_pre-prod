@@ -98,6 +98,16 @@ plusieurs examens. `examenLibelle` porte alors les libellés joints par « + » 
 borne à 300 caractères, la route à 500). Aucun champ nouveau, aucune donnée patient de
 plus : c'est le même libellé, plus long.
 
+Le 18/09/2026, le corps gagne deux champs optionnels. `motif` : une valeur parmi
+`examen_non_reservable` (défaut), `plusieurs_examens`, `ordonnance_illisible`,
+`examen_non_trouve`, `aucun_creneau`, `incident_reservation`, `contre_indication` ; un
+motif inconnu est refusé en 400. Ce sont des énumérations : en ajouter, jamais en renommer
+(`src/lib/konnectDemandesRappel.ts`). La priorité est déduite par le Dashboard
+(`contre_indication` passe en tête de file), jamais fournie par Konnect. `lienOrdonnance` :
+une adresse https vers l'ordonnance dans Konnect, à durée de vie limitée ; le fichier reste
+chez Konnect. **Aucun détail médical** : « contre-indication à vérifier », pas laquelle.
+Colonnes ajoutées par `prisma/migrations/manual/2026_09_18_konnect_demandes_rappel_motif.sql`.
+
 **Domaine `konnect.paires-examens`, clé `combinaisons` (17/09/2026).** À côté de `items`
 (réglages par paire, non appliqués par Konnect), la valeur porte
 `combinaisons: [{ modalite_a, modalite_b, ecart_max_minutes }]`. Modalités parmi `RX`,
