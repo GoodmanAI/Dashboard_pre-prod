@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { porteurRelances } from "@/lib/porteurRelances";
 import { db } from "@/lib/db";
 import { assertUserProductOwnership, requireAuthOrApiKey } from "@/lib/auth-helpers";
 import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
@@ -118,16 +119,20 @@ export async function GET(req: NextRequest) {
 
     // Deux ecrans lisent ces statistiques : Stats no-show et Stats appels.
     const droitErr = await requireAnyPagePermission(
-      [PAGES.STATS_NO_SHOW, PAGES.STATS_APPEL],
+      [PAGES.STATS_NO_SHOW, PAGES.STATS_APPEL, PAGES.KONNECT_RELANCES],
       "read"
     );
     if (droitErr) return droitErr;
+
+    // 18/09/2026 : les relances sont celles du client, pas d'un produit. LyraeTalk et
+    // Konnect affichent les mêmes chiffres, lus chez le porteur.
+    const porteur = await porteurRelances(userProductId);
 
     const mapRes = await db.query<{ externalCenterCode: string }>(
       `SELECT "externalCenterCode"
          FROM "ExternalCenterMapping"
         WHERE "userProductId" = $1`,
-      [userProductId]
+      [porteur]
     );
     codes = Array.from(
       new Set(mapRes.rows.map((r) => r.externalCenterCode).filter(Boolean))

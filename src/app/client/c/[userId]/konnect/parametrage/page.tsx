@@ -28,6 +28,7 @@ import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elem
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import IdentiteVisuelleKonnect from "@/components/konnect/IdentiteVisuelleKonnect";
 import PlanningCompletKonnect from "@/components/konnect/PlanningCompletKonnect";
+import SmsConfirmationConfigCard from "../../talk/parametrage/SmsConfirmationConfigCard";
 
 /**
  * Configuration LyraeKonnect d'un centre — le portail patient web.
@@ -486,7 +487,7 @@ export default function ParametrageKonnectPage() {
             )}
             <Reglage
               titre="Email"
-              description="Confirmation et rappels envoyés par email."
+              description="La confirmation du rendez-vous part par email quand le patient en a donné un."
               actif={config.envoi_email}
               onChange={(v) => maj("envoi_email", v)}
               avertissement={
@@ -499,7 +500,7 @@ export default function ParametrageKonnectPage() {
             />
             <Reglage
               titre="SMS"
-              description="Confirmation et rappels envoyés par SMS."
+              description="Sans email, la confirmation du rendez-vous part par SMS."
               actif={config.envoi_sms}
               onChange={(v) => maj("envoi_sms", v)}
               avertissement={
@@ -510,18 +511,14 @@ export default function ParametrageKonnectPage() {
                     : "Pas encore en service : rien ne part pour l'instant."
               }
             />
-            {/* Distinct des deux canaux ci-dessus : ceux-la disent PAR QUEL MOYEN on
-              ecrit, celui-ci dit SI l'on relance. Un centre peut vouloir confirmer
-              sans relancer, et c'est le cas d'un cabinet de demonstration. */}
-            <Reglage
-              titre="Rappel avant le rendez-vous"
-              description="Le portail écrit au patient quelques jours avant sa venue pour lui rappeler son rendez-vous."
-              actif={config.rappels_actifs}
-              onChange={(v) => maj("rappels_actifs", v)}
-              avertissement="Les rappels partent tous les jours à 8 h. Décochez si vous préférez les faire vous-même."
-            />
           </AccordionDetails>
         </Accordion>
+
+        {/* Relances no-show (18/09/2026) : la carte de LyraeTalk, telle quelle. Le réglage
+          est celui du client, partagé entre les deux produits : l'activer ici l'active
+          dans LyraeTalk, et inversement. Les rappels propres au portail, l'annulation
+          directe et le SMS de secours ont été retirés de Konnect. */}
+        {userProductId !== null && <SmsConfirmationConfigCard userProductId={userProductId} />}
 
         {/* ---------------- Planning complet (18/09/2026) ---------------- */}
         <Accordion>
@@ -614,128 +611,6 @@ export default function ParametrageKonnectPage() {
           </AccordionDetails>
         </Accordion>
 
-        {/* Confirmation de rendez-vous. Ces trois réglages vivaient dans la console
-          cabinet de Konnect ; ils arrivent ici avant sa fermeture, sans quoi plus
-          rien ne permettrait de les régler. */}
-        <Accordion>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography fontWeight={600}>
-              Confirmation de rendez-vous
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Reglage
-              titre="Une annulation du patient retire le rendez-vous"
-              description="Quand c'est actif, un patient qui répond « non » libère lui-même son créneau dans votre logiciel. Sinon vous recevez une alerte, et c'est vous qui décidez."
-              actif={config.annulation_directe}
-              onChange={(v) => maj("annulation_directe", v)}
-              avertissement="Le créneau est rendu sans que personne ne le relise."
-            />
-
-            <Typography
-              variant="body2"
-              fontWeight={600}
-              sx={{ mt: 2, mb: 0.5 }}
-            >
-              SMS de rappel de secours
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              component="p"
-              sx={{ mb: 1 }}
-            >
-              Quand envoyer le SMS qui redemande au patient s&apos;il vient.
-            </Typography>
-            <RadioGroup
-              value={config.sms_rappel_mode}
-              onChange={(e) =>
-                maj(
-                  "sms_rappel_mode",
-                  e.target.value as Config["sms_rappel_mode"],
-                )
-              }
-            >
-              <FormControlLabel
-                value="conditionnel"
-                control={
-                  <Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2">
-                      S&apos;il n&apos;a pas encore répondu
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Le choix le plus sobre : pas de SMS à qui a déjà confirmé.
-                    </Typography>
-                  </Box>
-                }
-              />
-              <FormControlLabel
-                value="opt_out_si_ics"
-                control={
-                  <Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2">
-                      Sauf s&apos;il a mis le rendez-vous dans son agenda
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      On considère qu&apos;il a son rappel.
-                    </Typography>
-                  </Box>
-                }
-              />
-              <FormControlLabel
-                value="toujours"
-                control={
-                  <Radio sx={{ "&.Mui-checked": { color: "var(--accent)" } }} />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2">Dans tous les cas</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Un SMS part même si le patient a déjà répondu.
-                    </Typography>
-                  </Box>
-                }
-              />
-            </RadioGroup>
-
-            <Typography
-              variant="body2"
-              fontWeight={600}
-              sx={{ mt: 3, mb: 0.5 }}
-            >
-              Code de confirmation dans votre logiciel
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              component="p"
-              sx={{ mb: 1.5 }}
-            >
-              Le code de la caractéristique de confirmation, paramétrée dans
-              l&apos;administration de votre logiciel de gestion. Sans lui, la
-              réponse du patient ne peut pas y être inscrite. Il vous est
-              communiqué à l&apos;installation.
-            </Typography>
-            <CustomTextField
-              label="Code de confirmation"
-              variant="outlined"
-              fullWidth
-              value={config.code_caracteristique_confirmation_xplore ?? ""}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                maj(
-                  "code_caracteristique_confirmation_xplore",
-                  e.target.value.trim() === "" ? null : e.target.value,
-                )
-              }
-            />
-          </AccordionDetails>
-        </Accordion>
 
         {erreur && (
           <Alert severity="error" sx={{ mt: 3 }}>

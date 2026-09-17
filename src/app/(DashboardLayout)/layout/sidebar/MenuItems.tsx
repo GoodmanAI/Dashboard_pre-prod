@@ -442,6 +442,14 @@ export const KonnectMenuitems: SidebarItem[] = [
     icon: IconChartHistogram,
     href: "/client/c/{USER_ID}/konnect/statistiques",
   },
+  {
+    // 18/09/2026 : les mêmes chiffres que « Stats No-Show » de LyraeTalk, les relances
+    // étant celles du client.
+    id: uniqueId(),
+    title: "Relances no-show",
+    icon: IconMessage2,
+    href: "/client/c/{USER_ID}/konnect/relances-no-show",
+  },
 
   { navlabel: true, subheader: "Assistance" },
   {

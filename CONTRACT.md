@@ -108,6 +108,14 @@ une adresse https vers l'ordonnance dans Konnect, à durée de vie limitée ; le
 chez Konnect. **Aucun détail médical** : « contre-indication à vérifier », pas laquelle.
 Colonnes ajoutées par `prisma/migrations/manual/2026_09_18_konnect_demandes_rappel_motif.sql`.
 
+**Relances no-show partagées (18/09/2026).** `GET /api/sms-confirmation-config` en mode
+session et `GET /api/rdv/stats` lisent le réglage et les chiffres chez le **porteur** du
+client (`src/lib/porteurRelances.ts`) : le produit du même `User`, LyraeTalk puis Konnect,
+qui a un code site dans `ExternalCenterMapping`. Le `POST` écrit chez ce porteur, et, pour un
+client Konnect seul, rattache le code site de `konnect.ris-identite` s'il est libre. Le mode
+`?externalCenterCode=` lu par AI2Xplore est inchangé. Écriture autorisée depuis
+« Paramètres » (Talk) ou « Paramètres du portail » (Konnect).
+
 **Domaine `konnect.planning-complet` (18/09/2026)**, lu par `KONNECT_API_KEY`, écrit depuis
 « Paramètres du portail » : `{ types: { radiographie|irm|echographie|scanner|mammo:
 { mode: "rappel"|"message", message } } }`. Konnect le lit quand aucun créneau n'est

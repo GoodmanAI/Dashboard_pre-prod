@@ -4,7 +4,8 @@ import {
   assertUserProductOwnership,
   requireAuth,
 } from "@/lib/auth-helpers";
-import { requirePagePermission } from "@/lib/authGuards";
+import { requireAnyPagePermission } from "@/lib/authGuards";
+import { porteurRelances, rattacherCodeSiteKonnect } from "@/lib/porteurRelances";
 import { PAGES } from "@/lib/permissions";
 import {
   EXAM_TYPE_KEYS,
@@ -85,7 +86,9 @@ export async function GET(req: NextRequest) {
     }
     const ownErr = await assertUserProductOwnership(auth.session, parsed);
     if (ownErr) return ownErr;
-    userProductId = parsed;
+    // 18/09/2026 : LyraeTalk et Konnect d'un même client lisent le même réglage, celui
+    // du produit que les relances d'AI2Xplore trouvent par code site.
+    userProductId = await porteurRelances(parsed);
   }
 
   const res = await db.query<{
@@ -145,7 +148,12 @@ export async function GET(req: NextRequest) {
  * activation/désactivation ne les perd pas ; ils sont juste masqués au GET.
  */
 export async function POST(req: NextRequest) {
-  const droitEcritureErr = await requirePagePermission(PAGES.PARAMETRAGE, "write");
+  // Le réglage se modifie depuis les paramètres de LyraeTalk comme depuis ceux du
+  // portail Konnect (18/09/2026) : c'est le même.
+  const droitEcritureErr = await requireAnyPagePermission(
+    [PAGES.PARAMETRAGE, PAGES.KONNECT_PARAMETRAGE],
+    "write"
+  );
   if (droitEcritureErr) return droitEcritureErr;
 
   const auth = await requireAuth();
@@ -158,8 +166,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { userProductId } = body ?? {};
-  if (!Number.isFinite(userProductId)) {
+  const { userProductId: userProductIdDemande } = body ?? {};
+  let userProductId = userProductIdDemande;
+  if (!Number.isFinite(userProductIdDemande)) {
     return NextResponse.json(
       { error: "Missing or invalid userProductId" },
       { status: 400 }
@@ -190,6 +199,11 @@ export async function POST(req: NextRequest) {
     Number(userProductId)
   );
   if (ownErr) return ownErr;
+
+  // Le porteur du client (LyraeTalk d'abord). Un client Konnect seul reçoit ici le code
+  // site de son rattachement, sans quoi AI2Xplore ne le relancerait jamais.
+  userProductId = await porteurRelances(Number(userProductId));
+  await rattacherCodeSiteKonnect(Number(userProductId));
 
   // -----------------------------------------------------------------------
   // Garde metier : bloquer sendConfirmationSms=false si au moins une

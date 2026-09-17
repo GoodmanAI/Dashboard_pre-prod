@@ -65,6 +65,7 @@ const PATH_MATCHERS: Array<{ pattern: RegExp; page: PageKey }> = [
   },
   { pattern: /\/konnect\/(?:\d+\/)?ordre-creneaux(?:\/|$)/, page: PAGES.KONNECT_CRENEAUX },
   { pattern: /\/konnect\/(?:\d+\/)?paires-examens(?:\/|$)/, page: PAGES.KONNECT_PAIRES },
+  { pattern: /\/konnect\/(?:\d+\/)?relances-no-show(?:\/|$)/, page: PAGES.KONNECT_RELANCES },
   { pattern: /\/konnect\/(?:\d+\/)?mots-cabinet(?:\/|$)/, page: PAGES.KONNECT_MOTS },
   {
     pattern: /\/konnect\/(?:\d+\/)?regles-cliniques(?:\/|$)/,
@@ -200,6 +201,7 @@ export const PAGE_PRIORITY: PageKey[] = [
   PAGES.KONNECT_DEMANDES_RAPPEL,
   PAGES.KONNECT_DASHBOARD,
   PAGES.KONNECT_STATS,
+  PAGES.KONNECT_RELANCES,
   PAGES.KONNECT_EXAMENS,
   PAGES.KONNECT_PARAMETRAGE,
   PAGES.KONNECT_SITES,
@@ -261,6 +263,8 @@ export function getClientPathForPage(
       return `${baseKonnect}/demandes-rappel`;
     case PAGES.KONNECT_STATS:
       return `${baseKonnect}/statistiques`;
+    case PAGES.KONNECT_RELANCES:
+      return `${baseKonnect}/relances-no-show`;
   }
 
   const base = `/client/c/${userId}/talk`;

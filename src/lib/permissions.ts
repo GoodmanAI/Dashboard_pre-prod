@@ -55,6 +55,8 @@ export const PAGES = {
   KONNECT_REGLES_CLINIQUES: "konnect_regles_cliniques",
   KONNECT_DEMANDES_RAPPEL: "konnect_demandes_rappel",
   KONNECT_STATS: "konnect_stats",
+  // 18/09/2026 : les statistiques des relances no-show, partagées avec LyraeTalk.
+  KONNECT_RELANCES: "konnect_relances",
 
   // --- Transverse ---
   TICKETS: "tickets",
@@ -106,6 +108,7 @@ export const PAGE_GROUPS: { titre: string; pages: PageKey[] }[] = [
       PAGES.KONNECT_REGLES_CLINIQUES,
       PAGES.KONNECT_DEMANDES_RAPPEL,
       PAGES.KONNECT_STATS,
+      PAGES.KONNECT_RELANCES,
     ],
   },
   {
@@ -142,6 +145,7 @@ export const PAGE_LABELS: Record<PageKey, string> = {
   [PAGES.KONNECT_REGLES_CLINIQUES]: "Règles cliniques",
   [PAGES.KONNECT_DEMANDES_RAPPEL]: "Demandes de rappel",
   [PAGES.KONNECT_STATS]: "Statistiques Konnect",
+  [PAGES.KONNECT_RELANCES]: "Relances no-show",
 
   [PAGES.TICKETS]: "Support (tickets)",
 };
