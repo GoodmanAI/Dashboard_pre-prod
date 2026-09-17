@@ -174,6 +174,9 @@ export default function MappingExamensKonnect() {
     codes_inconnus: string[];
     types_incoherents: { code: string; saisi: string; attendu: string }[];
     absents_du_mapping: string[];
+    // Ajoutés le 16/09/2026. Optionnels : une remontée antérieure ne les porte pas.
+    nb_hors_entonnoir?: number;
+    hors_entonnoir?: string[];
   } | null>(null);
 
   const [recherche, setRecherche] = useState("");
@@ -444,6 +447,32 @@ export default function MappingExamensKonnect() {
               {ecarts.absents_du_mapping.join(", ")}
               {ecarts.nb_absents_du_mapping > ecarts.absents_du_mapping.length
                 ? ` … et ${ecarts.nb_absents_du_mapping - ecarts.absents_du_mapping.length} autre(s)`
+                : ""}
+            </Typography>
+          </Alert>
+        )}
+
+        {/* Le quatrième écart (16/09/2026) : des examens renseignés ici, que le
+            logiciel du centre ouvre bien, et que le patient ne voit pourtant jamais.
+            C'est le cas du score calcique : un code saisi que le référentiel du
+            portail connaissait sous un autre nom. Les trois écarts au-dessus ne
+            pouvaient pas le voir, puisque du côté du logiciel tout était juste.
+            Les codes par côté (gauche, droit, bilatéral) en sont déjà retirés par
+            Konnect : ils sont voulus, le portail demande le côté au patient. */}
+        {estAdmin && ecarts && (ecarts.nb_hors_entonnoir ?? 0) > 0 && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.5 }}>
+              {ecarts.nb_hors_entonnoir} code
+              {(ecarts.nb_hors_entonnoir ?? 0) > 1 ? "s" : ""} que le patient ne voit pas
+            </Typography>
+            Ces lignes ont un code, et votre logiciel les accepte. Pourtant le portail
+            ne les propose pas, parce que leur code ne correspond à aucun examen qu&apos;il
+            connaît. Le plus souvent, le même examen existe sous un autre code : vérifiez
+            qu&apos;un doublon ne se cache pas derrière.
+            <Typography sx={{ fontSize: 12.5, mt: 1, fontFamily: "monospace" }}>
+              {(ecarts.hors_entonnoir ?? []).join(", ")}
+              {(ecarts.nb_hors_entonnoir ?? 0) > (ecarts.hors_entonnoir ?? []).length
+                ? ` … et ${(ecarts.nb_hors_entonnoir ?? 0) - (ecarts.hors_entonnoir ?? []).length} autre(s)`
                 : ""}
             </Typography>
           </Alert>
