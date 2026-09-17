@@ -382,7 +382,7 @@ export default function ParametrageKonnectPage() {
               onChange={(v) => maj("choix_radiologue_actif", v)}
             />
             {/* « Bilan à deux examens » ne décide plus rien depuis le 17/09/2026 : ce sont
-                les combinaisons cochées dans « Examens qui vont ensemble ». Le champ reste
+                les combinaisons cochées dans « Multi examens ». Le champ reste
                 envoyé tel quel, Konnect le lit encore dans le pont. */}
             <Box sx={{ py: 1.5 }}>
               <Typography variant="body2" fontWeight={600}>
@@ -390,7 +390,7 @@ export default function ParametrageKonnectPage() {
               </Typography>
               <Typography variant="caption" color="text.secondary" component="p">
                 Les examens qu&apos;un patient peut réserver ensemble en ligne se cochent dans
-                l&apos;écran « Examens qui vont ensemble ».
+                l&apos;écran « Multi examens ».
               </Typography>
             </Box>
 

@@ -25,7 +25,6 @@ import {
   IconPhoneCall,
   IconSortAscending,
   IconArrowsJoin,
-  IconArrowsSplit,
   IconClockHour4,
   IconAbc,
   IconShieldCheck,
@@ -405,19 +404,13 @@ export const KonnectMenuitems: SidebarItem[] = [
   },
   {
     id: uniqueId(),
-    title: "Règles de coexistence",
-    icon: IconArrowsSplit,
-    href: "/client/c/{USER_ID}/konnect/regles-coexistence",
-  },
-  {
-    id: uniqueId(),
     title: "Ordre des créneaux",
     icon: IconClockHour4,
     href: "/client/c/{USER_ID}/konnect/ordre-creneaux",
   },
   {
     id: uniqueId(),
-    title: "Examens qui vont ensemble",
+    title: "Multi examens",
     icon: IconArrowsJoin,
     href: "/client/c/{USER_ID}/konnect/paires-examens",
   },
