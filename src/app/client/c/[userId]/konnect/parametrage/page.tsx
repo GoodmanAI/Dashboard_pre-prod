@@ -27,6 +27,7 @@ import { PAGES } from "@/lib/permissions";
 import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elements/CustomTextField";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import IdentiteVisuelleKonnect from "@/components/konnect/IdentiteVisuelleKonnect";
+import PlanningCompletKonnect from "@/components/konnect/PlanningCompletKonnect";
 
 /**
  * Configuration LyraeKonnect d'un centre — le portail patient web.
@@ -519,6 +520,16 @@ export default function ParametrageKonnectPage() {
               onChange={(v) => maj("rappels_actifs", v)}
               avertissement="Les rappels partent tous les jours à 8 h. Décochez si vous préférez les faire vous-même."
             />
+          </AccordionDetails>
+        </Accordion>
+
+        {/* ---------------- Planning complet (18/09/2026) ---------------- */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6">Planning complet</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <PlanningCompletKonnect userProductId={userProductId} lectureSeule={raisonLectureSeule} />
           </AccordionDetails>
         </Accordion>
 

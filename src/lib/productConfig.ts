@@ -141,6 +141,15 @@ export const DOMAINES: Record<string, Domaine> = {
     libelle: "Synonymes d'examens propres au cabinet",
     page: PAGES.KONNECT_MOTS,
   },
+  // 18/09/2026 : consigne par type d'examen quand aucun créneau n'est disponible en
+  // ligne (demande de rappel ou message au patient), reprise de LyraeTalk.
+  "konnect.planning-complet": {
+    cle: "konnect.planning-complet",
+    produit: "konnect",
+    cleApiEnv: "KONNECT_API_KEY",
+    libelle: "Consignes quand le planning est complet",
+    page: PAGES.KONNECT_PARAMETRAGE,
+  },
   "konnect.paires-examens": {
     cle: "konnect.paires-examens",
     produit: "konnect",

@@ -108,6 +108,11 @@ une adresse https vers l'ordonnance dans Konnect, à durée de vie limitée ; le
 chez Konnect. **Aucun détail médical** : « contre-indication à vérifier », pas laquelle.
 Colonnes ajoutées par `prisma/migrations/manual/2026_09_18_konnect_demandes_rappel_motif.sql`.
 
+**Domaine `konnect.planning-complet` (18/09/2026)**, lu par `KONNECT_API_KEY`, écrit depuis
+« Paramètres du portail » : `{ types: { radiographie|irm|echographie|scanner|mammo:
+{ mode: "rappel"|"message", message } } }`. Konnect le lit quand aucun créneau n'est
+disponible et que la liste d'attente n'est pas proposée ; `rappel` est le défaut.
+
 **Domaine `konnect.paires-examens`, clé `combinaisons` (17/09/2026).** À côté de `items`
 (réglages par paire, non appliqués par Konnect), la valeur porte
 `combinaisons: [{ modalite_a, modalite_b, ecart_max_minutes }]`. Modalités parmi `RX`,
