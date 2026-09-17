@@ -109,6 +109,12 @@ comme des énumérations : ne pas renommer un code de modalité. Le champ
 `multi_examen_actif` de la configuration reste servi, mais ne décide plus rien. Voir
 `lyrae/plans/2026-09-konnect-multi-examens.md`.
 
+Le 18/09/2026, chaque combinaison gagne `modalite_premiere` (la modalité à passer en
+premier, `null` pour peu importe), et la valeur une clé `exclusions: [{ code, libelle }]`
+(codes NEURACORP d'examens sortis du multi-examens : un panier qui en contient un part au
+rappel, l'exception prime). L'écran ne gère plus `items` ni le domaine
+`konnect.regles-coexistence`, laissés en base sans écran.
+
 **2.** `POST /api/konnect-remontee?userProductId=NN` (08/09/2026, lot E). Konnect y
 pousse ce qu'il **observe** et que le Dashboard ne peut pas déduire. Corps : un objet
 dont les clés sont des sections. Deux sont connues : `messagerie`
