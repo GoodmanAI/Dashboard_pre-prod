@@ -150,6 +150,11 @@ export async function GET(req: NextRequest) {
         PAGES.KONNECT_PAIRES,
         PAGES.KONNECT_REGLES_FUSION,
         PAGES.KONNECT_REGLES_COEXISTENCE,
+        // « Mots du cabinet » (17/09/2026) choisit la cible d'un mot dans ce catalogue,
+        // parmi les seuls examens qui ont un code. Sans cette page ici, un sous-compte
+        // qui n'a que cet écran recevrait un 403 et verrait une liste vide : le défaut
+        // même que la revue du 16/09 a trouvé sur six routes.
+        PAGES.KONNECT_MOTS,
       ],
       "read"
     );
