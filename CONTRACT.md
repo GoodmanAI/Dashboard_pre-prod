@@ -92,6 +92,23 @@ dépôt vient du portail patient, pas d'un utilisateur du Dashboard) ; le `GET` 
 `PATCH` sont réservés à une session (Konnect ne relit jamais ce qu'il a déposé).
 `referenceKonnect` rend le dépôt idempotent.
 
+Depuis le 17/09/2026, une demande peut porter **plusieurs examens** : combinaison non
+cochée dans « Examens qui vont ensemble », trois examens ou plus, ordonnance lue à
+plusieurs examens. `examenLibelle` porte alors les libellés joints par « + » (Konnect les
+borne à 300 caractères, la route à 500). Aucun champ nouveau, aucune donnée patient de
+plus : c'est le même libellé, plus long.
+
+**Domaine `konnect.paires-examens`, clé `combinaisons` (17/09/2026).** À côté de `items`
+(réglages par paire, non appliqués par Konnect), la valeur porte
+`combinaisons: [{ modalite_a, modalite_b, ecart_max_minutes }]`. Modalités parmi `RX`,
+`US`, `MG`, `CT`, `MR` ; paire rangée ; écart de 0 à 240 minutes, 30 par défaut. **Une
+combinaison absente n'est pas autorisée** : Konnect ne réserve en ligne deux examens que
+si leur couple de modalités y figure, et envoie tout le reste au rappel. Une valeur sans
+clé `combinaisons` (enregistrée avant ce jour) n'autorise rien. Konnect lit ces valeurs
+comme des énumérations : ne pas renommer un code de modalité. Le champ
+`multi_examen_actif` de la configuration reste servi, mais ne décide plus rien. Voir
+`lyrae/plans/2026-09-konnect-multi-examens.md`.
+
 **2.** `POST /api/konnect-remontee?userProductId=NN` (08/09/2026, lot E). Konnect y
 pousse ce qu'il **observe** et que le Dashboard ne peut pas déduire. Corps : un objet
 dont les clés sont des sections. Deux sont connues : `messagerie`

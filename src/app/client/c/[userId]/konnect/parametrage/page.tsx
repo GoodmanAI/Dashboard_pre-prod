@@ -381,12 +381,18 @@ export default function ParametrageKonnectPage() {
               actif={config.choix_radiologue_actif}
               onChange={(v) => maj("choix_radiologue_actif", v)}
             />
-            <Reglage
-              titre="Bilan à deux examens"
-              description="Autorise la réservation de deux examens en une seule prise de rendez-vous."
-              actif={config.multi_examen_actif}
-              onChange={(v) => maj("multi_examen_actif", v)}
-            />
+            {/* « Bilan à deux examens » ne décide plus rien depuis le 17/09/2026 : ce sont
+                les combinaisons cochées dans « Examens qui vont ensemble ». Le champ reste
+                envoyé tel quel, Konnect le lit encore dans le pont. */}
+            <Box sx={{ py: 1.5 }}>
+              <Typography variant="body2" fontWeight={600}>
+                Plusieurs examens
+              </Typography>
+              <Typography variant="caption" color="text.secondary" component="p">
+                Les examens qu&apos;un patient peut réserver ensemble en ligne se cochent dans
+                l&apos;écran « Examens qui vont ensemble ».
+              </Typography>
+            </Box>
 
             <Divider sx={{ my: 2.5 }} />
 

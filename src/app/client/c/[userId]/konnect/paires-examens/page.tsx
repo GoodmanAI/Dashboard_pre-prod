@@ -5,6 +5,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   IconButton,
@@ -21,13 +22,30 @@ import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 
 /**
- * Examens faits dans la même visite (lot D, `combo_examen`).
+ * Examens faits dans la même visite.
+ *
+ * LES COMBINAISONS RÉSERVABLES EN LIGNE (17/09/2026, plan
+ * `lyrae/plans/2026-09-konnect-multi-examens.md`). Le centre coche les couples de
+ * modalités qu'un patient peut réserver ensemble (une radio et une échographie) et
+ * l'attente maximale entre les deux rendez-vous. Elles partent dans la même valeur de
+ * domaine, clé `combinaisons` : `[{ modalite_a, modalite_b, ecart_max_minutes }]`,
+ * paire rangée par ordre alphabétique des codes. Une combinaison absente n'est pas
+ * autorisée : Konnect envoie alors le patient au rappel, comme pour trois examens ou
+ * plus. C'est ce réglage qui décide, et plus la case « Bilan à deux examens » du
+ * paramétrage, qui ouvrait le bilan à n'importe quelle paire sans aucune contrainte
+ * entre les deux créneaux.
+ *
+ * LES RÉGLAGES PAR PAIRE, PLUS BAS, NE SONT PAS APPLIQUÉS. Ils descendent dans
+ * `combo_examen`, que seul un moteur jamais branché à un écran lit. L'écran le dit.
+ * L'historique ci-dessous reste vrai pour ce qu'ils enregistrent.
+ *
+ * ---- Historique : les paires (lot D, `combo_examen`) ----
  *
  * Une ordonnance demande souvent deux examens à enchaîner. Il faut placer deux
  * rendez-vous qui se suivent correctement : ni collés au point de rendre le second
@@ -70,6 +88,33 @@ const BORDER = "#E4EAEE";
 const SURFACE = "#FFFFFF";
 
 type Examen = { code: string; libelle: string };
+
+/** Les modalités combinables, dans l'ordre où une secrétaire les cite. */
+const MODALITES: { code: string; libelle: string; dansPhrase: string; deux: string }[] = [
+  { code: "RX", libelle: "Radiographie", dansPhrase: "radiographie", deux: "Deux radiographies" },
+  { code: "US", libelle: "Échographie", dansPhrase: "échographie", deux: "Deux échographies" },
+  { code: "MG", libelle: "Mammographie", dansPhrase: "mammographie", deux: "Deux mammographies" },
+  { code: "CT", libelle: "Scanner", dansPhrase: "scanner", deux: "Deux scanners" },
+  { code: "MR", libelle: "IRM", dansPhrase: "IRM", deux: "Deux IRM" },
+];
+
+const ECART_DEFAUT = 30;
+const ECART_PLAFOND = 240;
+
+type Combinaison = { modalite_a: string; modalite_b: string; ecart_max_minutes: number };
+
+/** La clé d'une combinaison, indépendante de l'ordre : « CT|MR ». */
+function cleCombinaison(a: string, b: string): string {
+  return [a, b].sort().join("|");
+}
+
+/** Les quinze couples possibles, même modalité comprise, dans l'ordre d'affichage. */
+const COUPLES: { a: (typeof MODALITES)[number]; b: (typeof MODALITES)[number] }[] =
+  MODALITES.flatMap((a, i) => MODALITES.slice(i).map((b) => ({ a, b })));
+
+function libelleCouple(a: (typeof MODALITES)[number], b: (typeof MODALITES)[number]): string {
+  return a.code === b.code ? a.deux : `${a.libelle} et ${b.dansPhrase}`;
+}
 
 type Paire = {
   code_a: string;
@@ -131,7 +176,7 @@ function Minutes({
   );
 }
 
-export default function PairesExamensKonnect() {
+export default function PairesExamensKonnect() {
   // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
   // apres la saisie. La garde serveur reste seule responsable du refus reel.
   const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_PAIRES);
@@ -139,8 +184,12 @@ export default function PairesExamensKonnect() {
 
   const [paires, setPaires] = useState<Paire[]>([]);
   const [initial, setInitial] = useState<Paire[]>([]);
+  // Combinaisons cochées, par clé rangée. Absente = non autorisée.
+  const [combinaisons, setCombinaisons] = useState<Record<string, number>>({});
+  const [combinaisonsInitiales, setCombinaisonsInitiales] = useState<Record<string, number>>({});
+  // Les autres clés de la valeur du domaine, renvoyées telles quelles à l'enregistrement.
+  const [autresCles, setAutresCles] = useState<Record<string, unknown>>({});
   const [examens, setExamens] = useState<Examen[]>([]);
-  const [multiExamenActif, setMultiExamenActif] = useState<boolean | null>(null);
   const [chargement, setChargement] = useState(true);
   const [enregistrement, setEnregistrement] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -151,10 +200,9 @@ export default function PairesExamensKonnect() {
     let annule = false;
     (async () => {
       try {
-        const [rDomaine, rExamens, rConfig] = await Promise.all([
+        const [rDomaine, rExamens] = await Promise.all([
           fetch(`/api/product-config?userProductId=${userProductId}&domaine=${DOMAINE}`),
           fetch(`/api/konnect-examens?userProductId=${userProductId}`),
-          fetch(`/api/konnect-configuration?userProductId=${userProductId}`),
         ]);
         if (!rDomaine.ok) throw new Error("Chargement impossible.");
         const d = await rDomaine.json();
@@ -172,6 +220,19 @@ export default function PairesExamensKonnect() {
         setPaires(chargees);
         setInitial(chargees);
 
+        const valeur = d?.valeur && typeof d.valeur === "object" ? d.valeur : {};
+        const { items: _items, combinaisons: brutesCombi, ...reste } = valeur;
+        setAutresCles(reste);
+        const cochees: Record<string, number> = {};
+        (Array.isArray(brutesCombi) ? brutesCombi : []).forEach((c: any) => {
+          if (typeof c?.modalite_a !== "string" || typeof c?.modalite_b !== "string") return;
+          const ecart = Number(c.ecart_max_minutes);
+          cochees[cleCombinaison(c.modalite_a, c.modalite_b)] =
+            Number.isFinite(ecart) && ecart >= 0 && ecart <= ECART_PLAFOND ? ecart : ECART_DEFAUT;
+        });
+        setCombinaisons(cochees);
+        setCombinaisonsInitiales(cochees);
+
         if (rExamens.ok) {
           const dEx = await rExamens.json();
           const brut: any[] = Array.isArray(dEx.examens) ? dEx.examens : [];
@@ -188,13 +249,6 @@ export default function PairesExamensKonnect() {
           );
         }
 
-        // Régler des paires alors que le bilan à deux examens est éteint ne produit
-        // rien. On le lit pour le dire, pas pour empêcher le réglage : préparer la
-        // configuration avant d'activer est un ordre de travail légitime.
-        if (rConfig.ok) {
-          const dCfg = await rConfig.json();
-          setMultiExamenActif(dCfg?.multi_examen_actif === true);
-        }
       } catch {
         if (!annule) setErreur("Impossible de charger les paires d'examens.");
       } finally {
@@ -216,8 +270,20 @@ export default function PairesExamensKonnect() {
     paires.forEach((p, i) => {
       out[`paire:${i}`] = p;
     });
+    COUPLES.forEach(({ a, b }) => {
+      const cle = cleCombinaison(a.code, b.code);
+      out[`combinaison:${cle}`] = combinaisons[cle] ?? null;
+    });
     return out;
-  }, [paires]);
+  }, [paires, combinaisons]);
+
+  const basculerCombinaison = (cle: string, cochee: boolean) =>
+    setCombinaisons((prec) => {
+      const suivant = { ...prec };
+      if (cochee) suivant[cle] = prec[cle] ?? ECART_DEFAUT;
+      else delete suivant[cle];
+      return suivant;
+    });
 
   const { modifications, marquerEnregistre } = useSuiviModifications(etatSuivi, !chargement);
 
@@ -265,12 +331,22 @@ export default function PairesExamensKonnect() {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ valeur: { items: paires } }),
+          body: JSON.stringify({
+            valeur: {
+              ...autresCles,
+              items: paires,
+              combinaisons: Object.entries(combinaisons).map(([cle, ecart]) => {
+                const [modalite_a, modalite_b] = cle.split("|");
+                return { modalite_a, modalite_b, ecart_max_minutes: ecart };
+              }),
+            },
+          }),
         }
       );
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error ?? "Enregistrement refusé.");
       setInitial(paires);
+      setCombinaisonsInitiales(combinaisons);
       marquerEnregistre();
       setSucces(true);
     } catch (e: any) {
@@ -299,20 +375,72 @@ export default function PairesExamensKonnect() {
         />
 
         <Typography variant="body2" sx={{ color: INK_MUTED, mb: 2.5, maxWidth: 760 }}>
-          Quand une ordonnance demande deux examens à enchaîner, le portail place deux
-          rendez-vous qui se suivent. Sans réglage, il laisse entre 10 et 75 minutes.
-          C&apos;est trop peu pour certains examens, beaucoup trop pour d&apos;autres :
-          un patient qui attend trois heures entre les deux pose une journée de congé
-          au lieu d&apos;une demi-journée.
+          Cochez les examens qu&apos;un patient peut réserver ensemble sur le portail. Il
+          prend alors ses deux rendez-vous le même jour, dans le même centre, avec au plus
+          l&apos;attente que vous fixez entre la fin du premier et le début du second.
+          Pour une combinaison non cochée, ou pour trois examens ou plus, le patient laisse
+          son numéro et la demande arrive dans vos demandes de rappel.
         </Typography>
 
-        {multiExamenActif === false && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Le bilan à deux examens est éteint dans « Paramètres du portail ». Vous
-            pouvez préparer vos réglages ici, ils ne s&apos;appliqueront qu&apos;une
-            fois la case cochée.
-          </Alert>
-        )}
+        <Paper variant="outlined" sx={{ borderColor: BORDER, borderRadius: 2, p: 2, mb: 3 }}>
+          <Typography sx={{ fontSize: 14, fontWeight: 600, color: INK, mb: 1.5 }}>
+            Réservables ensemble en ligne
+          </Typography>
+          <Stack spacing={0.5}>
+            {COUPLES.map(({ a, b }) => {
+              const cle = cleCombinaison(a.code, b.code);
+              const cochee = cle in combinaisons;
+              return (
+                <Stack
+                  key={cle}
+                  direction="row"
+                  alignItems="center"
+                  spacing={1.5}
+                  flexWrap="wrap"
+                  useFlexGap
+                  sx={{ minHeight: 44 }}
+                >
+                  <Checkbox
+                    size="small"
+                    checked={cochee}
+                    onChange={(e) => basculerCombinaison(cle, e.target.checked)}
+                    inputProps={{ "aria-label": libelleCouple(a, b) }}
+                  />
+                  <Typography sx={{ fontSize: 13.5, color: INK, flex: 1, minWidth: 180 }}>
+                    {libelleCouple(a, b)}
+                  </Typography>
+                  {cochee && (
+                    <TextField
+                      size="small"
+                      type="number"
+                      label="Attente au plus (min)"
+                      value={combinaisons[cle]}
+                      onChange={(e) => {
+                        const v = Math.max(0, Math.min(ECART_PLAFOND, Number(e.target.value) || 0));
+                        setCombinaisons((prec) => ({ ...prec, [cle]: v }));
+                      }}
+                      inputProps={{ min: 0, max: ECART_PLAFOND, step: 5 }}
+                      sx={{ width: 170 }}
+                    />
+                  )}
+                </Stack>
+              );
+            })}
+          </Stack>
+          <Typography sx={{ fontSize: 12, color: INK_MUTED, mt: 1.5 }}>
+            Deux examens avec injection, comme deux scanners injectés, passent toujours par
+            le rappel : le portail ne sait pas encore espacer deux injections.
+          </Typography>
+        </Paper>
+
+        <Typography sx={{ fontSize: 14, fontWeight: 600, color: INK, mb: 1 }}>
+          Réglages par paire d&apos;examens
+        </Typography>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Ces réglages sont enregistrés, mais le portail ne les applique pas encore à la
+          réservation en ligne. C&apos;est l&apos;attente maximale de la combinaison cochée
+          ci-dessus qui compte.
+        </Alert>
 
         {examens.length === 0 && (
           <Alert severity="info" sx={{ mb: 2 }}>
@@ -327,8 +455,7 @@ export default function PairesExamensKonnect() {
             sx={{ borderColor: BORDER, borderRadius: 2, p: 3, textAlign: "center" }}
           >
             <Typography sx={{ fontSize: 13, color: INK_MUTED }}>
-              Aucune paire réglée. Le portail laisse entre 10 et 75 minutes entre deux
-              examens, dans l&apos;ordre qui l&apos;arrange.
+              Aucune paire réglée.
             </Typography>
           </Paper>
         ) : (
@@ -498,10 +625,10 @@ export default function PairesExamensKonnect() {
           </Typography>
           <Typography sx={{ fontSize: 12, color: INK_MUTED }}>
             Les deux rendez-vous sont toujours posés sur le même site : un patient qui
-            enchaîne deux examens ne change pas d&apos;adresse entre les deux. Et le
-            portail ne sait apparier que les examens que sa reconnaissance
-            d&apos;ordonnance connaît : si un réglage semble sans effet, dites-le nous,
-            l&apos;examen est peut-être hors de sa liste.
+            enchaîne deux examens ne change pas d&apos;adresse entre les deux. La réservation
+            de deux examens en ligne se fait quand le patient choisit ses examens dans le
+            portail. S&apos;il envoie une ordonnance qui en porte plusieurs, le centre le
+            rappelle.
           </Typography>
         </Box>
 
@@ -520,10 +647,13 @@ export default function PairesExamensKonnect() {
         <BarreEnregistrement
           modifications={modifications}
           enregistrement={enregistrement}
-          onEnregistrer={enregistrer}
+          onEnregistrer={enregistrer}
           blocage={raisonLectureSeule}
-          onAnnuler={() => setPaires(initial)}
-          libelle="Enregistrer les paires"
+          onAnnuler={() => {
+            setPaires(initial);
+            setCombinaisons(combinaisonsInitiales);
+          }}
+          libelle="Enregistrer"
         />
 
         <Snackbar
@@ -533,7 +663,8 @@ export default function PairesExamensKonnect() {
           anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
         >
           <Alert severity="success" onClose={() => setSucces(false)}>
-            Paires enregistrées. Le portail patient les appliquera dans la minute.
+            Réglages enregistrés. Le portail patient les reprend à sa prochaine
+            synchronisation.
           </Alert>
         </Snackbar>
       </Box>

@@ -49,7 +49,9 @@ const STATUTS = new Set(["a_rappeler", "rappele", "sans_suite"]);
 /** Longueurs de garde : au-delà, c'est une erreur d'appel, pas une saisie. */
 const MAX_NOM = 120;
 const MAX_TELEPHONE = 30;
-const MAX_EXAMEN = 200;
+// 500 depuis le 17/09/2026 : une demande à plusieurs examens porte leurs libellés joints
+// (« Radio du genou + Échographie abdominale + … »). Konnect les borne à 300.
+const MAX_EXAMEN = 500;
 const MAX_NOTE = 2000;
 const MAX_REFERENCE = 100;
 
