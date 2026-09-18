@@ -261,7 +261,8 @@ const REGLAGES_PORTAIL: Reglage[] = [
   { libelle: "Consignes générales", aide: "Affichées sur le portail.", champ: "consignesGenerales", type: "texte" },
   { libelle: "Envoyer les confirmations par mail", aide: "", champ: "envoiEmail", type: "booleen" },
   { libelle: "Envoyer les confirmations par SMS", aide: "", champ: "envoiSms", type: "booleen" },
-  { libelle: "Rappels actifs", aide: "", champ: "rappelsActifs", type: "booleen" },
+  { libelle: "Nom d'expéditeur des emails", aide: "Vide : le nom posé à l'installation.", champ: "expediteurNomMail", type: "texte" },
+  { libelle: "Nom d'expéditeur des SMS", aide: "3 à 11 lettres ou chiffres, sans accent ni espace.", champ: "expediteurSms", type: "texte" },
   { libelle: "Lecture de l'ordonnance", aide: "Le patient peut déposer son ordonnance.", champ: "ocrActif", type: "booleen" },
   {
     libelle: "Mode de choix de l'examen",
@@ -278,19 +279,6 @@ const REGLAGES_PORTAIL: Reglage[] = [
   { libelle: "Questions de sécurité avant le rendez-vous", aide: "Exige un téléphone de secrétariat.", champ: "cliniqueActif", type: "booleen" },
   { libelle: "Poids maximum en IRM", aide: "En kilos.", champ: "poidsMaxIrmKg", type: "nombre" },
   { libelle: "Poids maximum au scanner", aide: "En kilos.", champ: "poidsMaxScannerKg", type: "nombre" },
-  { libelle: "Le patient peut annuler seul", aide: "", champ: "annulationDirecte", type: "booleen" },
-  {
-    libelle: "Quand envoyer le SMS de rappel",
-    aide: "",
-    champ: "smsRappelMode",
-    type: "choix",
-    choix: [
-      { valeur: "conditionnel", libelle: "Selon le cas" },
-      { valeur: "opt_out_si_ics", libelle: "Sauf si le patient a l'agenda" },
-      { valeur: "toujours", libelle: "Toujours" },
-    ],
-  },
-  { libelle: "Code de confirmation dans le logiciel du centre", aide: "", champ: "codeCaracteristiqueConfirmationXplore", type: "texte" },
 ];
 
 /* ───────────────────────────── Les feuilles en lignes ───────────────────────────── */
