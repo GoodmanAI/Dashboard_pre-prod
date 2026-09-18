@@ -258,7 +258,7 @@ export async function POST(
     const maxMb = MAX_FILE_SIZE / 1024 / 1024;
     return NextResponse.json(
       {
-        error: `Fichier trop lourd, max ${maxMb} Mo — reduisez la qualite de la photo ou scannez en noir & blanc.`,
+        error: `Fichier trop lourd, max ${maxMb} Mo. Reduisez la qualite de la photo ou scannez en noir & blanc.`,
       },
       { status: 413 }
     );

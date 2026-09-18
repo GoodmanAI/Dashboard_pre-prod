@@ -82,11 +82,11 @@ type TalkPlan = {
 
 const TALK_PLANS: TalkPlan[] = [
   { tier: 1, name: "Pack TALK 1", volumeLabel: "< 500 appels / mois", price: "270 € HT" },
-  { tier: 2, name: "Pack TALK 2", volumeLabel: "500 – 1 500 appels / mois", price: "650 € HT" },
-  { tier: 3, name: "Pack TALK 3", volumeLabel: "1 500 – 3 000 appels / mois", price: "1 240 € HT" },
-  { tier: 4, name: "Pack TALK 4", volumeLabel: "3 000 – 5 000 appels / mois", price: "1 950 € HT" },
-  { tier: 5, name: "Pack TALK 5", volumeLabel: "5 000 – 7 000 appels / mois", price: "2 680 € HT" },
-  { tier: 6, name: "Pack TALK 6", volumeLabel: "7 000 – 10 000 appels / mois", price: "3 740 € HT" },
+  { tier: 2, name: "Pack TALK 2", volumeLabel: "500 à 1 500 appels / mois", price: "650 € HT" },
+  { tier: 3, name: "Pack TALK 3", volumeLabel: "1 500 à 3 000 appels / mois", price: "1 240 € HT" },
+  { tier: 4, name: "Pack TALK 4", volumeLabel: "3 000 à 5 000 appels / mois", price: "1 950 € HT" },
+  { tier: 5, name: "Pack TALK 5", volumeLabel: "5 000 à 7 000 appels / mois", price: "2 680 € HT" },
+  { tier: 6, name: "Pack TALK 6", volumeLabel: "7 000 à 10 000 appels / mois", price: "3 740 € HT" },
   { tier: 7, name: "Pack TALK 7", volumeLabel: "10 000+ appels / mois", price: null },
 ];
 
@@ -505,7 +505,7 @@ const ProfilePage = () => {
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Typography variant="body2" fontWeight={600} sx={{ wordBreak: "break-all" }}>
-            {value || "—"}
+            {value || "-"}
           </Typography>
           {chip}
         </Box>
@@ -614,7 +614,7 @@ const ProfilePage = () => {
                         }
                         secondary={
                           <Typography variant="caption" color="text.secondary">
-                            {addressLine || "—"}
+                            {addressLine || "-"}
                           </Typography>
                         }
                       />
@@ -623,7 +623,7 @@ const ProfilePage = () => {
                           u.userProducts.map((up: any, idx: number) => (
                             <Chip
                               key={`${u.id}-${up?.product?.id ?? idx}`}
-                              label={up?.product?.name ?? "—"}
+                              label={up?.product?.name ?? "-"}
                               size="small"
                               sx={{
                                 bgcolor: "rgba(var(--accent-rgb), 0.15)",

@@ -65,7 +65,7 @@ export function requireAdmin(session: AuthSession): NextResponse | null {
  */
 export function requireSuperAdmin(session: AuthSession): NextResponse | null {
   if (session.user.role !== "SUPER_ADMIN") {
-    return NextResponse.json({ error: "Forbidden — SUPER_ADMIN requis" }, { status: 403 });
+    return NextResponse.json({ error: "Forbidden : SUPER_ADMIN requis" }, { status: 403 });
   }
   return null;
 }

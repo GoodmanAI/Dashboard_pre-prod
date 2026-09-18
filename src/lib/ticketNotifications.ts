@@ -53,7 +53,7 @@ export async function notifyNewTicketToAdmin(ctx: NewTicketContext) {
     process.env.SUPPORT_ADMIN_EMAIL ?? process.env.ADMIN_EMAIL;
   if (!adminEmail) {
     console.warn(
-      "[ticketNotifications] SUPPORT_ADMIN_EMAIL absent — skip notif new ticket"
+      "[ticketNotifications] SUPPORT_ADMIN_EMAIL absent : skip notif new ticket"
     );
     return { ok: false, error: "no admin email" };
   }

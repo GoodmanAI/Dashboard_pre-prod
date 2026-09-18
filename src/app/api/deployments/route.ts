@@ -196,23 +196,23 @@ function deriveState(row: Row, now: number): DeploymentState {
 function describe(row: Row, state: DeploymentState): string {
   switch (state) {
     case "stale":
-      return `Aucune nouvelle de la sonde depuis ${new Date(row.probeAt).toLocaleString("fr-FR")} — VM éteinte, cron cassé ou réseau coupé.`;
+      return `Aucune nouvelle de la sonde depuis ${new Date(row.probeAt).toLocaleString("fr-FR")}, VM éteinte, cron cassé ou réseau coupé.`;
     case "probe_error":
       return `Sonde en erreur : ${row.probeError}.`;
     case "fetch_failed":
       return "Le git fetch a échoué sur la VM : le retard affiché n'est pas fiable.";
     case "behind":
-      return `${row.behindCount} commit${row.behindCount > 1 ? "s" : ""} de retard sur ${row.branch} — pensez à pull + restart sur la prod.`;
+      return `${row.behindCount} commit${row.behindCount > 1 ? "s" : ""} de retard sur ${row.branch}, pensez à pull + restart sur la prod.`;
     case "process_down":
       return `Process PM2 « ${row.pm2Name} » en état ${row.pm2Status}.`;
     case "restart_pending":
-      return "Code à jour sur le disque mais process jamais relancé depuis — pm2 restart requis.";
+      return "Code à jour sur le disque mais process jamais relancé depuis, pm2 restart requis.";
     case "up_to_date":
       // Le process est plus ancien que le dernier pull, mais celui-ci n'a apporté
       // que de la doc : on le dit, sinon l'écart de dates visible sur la carte
       // ferait douter du verdict.
       if (row.runtimeChangedSinceStart === false) {
-        return "À jour — le dernier pull n'a touché que de la documentation, aucun redémarrage nécessaire.";
+        return "À jour : le dernier pull n'a touché que de la documentation, aucun redémarrage nécessaire.";
       }
       return "À jour.";
   }

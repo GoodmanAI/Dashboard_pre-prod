@@ -209,7 +209,7 @@ export default function PrescriptionConfigCard({
             >
               <strong>Important :</strong> activer une ordonnance pour un type d&apos;examen
               active automatiquement la confirmation SMS pour ce meme type. Le lien de
-              depot est inclus dans le SMS envoye au patient — sans SMS, le patient ne
+              depot est inclus dans le SMS envoye au patient, sans SMS, le patient ne
               peut pas deposer son ordonnance.
             </Alert>
 
@@ -245,8 +245,8 @@ export default function PrescriptionConfigCard({
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                 Si l&apos;ordonnance n&apos;est pas deposee dans ce delai apres l&apos;envoi
                 du SMS, une alerte apparait dans le dashboard secretaire pour rappeler le
-                patient. Defaut : {DEFAULT_ALERT_HOURS}h. Plage autorisee : {MIN_ALERT_HOURS}
-                –{MAX_ALERT_HOURS}h.
+                patient. Defaut : {DEFAULT_ALERT_HOURS}h. Plage autorisee : de {MIN_ALERT_HOURS}
+                {" "}à {MAX_ALERT_HOURS}h.
               </Typography>
               <TextField
                 type="number"

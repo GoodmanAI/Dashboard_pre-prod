@@ -518,7 +518,7 @@ export default function TalkPage({ params }: TalkPageProps) {
                   variant="overline"
                   sx={{ color: "#2a6f64", fontWeight: 700, letterSpacing: 1 }}
                 >
-                  Activité — 14 derniers jours
+                  Activité : 14 derniers jours
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Nombre d&apos;appels par jour

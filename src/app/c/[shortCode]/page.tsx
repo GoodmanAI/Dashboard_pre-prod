@@ -74,7 +74,7 @@ export async function generateMetadata({
   }
 
   const title = centre
-    ? `Confirmation de rendez-vous — ${centre}`
+    ? `Confirmation de rendez-vous : ${centre}`
     : "Confirmation de rendez-vous";
   const description = centre
     ? `Confirmez ou annulez votre rendez-vous d'imagerie médicale auprès de ${centre}. Aucun paiement n'est demandé.`

@@ -717,7 +717,7 @@ function TransfersSection({
             TOP ÉTAPES D&apos;INCOMPRÉHENSION
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
-            Étapes où le bot a le plus échoué avant transfert — utile pour prioriser
+            Étapes où le bot a le plus échoué avant transfert, utile pour prioriser
             les améliorations STT / reformulation.
           </Typography>
           {topFailedSteps.length === 0 ? (
@@ -961,7 +961,7 @@ const RECONSTRUCT_COLORS: Record<string, string> = {
 const RECONSTRUCT_LABELS: Record<string, string> = {
   node: "Node",
   azure: "Azure",
-  null_or_other: "—",
+  null_or_other: "-",
 };
 
 function IdentificationSection({
@@ -1051,7 +1051,7 @@ function IdentificationSection({
             value={`${birthdate.autonomyPct}%`}
             sublabel={
               birthdate.totalCount > 0
-                ? `${birthdate.totalCount} appels analysés — ${birthdate.azureUsedPct}% ont basculé sur Azure`
+                ? `${birthdate.totalCount} appels analysés, ${birthdate.azureUsedPct}% ont basculé sur Azure`
                 : "Aucun appel avec birthdate mesuré"
             }
             accent={birthdate.autonomyPct >= 80 ? "#22c55e" : birthdate.autonomyPct >= 60 ? "#f59e0b" : "#ef4444"}
@@ -1073,7 +1073,7 @@ function IdentificationSection({
             }}
           >
             <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1.5 }}>
-              Date de naissance — résolution
+              Date de naissance : résolution
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
               Comment chaque date de naissance a été résolue : Node (direct ou via collecte progressive) vs Azure (fallback NLP).
@@ -1136,7 +1136,7 @@ function IdentificationSection({
             }}
           >
             <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1.5 }}>
-              Épellation du nom — récupération
+              Épellation du nom : récupération
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
               Quand le bot ne trouve aucun dossier, il fait épeler le nom puis relance la recherche. La métrique star : doublons évités.
@@ -2550,7 +2550,7 @@ const AnalyticsInternalPage = () => {
       <Box>
         <SectionHeader
           title="Statistiques produit"
-          subtitle="Indicateurs internes du bot Lyrae — agrégés sur tous les centres"
+          subtitle="Indicateurs internes du bot Lyrae, agrégés sur tous les centres"
           actions={
             loading ? <Chip size="small" label="chargement…" variant="outlined" /> : undefined
           }
@@ -2733,28 +2733,28 @@ const AnalyticsInternalPage = () => {
           <Grid item xs={6} md={3}>
             <KpiCard
               label="Appels sur la période"
-              value={data ? data.totalCalls : "—"}
+              value={data ? data.totalCalls : "-"}
               icon={<IconChartBar size={20} />}
             />
           </Grid>
           <Grid item xs={6} md={3}>
             <KpiCard
               label="Avec stats internes"
-              value={data ? data.callsWithInternal : "—"}
+              value={data ? data.callsWithInternal : "-"}
               icon={<IconCheck size={20} />}
             />
           </Grid>
           <Grid item xs={6} md={3}>
             <KpiCard
               label="Durée moyenne"
-              value={data ? formatMinutes(data.steps.avgDurationMinutes) : "—"}
+              value={data ? formatMinutes(data.steps.avgDurationMinutes) : "-"}
               icon={<IconClock size={20} />}
             />
           </Grid>
           <Grid item xs={6} md={3}>
             <KpiCard
               label="Barge-in moyen"
-              value={data ? data.steps.avgBargeIn : "—"}
+              value={data ? data.steps.avgBargeIn : "-"}
               icon={<IconAlertTriangle size={20} />}
             />
           </Grid>
@@ -2835,7 +2835,7 @@ const AnalyticsInternalPage = () => {
             }}
           >
             <Typography variant="caption" color="text.secondary">
-              Sections détaillées ci-dessous — un export commun couvre les 5.
+              Sections détaillées ci-dessous, un export commun couvre les 5.
             </Typography>
             <MuiTooltip
               title={

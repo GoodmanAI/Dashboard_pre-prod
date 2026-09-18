@@ -122,7 +122,7 @@ export default function PatientErrorScreen({
         >
           Un incident technique nous empêche d&apos;afficher la page permettant
           de {action}. Vous pouvez réessayer ; si le problème persiste,
-          contactez directement votre centre d&apos;imagerie — votre
+          contactez directement votre centre d&apos;imagerie, votre
           rendez-vous, lui, n&apos;est pas affecté.
         </p>
 

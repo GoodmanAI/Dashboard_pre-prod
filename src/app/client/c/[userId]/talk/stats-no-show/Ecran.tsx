@@ -428,7 +428,7 @@ export default function StatsNoShowPage({ params }: Props) {
               {stats && stats.byType.unknown && stats.byType.unknown.smsSent > 0 && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2 }}>
                   Note : {stats.byType.unknown.smsSent} SMS ont été comptés sans type d&apos;examen
-                  renseigné (init historique sans champ examType) — non affichés dans le détail
+                  renseigné (init historique sans champ examType), non affichés dans le détail
                   par type.
                 </Typography>
               )}

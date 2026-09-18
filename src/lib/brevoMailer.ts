@@ -69,7 +69,7 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) {
     console.warn(
-      "[brevoMailer] BREVO_API_KEY manquante — email non envoye :",
+      "[brevoMailer] BREVO_API_KEY manquante : email non envoye :",
       opts.subject
     );
     return { ok: false, error: "BREVO_API_KEY missing" };

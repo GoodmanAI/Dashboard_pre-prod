@@ -98,7 +98,7 @@ export default function CreateAccountDialog({
         const detailMsg = Array.isArray(data.details)
           ? data.details.map((d: any) => `${d.field}: ${d.message}`).join(" / ")
           : "";
-        throw new Error([data.error, detailMsg].filter(Boolean).join(" — "));
+        throw new Error([data.error, detailMsg].filter(Boolean).join(", "));
       }
       onSuccess(
         mode === "admin"

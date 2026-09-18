@@ -217,7 +217,7 @@ export default function UsersManagementPage() {
     >
       <SectionHeader
         title="Comptes & permissions"
-        subtitle="SUPER_ADMIN — creer, editer et deconnecter les comptes"
+        subtitle="SUPER_ADMIN : creer, editer et deconnecter les comptes"
       />
 
       <Card sx={{ p: 0, overflow: "hidden" }}>
