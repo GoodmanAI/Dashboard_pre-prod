@@ -34,9 +34,7 @@ import ExamTypeBadge from "@/components/shared/ExamTypeBadge";
  *   Pratiqué · Examen · Code + Libellé patient · Type · Injecté (+ code)
  *
  * puis les colonnes propres au produit. « Liste d'attente » a été retirée de
- * l'affichage de Konnect à la même date ; ⚠️ sa VALEUR continue d'être chargée et
- * renvoyée par le `PUT`, sans quoi le retrait de la colonne l'aurait remise à
- * `false` chez tout le monde, en silence.
+ * l'affichage le 14/09/2026, puis de Konnect entièrement le 18/09/2026.
  */
 
 export const PALETTE_MAPPING = {

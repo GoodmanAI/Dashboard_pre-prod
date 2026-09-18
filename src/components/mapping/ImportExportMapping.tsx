@@ -70,8 +70,8 @@ async function chargerXlsx() {
  * libellé pour que le client reconnaisse la ligne dans son tableur.
  *
  * ⚠️ RIEN D'AUTRE N'EST COMMUN, et c'est le piège qu'il a fallu défaire. Ce type
- * exigeait autrefois `reservableEnLigne`, `ordoOblig`, `examenInjecte` et
- * `listeAttenteActive`, qui n'existent que chez LyraeKonnect ; le composant se disait
+ * exigeait autrefois `reservableEnLigne`, `ordoOblig` et `examenInjecte`, qui
+ * n'existent que chez LyraeKonnect ; le composant se disait
  * générique tout en étant figé sur un seul produit. Et le code d'injection ne porte
  * même pas le même nom des deux côtés : `codeExamenInjection` chez Konnect,
  * `codeExamenClientInject` chez LyraeTalk.
@@ -117,7 +117,6 @@ export const CHAMPS_KONNECT = [
   { colonne: "Réservable en ligne", cle: "reservableEnLigne", type: "booleen" },
   { colonne: "Ordonnance obligatoire", cle: "ordoOblig", type: "booleen" },
   { colonne: "Injecté", cle: "examenInjecte", type: "booleen" },
-  { colonne: "Liste d'attente", cle: "listeAttenteActive", type: "booleen" },
 ] as const;
 
 /**

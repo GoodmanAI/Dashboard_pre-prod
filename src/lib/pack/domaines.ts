@@ -859,7 +859,6 @@ export const ONGLETS: Onglet[] = [
       "Réservable en ligne",
       "Ordonnance obligatoire",
       "Injecté",
-      "Liste d'attente",
     ],
     exporter: (pack) =>
       pack.konnect
@@ -874,7 +873,6 @@ export const ONGLETS: Onglet[] = [
             "Réservable en ligne": oui(e.reservableEnLigne),
             "Ordonnance obligatoire": oui(e.ordoOblig),
             "Injecté": oui(e.examenInjecte),
-            "Liste d'attente": oui(e.listeAttenteActive),
           }))
         : null,
     importer: (lues, colonnes, pack) => {
@@ -891,7 +889,6 @@ export const ONGLETS: Onglet[] = [
         { colonne: "Réservable en ligne", cle: "reservableEnLigne", type: "booleen" },
         { colonne: "Ordonnance obligatoire", cle: "ordoOblig", type: "booleen" },
         { colonne: "Injecté", cle: "examenInjecte", type: "booleen" },
-        { colonne: "Liste d'attente", cle: "listeAttenteActive", type: "booleen" },
       ];
       c.colonnesManquantes = champs.map((x) => x.colonne).filter((x) => !colonnes.includes(x));
 
