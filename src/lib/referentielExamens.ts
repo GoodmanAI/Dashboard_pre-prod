@@ -47,7 +47,6 @@ export type LigneReferentiel = {
   reservableEnLigne: boolean;
   ordoOblig: boolean;
   examenInjecte: boolean;
-  listeAttenteActive: boolean;
 };
 
 export type Referentiel = {
@@ -128,7 +127,6 @@ export async function referentielNeuracorp(): Promise<Referentiel> {
         reservableEnLigne: true,
         ordoOblig: false,
         examenInjecte: false,
-        listeAttenteActive: false,
       }))
       // Une ligne sans code interne ne désigne rien : le classeur contient des
       // lignes de séparation et des en-têtes intermédiaires.
@@ -205,7 +203,6 @@ export async function mappingDepuisTalk(
       reservableEnLigne: true,
       ordoOblig: false,
       examenInjecte: false,
-      listeAttenteActive: false,
     }))
     .filter((l) => l.codeExamen);
 }
@@ -252,7 +249,6 @@ export async function referentielEnBase(): Promise<LigneReferentiel[]> {
     reservableEnLigne: true,
     ordoOblig: false,
     examenInjecte: false,
-    listeAttenteActive: false,
   }));
 }
 

@@ -53,13 +53,11 @@ type LigneMapping = {
   reservableEnLigne: boolean;
   ordoOblig: boolean;
   examenInjecte: boolean;
-  listeAttenteActive: boolean;
 };
 
 const COLONNES = `"codeExamen", "typeExamen", "libelle", "codeExamenClient",
                   "codeExamenInjection", "typeExamenClient", "libelleClient",
-                  "performed", "reservableEnLigne", "ordoOblig", "examenInjecte",
-                  "listeAttenteActive"`;
+                  "performed", "reservableEnLigne", "ordoOblig", "examenInjecte"`;
 
 async function estCentreKonnect(userProductId: number): Promise<boolean> {
   const res = await db.query<{ id: number }>(
@@ -121,7 +119,6 @@ function versCatalogueKonnect(lignes: LigneMapping[]) {
       // offre le rappel. C'est la seule chose qui distingue les deux parcours
       // depuis la fin des modes de traitement.
       reservable_en_ligne: l.reservableEnLigne,
-      liste_attente_active: l.listeAttenteActive,
       source: "manuel",
     }));
 }
@@ -236,7 +233,6 @@ function normaliser(brut: any, index: number): LigneMapping {
     reservableEnLigne: brut?.reservableEnLigne !== false,
     ordoOblig: brut?.ordoOblig === true,
     examenInjecte: brut?.examenInjecte === true,
-    listeAttenteActive: brut?.listeAttenteActive === true,
   };
 }
 
@@ -325,8 +321,8 @@ export async function PUT(req: NextRequest) {
         `INSERT INTO "KonnectExamens"
            ("userProductId", "codeExamen", "typeExamen", "libelle", "codeExamenClient",
             "codeExamenInjection", "typeExamenClient", "libelleClient", "performed",
-            "reservableEnLigne", "ordoOblig", "examenInjecte", "listeAttenteActive")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+            "reservableEnLigne", "ordoOblig", "examenInjecte")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
         [
           userProductId,
           l.codeExamen,
@@ -340,7 +336,6 @@ export async function PUT(req: NextRequest) {
           l.reservableEnLigne,
           l.ordoOblig,
           l.examenInjecte,
-          l.listeAttenteActive,
         ]
       );
     }

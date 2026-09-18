@@ -145,8 +145,7 @@ async function lireKonnect(userProductId: number): Promise<PackKonnect> {
     db.query<Record<string, unknown>>(
       `SELECT "codeExamen", "typeExamen", "libelle", "codeExamenClient",
               "codeExamenInjection", "typeExamenClient", "libelleClient",
-              "performed", "reservableEnLigne", "ordoOblig", "examenInjecte",
-              "listeAttenteActive"
+              "performed", "reservableEnLigne", "ordoOblig", "examenInjecte"
          FROM "KonnectExamens" WHERE "userProductId" = $1 ORDER BY "codeExamen"`,
       [userProductId]
     ),
