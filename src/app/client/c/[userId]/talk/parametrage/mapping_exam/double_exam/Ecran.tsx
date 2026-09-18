@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import SaveIcon from "@mui/icons-material/Save";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import { useRouter } from "next/navigation";
 import {
-  Stack,
   Button,
   Snackbar,
   Alert,
@@ -15,7 +14,8 @@ import {
   MenuItem,
   Box,
 } from "@mui/material";
-import { useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 
@@ -54,6 +54,8 @@ export default function DoubleExamPage({ params }: DoubleExamPageProps) {
   const [mapping, setMapping] = useState<
     Record<string, { enabled: boolean; mode: "single" | "double" }>
   >({});
+  // Ce que le serveur connaît : sert à compter les lignes modifiées.
+  const [initial, setInitial] = useState<typeof mapping>({});
 
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState({
@@ -78,6 +80,7 @@ export default function DoubleExamPage({ params }: DoubleExamPageProps) {
       });
 
       setMapping(formatted);
+      setInitial(formatted);
     };
 
     fetchData();
@@ -96,6 +99,7 @@ export default function DoubleExamPage({ params }: DoubleExamPageProps) {
       );
 
       if (!response.ok) throw new Error("Save failed");
+      setInitial(mapping);
 
       setSnack({
         open: true,
@@ -112,6 +116,12 @@ export default function DoubleExamPage({ params }: DoubleExamPageProps) {
       setSaving(false);
     }
   };
+
+  const modifications = Object.keys(mapping).filter(
+    (k) =>
+      mapping[k].enabled !== initial[k]?.enabled ||
+      mapping[k].mode !== initial[k]?.mode
+  ).length;
 
   return (
     <main className="p-6">
@@ -223,47 +233,24 @@ export default function DoubleExamPage({ params }: DoubleExamPageProps) {
 
       </Box>
 
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={1}
-        sx={{
-          position: "sticky",
-          bottom: 0,
-          bgcolor: "rgba(248,248,248,0.9)",
-          backdropFilter: "blur(6px)",
-          py: 1.5,
-          px: 2,
-          mt: 2,
-          borderTop: "1px solid #eee",
-          justifyContent: "flex-end",
-        }}
-      >
-        {!readOnly && (
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            onClick={handleSave}
-            disabled={saving}
-            sx={{
-              backgroundColor: "var(--accent)",
-              "&:hover": { backgroundColor: "#3bb49d" },
-            }}
-          >
-            Enregistrer
-          </Button>
-        )}
+      <BarreEnregistrement
+        modifications={modifications}
+        enregistrement={saving}
+        onEnregistrer={handleSave}
+        onAnnuler={() => setMapping(initial)}
+        lectureSeule={readOnly}
+      />
 
-        <Portal>
-          <Snackbar
-            anchorOrigin={{ vertical: "top", horizontal: "right" }}
-            open={snack.open}
-            autoHideDuration={3000}
-            onClose={() => setSnack((s) => ({ ...s, open: false }))}
-          >
-            <Alert severity={snack.severity}>{snack.message}</Alert>
-          </Snackbar>
-        </Portal>
-      </Stack>
+      <Portal>
+        <Snackbar
+          anchorOrigin={{ vertical: "top", horizontal: "right" }}
+          open={snack.open}
+          autoHideDuration={3000}
+          onClose={() => setSnack((s) => ({ ...s, open: false }))}
+        >
+          <Alert severity={snack.severity}>{snack.message}</Alert>
+        </Snackbar>
+      </Portal>
     </main>
   );
 }

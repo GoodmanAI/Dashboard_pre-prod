@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Box,
@@ -20,9 +20,10 @@ import {
   Portal,
   Alert
 } from "@mui/material";
-import SaveIcon from "@mui/icons-material/Save";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
-import { useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 
@@ -71,6 +72,8 @@ export default function EditExamQuestions({ params }: PageProps) {
   const readOnly = !peutEcrire;
 
   const [exams, setExams] = useState<Record<string, Exam>>({});
+  // Ce que le serveur connaît : sert à compter les examens modifiés.
+  const [initial, setInitial] = useState<Record<string, Exam>>({});
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -120,6 +123,7 @@ export default function EditExamQuestions({ params }: PageProps) {
       });
 
       setExams(normalized);
+      setInitial(normalized);
     };
 
     fetchExams();
@@ -189,6 +193,7 @@ export default function EditExamQuestions({ params }: PageProps) {
       });
 
       if (!res.ok) throw new Error("Erreur sauvegarde");
+      setInitial(exams);
 
       setSnack({
         open: true,
@@ -206,6 +211,13 @@ export default function EditExamQuestions({ params }: PageProps) {
     }
   };
 
+  const modifications = useMemo(
+    () =>
+      Object.keys(exams).filter(
+        (code) => JSON.stringify(exams[code]) !== JSON.stringify(initial[code])
+      ).length,
+    [exams, initial]
+  );
 
   return (
     <main>
@@ -329,36 +341,13 @@ export default function EditExamQuestions({ params }: PageProps) {
         )}
         </Box>
 
-        {/* Barre sticky */}
-        {!readOnly && (
-          <Box
-            sx={{
-              position: "sticky",
-              bottom: 0,
-              backgroundColor: "rgba(248,248,248,0.9)",
-              backdropFilter: "blur(6px)",
-              py: 2,
-              px: 2,
-              mt: 3,
-              borderTop: "1px solid #eee",
-              display: "flex",
-              justifyContent: "flex-end",
-            }}
-          >
-            <Button
-              variant="contained"
-              startIcon={<SaveIcon />}
-              onClick={handleSave}
-              disabled={saving}
-              sx={{
-                backgroundColor: "var(--accent)",
-                "&:hover": { backgroundColor: "#3bb49d" },
-              }}
-            >
-              Enregistrer
-            </Button>
-          </Box>
-        )}
+        <BarreEnregistrement
+          modifications={modifications}
+          enregistrement={saving}
+          onEnregistrer={handleSave}
+          onAnnuler={() => setExams(initial)}
+          lectureSeule={readOnly}
+        />
       </Box>
       <Portal>
         <Snackbar
