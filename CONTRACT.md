@@ -491,8 +491,10 @@ ligne par (centre, **code NEURACORP**) — c'est ce code interne qui est la clé
 celui du RIS.
 
 Les deux mappings restent **séparés**, un par produit. Même RIS et mêmes codes, mais
-Konnect porte trois réglages que le robot vocal ignore — `ordoOblig`, `examenInjecte`,
-`listeAttenteActive` — qui pilotent des écrans du parcours web.
+Konnect porte deux réglages que le robot vocal ignore, `ordoOblig` et `examenInjecte`,
+qui pilotent des écrans du parcours web. Un troisième, `listeAttenteActive`, a été
+retiré le 18/09/2026 avec la liste d'attente de Konnect : la colonne reste en base,
+plus rien ne la lit ni ne l'écrit.
 
 Quatre points à connaître :
 

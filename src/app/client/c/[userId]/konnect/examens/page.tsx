@@ -27,7 +27,8 @@ import { useSession } from "next-auth/react";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import ExamTypeBadge, { EXAM_TYPE_SHORT } from "@/components/shared/ExamTypeBadge";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
@@ -80,12 +81,9 @@ import ImportExportMapping, {
  *   réservation (règle `_ordonnance_obligatoire_non_validee` de Konnect, criticité
  *   haute, `INFORMER` + `MARQUER_VALIDATION`).
  *
- * ⚠️ « LISTE D'ATTENTE » N'A PLUS DE COLONNE (14/09/2026), et sa valeur est
- * néanmoins chargée, gardée dans l'état et renvoyée par le `PUT`. Sans cela, retirer
- * la colonne l'aurait remise à `false` chez tous les centres, en silence : le `PUT`
- * remplace la ligne entière, et `normaliser` lit `listeAttenteActive === true`. La
- * règle « un champ absent d'un PUT doit être préservé » s'applique aussi quand c'est
- * l'écran qui cesse de l'afficher.
+ * « Liste d'attente » a disparu pour de bon le 18/09/2026 : la fonction a été
+ * retirée de Konnect, la colonne de la base reste en place mais plus personne ne la
+ * lit ni ne l'écrit.
  *
  * Depuis le chantier `2026-09-konnect-deux-chemins`, cet écran est le SEUL endroit
  * où se décide le chemin d'une demande. L'écran « Modes de traitement », ses trois
@@ -121,13 +119,13 @@ type Ligne = {
   reservableEnLigne: boolean;
   ordoOblig: boolean;
   examenInjecte: boolean;
-  listeAttenteActive: boolean;
 };
 
 type FiltreAttribution = "tous" | "attribues" | "non_attribues";
 type FiltreChemin = "tous" | "bout_en_bout" | "rappel";
 
-export default function MappingExamensKonnect() {
+export default function MappingExamensKonnect() {
+
   // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
   // apres la saisie. La garde serveur reste seule responsable du refus reel.
   const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_EXAMENS);

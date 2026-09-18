@@ -41,7 +41,6 @@ export type LignePackExamen = {
   reservableEnLigne?: boolean;
   ordoOblig?: boolean;
   examenInjecte?: boolean;
-  listeAttenteActive?: boolean;
 };
 
 export type PlageHoraire = { start: string; end: string };
