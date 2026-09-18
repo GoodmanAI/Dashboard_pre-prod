@@ -9,11 +9,9 @@
  *   - CLIENT avec `permissions` set : sous-compte, acces granulaire par page.
  *     Une page absente ou "none" = pas d'acces. Sinon "read" ou "write".
  *
- * Retrocompat isSecretary :
- *   - Les CLIENT flagges `isSecretary` heritent d'un profil "read only sur
- *     les pages parametrage, write sur le reste" tant qu'ils n'ont pas de
- *     `permissions` custom set. A terme, `isSecretary` sera migre vers un
- *     preset permissions et le champ retire.
+ * Le booleen `User.isSecretary` n'est plus lu depuis le 18/09/2026 : un compte
+ * secretaire est un compte qui porte le prereglage `presetSecretaire()`. La colonne
+ * reste en base, sans lecteur.
  */
 
 export const PAGES = {
@@ -174,7 +172,6 @@ export type PermissionsMap = Partial<Record<PageKey, AccessLevel>>;
  */
 export interface PermissionSubject {
   role: string | null | undefined;
-  isSecretary?: boolean | null;
   permissions?: unknown;
   /**
    * Le compte parent, s'il y en a un. Nécessaire à `isSubAccount` depuis le
@@ -188,8 +185,8 @@ export interface PermissionSubject {
 }
 
 /**
- * Pages en "lecture seule" pour un secretaire retrocompat (isSecretary=true
- * sans permissions custom set). Toutes les autres pages restent "write".
+ * Pages en lecture seule dans le prereglage secretaire. Toutes les autres y sont en
+ * ecriture.
  */
 const SECRETARY_READONLY_PAGES: PageKey[] = [
   PAGES.PARAMETRAGE,
@@ -292,12 +289,11 @@ export function hasPermission(
     return pageLevel === "write";
   }
 
-  // CLIENT sans permissions custom + isSecretary : preset legacy
-  if (subject.isSecretary) {
-    const isReadOnlyForSecretary = SECRETARY_READONLY_PAGES.includes(page);
-    if (isReadOnlyForSecretary && level === "write") return false;
-    return true;
-  }
+  // LE DRAPEAU `User.isSecretary` N'EST PLUS LU (18/09/2026). Il donnait un profil
+  // implicite aux comptes sans permissions ; les deux derniers comptes concernes portent
+  // desormais le prereglage `presetSecretaire()` en clair. La migration manuelle
+  // `2026_09_18_is_secretary_plus_lu.sql` REFUSE de passer s'il reste un compte flagge
+  // sans permissions : sans cette garde, il deviendrait ici un compte principal.
 
   // CLIENT sans permissions custom : acces complet (compte principal)
   return true;

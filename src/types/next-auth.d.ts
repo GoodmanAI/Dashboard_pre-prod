@@ -14,7 +14,6 @@ declare module "next-auth" {
     name: string | null;
     email: string;
     role: UserRole;
-    isSecretary?: boolean;
     /** Override permissions granulaire (chantier 3). null = acces complet du role. */
     permissions?: unknown;
     /** Compteur de version JWT pour revocation a distance. */
@@ -27,7 +26,6 @@ declare module "next-auth" {
       name: string | null;
       email: string;
       role: UserRole;
-      isSecretary?: boolean;
       permissions?: unknown;
       tokenVersion?: number;
     };
@@ -38,7 +36,6 @@ declare module "next-auth" {
     role: UserRole;
     name: string | null;
     email: string;
-    isSecretary?: boolean;
     permissions?: unknown;
     tokenVersion?: number;
   }

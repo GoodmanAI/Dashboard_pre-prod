@@ -163,7 +163,6 @@ export const authOptions: NextAuthOptions  = {
           name: user.name,
           email: user.email,
           role: user.role,
-          isSecretary: user.isSecretary,
           permissions: user.permissions ?? null,
           tokenVersion: user.tokenVersion ?? 0,
         };
@@ -206,7 +205,6 @@ export const authOptions: NextAuthOptions  = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
-        token.isSecretary = user.isSecretary ?? false;
         token.permissions = (user as any).permissions ?? null;
         token.tokenVersion = (user as any).tokenVersion ?? 0;
         return token;
@@ -221,7 +219,6 @@ export const authOptions: NextAuthOptions  = {
           where: { id: token.id as number },
           select: {
             role: true,
-            isSecretary: true,
             permissions: true,
             tokenVersion: true,
           },
@@ -239,9 +236,8 @@ export const authOptions: NextAuthOptions  = {
           return {} as typeof token;
         }
 
-        // Rehydrate role/isSecretary/permissions (peuvent changer sans logout)
+        // Rehydrate role/permissions (peuvent changer sans logout)
         token.role = dbUser.role;
-        token.isSecretary = dbUser.isSecretary;
         token.permissions = dbUser.permissions;
         token.tokenVersion = currentVersion;
       }
@@ -259,7 +255,6 @@ export const authOptions: NextAuthOptions  = {
         ...session.user,
         id: token.id as number,
         role: token.role as "SUPER_ADMIN" | "ADMIN" | "CLIENT",
-        isSecretary: (token.isSecretary as boolean | undefined) ?? false,
         permissions: token.permissions ?? null,
         tokenVersion: (token.tokenVersion as number | undefined) ?? 0,
       };

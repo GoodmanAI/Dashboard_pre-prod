@@ -14,16 +14,15 @@ import { hasPermission, PageKey } from "@/lib/permissions";
  * commentaire demandait cette bascule depuis le chantier 3 ; personne ne l'avait
  * faite, et `requirePagePermission` n'était appelée par aucune route du dépôt.
  *
- * Le comportement des comptes `isSecretary` hérités est **inchangé** : les dix
- * routes concernées pointent toutes vers une page présente dans
- * `SECRETARY_READONLY_PAGES`, où `hasPermission` refuse déjà l'écriture.
+ * Depuis le 18/09/2026 le booléen `isSecretary` n'est plus lu du tout : un compte
+ * secrétaire porte le préréglage `presetSecretaire()` en clair, et n'est restreint que
+ * par lui. Voir `prisma/migrations/manual/2026_09_18_is_secretary_plus_lu.sql`.
  */
 
 /**
  * Verifie que la session a le niveau d'acces demande sur une page.
  * Utilise hasPermission() : gere SUPER_ADMIN/ADMIN (bypass), CLIENT principal
- * (bypass), CLIENT sous-compte (permissions JSON granulaires), CLIENT
- * isSecretary retrocompat (read seul sur pages parametrage).
+ * (bypass), CLIENT avec permissions (JSON granulaire, sous-compte ou secretaire).
  *
  * Retourne :
  *   - null si l'acces est autorise

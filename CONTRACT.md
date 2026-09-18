@@ -695,9 +695,12 @@ Deux états restent possibles, et le robot doit continuer à les traiter :
   Le modèle Prisma est conservé pour la même raison. Q14 close.
 - `SPECIAL_CENTRE_PAIRS` codé en dur (`auth-helpers.ts:32`).
 - Aucun test. `schema.prisma` ne couvre pas les tables SQL manuelles.
-- Deux comptes secrétaire dépendent encore de la branche héritée `isSecretary` (relevé
-  du 15/09/2026) : passer `scripts/data-provisioning/2026_09_15_preset_secretaire.sql`,
-  puis retirer la branche quand son contrôle final rend zéro.
+- ~~Deux comptes secrétaire dépendent encore de la branche héritée `isSecretary`.~~ **Fait
+  le 18/09/2026.** Les deux comptes portent le préréglage, le contrôle rend zéro, et la
+  branche est retirée : `hasPermission`, la session et `PATCH /api/admin/users/:id` ne
+  connaissent plus le booléen. La colonne reste en base ; la migration
+  `2026_09_18_is_secretary_plus_lu.sql` refuse de passer s'il reparaît un compte flaggé
+  sans permissions, qui obtiendrait sinon un accès complet.
 - ~~La création d'un compte client part de trois écrans plus l'assistant.~~ **Fait le
   15/09/2026** : `/admin/create-client` renvoie vers l'assistant, les deux écrans
   d'installation et la page Actions y mènent, et la grille de droits offre le
