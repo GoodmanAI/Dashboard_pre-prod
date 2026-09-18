@@ -23,14 +23,6 @@
 
 export type ModeSaisieExamen = "traditionnel" | "anatomique";
 
-/**
- * Mode du SMS de rappel de secours, miroir de `cabinet_parametres` côté Konnect.
- * `conditionnel` n'envoie que si le patient n'a ni confirmé ni annulé ;
- * `opt_out_si_ics` se tait dès que le calendrier a été téléchargé ; `toujours`
- * est le comportement historique.
- */
-export type SmsRappelMode = "conditionnel" | "opt_out_si_ics" | "toujours";
-
 export type ConfigKonnect = {
   // Identité du centre
   //
@@ -62,10 +54,6 @@ export type ConfigKonnect = {
   // Expéditeur alphanumérique du SMS : 3 à 11 caractères, lettres et chiffres sans
   // accent. C'est la limite des opérateurs, pas la nôtre.
   expediteurSms: string | null;
-  // Le portail relance le patient avant son rendez-vous (rappels J-N). Distinct des
-  // deux precedents : ceux-la disent PAR QUEL CANAL on ecrit, celui-ci dit SI l'on
-  // relance. Un centre peut vouloir confirmer sans relancer.
-  rappelsActifs: boolean;
   // Parcours patient
   ocrActif: boolean;
   modeSaisieExamen: ModeSaisieExamen;
@@ -77,12 +65,6 @@ export type ConfigKonnect = {
   poidsMaxScannerKg: number | null;
   // Interne technique
   cloudOcrActif: boolean;
-  // Confirmation de rendez-vous (lot G4). Ces trois-là vivaient dans la console
-  // cabinet de Konnect, seule interface à les porter : ils passent ici avant que
-  // cette console ne ferme, sans quoi ils deviendraient inaccessibles.
-  annulationDirecte: boolean;
-  smsRappelMode: SmsRappelMode;
-  codeCaracteristiqueConfirmationXplore: string | null;
 };
 
 /** Défauts *fail-closed*, alignés sur `cabinet_parametres` de Konnect. */
@@ -97,10 +79,6 @@ export const KONNECT_DEFAUTS: ConfigKonnect = {
   envoiSms: true,
   expediteurNomMail: null,
   expediteurSms: null,
-  // Fail-closed, comme le reste de la configuration sensible : ecrire au patient se
-  // demande. Un defaut `true` ferait partir des relances chez tous les centres des
-  // l'armement de `KONNECT_NOTIFIER_ENABLED`.
-  rappelsActifs: false,
   ocrActif: true,
   modeSaisieExamen: "traditionnel",
   choixRadiologueActif: false,
@@ -109,15 +87,17 @@ export const KONNECT_DEFAUTS: ConfigKonnect = {
   poidsMaxIrmKg: null,
   poidsMaxScannerKg: null,
   cloudOcrActif: false,
-  // Fail-closed (AB-12) : un « non » du patient ne supprime rien dans le logiciel
-  // du centre tant que le cabinet ne l'a pas explicitement voulu. L'inverser par
-  // défaut ferait supprimer de vrais rendez-vous chez un cabinet non paramétré.
-  annulationDirecte: false,
-  smsRappelMode: "conditionnel",
-  codeCaracteristiqueConfirmationXplore: null,
 };
 
-/** Colonnes de `KonnectSettings`, dans l'ordre. Sert à bâtir les requêtes SQL. */
+/**
+ * Colonnes de `KonnectSettings`, dans l'ordre. Sert à bâtir les requêtes SQL.
+ *
+ * QUATRE COLONNES RESTENT EN BASE SANS ÊTRE LUES (18/09/2026) : `rappelsActifs`,
+ * `annulationDirecte`, `smsRappelMode`, `codeCaracteristiqueConfirmationXplore`.
+ * Elles pilotaient la confirmation par lien, l'annulation directe et les rappels J-N
+ * de Konnect, tous supprimés. Les relances no-show ont leur propre rubrique
+ * (`SmsConfirmationConfig`), partagée avec LyraeTalk. Pas de migration destructive.
+ */
 export const COLONNES_KONNECT = [
   "logoUrl",
   "couleurPrincipale",
@@ -129,7 +109,6 @@ export const COLONNES_KONNECT = [
   "envoiSms",
   "expediteurNomMail",
   "expediteurSms",
-  "rappelsActifs",
   "ocrActif",
   "modeSaisieExamen",
   "choixRadiologueActif",
@@ -138,13 +117,9 @@ export const COLONNES_KONNECT = [
   "poidsMaxIrmKg",
   "poidsMaxScannerKg",
   "cloudOcrActif",
-  "annulationDirecte",
-  "smsRappelMode",
-  "codeCaracteristiqueConfirmationXplore",
 ] as const;
 
 const MODES_SAISIE: ModeSaisieExamen[] = ["traditionnel", "anatomique"];
-const MODES_SMS_RAPPEL: SmsRappelMode[] = ["conditionnel", "opt_out_si_ics", "toujours"];
 
 function versBooleen(valeur: unknown, defaut: boolean): boolean {
   if (typeof valeur === "boolean") return valeur;
@@ -283,7 +258,6 @@ export function normaliserConfigKonnect(
     envoiSms: versBooleen(brut.envoiSms, KONNECT_DEFAUTS.envoiSms),
     expediteurNomMail: versExpediteurNomMail(brut.expediteurNomMail, strict),
     expediteurSms: versExpediteurSms(brut.expediteurSms, strict),
-    rappelsActifs: versBooleen(brut.rappelsActifs, KONNECT_DEFAUTS.rappelsActifs),
     ocrActif: versBooleen(brut.ocrActif, KONNECT_DEFAUTS.ocrActif),
     modeSaisieExamen,
     choixRadiologueActif: versBooleen(
@@ -295,13 +269,6 @@ export function normaliserConfigKonnect(
     poidsMaxIrmKg: versSeuil(brut.poidsMaxIrmKg, "poidsMaxIrmKg", strict),
     poidsMaxScannerKg: versSeuil(brut.poidsMaxScannerKg, "poidsMaxScannerKg", strict),
     cloudOcrActif: versBooleen(brut.cloudOcrActif, KONNECT_DEFAUTS.cloudOcrActif),
-    annulationDirecte: versBooleen(brut.annulationDirecte, KONNECT_DEFAUTS.annulationDirecte),
-    // Une valeur inconnue retombe sur `conditionnel`, le mode le plus prudent :
-    // il n'envoie que si le patient n'a pas déjà répondu.
-    smsRappelMode: MODES_SMS_RAPPEL.includes(brut.smsRappelMode as SmsRappelMode)
-      ? (brut.smsRappelMode as SmsRappelMode)
-      : KONNECT_DEFAUTS.smsRappelMode,
-    codeCaracteristiqueConfirmationXplore: versTexte(brut.codeCaracteristiqueConfirmationXplore),
   };
 }
 
@@ -322,7 +289,6 @@ export function versPayloadKonnect(config: ConfigKonnect) {
     envoi_sms: config.envoiSms,
     expediteur_nom_mail: config.expediteurNomMail,
     expediteur_sms: config.expediteurSms,
-    rappels_actifs: config.rappelsActifs,
     ocr_actif: config.ocrActif,
     mode_saisie_examen: config.modeSaisieExamen,
     choix_radiologue_actif: config.choixRadiologueActif,
@@ -331,8 +297,5 @@ export function versPayloadKonnect(config: ConfigKonnect) {
     poids_max_irm_kg: config.poidsMaxIrmKg,
     poids_max_scanner_kg: config.poidsMaxScannerKg,
     cloud_ocr_actif: config.cloudOcrActif,
-    annulation_directe: config.annulationDirecte,
-    sms_rappel_mode: config.smsRappelMode,
-    code_caracteristique_confirmation_xplore: config.codeCaracteristiqueConfirmationXplore,
   };
 }

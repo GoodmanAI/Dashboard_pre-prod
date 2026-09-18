@@ -58,7 +58,6 @@ type Config = {
   envoi_sms: boolean;
   expediteur_nom_mail: string | null;
   expediteur_sms: string | null;
-  rappels_actifs: boolean;
   ocr_actif: boolean;
   mode_saisie_examen: "traditionnel" | "anatomique";
   choix_radiologue_actif: boolean;
@@ -66,9 +65,6 @@ type Config = {
   clinique_actif: boolean;
   poids_max_irm_kg: number | null;
   poids_max_scanner_kg: number | null;
-  annulation_directe: boolean;
-  sms_rappel_mode: "conditionnel" | "opt_out_si_ics" | "toujours";
-  code_caracteristique_confirmation_xplore: string | null;
 };
 
 /** Interrupteur avec son explication — le motif visuel de l'écran Talk. */
@@ -227,7 +223,6 @@ export default function ParametrageKonnectPage() {
             envoiSms: config.envoi_sms,
             expediteurNomMail: config.expediteur_nom_mail,
             expediteurSms: config.expediteur_sms,
-            rappelsActifs: config.rappels_actifs,
             ocrActif: config.ocr_actif,
             modeSaisieExamen: config.mode_saisie_examen,
             choixRadiologueActif: config.choix_radiologue_actif,
@@ -235,10 +230,6 @@ export default function ParametrageKonnectPage() {
             cliniqueActif: config.clinique_actif,
             poidsMaxIrmKg: config.poids_max_irm_kg,
             poidsMaxScannerKg: config.poids_max_scanner_kg,
-            annulationDirecte: config.annulation_directe,
-            smsRappelMode: config.sms_rappel_mode,
-            codeCaracteristiqueConfirmationXplore:
-              config.code_caracteristique_confirmation_xplore,
           }),
         },
       );

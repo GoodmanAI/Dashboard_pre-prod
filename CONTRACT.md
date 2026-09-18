@@ -217,21 +217,18 @@ champ sur `ParametresOut` de Konnect (`backend/app/cabinet/api.py`), pour qu'il 
 sans traduction. Renommer une de ces clés casse le portail patient en silence. La frontière
 camelCase ↔ snake_case est dans `src/lib/konnectConfig.ts`, et nulle part ailleurs.
 
-**20 champs depuis le 09/09/2026.** Trois se sont ajoutés aux 14 d'origine le
-28/08 (lot G4) : `annulation_directe`, `sms_rappel_mode`,
-`code_caracteristique_confirmation_xplore`. Ils n'avaient jusque-là aucune interface,
-ni ici ni dans la console cabinet de Konnect, et n'étaient modifiables qu'en SQL
-direct.
+**18 champs depuis le 18/09/2026.** Les 14 d'origine, les deux couleurs, les deux noms
+d'expéditeur.
 
-Le dix-huitième est `rappels_actifs` (08/09/2026) : le portail relance-t-il le
-patient avant sa venue (rappels J-N) ? Il ne dit pas par quel canal, les deux champs
-`envoi_*` s'en chargent, mais **si** l'on relance. Sans lui,
-`app.rappels.service` itérait sur tous les tenants sans garde par cabinet : armer
-`KONNECT_NOTIFIER_ENABLED` pour un client aurait mis tous les centres à relancer,
-cabinet de démonstration compris. **Défaut `false`**, fail-closed comme le reste ;
-un vrai client doit donc cocher la case.
+**Quatre champs ont été retirés le 18/09/2026** : `rappels_actifs`, `annulation_directe`,
+`sms_rappel_mode` et `code_caracteristique_confirmation_xplore`. Ils pilotaient la
+confirmation par lien, l'annulation directe et les rappels J-N de Konnect, tous
+supprimés : plus aucune brique ne les lisait. Les relances no-show sont celles
+d'AI2Xplore et se règlent dans leur propre rubrique (`SmsConfirmationConfig`), partagée
+avec LyraeTalk. Les quatre colonnes restent dans `KonnectSettings`, sans lecteur : pas de
+migration destructive. Konnect ignore ces clés si un Dashboard ancien les envoie encore.
 
-Les dix-neuvième et vingtième sont `couleur_principale` et `couleur_secondaire`
+Deux champs récents sont `couleur_principale` et `couleur_secondaire` `couleur_principale` et `couleur_secondaire`
 (09/09/2026). Konnect s'affiche en iframe **dans** le site du cabinet : bleu Lyrae au
 milieu d'un site vert, l'encart a l'air d'un corps étranger. La principale peint les
 boutons, les liens et les états actifs ; la secondaire peint le bandeau du haut. Format
@@ -243,7 +240,7 @@ Les dérivés (survol, fonds clairs) ne sont **pas** transmis : Konnect les calc
 les mêmes formules que l'aperçu du Dashboard. Deux formules qui divergeraient feraient
 mentir l'aperçu.
 
-Les vingt et unième et vingt-deuxième sont `expediteur_nom_mail` et `expediteur_sms`
+Les deux derniers sont `expediteur_nom_mail` et `expediteur_sms`
 (18/09/2026) : sous quel nom le patient voit arriver le mail et le SMS du portail.
 `null` = l'expéditeur posé à l'installation de Konnect (`TenantMessagingConfig`).
 **L'adresse d'expédition du mail n'en fait pas partie**, et ce n'est pas un oubli : elle
@@ -255,14 +252,6 @@ revalide avant l'envoi, puisque la valeur finit dans un en-tête de message.
 ⚠️ **L'ordre de déploiement d'un nouveau champ n'est pas négociable.** Le Dashboard
 doit savoir le servir AVANT que Konnect ne l'ajoute à `CHAMPS_PILOTES` : dans
 l'autre sens, la première synchronisation le remet à son défaut, en silence.
-
-⚠️ **Deux d'entre eux commandent des effets irréversibles chez le patient.**
-`annulation_directe` à `true` fait qu'un « non » du patient **supprime** son
-rendez-vous dans le RIS, sans relecture du secrétariat : le défaut `false` est un
-choix de sécurité (AB-12), pas une commodité. `code_caracteristique_confirmation_xplore`
-vide empêche d'inscrire la réponse du patient dans le RIS. Konnect restreint le
-premier à `false` quand sa configuration est périmée ; ne pas contrarier ce défaut
-depuis ici.
 
 **Ajouter un champ à `KonnectSettings` suit toujours le même ordre** : la colonne et
 `COLONNES_KONNECT` ici d'abord, déployés ; puis `CHAMPS_PILOTES` chez Konnect.
