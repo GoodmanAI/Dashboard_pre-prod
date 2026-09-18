@@ -36,7 +36,6 @@ export async function GET(
       email: true,
       role: true,
       centreRole: true,
-      isSecretary: true,
       address: true,
       city: true,
       postalCode: true,

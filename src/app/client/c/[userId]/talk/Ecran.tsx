@@ -41,18 +41,6 @@ import {
 } from "recharts";
 import ClientLayout from "./ClientLayout";
 
-interface Call {
-  id: number;
-  caller: string;
-  called: string;
-  intent: string;
-  firstname: string | null;
-  lastname: string | null;
-  birthdate: string | null;
-  createdAt: string;
-  steps: string[];
-}
-
 interface IntentConfig {
   value: string;
   sing_label: string;
@@ -86,19 +74,6 @@ function getAnchorDayBounds(anchorIso: string) {
   const end = new Date(anchor);
   end.setHours(23, 59, 59, 999);
   return { start, end };
-}
-
-function getIndice(calls: any[]): number {
-  if (!calls.length) return 0;
-
-  const errors = calls.reduce((acc: number, c: any) => {
-    if (c?.stats?.error_logic && c.stats.error_logic > 0) {
-      return acc + 1;
-    }
-    return acc;
-  }, 0);
-
-  return Math.floor((1 - errors / calls.length) * 100);
 }
 
 /* ===== Skeleton helpers ===== */
@@ -183,6 +158,10 @@ export default function TalkPage({ params }: TalkPageProps) {
 }, [userProductId]);
 
   // Charge les compteurs par intention (24h démo gelées)
+  // UN SEUL APPEL, ET DES COMPTES (18/09/2026). Cet écran chargeait deux fois toutes les
+  // lignes d'appel du centre (`mode=all`), nom et date de naissance compris, pour n'en
+  // tirer que quatre nombres et un histogramme, et les écrivait dans la console du
+  // navigateur. Il demande maintenant les nombres à la route, qui les calcule.
   useEffect(() => {
     if (status !== "authenticated") return;
 
@@ -191,134 +170,50 @@ export default function TalkPage({ params }: TalkPageProps) {
     (async () => {
       try {
         setLoadingCounts(true);
-
-        const params = new URLSearchParams();
-        // 24h côté API
-
-        // démo gelée
-        if (DEMO_MODE) {
-          params.set("demo", "1");
-          params.set("demoDays", String(DEMO_DAYS));
-          params.set("anchor", DEMO_ANCHOR_ISO);
-          params.set("demoPreserveDow", "1");
-        }
-
-        // centre sélectionné
-        if (selectedUserId) params.set("asUserId", String(selectedUserId));
-
-        const res = await fetch(`/api/calls?userProductId=${userProductId}&mode=all`, {
-          signal: controller.signal,
-          cache: "no-store",
-        });
-
-        if (!res.ok) throw new Error("Erreur récupération appels");
-        const data: Call[] = await res.json();
-        console.log("calls", data);
-
-        // stricte journée d'anchor (00:00–23:59)
-        const { start, end } = getAnchorDayBounds(new Date().toISOString());
-
-        const todaysCalls = data.filter((c) => {
-          console.log(new Date(c.createdAt));
-          console.log("start", start);
-          console.log("end", end);
-
-          const d = new Date(c.createdAt);
-          return d >= start && d <= end;
-        });
-
-        const counts = intents.map((it) => {
-
-          if (it.value === "all") {
-            return todaysCalls.length;
-          }
-
-          if (it.value === "urgency") {
-            return todaysCalls.reduce((acc, c: any) => {
-              const emergency = c.stats?.emergency;
-
-              const isEmergency =
-                emergency === true ||
-                emergency === "true" ||
-                emergency === 1 ||
-                (Array.isArray(emergency) && emergency.length > 0) ||
-                (typeof emergency === "object" && emergency !== null);
-
-              return acc + (isEmergency ? 1 : 0);
-            }, 0);
-          }
-
-          if (it.value === "pourcentage") {
-            return getIndice(todaysCalls);
-          }
-
-          return todaysCalls.reduce((acc, c: any) => {
-            console.log(c.stats);
-            return c.stats?.rdv_booked != 0 ? acc + c.stats?.rdv_booked : acc;
-          }, 0);
-
-        });
-
-
-        setCallsCountByIntent(counts);
-      } catch (e) {
-        if (!isAbortError(e)) {
-          setCallsCountByIntent(intents.map(() => 0));
-        }
-      } finally {
-        setLoadingCounts(false);
-      }
-    })();
-
-    return () => controller.abort();
-  }, [status, selectedUserId, userProductId]);
-
-  // Charge l’aperçu histogramme (30j démo gelés)
-  useEffect(() => {
-    if (status !== "authenticated") return;
-
-    const controller = new AbortController();
-
-    (async () => {
-      try {
         setLoadingPreview(true);
 
-        const params = new URLSearchParams();
-        if (DEMO_MODE) {
-          params.set("demo", "1");
-          params.set("demoDays", String(DEMO_DAYS));
-          params.set("anchor", DEMO_ANCHOR_ISO);
-          params.set("demoPreserveDow", "1");
-        }
-        if (selectedUserId) params.set("asUserId", String(selectedUserId));
+        // La journée est celle du navigateur : le « aujourd'hui » d'une secrétaire est
+        // celui de son fuseau, pas celui du serveur.
+        const { start, end } = getAnchorDayBounds(new Date().toISOString());
+        const params = new URLSearchParams({
+          userProductId: String(userProductId),
+          mode: "agregat",
+          jourDebut: start.toISOString(),
+          jourFin: end.toISOString(),
+        });
 
-        const res = await fetch(`/api/calls?userProductId=${userProductId}&mode=all`, {
+        const res = await fetch(`/api/calls?${params.toString()}`, {
           signal: controller.signal,
           cache: "no-store",
         });
-        if (!res.ok) throw new Error("Erreur récupération stats");
-        const calls: Call[] = await res.json();
+        if (!res.ok) throw new Error("Erreur récupération appels");
+        const agregat: {
+          jour: { total: number; urgences: number; rdvPris: number; indice: number } | null;
+          parJour: { iso: string; total: number }[];
+        } = await res.json();
 
-        // groupement par JOUR ISO (stable)
-        const byIso = new Map<string, number>();
-        for (const c of calls) {
-          const d = new Date(c.createdAt);
-          const iso = d.toISOString().slice(0, 10);
-          byIso.set(iso, (byIso.get(iso) || 0) + 1);
-        }
-
-        const points = Array.from(byIso.entries())
-          .map(([iso, total]) => ({
-            iso,
+        const jour = agregat.jour ?? { total: 0, urgences: 0, rdvPris: 0, indice: 0 };
+        setCallsCountByIntent(
+          intents.map((it) => {
+            if (it.value === "all") return jour.total;
+            if (it.value === "urgency") return jour.urgences;
+            if (it.value === "pourcentage") return jour.indice;
+            return jour.rdvPris;
+          })
+        );
+        setPreviewData(
+          agregat.parJour.map(({ iso, total }) => ({
             day: new Date(iso).toLocaleDateString(),
             total,
           }))
-          .sort((a, b) => (a.iso < b.iso ? -1 : 1));
-
-        setPreviewData(points.slice(-14).map(({ day, total }) => ({ day, total })));
+        );
       } catch (e) {
-        if (!isAbortError(e)) setPreviewData([]);
+        if (!isAbortError(e)) {
+          setCallsCountByIntent(intents.map(() => 0));
+          setPreviewData([]);
+        }
       } finally {
+        setLoadingCounts(false);
         setLoadingPreview(false);
       }
     })();

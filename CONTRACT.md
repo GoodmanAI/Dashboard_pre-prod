@@ -318,6 +318,19 @@ en base, joignable sans session. Cette route est fermée depuis le 14/09/2026, e
 `/api/calls/test` a été retirée.
 
 ### Routes applicatives (71 au total)
+
+**`GET /api/calls` n'est pas une route machine-à-machine** (session NextAuth, aucune brique
+ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici.
+
+- Les **lignes** d'appel (`mode=all`, pagination, `call=`) exigent en lecture l'une des
+  pages `calls`, `incidents` ou `stats_appel`. **`dashboard` n'en fait plus partie depuis
+  le 18/09/2026** : il y avait été ajouté le 16/09 pour que l'accueil n'affiche pas zéro,
+  et donnait de fait les appels du centre à quiconque lisait la réponse réseau.
+- **`mode=agregat`** (18/09/2026) rend des comptes, jamais de ligne : `jour` (total,
+  urgences, rdvPris, indice) entre `jourDebut` et `jourFin` fournis par le navigateur,
+  `parJour` (quatorze derniers jours avec appels) et `total` entre `from` et `to`. Il
+  accepte `dashboard` en plus des trois pages ci-dessus. L'accueil LyraeTalk et la page
+  profil le lisent.
 Auth NextAuth, comptes (`/api/admin/users*`, `/api/admin/clients*`), tickets, notifications, RDV/SMS, ordonnances, mapping de centres externes, numéros, fichiers, statistiques, produits, données d'examens.
 
 Depuis le 07/09/2026, deux routes servent le suivi d'installation, **session NextAuth
@@ -695,9 +708,12 @@ Deux états restent possibles, et le robot doit continuer à les traiter :
   Le modèle Prisma est conservé pour la même raison. Q14 close.
 - `SPECIAL_CENTRE_PAIRS` codé en dur (`auth-helpers.ts:32`).
 - Aucun test. `schema.prisma` ne couvre pas les tables SQL manuelles.
-- Deux comptes secrétaire dépendent encore de la branche héritée `isSecretary` (relevé
-  du 15/09/2026) : passer `scripts/data-provisioning/2026_09_15_preset_secretaire.sql`,
-  puis retirer la branche quand son contrôle final rend zéro.
+- ~~Deux comptes secrétaire dépendent encore de la branche héritée `isSecretary`.~~ **Fait
+  le 18/09/2026.** Les deux comptes portent le préréglage, le contrôle rend zéro, et la
+  branche est retirée : `hasPermission`, la session et `PATCH /api/admin/users/:id` ne
+  connaissent plus le booléen. La colonne reste en base ; la migration
+  `2026_09_18_is_secretary_plus_lu.sql` refuse de passer s'il reparaît un compte flaggé
+  sans permissions, qui obtiendrait sinon un accès complet.
 - ~~La création d'un compte client part de trois écrans plus l'assistant.~~ **Fait le
   15/09/2026** : `/admin/create-client` renvoie vers l'assistant, les deux écrans
   d'installation et la page Actions y mènent, et la grille de droits offre le

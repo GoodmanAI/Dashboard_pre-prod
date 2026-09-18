@@ -14,7 +14,6 @@ export type AuthSession = {
     role: "SUPER_ADMIN" | "ADMIN" | "CLIENT";
     email?: string | null;
     name?: string | null;
-    isSecretary?: boolean;
     permissions?: unknown;
     tokenVersion?: number;
   };
