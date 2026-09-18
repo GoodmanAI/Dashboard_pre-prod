@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
   assertUserProductOwnership,
+  requireApiKey,
   requireAuth,
 } from "@/lib/auth-helpers";
 import { requireAnyPagePermission } from "@/lib/authGuards";
@@ -26,7 +27,10 @@ import { normalizePrescriptionEnabled } from "@/lib/prescriptionConfig";
  * GET — récupère la config "SMS de confirmation / relance no-show".
  *
  * Deux modes, discriminés par la query string :
- *  1. `?externalCenterCode=XYZ` → mode public (aucune auth requise).
+ *  1. `?externalCenterCode=XYZ` → clé d'API `APPOINTMENT_API_KEY` (en-tête `x-api-key`),
+ *     exigée depuis le 18/09/2026. Ce mode était ouvert : qui connaissait un code site
+ *     lisait les réglages de relance d'un centre (postes Xplore, cadence). AI2Xplore
+ *     envoyait déjà la clé et sait traiter un 401, aucun appelant ne régresse.
  *     Utilisé par le cron AI2Xplore pour connaître, par centre :
  *       - quels types d'examens sont activés,
  *       - pour chacun, les NumeroPoste Xplore à surveiller,
@@ -54,6 +58,8 @@ export async function GET(req: NextRequest) {
   let userProductId: number | null = null;
 
   if (externalCenterCode) {
+    const cleErr = requireApiKey(req, "APPOINTMENT_API_KEY");
+    if (cleErr) return cleErr;
     const lookup = await db.query<{ id: number }>(
       `
       SELECT m."userProductId" AS "id"

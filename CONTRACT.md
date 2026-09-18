@@ -108,6 +108,12 @@ une adresse https vers l'ordonnance dans Konnect, à durée de vie limitée ; le
 chez Konnect. **Aucun détail médical** : « contre-indication à vérifier », pas laquelle.
 Colonnes ajoutées par `prisma/migrations/manual/2026_09_18_konnect_demandes_rappel_motif.sql`.
 
+**`GET /api/sms-confirmation-config?externalCenterCode=…` exige la clé
+`APPOINTMENT_API_KEY`** (en-tête `x-api-key`) depuis le 18/09/2026. Ce mode était ouvert :
+qui connaissait un code site lisait les réglages de relance d'un centre. AI2Xplore envoyait
+déjà la clé et traite le 401 ; aucun appelant ne régresse. Le mode `?userProductId=` reste
+en session.
+
 **Relances no-show partagées (18/09/2026).** `GET /api/sms-confirmation-config` en mode
 session et `GET /api/rdv/stats` lisent le réglage et les chiffres chez le **porteur** du
 client (`src/lib/porteurRelances.ts`) : le produit du même `User`, LyraeTalk puis Konnect,
