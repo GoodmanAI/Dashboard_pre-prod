@@ -398,14 +398,15 @@ const ProfilePage = () => {
         from.setDate(from.getDate() - 30);
         from.setHours(0, 0, 0, 0);
         const to = new Date();
+        // Un NOMBRE suffit ici : `mode=agregat` le compte côté serveur, au lieu de
+        // rapatrier trente jours de lignes d'appel pour en lire la longueur.
         const url =
           `/api/calls?userProductId=${talkUserProductId}` +
-          `&mode=all&from=${from.toISOString()}&to=${to.toISOString()}`;
+          `&mode=agregat&from=${from.toISOString()}&to=${to.toISOString()}`;
         const res = await fetch(url, { signal: controller.signal });
         if (!res.ok) return;
         const data = await res.json();
-        const calls = Array.isArray(data) ? data : data?.data ?? [];
-        const count = calls.length;
+        const count = typeof data?.total === "number" ? data.total : 0;
         setLast30DaysCalls(count);
         setMatchedTier(tierForCallCount(count));
       } catch (err: any) {
