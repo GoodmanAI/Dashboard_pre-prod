@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Box,
@@ -31,7 +32,6 @@ import {
 import { IconSearch, IconX, IconDownload, IconFlag, IconFlagFilled, IconAlertTriangle } from "@tabler/icons-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTalkBasePath } from "@/utils/talkRoutes";
-import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import { io } from "socket.io-client";
 import { subDays, startOfDay, endOfDay, subYears } from "date-fns";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
@@ -664,33 +664,22 @@ export default function CallListPage({ params }: CallListPageProps) {
     ) ?? [];
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-        <Button
-          variant="contained"
-          startIcon={<ArrowBackIosIcon />}
-          onClick={() => router.back()}
-          sx={{ backgroundColor: "var(--accent)" }}
-        >
-          Retour
-        </Button>
-
-        <Button
-          variant="outlined"
-          startIcon={<IconAlertTriangle size={18} />}
-          onClick={() => router.push(`${basePath}/incidents`)}
-          sx={{
-            borderColor: "#ef4444",
-            color: "#ef4444",
-            textTransform: "none",
-            fontWeight: 600,
-            "&:hover": { borderColor: "#dc2626", bgcolor: "rgba(239,68,68,0.08)" },
-          }}
-        >
-          Voir les incidents
-        </Button>
-      </Box>
+    <Box>
+      <SectionHeader
+        title="Liste des appels"
+        subtitle="Tous les appels reçus par LyraeTalk, du plus récent au plus ancien."
+        retour={{ libelle: "Retour à LyraeTalk", href: basePath }}
+        actions={
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<IconAlertTriangle size={18} />}
+            onClick={() => router.push(`${basePath}/incidents`)}
+          >
+            Voir les incidents
+          </Button>
+        }
+      />
 
       <Box sx={{ display: "flex", gap: 2, mb: 2, alignItems: "center", flexWrap: "wrap" }}>
 

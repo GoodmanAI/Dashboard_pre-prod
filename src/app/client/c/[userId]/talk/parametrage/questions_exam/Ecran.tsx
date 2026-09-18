@@ -1,7 +1,8 @@
 "use client";
 
+import { useTalkBasePath } from "@/utils/talkRoutes";
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   Box,
   Button,
@@ -14,14 +15,12 @@ import {
   TableRow,
   Paper,
   TextField,
-  Typography,
   Pagination,
   Snackbar,
   Portal,
   Alert
 } from "@mui/material";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
-import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import { useSession } from "next-auth/react";
 
 import { useDroitPage } from "@/hooks/useDroitPage";
@@ -63,7 +62,7 @@ function parseStringArray(value?: string): string[] {
 
 export default function EditExamQuestions({ params }: PageProps) {
   const userProductId = Number(params.id);
-  const router = useRouter();
+  const basePath = useTalkBasePath(userProductId);
   // Lecture seule, revue le 15/09/2026 : elle se lisait sur le seul booleen
   // herite `isSecretary`, donc un sous-compte moderne cree avec cette page en
   // lecture voyait tous ses champs actifs et decouvrait le refus a
@@ -221,25 +220,12 @@ export default function EditExamQuestions({ params }: PageProps) {
 
   return (
     <main>
-      <Box p={3}>
-        {/* Retour */}
-        <Button
-          variant="contained"
-          startIcon={<ArrowBackIosIcon />}
-          onClick={() => router.back()}
-          sx={{
-            backgroundColor: "var(--accent)",
-            "&:hover": { backgroundColor: "#3bb49d" },
-            mb: 3,
-          }}
-        >
-          Retour
-        </Button>
-
-        {/* Titre */}
-        <Typography variant="h5" fontWeight="bold" mb={3}>
-          Configuration des interrogatoires par examen
-        </Typography>
+      <Box>
+        <SectionHeader
+          title="Questions par examen"
+          subtitle="Les questions que LyraeTalk pose au patient avant de proposer un rendez-vous, examen par examen."
+          retour={{ libelle: "Retour à LyraeTalk", href: basePath }}
+        />
 
         {readOnly && (
           <Alert severity="info" sx={{ mb: 2 }}>

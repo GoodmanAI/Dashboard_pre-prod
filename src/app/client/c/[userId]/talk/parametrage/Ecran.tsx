@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Box,
@@ -48,7 +49,6 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
 import VolumeUpIcon from "@mui/icons-material/VolumeUp";
 import { useRouter } from "next/navigation";
-import { IconChevronLeft } from "@tabler/icons-react";
 import { useCentre } from "@/app/context/CentreContext";
 import { useTalkBasePath } from "@/utils/talkRoutes";
 import { useSession } from "next-auth/react";
@@ -734,27 +734,12 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   };
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-      {/* En-tête */}
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
-        <Typography variant="h4">Paramétrage Talk</Typography>
-        <Box sx={{ display: "flex", gap: 1 }}>
-          {userProductId &&
-            <Button
-              variant="outlined"
-              startIcon={<IconChevronLeft size={18} />}
-              onClick={() => router.push(`${basePath}`)}
-              sx={{
-                borderColor: "var(--accent)",
-                color: "var(--accent)",
-                "&:hover": { backgroundColor: "rgba(var(--accent-rgb), 0.08)" },
-              }}
-            >
-              Retour à Talk
-            </Button>
-          }
-        </Box>
-      </Box>
+    <Box>
+      <SectionHeader
+        title="Paramètres généraux"
+        subtitle="La voix, l'accueil, les horaires et les examens pris en charge par LyraeTalk pour ce centre."
+        retour={userProductId ? { libelle: "Retour à LyraeTalk", href: basePath } : undefined}
+      />
 
       {readOnly && (
         <Alert severity="info" sx={{ mb: 2 }}>
