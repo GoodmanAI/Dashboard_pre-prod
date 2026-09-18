@@ -89,7 +89,7 @@ const STATE_META: Record<
 
 /** "il y a 5 min" — plus parlant qu'un horodatage pour juger de la fraîcheur. */
 function timeAgo(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const diffMs = Date.now() - new Date(iso).getTime();
   if (diffMs < 0) return "à l'instant";
   const min = Math.floor(diffMs / 60_000);
@@ -173,11 +173,11 @@ function DeploymentCard({ d }: { d: Deployment }) {
         <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mt: 1.5 }}>
           <IconGitBranch size={15} />
           <Typography variant="body2" component="code">
-            {d.branch ?? "—"}
+            {d.branch ?? "-"}
           </Typography>
           <Tooltip title={d.headSubject ?? ""}>
             <Typography variant="body2" component="code" color="textSecondary">
-              {d.headSha ?? "—"}
+              {d.headSha ?? "-"}
             </Typography>
           </Tooltip>
           {d.dirty && (
@@ -330,7 +330,7 @@ export default function DeploymentsPage() {
             <Typography variant="caption" color="textSecondary" display="block" mt={3}>
               Les sondes émettent toutes les 15 min ; cette page se rafraîchit chaque minute.
               Dernière lecture {timeAgo(checkedAt)}. Une brique absente de cette liste n&apos;est pas
-              « à jour » — c&apos;est que sa sonde n&apos;a jamais émis.
+              « à jour », c&apos;est que sa sonde n&apos;a jamais émis.
             </Typography>
           </Box>
         )}

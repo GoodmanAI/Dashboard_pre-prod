@@ -81,9 +81,9 @@ type AlertItem = {
  * hierarchie visuelle plus lisible qu'un unique "lun. 30 juil. 2026, 14:30".
  */
 function formatFrDateOnly(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
+  if (isNaN(d.getTime())) return "-";
   return d.toLocaleDateString("fr-FR", {
     weekday: "long",
     day: "numeric",
@@ -103,9 +103,9 @@ function formatFrTimeOnly(iso: string | null): string {
 }
 
 function formatFrDateShort(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
+  if (isNaN(d.getTime())) return "-";
   return d.toLocaleDateString("fr-FR", {
     weekday: "short",
     day: "numeric",
@@ -483,7 +483,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                 </Typography>
                 <Stack direction="row" alignItems="baseline" spacing={0.75}>
                   <Typography variant="h6" sx={{ fontWeight: 700, color: "#1F3448" }}>
-                    {kpi.value ?? "—"}
+                    {kpi.value ?? "-"}
                   </Typography>
                   {kpi.sub && (
                     <Typography

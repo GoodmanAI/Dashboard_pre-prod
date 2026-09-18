@@ -1009,7 +1009,7 @@ const AdminOverviewPage = () => {
             {activeCentres.length === 0 ? (
               <Card sx={{ p: 3 }}>
                 <Typography variant="body2" color="text.secondary">
-                  Aucun centre actif — coche au moins un centre dans le panneau ci-dessus.
+                  Aucun centre actif : coche au moins un centre dans le panneau ci-dessus.
                 </Typography>
               </Card>
             ) : (

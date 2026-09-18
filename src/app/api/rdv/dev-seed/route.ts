@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "APPOINTMENT_HMAC_SECRET manquant dans .env — ajoute-le puis relance le serveur.",
+          "APPOINTMENT_HMAC_SECRET manquant dans .env : ajoute-le puis relance le serveur.",
       },
       { status: 500 }
     );
@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
     `${req.nextUrl.protocol}//${req.nextUrl.host}`;
 
   return NextResponse.json({
-    note: "Endpoint de test — DEV uniquement.",
+    note: "Endpoint de test : DEV uniquement.",
     center: { id: center.id, name: center.name, city: center.city },
     url: `${baseUrl}/confirm/${record.token}`,
     identity: { firstname, lastname, birthdate: birthdateStr },

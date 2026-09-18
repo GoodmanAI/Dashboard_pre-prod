@@ -314,7 +314,7 @@ const RESOLVED_BY_LABELS: Record<string, string> = {
 const RECONSTRUCT_LABELS: Record<string, string> = {
   node: "Node",
   azure: "Azure",
-  null_or_other: "—",
+  null_or_other: "-",
 };
 
 const RECO_LABELS: Record<Recommendation, string> = {
@@ -593,7 +593,7 @@ export function exportFeatureMd(
   });
 
   const parts: string[] = [];
-  parts.push(`# Monitoring feature — ${featureMeta.label}`);
+  parts.push(`# Monitoring feature : ${featureMeta.label}`);
   parts.push("");
   parts.push("## Caveat métier (important pour l'interprétation)");
   parts.push("");
@@ -753,12 +753,12 @@ export function exportDetailedSectionsMd(
   parts.push("");
   parts.push(
     mdKv([
-      ["Azure — latence moyenne", `${api.azureAvgMs}ms`],
-      ["Azure — latence max", `${api.azureMaxMs}ms`],
-      ["Azure — total d'appels", api.azureTotalCalls],
-      ["AI2RIS — latence moyenne", `${api.ai2risAvgMs}ms`],
-      ["AI2RIS — latence max", `${api.ai2risMaxMs}ms`],
-      ["AI2RIS — total d'appels", api.ai2risTotalCalls],
+      ["Azure : latence moyenne", `${api.azureAvgMs}ms`],
+      ["Azure : latence max", `${api.azureMaxMs}ms`],
+      ["Azure : total d'appels", api.azureTotalCalls],
+      ["AI2RIS : latence moyenne", `${api.ai2risAvgMs}ms`],
+      ["AI2RIS : latence max", `${api.ai2risMaxMs}ms`],
+      ["AI2RIS : total d'appels", api.ai2risTotalCalls],
       ["Retries moyens par appel", api.avgRetries],
       ["Slow calls moyens par appel", api.avgSlowCalls],
     ])

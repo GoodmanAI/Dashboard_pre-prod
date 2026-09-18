@@ -768,7 +768,7 @@ function QRCard({
         >
           <IconEyeOff size={13} color={INK_MUTED} />
           <Typography variant="caption" sx={{ color: INK_MUTED, fontWeight: 500 }}>
-            Désactivée — invisible pour le bot
+            Désactivée : invisible pour le bot
           </Typography>
         </Box>
       )}

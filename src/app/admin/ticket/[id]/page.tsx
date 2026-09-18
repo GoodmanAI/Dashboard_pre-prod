@@ -212,7 +212,7 @@ export default function AdminTicketDetailPage({ params }: Props) {
   if (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN") {
     return (
       <PageContainer title="Ticket" description="Detail admin">
-        <Alert severity="error">Accès refusé — reservé aux administrateurs.</Alert>
+        <Alert severity="error">Accès refusé : reservé aux administrateurs.</Alert>
       </PageContainer>
     );
   }
@@ -259,7 +259,7 @@ export default function AdminTicketDetailPage({ params }: Props) {
               {ticket ? (
                 <Stack spacing={0.5}>
                   <Typography variant="body2" fontWeight={700}>
-                    {ticket.user.name ?? "—"}
+                    {ticket.user.name ?? "-"}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     {ticket.user.email}

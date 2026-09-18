@@ -260,7 +260,7 @@ export async function POST(request: NextRequest) {
       createdByName:
         session.user.name ?? ticket.user.name,
       userProductLabel: ticket.userProduct
-        ? `#${ticket.userProduct.id} — ${ticket.userProduct.product.name}`
+        ? `#${ticket.userProduct.id} : ${ticket.userProduct.product.name}`
         : null,
     }).catch((err) =>
       console.error(

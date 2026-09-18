@@ -535,8 +535,8 @@ function Heatmap({
                   placement="top"
                   title={
                     isEmpty
-                      ? `${HEATMAP_DAYS_FULL[dayIdx]} ${String(h).padStart(2, "0")}h — aucun`
-                      : `${HEATMAP_DAYS_FULL[dayIdx]} ${String(h).padStart(2, "0")}h — ${value} ${metricLabel}`
+                      ? `${HEATMAP_DAYS_FULL[dayIdx]} ${String(h).padStart(2, "0")}h : aucun`
+                      : `${HEATMAP_DAYS_FULL[dayIdx]} ${String(h).padStart(2, "0")}h : ${value} ${metricLabel}`
                   }
                 >
                   <Box
@@ -1179,28 +1179,28 @@ export default function StatsAppelPage({ params }: any) {
     calls: {
       label: "Appels",
       shortLabel: "appels",
-      description: "Volume total d'appels par créneau — repère les heures de pointe",
+      description: "Volume total d'appels par créneau, repère les heures de pointe",
       colorRgb: "72, 200, 175",
       data: heatmapAll,
     },
     rdv: {
       label: "RDV pris",
       shortLabel: "RDV",
-      description: "Quand les RDV se concrétisent — heures les plus productives",
+      description: "Quand les RDV se concrétisent, heures les plus productives",
       colorRgb: "34, 197, 94",
       data: heatmapRdv,
     },
     planning: {
       label: "Planning complet",
       shortLabel: "satur.",
-      description: "Quand les planning complets explosent — signal d'ouvrir des plages",
+      description: "Quand les planning complets explosent, signal d'ouvrir des plages",
       colorRgb: "124, 45, 77",
       data: heatmapPlanning,
     },
     transfer: {
       label: "Transferts secrétariat",
       shortLabel: "transferts",
-      description: "Charge du secrétariat par créneau — anticipation des effectifs",
+      description: "Charge du secrétariat par créneau, anticipation des effectifs",
       colorRgb: "239, 68, 68",
       data: heatmapTransfer,
     },
@@ -2286,7 +2286,7 @@ export default function StatsAppelPage({ params }: any) {
               Top des raisons précises de transfert
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Détail des 12 motifs les plus fréquents — couleur selon la catégorie
+              Détail des 12 motifs les plus fréquents, couleur selon la catégorie
             </Typography>
             {loading ? (
               <ChartSkeleton />
@@ -2450,7 +2450,7 @@ export default function StatsAppelPage({ params }: any) {
                 Répartition par langue de conversation
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Langue effective en fin d&apos;appel — détection auto ou question explicite
+                Langue effective en fin d&apos;appel, détection auto ou question explicite
               </Typography>
               <Stack spacing={1.5}>
                 {languageData.items.map((lang) => (

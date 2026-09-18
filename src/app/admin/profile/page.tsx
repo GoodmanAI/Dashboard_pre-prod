@@ -117,7 +117,7 @@ export default function AdminProfilePage() {
     <PageContainer title="Profil" description="Profil administrateur">
       <SectionHeader
         title="Mon profil"
-        subtitle="Compte administrateur — mise a jour du mot de passe"
+        subtitle="Compte administrateur : mise a jour du mot de passe"
       />
 
       <Card sx={{ p: 3, mb: 3 }}>
@@ -143,7 +143,7 @@ export default function AdminProfilePage() {
               {session.user.name ?? session.user.email}
             </Typography>
             <Typography variant="body2" sx={{ color: TEXT_MUTED, fontSize: 13 }}>
-              {session.user.email} — role ADMIN
+              {session.user.email}, role ADMIN
             </Typography>
           </Box>
         </Stack>

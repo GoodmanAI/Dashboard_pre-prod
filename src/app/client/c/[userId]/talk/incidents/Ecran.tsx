@@ -40,7 +40,7 @@ interface IncidentsPageProps {
 }
 
 function formatPhoneFR(p?: string | null): string {
-  if (!p) return "—";
+  if (!p) return "-";
   const digits = p.replace(/\s/g, "");
   if (digits.startsWith("+33") && digits.length === 12) {
     return `+33 ${digits[3]} ${digits.slice(4, 6)} ${digits.slice(6, 8)} ${digits.slice(8, 10)} ${digits.slice(10, 12)}`;
@@ -370,7 +370,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
                           sx={{ color: "text.secondary", display: "block" }}
                         >
                           <strong>{firstStep.text}</strong>
-                          {secondStep && <span> — {secondStep.text}</span>}
+                          {secondStep && <span>, {secondStep.text}</span>}
                         </Typography>
                       )}
                     </Box>

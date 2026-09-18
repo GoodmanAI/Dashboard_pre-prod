@@ -154,7 +154,7 @@ import { trouverProduit } from "@/lib/produits";
                 }
                 title={
                   prescriptionAlertsCount > 0
-                    ? `${prescriptionAlertsCount} patient(s) sans ordonnance depuis > ${thresholdHours}h — clic pour voir la liste`
+                    ? `${prescriptionAlertsCount} patient(s) sans ordonnance depuis > ${thresholdHours}h : clic pour voir la liste`
                     : `Aucun patient en attente au-delà du seuil de ${thresholdHours}h`
                 }
               >

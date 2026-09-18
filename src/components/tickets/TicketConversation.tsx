@@ -117,7 +117,7 @@ const STATUS_META: Record<
 
 function formatFullDate(iso: string): string {
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
+  if (isNaN(d.getTime())) return "-";
   return d.toLocaleDateString("fr-FR", {
     weekday: "short",
     day: "numeric",
@@ -271,7 +271,7 @@ export default function TicketConversation({
       <Box>
         <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1, flexWrap: "wrap", rowGap: 1 }}>
           <Typography variant="h5" sx={{ color: TEXT_MAIN, fontWeight: 700 }}>
-            #{useDisplayNumber && ticket.displayNumber ? ticket.displayNumber : ticket.id} — {ticket.subject}
+            #{useDisplayNumber && ticket.displayNumber ? ticket.displayNumber : ticket.id} : {ticket.subject}
           </Typography>
           <Chip
             size="small"

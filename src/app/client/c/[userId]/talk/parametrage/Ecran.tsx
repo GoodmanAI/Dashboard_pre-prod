@@ -1055,7 +1055,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Typography variant="h6">Planning rempli — consignes</Typography>
+            <Typography variant="h6">Planning rempli : consignes</Typography>
             {(() => {
               // Consigne consideree definie si le type a un message (fin_appel)
               // OU un numero de tel (redirection) non vide.
@@ -1466,7 +1466,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               Indiquez quelles combinaisons de deux examens votre centre gère, et
               comment votre système Xplore doit les traiter :
               <br />
-              <strong>Single</strong> : 1 seul examen Xplore avec commentaire —
+              <strong>Single</strong> : 1 seul examen Xplore avec commentaire.
               <strong> Double</strong> : 2 examens distincts créés dans Xplore.
             </Alert>
 

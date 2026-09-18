@@ -213,7 +213,7 @@ function ResetPasswordPanel({
         >
           {clients.map((c) => (
             <MenuItem key={c.id} value={c.id}>
-              {c.name} — {c.email}
+              {c.name}, {c.email}
             </MenuItem>
           ))}
         </Select>
@@ -281,8 +281,8 @@ function ResetPasswordPanel({
             L&apos;ancien mot de passe sera invalidé immédiatement.
           </DialogContentText>
           <Stack spacing={1}>
-            <Row label="Client" value={selectedClient?.name || "—"} />
-            <Row label="Email" value={selectedClient?.email || "—"} />
+            <Row label="Client" value={selectedClient?.name || "-"} />
+            <Row label="Email" value={selectedClient?.email || "-"} />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
@@ -392,7 +392,7 @@ function DeleteAccountPanel({
         >
           {clients.map((c) => (
             <MenuItem key={c.id} value={c.id}>
-              {c.name} — {c.email}
+              {c.name}, {c.email}
             </MenuItem>
           ))}
         </Select>
@@ -498,9 +498,9 @@ function DeleteAccountPanel({
             Dernière confirmation avant suppression définitive.
           </DialogContentText>
           <Stack spacing={1}>
-            <Row label="Client" value={selectedClient?.name || "—"} />
-            <Row label="Email" value={selectedClient?.email || "—"} />
-            <Row label="ID" value={String(selectedClient?.id ?? "—")} />
+            <Row label="Client" value={selectedClient?.name || "-"} />
+            <Row label="Email" value={selectedClient?.email || "-"} />
+            <Row label="ID" value={String(selectedClient?.id ?? "-")} />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
@@ -596,7 +596,7 @@ function ProductsPanel({ clients, loading }: { clients: Client[]; loading: boole
       const data = await res.json();
       if (res.ok) {
         setSuccessMessage(
-          `${ligne.libelle} affilié — userProductId ${data.userProductId}.`
+          `${ligne.libelle} affilié : userProductId ${data.userProductId}.`
         );
         await charger(selectedId);
       } else {
@@ -647,8 +647,8 @@ function ProductsPanel({ clients, loading }: { clients: Client[]; loading: boole
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Affilier ou retirer un produit. Le retrait ne supprime rien : la ligne est
-          marquée comme retirée, et tout ce qui y est rattaché — appels, tickets,
-          configuration — réapparaît si le produit est réaffilié plus tard.
+          marquée comme retirée, et tout ce qui y est rattaché (appels, tickets,
+          configuration) réapparaît si le produit est réaffilié plus tard.
         </Typography>
       </Box>
 
@@ -663,7 +663,7 @@ function ProductsPanel({ clients, loading }: { clients: Client[]; loading: boole
         >
           {clients.map((c) => (
             <MenuItem key={c.id} value={c.id}>
-              {c.name} — {c.email}
+              {c.name}, {c.email}
             </MenuItem>
           ))}
         </Select>
@@ -693,7 +693,7 @@ function ProductsPanel({ clients, loading }: { clients: Client[]; loading: boole
                   </Typography>
                   {absentDuCatalogue ? (
                     <Typography variant="caption" color="error">
-                      Absent de la base — la migration du produit n&apos;a pas été appliquée.
+                      Absent de la base, la migration du produit n&apos;a pas été appliquée.
                     </Typography>
                   ) : ligne.affilie ? (
                     <Typography variant="caption" color="text.secondary">
@@ -701,7 +701,7 @@ function ProductsPanel({ clients, loading }: { clients: Client[]; loading: boole
                     </Typography>
                   ) : ligne.removedAt ? (
                     <Typography variant="caption" color="text.secondary">
-                      Retiré le {new Date(ligne.removedAt).toLocaleDateString("fr-FR")} —
+                      Retiré le {new Date(ligne.removedAt).toLocaleDateString("fr-FR")} :
                       les données sont conservées
                     </Typography>
                   ) : (
@@ -802,11 +802,11 @@ function ProductsPanel({ clients, loading }: { clients: Client[]; loading: boole
             réaffiliation.
           </DialogContentText>
           <Stack spacing={1}>
-            <Row label="Client" value={selectedClient?.name || "—"} />
-            <Row label="Produit" value={confirmRetrait?.libelle || "—"} />
+            <Row label="Client" value={selectedClient?.name || "-"} />
+            <Row label="Produit" value={confirmRetrait?.libelle || "-"} />
             <Row
               label="userProductId"
-              value={String(confirmRetrait?.userProductId ?? "—")}
+              value={String(confirmRetrait?.userProductId ?? "-")}
             />
           </Stack>
         </DialogContent>

@@ -64,9 +64,9 @@ type RejectedItem = {
 // -- Formatters (repris du pattern PendingPrescriptions) --
 
 function formatFrDateOnly(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
+  if (isNaN(d.getTime())) return "-";
   return d.toLocaleDateString("fr-FR", {
     weekday: "short",
     day: "2-digit",
@@ -87,7 +87,7 @@ function formatFrTimeOnly(iso: string | null): string {
 
 function formatFrDateShort(iso: string): string {
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
+  if (isNaN(d.getTime())) return "-";
   return d.toLocaleString("fr-FR", {
     day: "2-digit",
     month: "short",
