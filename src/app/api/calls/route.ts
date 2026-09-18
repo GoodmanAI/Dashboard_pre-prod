@@ -73,29 +73,104 @@ export async function GET(request: NextRequest) {
     const ownershipErr = await assertUserProductOwnership(session, userProductId);
     if (ownershipErr) return ownershipErr;
 
-    // QUATRE ecrans lisent les appels : Appels, Incidents, Statistiques d'appels, et
-    // l'accueil du produit, dont les tuiles et l'apercu sont construits a partir de
-    // cette route (`talk/Ecran.tsx`). Exiger la seule page « Appels » couperait un
-    // sous-compte qui n'a legitimement qu'« Incidents ».
+    // ==========================
+    // CAS 0 : DES COMPTES, PAS DES LIGNES (`mode=agregat`, 18/09/2026)
+    // ==========================
     //
-    // DASHBOARD ajoute le 16/09/2026. Sans lui, un sous-compte qui n'avait que
-    // l'accueil recevait un 403 que l'ecran avalait : toutes ses tuiles affichaient
-    // zero et son apercu restait vide, sans le moindre message. Un tableau de bord
-    // qui annonce zero appel est pire qu'un tableau de bord refuse.
+    // L'accueil du produit et la page profil n'ont besoin que de NOMBRES : les tuiles du
+    // jour, l'histogramme des quatorze derniers jours, le volume sur trente jours. Ils
+    // lisaient pourtant `mode=all`, donc les LIGNES d'appel, nom et date de naissance
+    // compris. Pour que l'accueil ne reponde pas 403 a un sous-compte qui n'a que
+    // « Tableau de bord », ce droit avait ete ajoute a la lecture des lignes : il
+    // suffisait alors de regarder la reponse reseau pour lire les appels du centre.
     //
-    // ⚠️ Ce que cela accorde, et c'est PLUS que ce que l'accueil affiche. La route rend
-    // les LIGNES d'appel ; l'accueil, lui, n'en tire que des comptes (tuiles par
-    // intention, histogramme par jour). Un sous-compte a qui l'on coche « Tableau de
-    // bord » peut donc lire les appels du centre en regardant la reponse reseau, alors
-    // que l'ecran ne lui en montre aucun. L'appartenance du centre reste verifiee
-    // au-dessus, donc il s'agit des appels de SON centre, jamais d'un autre.
+    // Ce mode rend les memes nombres, calcules ici. Aucune donnee patient ne sort.
+    // Les bornes du « jour » viennent du navigateur (`jourDebut`, `jourFin`) : le jour
+    // d'une secretaire est celui de son fuseau, pas celui du serveur.
+    if (mode === "agregat") {
+      const droitAgregatErr = await requireAnyPagePermission(
+        [PAGES.DASHBOARD, PAGES.CALLS, PAGES.INCIDENTS, PAGES.STATS_APPEL],
+        "read"
+      );
+      if (droitAgregatErr) return droitAgregatErr;
+
+      const versDate = (brut: string | null): Date | null => {
+        if (!brut) return null;
+        const d = new Date(brut);
+        return Number.isNaN(d.getTime()) ? null : d;
+      };
+      const jourDebut = versDate(searchParams.get("jourDebut"));
+      const jourFin = versDate(searchParams.get("jourFin"));
+      const depuis = versDate(fromParam);
+      const jusqua = versDate(toParam);
+
+      let jour: { total: number; urgences: number; rdvPris: number; indice: number } | null = null;
+      if (jourDebut && jourFin) {
+        const duJour = await prisma.callConversation.findMany({
+          where: { userProductId, createdAt: { gte: jourDebut, lte: jourFin } },
+          select: { stats: true },
+        });
+        let urgences = 0;
+        let rdvPris = 0;
+        let enErreur = 0;
+        for (const c of duJour) {
+          const stats = (c.stats ?? {}) as Record<string, any>;
+          const e = stats.emergency;
+          if (
+            e === true ||
+            e === "true" ||
+            e === 1 ||
+            (Array.isArray(e) && e.length > 0) ||
+            (typeof e === "object" && e !== null && !Array.isArray(e))
+          ) {
+            urgences += 1;
+          }
+          const pris = Number(stats.rdv_booked);
+          if (Number.isFinite(pris) && pris !== 0) rdvPris += pris;
+          if (Number(stats.error_logic) > 0) enErreur += 1;
+        }
+        jour = {
+          total: duJour.length,
+          urgences,
+          rdvPris,
+          indice: duJour.length === 0 ? 0 : Math.floor((1 - enErreur / duJour.length) * 100),
+        };
+      }
+
+      // Les quatorze derniers jours QUI ONT DES APPELS, comme le faisait l'ecran : un
+      // jour sans appel n'y figure pas. Jour calendaire UTC, idem.
+      const parJourBrut = await prisma.$queryRaw<{ iso: string; total: number }[]>`
+        SELECT to_char("createdAt"::date, 'YYYY-MM-DD') AS iso, count(*)::int AS total
+        FROM "CallConversation"
+        WHERE "userProductId" = ${userProductId}
+        GROUP BY 1
+        ORDER BY 1 DESC
+        LIMIT 14
+      `;
+
+      const total =
+        depuis || jusqua
+          ? await prisma.callConversation.count({
+              where: {
+                userProductId,
+                createdAt: { ...(depuis ? { gte: depuis } : {}), ...(jusqua ? { lte: jusqua } : {}) },
+              },
+            })
+          : null;
+
+      return NextResponse.json({ jour, parJour: [...parJourBrut].reverse(), total });
+    }
+
+    // TROIS ecrans lisent les LIGNES d'appel : Appels, Incidents et Statistiques
+    // d'appels. Exiger la seule page « Appels » couperait un sous-compte qui n'a
+    // legitimement qu'« Incidents ».
     //
-    // La forme propre serait un mode d'agregation sur cette route, que l'accueil
-    // appellerait a la place de `mode=all`. Tant qu'il n'existe pas, le choix est entre
-    // un tableau de bord qui ment en affichant zero et un droit un peu large : on prend
-    // le second, et on l'ecrit ici plutot que de le laisser se decouvrir.
+    // « Tableau de bord » n'y figure PLUS (18/09/2026). Il y avait ete ajoute le 16/09
+    // parce que l'accueil lisait cette route et affichait zero partout sur un 403. Il
+    // lit desormais `mode=agregat`, ci-dessus : cocher « Tableau de bord » a un
+    // sous-compte ne lui donne plus les appels du centre.
     const droitErr = await requireAnyPagePermission(
-      [PAGES.CALLS, PAGES.INCIDENTS, PAGES.STATS_APPEL, PAGES.DASHBOARD],
+      [PAGES.CALLS, PAGES.INCIDENTS, PAGES.STATS_APPEL],
       "read"
     );
     if (droitErr) return droitErr;

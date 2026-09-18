@@ -10,7 +10,7 @@ import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog
  * Detail / update / delete d'un user (chantier 3, Lot C).
  * -----------------------------------------------------------------------------
  * GET    /api/admin/users/:id -> detail complet (SUPER_ADMIN)
- * PATCH  /api/admin/users/:id -> update champs (name, permissions, isSecretary)
+ * PATCH  /api/admin/users/:id -> update champs (name, permissions)
  *                                 (SUPER_ADMIN, jamais le mot de passe ici)
  * DELETE /api/admin/users/:id -> suppression (SUPER_ADMIN, jamais soi-meme)
  *
@@ -20,7 +20,9 @@ import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog
 
 const PatchSchema = z.object({
   name: z.string().min(1).optional(),
-  isSecretary: z.boolean().optional(),
+  // `isSecretary` n'est plus accepte (18/09/2026). Le booleen n'est plus lu par les
+  // gardes : le cocher sur un compte sans permissions en ferait un compte principal,
+  // a acces complet. Un compte secretaire se fait par le prereglage de permissions.
   permissions: z
     .union([
       z.null(),
@@ -140,7 +142,6 @@ export async function PATCH(
 
   const updateData: any = {};
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
-  if (parsed.data.isSecretary !== undefined) updateData.isSecretary = parsed.data.isSecretary;
   if (parsed.data.permissions !== undefined) updateData.permissions = parsed.data.permissions;
   if (parsed.data.managerId !== undefined) updateData.managerId = parsed.data.managerId;
 
@@ -149,8 +150,7 @@ export async function PATCH(
   // les nouveaux droits prennent effet immediatement).
   const shouldBumpToken =
     parsed.data.permissions !== undefined ||
-    parsed.data.managerId !== undefined ||
-    parsed.data.isSecretary !== undefined;
+    parsed.data.managerId !== undefined;
   if (shouldBumpToken) {
     updateData.tokenVersion = { increment: 1 };
   }

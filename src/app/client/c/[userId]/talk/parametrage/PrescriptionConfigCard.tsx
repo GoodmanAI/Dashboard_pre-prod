@@ -17,7 +17,8 @@ import {
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { useSession } from "next-auth/react";
+import { useDroitPage } from "@/hooks/useDroitPage";
+import { PAGES } from "@/lib/permissions";
 
 /**
  * Bloc de configuration "Ordonnances" affiche dans la page /parametrage.
@@ -61,8 +62,11 @@ export default function PrescriptionConfigCard({
 }: {
   userProductId: number;
 }) {
-  const { data: sessionData } = useSession();
-  const readOnly = !!sessionData?.user?.isSecretary;
+  // Le même droit que celui qu'exige la route (`PARAMETRAGE` en écriture). Ce bloc
+  // lisait le booléen hérité `isSecretary` : un sous-compte en lecture seule voyait donc
+  // des champs actifs, que le serveur refusait ensuite à l'enregistrement.
+  const { peutEcrire } = useDroitPage(PAGES.PARAMETRAGE);
+  const readOnly = !peutEcrire;
 
   const [enabledExamTypes, setEnabledExamTypes] = useState<Enabled>(EMPTY_ENABLED);
   const [alertAfterHours, setAlertAfterHours] = useState<string>(String(DEFAULT_ALERT_HOURS));
