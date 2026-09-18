@@ -21,9 +21,10 @@ import {
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { useCentreProduit } from "@/hooks/useCentreProduit";
+import { useCentreProduit } from "@/hooks/useCentreProduit";
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
+import { EXPEDITEUR_NOM_MAIL_MAX, EXPEDITEUR_SMS_RE } from "@/lib/konnectConfig";
 import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elements/CustomTextField";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import IdentiteVisuelleKonnect from "@/components/konnect/IdentiteVisuelleKonnect";
@@ -55,6 +56,8 @@ type Config = {
   telephone_secretariat: string | null;
   envoi_email: boolean;
   envoi_sms: boolean;
+  expediteur_nom_mail: string | null;
+  expediteur_sms: string | null;
   rappels_actifs: boolean;
   ocr_actif: boolean;
   mode_saisie_examen: "traditionnel" | "anatomique";
@@ -222,6 +225,8 @@ export default function ParametrageKonnectPage() {
             telephoneSecretariat: config.telephone_secretariat,
             envoiEmail: config.envoi_email,
             envoiSms: config.envoi_sms,
+            expediteurNomMail: config.expediteur_nom_mail,
+            expediteurSms: config.expediteur_sms,
             rappelsActifs: config.rappels_actifs,
             ocrActif: config.ocr_actif,
             modeSaisieExamen: config.mode_saisie_examen,
@@ -278,6 +283,11 @@ export default function ParametrageKonnectPage() {
   }
 
   const secretariatManquant = !config.telephone_secretariat?.trim();
+  // Signalé pendant la saisie : le serveur refuse de toute façon, mais autant ne pas
+  // attendre le clic sur « Enregistrer » pour le dire.
+  const expediteurSmsSaisi = config.expediteur_sms?.trim() ?? "";
+  const expediteurSmsInvalide =
+    expediteurSmsSaisi !== "" && !EXPEDITEUR_SMS_RE.test(expediteurSmsSaisi);
 
   return (
     <PageContainer
@@ -511,6 +521,40 @@ export default function ParametrageKonnectPage() {
                     : "Pas encore en service : rien ne part pour l'instant."
               }
             />
+            {/* Expéditeur (18/09/2026). Seuls les NOMS se règlent ici. L'adresse
+              d'expédition du mail doit être vérifiée chez le prestataire d'envoi :
+              elle se pose à l'installation, côté portail. */}
+            <Stack spacing={2.5} sx={{ mt: 3 }}>
+              <CustomTextField
+                label="Nom d'expéditeur des emails"
+                variant="outlined"
+                fullWidth
+                value={config.expediteur_nom_mail ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  maj("expediteur_nom_mail", e.target.value)
+                }
+                inputProps={{ maxLength: EXPEDITEUR_NOM_MAIL_MAX }}
+                placeholder="Imagerie Lumière"
+                helperText="Le nom que le patient lit dans sa boîte de réception. Laissez vide pour garder le nom actuel. L'adresse d'envoi ne change pas."
+              />
+              <CustomTextField
+                label="Nom d'expéditeur des SMS"
+                variant="outlined"
+                fullWidth
+                value={config.expediteur_sms ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  maj("expediteur_sms", e.target.value)
+                }
+                inputProps={{ maxLength: 11 }}
+                placeholder="LUMIERE"
+                error={expediteurSmsInvalide}
+                helperText={
+                  expediteurSmsInvalide
+                    ? "3 à 11 caractères, lettres et chiffres uniquement, sans accent ni espace."
+                    : "Le nom qui s'affiche à la place du numéro sur le téléphone du patient. 3 à 11 lettres ou chiffres, sans accent ni espace. Laissez vide pour garder le nom actuel."
+                }
+              />
+            </Stack>
           </AccordionDetails>
         </Accordion>
 

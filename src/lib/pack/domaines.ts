@@ -261,6 +261,8 @@ const REGLAGES_PORTAIL: Reglage[] = [
   { libelle: "Consignes générales", aide: "Affichées sur le portail.", champ: "consignesGenerales", type: "texte" },
   { libelle: "Envoyer les confirmations par mail", aide: "", champ: "envoiEmail", type: "booleen" },
   { libelle: "Envoyer les confirmations par SMS", aide: "", champ: "envoiSms", type: "booleen" },
+  { libelle: "Nom d'expéditeur des emails", aide: "Vide : le nom posé à l'installation.", champ: "expediteurNomMail", type: "texte" },
+  { libelle: "Nom d'expéditeur des SMS", aide: "3 à 11 lettres ou chiffres, sans accent ni espace.", champ: "expediteurSms", type: "texte" },
   { libelle: "Rappels actifs", aide: "", champ: "rappelsActifs", type: "booleen" },
   { libelle: "Lecture de l'ordonnance", aide: "Le patient peut déposer son ordonnance.", champ: "ocrActif", type: "booleen" },
   {

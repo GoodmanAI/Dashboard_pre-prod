@@ -54,6 +54,14 @@ export type ConfigKonnect = {
   // Notifications
   envoiEmail: boolean;
   envoiSms: boolean;
+  // Sous quel nom le patient voit arriver les messages (18/09/2026). `null` = l'expéditeur
+  // posé à l'installation du portail. L'ADRESSE d'expédition n'est pas ici, et c'est
+  // voulu : elle doit être vérifiée chez le prestataire d'envoi, ce que cet écran ne
+  // sait pas faire. Le nom affiché, lui, est libre.
+  expediteurNomMail: string | null;
+  // Expéditeur alphanumérique du SMS : 3 à 11 caractères, lettres et chiffres sans
+  // accent. C'est la limite des opérateurs, pas la nôtre.
+  expediteurSms: string | null;
   // Le portail relance le patient avant son rendez-vous (rappels J-N). Distinct des
   // deux precedents : ceux-la disent PAR QUEL CANAL on ecrit, celui-ci dit SI l'on
   // relance. Un centre peut vouloir confirmer sans relancer.
@@ -87,6 +95,8 @@ export const KONNECT_DEFAUTS: ConfigKonnect = {
   telephoneSecretariat: null,
   envoiEmail: true,
   envoiSms: true,
+  expediteurNomMail: null,
+  expediteurSms: null,
   // Fail-closed, comme le reste de la configuration sensible : ecrire au patient se
   // demande. Un defaut `true` ferait partir des relances chez tous les centres des
   // l'armement de `KONNECT_NOTIFIER_ENABLED`.
@@ -117,6 +127,8 @@ export const COLONNES_KONNECT = [
   "telephoneSecretariat",
   "envoiEmail",
   "envoiSms",
+  "expediteurNomMail",
+  "expediteurSms",
   "rappelsActifs",
   "ocrActif",
   "modeSaisieExamen",
@@ -176,6 +188,48 @@ function versCouleur(valeur: unknown, champ: string, strict: boolean): string | 
   return propre;
 }
 
+/** Longueur maximale du nom d'expéditeur d'un mail. */
+export const EXPEDITEUR_NOM_MAIL_MAX = 60;
+/** 3 à 11 lettres ou chiffres, sans accent ni espace : la règle des opérateurs. */
+export const EXPEDITEUR_SMS_RE = /^[A-Za-z0-9]{3,11}$/;
+
+/**
+ * Le nom d'expéditeur du mail. Les retours à la ligne sont refusés : ce texte finit
+ * dans un en-tête de message.
+ */
+function versExpediteurNomMail(valeur: unknown, strict: boolean): string | null {
+  const texte = versTexte(valeur);
+  if (texte === null) return null;
+  if (texte.length > EXPEDITEUR_NOM_MAIL_MAX || /[\r\n<>"]/.test(texte)) {
+    if (strict) {
+      throw new Error(
+        `Le nom d'expéditeur du mail fait ${EXPEDITEUR_NOM_MAIL_MAX} caractères au plus, sans guillemet ni chevron.`
+      );
+    }
+    return null;
+  }
+  return texte;
+}
+
+/**
+ * L'expéditeur du SMS. En lecture, une valeur héritée invalide retombe sur `null`,
+ * donc sur l'expéditeur de l'installation : mieux vaut un SMS sous le nom commun
+ * qu'un SMS refusé par l'opérateur.
+ */
+function versExpediteurSms(valeur: unknown, strict: boolean): string | null {
+  const texte = versTexte(valeur);
+  if (texte === null) return null;
+  if (!EXPEDITEUR_SMS_RE.test(texte)) {
+    if (strict) {
+      throw new Error(
+        "L'expéditeur du SMS fait 3 à 11 caractères, lettres et chiffres uniquement, sans accent ni espace. Par exemple : LUMIERE."
+      );
+    }
+    return null;
+  }
+  return texte;
+}
+
 /**
  * Un seuil de poids : entier ≥ 1, ou `null` si la question ne se pose pas.
  * En mode strict, une saisie invalide lève plutôt que de retomber
@@ -227,6 +281,8 @@ export function normaliserConfigKonnect(
     telephoneSecretariat: versTexte(brut.telephoneSecretariat),
     envoiEmail: versBooleen(brut.envoiEmail, KONNECT_DEFAUTS.envoiEmail),
     envoiSms: versBooleen(brut.envoiSms, KONNECT_DEFAUTS.envoiSms),
+    expediteurNomMail: versExpediteurNomMail(brut.expediteurNomMail, strict),
+    expediteurSms: versExpediteurSms(brut.expediteurSms, strict),
     rappelsActifs: versBooleen(brut.rappelsActifs, KONNECT_DEFAUTS.rappelsActifs),
     ocrActif: versBooleen(brut.ocrActif, KONNECT_DEFAUTS.ocrActif),
     modeSaisieExamen,
@@ -264,6 +320,8 @@ export function versPayloadKonnect(config: ConfigKonnect) {
     telephone_secretariat: config.telephoneSecretariat,
     envoi_email: config.envoiEmail,
     envoi_sms: config.envoiSms,
+    expediteur_nom_mail: config.expediteurNomMail,
+    expediteur_sms: config.expediteurSms,
     rappels_actifs: config.rappelsActifs,
     ocr_actif: config.ocrActif,
     mode_saisie_examen: config.modeSaisieExamen,

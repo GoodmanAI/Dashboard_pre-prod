@@ -243,6 +243,15 @@ Les dérivés (survol, fonds clairs) ne sont **pas** transmis : Konnect les calc
 les mêmes formules que l'aperçu du Dashboard. Deux formules qui divergeraient feraient
 mentir l'aperçu.
 
+Les vingt et unième et vingt-deuxième sont `expediteur_nom_mail` et `expediteur_sms`
+(18/09/2026) : sous quel nom le patient voit arriver le mail et le SMS du portail.
+`null` = l'expéditeur posé à l'installation de Konnect (`TenantMessagingConfig`).
+**L'adresse d'expédition du mail n'en fait pas partie**, et ce n'est pas un oubli : elle
+doit être vérifiée chez Brevo, compte partagé, ce que le Dashboard ne sait pas faire.
+Forme **validée ici** (`versExpediteurNomMail` : 60 caractères, ni retour à la ligne ni
+chevron ; `versExpediteurSms` : 3 à 11 lettres ou chiffres ASCII), et Konnect la
+revalide avant l'envoi, puisque la valeur finit dans un en-tête de message.
+
 ⚠️ **L'ordre de déploiement d'un nouveau champ n'est pas négociable.** Le Dashboard
 doit savoir le servir AVANT que Konnect ne l'ajoute à `CHAMPS_PILOTES` : dans
 l'autre sens, la première synchronisation le remet à son défaut, en silence.
