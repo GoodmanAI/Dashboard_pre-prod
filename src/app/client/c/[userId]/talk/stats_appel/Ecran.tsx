@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
@@ -1584,38 +1585,20 @@ export default function StatsAppelPage({ params }: any) {
   }
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-      {/* En-tête */}
-      <Box
-        sx={{
-          mb: 2,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 2,
-          flexWrap: "wrap",
-        }}
-      >
-        <Box>
-          <Typography variant="h4" fontWeight={800}>
-            Statistiques d&apos;appels
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Analyse personnalisable par période
-          </Typography>
-        </Box>
+    <Box>
+      <SectionHeader
+        title="Statistiques d'appels"
+        subtitle="Ce que LyraeTalk a fait des appels du centre, sur la période de votre choix."
+        retour={{ libelle: "Retour à LyraeTalk", href: basePath }}
+      />
+      {/* Barre d'outils : période et export */}
+      <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
           <DateRangePresets range={dateRange} onChange={setDateRange} />
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Button
               variant="outlined"
               onClick={(e) => setAnchorEl(e.currentTarget)}
-              sx={{
-                borderColor: "#48C8AF",
-                color: "#48C8AF",
-                textTransform: "none",
-                fontWeight: 600,
-              }}
             >
               Du {dateRange.from.toLocaleDateString()} au{" "}
               {dateRange.to.toLocaleDateString()}
@@ -1705,19 +1688,6 @@ export default function StatsAppelPage({ params }: any) {
             }}
           >
             Télécharger CSV
-          </Button>
-
-          <Button
-            variant="outlined"
-            onClick={() => router.push(`${basePath}`)}
-            sx={{
-              borderColor: "#48C8AF",
-              color: "#48C8AF",
-              "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
-              textTransform: "none",
-            }}
-          >
-            ← Retour à Talk
           </Button>
         </Box>
       </Box>
