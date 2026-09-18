@@ -23,14 +23,6 @@
 
 export type ModeSaisieExamen = "traditionnel" | "anatomique";
 
-/**
- * Mode du SMS de rappel de secours, miroir de `cabinet_parametres` côté Konnect.
- * `conditionnel` n'envoie que si le patient n'a ni confirmé ni annulé ;
- * `opt_out_si_ics` se tait dès que le calendrier a été téléchargé ; `toujours`
- * est le comportement historique.
- */
-export type SmsRappelMode = "conditionnel" | "opt_out_si_ics" | "toujours";
-
 export type ConfigKonnect = {
   // Identité du centre
   //
@@ -54,10 +46,14 @@ export type ConfigKonnect = {
   // Notifications
   envoiEmail: boolean;
   envoiSms: boolean;
-  // Le portail relance le patient avant son rendez-vous (rappels J-N). Distinct des
-  // deux precedents : ceux-la disent PAR QUEL CANAL on ecrit, celui-ci dit SI l'on
-  // relance. Un centre peut vouloir confirmer sans relancer.
-  rappelsActifs: boolean;
+  // Sous quel nom le patient voit arriver les messages (18/09/2026). `null` = l'expéditeur
+  // posé à l'installation du portail. L'ADRESSE d'expédition n'est pas ici, et c'est
+  // voulu : elle doit être vérifiée chez le prestataire d'envoi, ce que cet écran ne
+  // sait pas faire. Le nom affiché, lui, est libre.
+  expediteurNomMail: string | null;
+  // Expéditeur alphanumérique du SMS : 3 à 11 caractères, lettres et chiffres sans
+  // accent. C'est la limite des opérateurs, pas la nôtre.
+  expediteurSms: string | null;
   // Parcours patient
   ocrActif: boolean;
   modeSaisieExamen: ModeSaisieExamen;
@@ -69,12 +65,6 @@ export type ConfigKonnect = {
   poidsMaxScannerKg: number | null;
   // Interne technique
   cloudOcrActif: boolean;
-  // Confirmation de rendez-vous (lot G4). Ces trois-là vivaient dans la console
-  // cabinet de Konnect, seule interface à les porter : ils passent ici avant que
-  // cette console ne ferme, sans quoi ils deviendraient inaccessibles.
-  annulationDirecte: boolean;
-  smsRappelMode: SmsRappelMode;
-  codeCaracteristiqueConfirmationXplore: string | null;
 };
 
 /** Défauts *fail-closed*, alignés sur `cabinet_parametres` de Konnect. */
@@ -87,10 +77,8 @@ export const KONNECT_DEFAUTS: ConfigKonnect = {
   telephoneSecretariat: null,
   envoiEmail: true,
   envoiSms: true,
-  // Fail-closed, comme le reste de la configuration sensible : ecrire au patient se
-  // demande. Un defaut `true` ferait partir des relances chez tous les centres des
-  // l'armement de `KONNECT_NOTIFIER_ENABLED`.
-  rappelsActifs: false,
+  expediteurNomMail: null,
+  expediteurSms: null,
   ocrActif: true,
   modeSaisieExamen: "traditionnel",
   choixRadiologueActif: false,
@@ -99,15 +87,17 @@ export const KONNECT_DEFAUTS: ConfigKonnect = {
   poidsMaxIrmKg: null,
   poidsMaxScannerKg: null,
   cloudOcrActif: false,
-  // Fail-closed (AB-12) : un « non » du patient ne supprime rien dans le logiciel
-  // du centre tant que le cabinet ne l'a pas explicitement voulu. L'inverser par
-  // défaut ferait supprimer de vrais rendez-vous chez un cabinet non paramétré.
-  annulationDirecte: false,
-  smsRappelMode: "conditionnel",
-  codeCaracteristiqueConfirmationXplore: null,
 };
 
-/** Colonnes de `KonnectSettings`, dans l'ordre. Sert à bâtir les requêtes SQL. */
+/**
+ * Colonnes de `KonnectSettings`, dans l'ordre. Sert à bâtir les requêtes SQL.
+ *
+ * QUATRE COLONNES RESTENT EN BASE SANS ÊTRE LUES (18/09/2026) : `rappelsActifs`,
+ * `annulationDirecte`, `smsRappelMode`, `codeCaracteristiqueConfirmationXplore`.
+ * Elles pilotaient la confirmation par lien, l'annulation directe et les rappels J-N
+ * de Konnect, tous supprimés. Les relances no-show ont leur propre rubrique
+ * (`SmsConfirmationConfig`), partagée avec LyraeTalk. Pas de migration destructive.
+ */
 export const COLONNES_KONNECT = [
   "logoUrl",
   "couleurPrincipale",
@@ -117,7 +107,8 @@ export const COLONNES_KONNECT = [
   "telephoneSecretariat",
   "envoiEmail",
   "envoiSms",
-  "rappelsActifs",
+  "expediteurNomMail",
+  "expediteurSms",
   "ocrActif",
   "modeSaisieExamen",
   "choixRadiologueActif",
@@ -126,13 +117,9 @@ export const COLONNES_KONNECT = [
   "poidsMaxIrmKg",
   "poidsMaxScannerKg",
   "cloudOcrActif",
-  "annulationDirecte",
-  "smsRappelMode",
-  "codeCaracteristiqueConfirmationXplore",
 ] as const;
 
 const MODES_SAISIE: ModeSaisieExamen[] = ["traditionnel", "anatomique"];
-const MODES_SMS_RAPPEL: SmsRappelMode[] = ["conditionnel", "opt_out_si_ics", "toujours"];
 
 function versBooleen(valeur: unknown, defaut: boolean): boolean {
   if (typeof valeur === "boolean") return valeur;
@@ -174,6 +161,48 @@ function versCouleur(valeur: unknown, champ: string, strict: boolean): string | 
     return `#${propre[1]}${propre[1]}${propre[2]}${propre[2]}${propre[3]}${propre[3]}`;
   }
   return propre;
+}
+
+/** Longueur maximale du nom d'expéditeur d'un mail. */
+export const EXPEDITEUR_NOM_MAIL_MAX = 60;
+/** 3 à 11 lettres ou chiffres, sans accent ni espace : la règle des opérateurs. */
+export const EXPEDITEUR_SMS_RE = /^[A-Za-z0-9]{3,11}$/;
+
+/**
+ * Le nom d'expéditeur du mail. Les retours à la ligne sont refusés : ce texte finit
+ * dans un en-tête de message.
+ */
+function versExpediteurNomMail(valeur: unknown, strict: boolean): string | null {
+  const texte = versTexte(valeur);
+  if (texte === null) return null;
+  if (texte.length > EXPEDITEUR_NOM_MAIL_MAX || /[\r\n<>"]/.test(texte)) {
+    if (strict) {
+      throw new Error(
+        `Le nom d'expéditeur du mail fait ${EXPEDITEUR_NOM_MAIL_MAX} caractères au plus, sans guillemet ni chevron.`
+      );
+    }
+    return null;
+  }
+  return texte;
+}
+
+/**
+ * L'expéditeur du SMS. En lecture, une valeur héritée invalide retombe sur `null`,
+ * donc sur l'expéditeur de l'installation : mieux vaut un SMS sous le nom commun
+ * qu'un SMS refusé par l'opérateur.
+ */
+function versExpediteurSms(valeur: unknown, strict: boolean): string | null {
+  const texte = versTexte(valeur);
+  if (texte === null) return null;
+  if (!EXPEDITEUR_SMS_RE.test(texte)) {
+    if (strict) {
+      throw new Error(
+        "L'expéditeur du SMS fait 3 à 11 caractères, lettres et chiffres uniquement, sans accent ni espace. Par exemple : LUMIERE."
+      );
+    }
+    return null;
+  }
+  return texte;
 }
 
 /**
@@ -227,7 +256,8 @@ export function normaliserConfigKonnect(
     telephoneSecretariat: versTexte(brut.telephoneSecretariat),
     envoiEmail: versBooleen(brut.envoiEmail, KONNECT_DEFAUTS.envoiEmail),
     envoiSms: versBooleen(brut.envoiSms, KONNECT_DEFAUTS.envoiSms),
-    rappelsActifs: versBooleen(brut.rappelsActifs, KONNECT_DEFAUTS.rappelsActifs),
+    expediteurNomMail: versExpediteurNomMail(brut.expediteurNomMail, strict),
+    expediteurSms: versExpediteurSms(brut.expediteurSms, strict),
     ocrActif: versBooleen(brut.ocrActif, KONNECT_DEFAUTS.ocrActif),
     modeSaisieExamen,
     choixRadiologueActif: versBooleen(
@@ -239,13 +269,6 @@ export function normaliserConfigKonnect(
     poidsMaxIrmKg: versSeuil(brut.poidsMaxIrmKg, "poidsMaxIrmKg", strict),
     poidsMaxScannerKg: versSeuil(brut.poidsMaxScannerKg, "poidsMaxScannerKg", strict),
     cloudOcrActif: versBooleen(brut.cloudOcrActif, KONNECT_DEFAUTS.cloudOcrActif),
-    annulationDirecte: versBooleen(brut.annulationDirecte, KONNECT_DEFAUTS.annulationDirecte),
-    // Une valeur inconnue retombe sur `conditionnel`, le mode le plus prudent :
-    // il n'envoie que si le patient n'a pas déjà répondu.
-    smsRappelMode: MODES_SMS_RAPPEL.includes(brut.smsRappelMode as SmsRappelMode)
-      ? (brut.smsRappelMode as SmsRappelMode)
-      : KONNECT_DEFAUTS.smsRappelMode,
-    codeCaracteristiqueConfirmationXplore: versTexte(brut.codeCaracteristiqueConfirmationXplore),
   };
 }
 
@@ -264,7 +287,8 @@ export function versPayloadKonnect(config: ConfigKonnect) {
     telephone_secretariat: config.telephoneSecretariat,
     envoi_email: config.envoiEmail,
     envoi_sms: config.envoiSms,
-    rappels_actifs: config.rappelsActifs,
+    expediteur_nom_mail: config.expediteurNomMail,
+    expediteur_sms: config.expediteurSms,
     ocr_actif: config.ocrActif,
     mode_saisie_examen: config.modeSaisieExamen,
     choix_radiologue_actif: config.choixRadiologueActif,
@@ -273,8 +297,5 @@ export function versPayloadKonnect(config: ConfigKonnect) {
     poids_max_irm_kg: config.poidsMaxIrmKg,
     poids_max_scanner_kg: config.poidsMaxScannerKg,
     cloud_ocr_actif: config.cloudOcrActif,
-    annulation_directe: config.annulationDirecte,
-    sms_rappel_mode: config.smsRappelMode,
-    code_caracteristique_confirmation_xplore: config.codeCaracteristiqueConfirmationXplore,
   };
 }
