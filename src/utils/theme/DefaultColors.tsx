@@ -11,10 +11,16 @@ export const plus = Plus_Jakarta_Sans({
 const baselightTheme = createTheme({
   direction: "ltr",
   palette: {
+    // L'accent du produit, et non plus le bleu du gabarit d'origine : tout contrôle posé
+    // sans surcharge (bouton, interrupteur, case, puce, pagination) sortait en bleu au
+    // milieu d'écrans verts. La palette MUI n'accepte pas `var()` : elle porte la valeur
+    // de LyraeTalk, et les `styleOverrides` plus bas passent par `var(--accent)` pour que
+    // les écrans Konnect (autre accent, posé par `data-produit`) suivent aussi.
     primary: {
-      main: "#5D87FF",
-      light: "#ECF2FF",
-      dark: "#4570EA",
+      main: "#48C8AF",
+      light: "#E6F7F3",
+      dark: "#3AB19B",
+      contrastText: "#ffffff",
     },
     secondary: {
       main: "#49BEFF",
@@ -33,10 +39,12 @@ const baselightTheme = createTheme({
       dark: "#1682d4",
       contrastText: "#ffffff",
     },
+    // Le rouge des écrans récents (`DANGER`), à la place du corail du gabarit : une action
+    // destructive et un message d'erreur doivent se lire comme tels.
     error: {
-      main: "#FA896B",
-      light: "#FDEDE8",
-      dark: "#f3704d",
+      main: "#B3261E",
+      light: "#FBECEB",
+      dark: "#8E1D17",
       contrastText: "#ffffff",
     },
     warning: {
@@ -99,9 +107,11 @@ const baselightTheme = createTheme({
       fontSize: "1rem",
       lineHeight: "1.2rem",
     },
+    // `capitalize` transformait « Retour aux tickets » en « Retour Aux Tickets » partout
+    // où l'écran n'avait pas pensé à le défaire.
     button: {
-      textTransform: "capitalize",
-      fontWeight: 400,
+      textTransform: "none",
+      fontWeight: 600,
     },
     body1: {
       fontSize: "0.875rem",
@@ -130,6 +140,87 @@ const baselightTheme = createTheme({
           boxShadow:
             "rgb(145 158 171 / 30%) 0px 0px 2px 0px, rgb(145 158 171 / 12%) 0px 12px 24px -4px !important",
         },
+      },
+    },
+    MuiButton: {
+      // Pas d'ombre sous un bouton plein : l'ombre est réservée à ce qui flotte.
+      defaultProps: { disableElevation: true },
+      styleOverrides: {
+        containedPrimary: {
+          backgroundColor: "var(--accent)",
+          color: "#fff",
+          boxShadow: "none",
+          "&:hover": { backgroundColor: "var(--accent-press)", boxShadow: "none" },
+        },
+        outlinedPrimary: {
+          color: "var(--accent-deep)",
+          borderColor: "rgba(var(--accent-rgb), 0.55)",
+          "&:hover": {
+            borderColor: "var(--accent)",
+            backgroundColor: "rgba(var(--accent-rgb), 0.08)",
+          },
+        },
+        textPrimary: {
+          color: "var(--accent-deep)",
+          "&:hover": { backgroundColor: "rgba(var(--accent-rgb), 0.08)" },
+        },
+      },
+    },
+    MuiSwitch: {
+      styleOverrides: {
+        switchBase: {
+          "&.Mui-checked": { color: "var(--accent)" },
+          "&.Mui-checked + .MuiSwitch-track": { backgroundColor: "var(--accent)" },
+        },
+      },
+    },
+    MuiCheckbox: {
+      styleOverrides: {
+        root: { "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "var(--accent)" } },
+      },
+    },
+    MuiRadio: {
+      styleOverrides: {
+        root: { "&.Mui-checked": { color: "var(--accent)" } },
+      },
+    },
+    MuiCircularProgress: {
+      styleOverrides: {
+        colorPrimary: { color: "var(--accent)" },
+      },
+    },
+    MuiTabs: {
+      styleOverrides: {
+        indicator: { backgroundColor: "var(--accent)" },
+      },
+    },
+    MuiTab: {
+      styleOverrides: {
+        root: { "&.Mui-selected": { color: "var(--accent-deep)" } },
+      },
+    },
+    MuiPaginationItem: {
+      styleOverrides: {
+        root: {
+          "&.Mui-selected, &.Mui-selected:hover": {
+            backgroundColor: "var(--accent)",
+            color: "#fff",
+          },
+        },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          "&.Mui-focused:not(.Mui-error) .MuiOutlinedInput-notchedOutline": {
+            borderColor: "var(--accent)",
+          },
+        },
+      },
+    },
+    MuiInputLabel: {
+      styleOverrides: {
+        root: { "&.Mui-focused:not(.Mui-error)": { color: "var(--accent-deep)" } },
       },
     },
     MuiCard: {
