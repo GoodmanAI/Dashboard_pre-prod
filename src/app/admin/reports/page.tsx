@@ -221,7 +221,7 @@ export default function ReportsPage() {
   };
 
   const dateLabel = dateRange
-    ? `${format(dateRange.from, "dd/MM/yyyy")} – ${format(dateRange.to, "dd/MM/yyyy")}`
+    ? `${format(dateRange.from, "dd/MM/yyyy")} au ${format(dateRange.to, "dd/MM/yyyy")}`
     : "Toutes dates";
 
   return (
@@ -440,12 +440,12 @@ export default function ReportsPage() {
                     }}
                   >
                     <TableCell sx={{ color: "text.secondary" }}>
-                      {talkUpid ?? "—"}
+                      {talkUpid ?? "-"}
                     </TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>{client.name}</TableCell>
                     <TableCell sx={{ color: "text.secondary" }}>{client.email}</TableCell>
                     <TableCell sx={{ color: "text.secondary" }}>
-                      {client.city || "—"}
+                      {client.city || "-"}
                     </TableCell>
                     <TableCell align="center">
                       {client.centreRole === "ADMIN_USER" ? (

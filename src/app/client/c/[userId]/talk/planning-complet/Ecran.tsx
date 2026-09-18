@@ -738,7 +738,7 @@ export default function PlanningCompletPage({ params }: Props) {
       <Box>
         <SectionHeader
           title="Examens non couverts"
-          subtitle="Planning complet et examens non pris en charge — par site, sur la période"
+          subtitle="Planning complet et examens non pris en charge, par site, sur la période"
           actions={loading ? <Chip size="small" label="chargement…" variant="outlined" /> : undefined}
         />
 
@@ -863,7 +863,7 @@ export default function PlanningCompletPage({ params }: Props) {
                     APPELS SANS CRÉNEAU
                   </Typography>
                   <Typography variant="h4" fontWeight={800} sx={{ lineHeight: 1.1, mt: 0.25 }}>
-                    {data ? data.total : "—"}
+                    {data ? data.total : "-"}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     Tous cas confondus
@@ -893,7 +893,7 @@ export default function PlanningCompletPage({ params }: Props) {
                     PLANNING COMPLET CONFIRMÉ
                   </Typography>
                   <Typography variant="h4" fontWeight={800} sx={{ lineHeight: 1.1, mt: 0.25, color: "#2a6f64" }}>
-                    {data ? data.confirmed.total : "—"}
+                    {data ? data.confirmed.total : "-"}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     Redirigés ou fin d&apos;appel
@@ -923,7 +923,7 @@ export default function PlanningCompletPage({ params }: Props) {
                     À EXAMINER
                   </Typography>
                   <Typography variant="h4" fontWeight={800} sx={{ lineHeight: 1.1, mt: 0.25, color: "#92400e" }}>
-                    {data ? data.toInvestigate.total : "—"}
+                    {data ? data.toInvestigate.total : "-"}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     Manque réel ou code à configurer
@@ -1195,7 +1195,7 @@ export default function PlanningCompletPage({ params }: Props) {
                   />
                 </Stack>
                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
-                  Redirection ou fin d&apos;appel — vrais cas de saturation du planning.
+                  Redirection ou fin d&apos;appel, vrais cas de saturation du planning.
                 </Typography>
                 <ScrollableCardList>
                   {data.confirmed.items.map((item) => (
@@ -1239,7 +1239,7 @@ export default function PlanningCompletPage({ params }: Props) {
                   />
                 </Stack>
                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
-                  Cas ambigus — il peut s&apos;agir d&apos;un vrai manque de créneaux ou d&apos;un code examen mal configuré. À examiner au cas par cas.
+                  Cas ambigus, il peut s&apos;agir d&apos;un vrai manque de créneaux ou d&apos;un code examen mal configuré. À examiner au cas par cas.
                 </Typography>
                 <ScrollableCardList>
                   {data.toInvestigate.items.map((item) => (
@@ -1293,7 +1293,7 @@ export default function PlanningCompletPage({ params }: Props) {
                       PATIENTS REDIRIGÉS
                     </Typography>
                     <Typography variant="h4" fontWeight={800} sx={{ lineHeight: 1.1, mt: 0.25 }}>
-                      {examNonPris ? examNonPris.total : "—"}
+                      {examNonPris ? examNonPris.total : "-"}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       Examens et modalités confondus
@@ -1338,7 +1338,7 @@ export default function PlanningCompletPage({ params }: Props) {
                       fontWeight={800}
                       sx={{ lineHeight: 1.1, mt: 0.25, color: "#1e5a73" }}
                     >
-                      {examNonPris ? examNonPris.codes.total : "—"}
+                      {examNonPris ? examNonPris.codes.total : "-"}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       À ajouter à votre configuration
@@ -1383,7 +1383,7 @@ export default function PlanningCompletPage({ params }: Props) {
                       fontWeight={800}
                       sx={{ lineHeight: 1.1, mt: 0.25, color: "#6b21a8" }}
                     >
-                      {examNonPris ? examNonPris.bookableTypes.total : "—"}
+                      {examNonPris ? examNonPris.bookableTypes.total : "-"}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       Types d&apos;examens non réalisés

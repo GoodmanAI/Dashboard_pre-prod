@@ -134,7 +134,7 @@ function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
       const meta = getTransferMeta(stats.transferReason);
       const catMeta = CATEGORY_META[meta.category];
       chips.push({
-        label: `Redirection — ${meta.label}`,
+        label: `Redirection : ${meta.label}`,
         customColor: catMeta.color,
         textColor: catMeta.textColor,
       });
@@ -316,7 +316,7 @@ async function exportCallToPdf(call: any, steps: any[]) {
 
 /** Formate un numéro français pour affichage : `+33 6 12 34 56 78` ou `06 12 34 56 78`. */
 function formatPhoneFR(p?: string | null): string {
-  if (!p) return "—";
+  if (!p) return "-";
   const digits = p.replace(/\s/g, "");
   if (digits.startsWith("+33") && digits.length === 12) {
     return `+33 ${digits[3]} ${digits.slice(4, 6)} ${digits.slice(6, 8)} ${digits.slice(8, 10)} ${digits.slice(10, 12)}`;
@@ -1047,7 +1047,7 @@ export default function CallListPage({ params }: CallListPageProps) {
                             sx={{ color: "text.secondary", display: "block" }}
                           >
                             <strong>{firstStep.text}</strong>
-                            {secondStep && <span> — {secondStep.text}</span>}
+                            {secondStep && <span>, {secondStep.text}</span>}
                           </Typography>
                         )}
                       </Box>

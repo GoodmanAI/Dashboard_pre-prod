@@ -95,7 +95,7 @@ type Completude = {
  */
 function CelluleCompletude({ c }: { c: Completude | undefined }) {
   if (!c) {
-    return <Typography sx={{ fontSize: 13, color: INK_MUTED }}>—</Typography>;
+    return <Typography sx={{ fontSize: 13, color: INK_MUTED }}>-</Typography>;
   }
   if (c.bloquants === 0 && c.degrades === 0) {
     return (

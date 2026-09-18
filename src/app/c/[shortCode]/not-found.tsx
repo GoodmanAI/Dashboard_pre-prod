@@ -128,8 +128,8 @@ export default function AppointmentNotFound() {
             Astuce
           </div>
           <div style={{ color: TEXT_MAIN, fontSize: 13, lineHeight: 1.5 }}>
-            Si vous avez copie le lien a la main, verifiez qu&apos;il est complet
-            — certains telephones coupent les messages longs en deux.
+            Si vous avez copie le lien a la main, verifiez qu&apos;il est complet.
+            Certains telephones coupent les messages longs en deux.
           </div>
         </div>
       </div>

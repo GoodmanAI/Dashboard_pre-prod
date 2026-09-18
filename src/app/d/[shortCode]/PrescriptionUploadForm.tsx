@@ -130,7 +130,7 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
     }
     if (f.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
       setSubmitError(
-        `Fichier trop lourd, max ${MAX_FILE_SIZE_MB} Mo — reduisez la qualite de la photo ou scannez en noir & blanc.`
+        `Fichier trop lourd, max ${MAX_FILE_SIZE_MB} Mo. Reduisez la qualite de la photo ou scannez en noir & blanc.`
       );
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";

@@ -119,7 +119,7 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
   }
 
   const centerLabel =
-    [info?.center.name, info?.center.city].filter(Boolean).join(" — ") ||
+    [info?.center.name, info?.center.city].filter(Boolean).join(", ") ||
     "votre centre";
 
   const codeTrimmed = code.trim();

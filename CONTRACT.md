@@ -657,6 +657,11 @@ Deux états restent possibles, et le robot doit continuer à les traiter :
    `GET /api/prescriptions/rejected/[id]/download` (session NextAuth, pas de clé API).
    Assouplir l'un des deux sans l'autre ne débloque rien : il faut les deux pour rendre le
    rattrapage automatique possible.
+
+   Le texte des erreurs de `POST /api/prescriptions/[token]/upload` n'est **pas** un contrat :
+   il est lu par le patient sur la page de dépôt, aucune brique ne le compare. Reformulé le
+   18/09/2026 (retrait des tirets cadratins), codes HTTP et clés JSON inchangés. La ligne de
+   log `INFECTED file rejected`, elle, est restée telle quelle : un log se filtre.
 8. **`AppointmentConfirmation.shortCode`** (8 caractères) et **`PrescriptionUpload.token`** : format des URL déjà envoyées par SMS.
 9. **`RDV_SHORT_URL_BASE`, `DEPOT_ORDONNANCES_URL_BASE`, `PUBLIC_APP_URL`** : les changer casse les nouveaux SMS générés.
 10. **`JWT_SECRET`** : le changer déconnecte tout le monde. `User.tokenVersion` : l'incrémenter expulse au prochain refresh (~1 h).

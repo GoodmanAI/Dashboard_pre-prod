@@ -816,7 +816,7 @@ export default function MappingExam({ params }: TalkPageProps) {
             rowsPerPage={ROWS_PER_PAGE}
             rowsPerPageOptions={[ROWS_PER_PAGE]}
             labelDisplayedRows={({ from, to, count }) =>
-              `${from}–${to} sur ${count}`
+              `${from} à ${to} sur ${count}`
             }
             sx={{
               borderTop: `1px solid ${BORDER}`,

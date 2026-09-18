@@ -56,7 +56,7 @@ interface Notification {
 
 function formatRelativeTime(iso: string): string {
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
+  if (isNaN(d.getTime())) return "-";
   const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
   if (seconds < 60) return "a l'instant";
   if (seconds < 3600) return `il y a ${Math.floor(seconds / 60)} min`;
