@@ -111,8 +111,8 @@ const STATUS_META: Record<
 > = {
   PENDING: { label: "En attente", color: "#c2410c", bg: "rgba(234,88,12,0.15)" },
   IN_PROGRESS: { label: "En cours", color: "var(--accent-deep)", bg: "rgba(var(--accent-rgb), 0.15)" },
-  RESOLVED: { label: "Resolu", color: "#166534", bg: "rgba(34,197,94,0.15)" },
-  CLOSED: { label: "Ferme", color: "#4b5563", bg: "rgba(107,114,128,0.15)" },
+  RESOLVED: { label: "Résolu", color: "#166534", bg: "rgba(34,197,94,0.15)" },
+  CLOSED: { label: "Fermé", color: "#4b5563", bg: "rgba(107,114,128,0.15)" },
 };
 
 function formatFullDate(iso: string): string {
@@ -230,7 +230,7 @@ export default function TicketConversation({
       // immediat au cas ou le socket est KO
       load();
     } catch (err: any) {
-      setSendError(err?.message ?? "Echec de l'envoi");
+      setSendError(err?.message ?? "Le message n'est pas parti. Vérifiez votre connexion et réessayez.");
     } finally {
       setSending(false);
     }
@@ -283,8 +283,8 @@ export default function TicketConversation({
           Ouvert le {formatFullDate(ticket.createdAt)}
           {ticket.userProduct && ` · Centre : ${ticket.userProduct.product.name} (#${ticket.userProduct.id})`}
           {ticket.assignedTo && ` · Pris en charge par ${ticket.assignedTo.name ?? ticket.assignedTo.email}`}
-          {ticket.resolvedAt && ` · Resolu le ${formatFullDate(ticket.resolvedAt)}`}
-          {ticket.closedAt && ` · Ferme le ${formatFullDate(ticket.closedAt)}`}
+          {ticket.resolvedAt && ` · Résolu le ${formatFullDate(ticket.resolvedAt)}`}
+          {ticket.closedAt && ` · Fermé le ${formatFullDate(ticket.closedAt)}`}
         </Typography>
       </Box>
 
@@ -317,7 +317,7 @@ export default function TicketConversation({
       {ticket.status === "CLOSED" ? (
         <Alert severity="info" sx={{ borderRadius: 2 }}>
           Ce ticket est ferme. Impossible d&apos;ajouter un message. Contactez
-          le support pour rouvrir le ticket ou en creer un nouveau.
+          le support pour rouvrir le ticket ou en créer un nouveau.
         </Alert>
       ) : (
         <Box sx={{ mt: 2 }}>
@@ -327,8 +327,8 @@ export default function TicketConversation({
             maxRows={8}
             fullWidth
             placeholder={ticket.status === "RESOLVED"
-              ? "Ce ticket est marque comme resolu. Un nouveau message rouvre la conversation..."
-              : "Votre reponse..."}
+              ? "Ce ticket est marqué comme résolu. Un nouveau message rouvre la conversation."
+              : "Votre réponse"}
             value={messageDraft}
             onChange={(e) => setMessageDraft(e.target.value)}
             disabled={sending}
@@ -338,7 +338,7 @@ export default function TicketConversation({
                 handleSend();
               }
             }}
-            helperText="Ctrl/Cmd + Entree pour envoyer"
+            helperText="Ctrl + Entrée pour envoyer"
           />
           {sendError && (
             <Alert severity="error" sx={{ mt: 1, borderRadius: 2 }}>

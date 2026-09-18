@@ -17,7 +17,7 @@ import {
   IconButton,
   Tooltip,
 } from "@mui/material";
-import { IconFlagFilled, IconFlag, IconDownload, IconAlertTriangle } from "@tabler/icons-react";
+import { IconFlagFilled, IconFlag, IconDownload, IconAlertTriangle, IconPhone } from "@tabler/icons-react";
 import { io } from "socket.io-client";
 import { useRouter } from "next/navigation";
 import { useTalkBasePath } from "@/utils/talkRoutes";
@@ -324,7 +324,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
                             lineHeight: 1.6,
                           }}
                         >
-                          <span aria-hidden style={{ fontSize: 12 }}>📞</span>
+                          <IconPhone size={13} aria-hidden />
                           {formatPhoneFR(call.stats?.phoneNumber)}
                         </Box>
 

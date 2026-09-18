@@ -29,7 +29,7 @@ import {
   IconButton,
   Tooltip,
 } from "@mui/material";
-import { IconSearch, IconX, IconDownload, IconFlag, IconFlagFilled, IconAlertTriangle } from "@tabler/icons-react";
+import { IconSearch, IconX, IconDownload, IconFlag, IconFlagFilled, IconAlertTriangle, IconPhone } from "@tabler/icons-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTalkBasePath } from "@/utils/talkRoutes";
 import { io } from "socket.io-client";
@@ -77,7 +77,7 @@ function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
   // Chip rouge bien visible — devrait être très rare en pratique.
   if (stats.transferReason === "service_disabled") {
     chips.push({
-      label: "⚠ Service désactivé",
+      label: "Service désactivé",
       customColor: "#ef4444",
       textColor: "#fff",
     });
@@ -981,7 +981,7 @@ export default function CallListPage({ params }: CallListPageProps) {
                               lineHeight: 1.6,
                             }}
                           >
-                            <span aria-hidden style={{ fontSize: 12 }}>📞</span>
+                            <IconPhone size={13} aria-hidden />
                             {formatPhoneFR(call.stats.phoneNumber)}
                           </Box>
 

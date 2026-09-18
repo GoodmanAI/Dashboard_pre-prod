@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -74,15 +75,15 @@ const STATUS_META: Record<
 > = {
   PENDING: { label: "En attente", color: "#c2410c", bg: "rgba(234,88,12,0.12)", dotColor: "#EA580C", sortOrder: 0 },
   IN_PROGRESS: { label: "En cours", color: "var(--accent-deep)", bg: "rgba(var(--accent-rgb), 0.15)", dotColor: BRAND_TEAL, sortOrder: 1 },
-  RESOLVED: { label: "Resolu", color: "#166534", bg: "rgba(34,197,94,0.15)", dotColor: "#22C55E", sortOrder: 2 },
-  CLOSED: { label: "Ferme", color: "#4b5563", bg: "rgba(107,114,128,0.15)", dotColor: "#94a3b8", sortOrder: 3 },
+  RESOLVED: { label: "Résolu", color: "#166534", bg: "rgba(34,197,94,0.15)", dotColor: "#22C55E", sortOrder: 2 },
+  CLOSED: { label: "Fermé", color: "#4b5563", bg: "rgba(107,114,128,0.15)", dotColor: "#94a3b8", sortOrder: 3 },
 };
 
 function relativeTime(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "-";
   const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (seconds < 60) return "a l'instant";
+  if (seconds < 60) return "à l'instant";
   if (seconds < 3600) return `il y a ${Math.floor(seconds / 60)} min`;
   if (seconds < 86400) return `il y a ${Math.floor(seconds / 3600)} h`;
   const days = Math.floor(seconds / 86400);
@@ -170,18 +171,15 @@ export default function AdminSupportPage() {
 
   return (
     <PageContainer title="Support" description="Gestion des tickets clients">
-      <Box sx={{ bgcolor: PAGE_BG, minHeight: "calc(100vh - 100px)", mx: -3, px: 3, py: 3 }}>
-        {/* HERO */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h4" sx={{ color: TEXT_MAIN, fontWeight: 800, lineHeight: 1.1, mb: 0.5 }}>
-            Support
-          </Typography>
-          <Typography variant="body2" sx={{ color: TEXT_MUTED }}>
-            {counts.all === 0
+      <Box>
+        <SectionHeader
+          title="Support"
+          subtitle={
+            counts.all === 0
               ? "Aucun ticket ouvert."
-              : `${counts.PENDING + counts.IN_PROGRESS} ticket${(counts.PENDING + counts.IN_PROGRESS) > 1 ? "s" : ""} actif${(counts.PENDING + counts.IN_PROGRESS) > 1 ? "s" : ""} · ${counts.all} au total`}
-          </Typography>
-        </Box>
+              : `${counts.PENDING + counts.IN_PROGRESS} ticket${counts.PENDING + counts.IN_PROGRESS > 1 ? "s" : ""} actif${counts.PENDING + counts.IN_PROGRESS > 1 ? "s" : ""}, ${counts.all} au total`
+          }
+        />
 
         {/* Filtres */}
         <Card

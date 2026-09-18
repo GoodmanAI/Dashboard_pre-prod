@@ -117,7 +117,7 @@ export default function AdminProfilePage() {
     <PageContainer title="Profil" description="Profil administrateur">
       <SectionHeader
         title="Mon profil"
-        subtitle="Compte administrateur : mise a jour du mot de passe"
+        subtitle="Compte administrateur : changer le mot de passe"
       />
 
       <Card sx={{ p: 3, mb: 3 }}>
@@ -193,7 +193,7 @@ export default function AdminProfilePage() {
             onChange={(e) => setNewPassword(e.target.value)}
             fullWidth
             disabled={loading}
-            helperText="Min 12 caracteres, avec majuscule, minuscule, chiffre et special."
+            helperText="12 caractères au moins, avec une majuscule, une minuscule, un chiffre et un caractère spécial."
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">

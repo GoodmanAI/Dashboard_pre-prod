@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -66,33 +67,33 @@ const ACTIONS_BY_CURRENT_STATUS: Record<ApiTicket["status"], StatusActionDef[]> 
       Icon: PlayArrow,
       color: "var(--accent-deep)",
       needsNote: false,
-      helpText: "Vous serez assigne au ticket. Le client est notifie.",
+      helpText: "Le ticket vous est attribué. Le client est prévenu par e-mail.",
     },
     {
       target: "RESOLVED",
-      label: "Marquer resolu",
+      label: "Marquer résolu",
       Icon: CheckCircle,
       color: "#22C55E",
       needsNote: true,
-      helpText: "Le client recoit un mail avec votre note (facultative).",
+      helpText: "Le client reçoit un e-mail avec votre note, si vous en écrivez une.",
     },
     {
       target: "CLOSED",
-      label: "Fermer sans reponse",
+      label: "Fermer sans réponse",
       Icon: Lock,
       color: "#6b7280",
       needsNote: true,
-      helpText: "Ferme le ticket sans le resoudre. Le client recoit un mail.",
+      helpText: "Ferme le ticket sans le résoudre. Le client reçoit un e-mail.",
     },
   ],
   IN_PROGRESS: [
     {
       target: "RESOLVED",
-      label: "Marquer resolu",
+      label: "Marquer résolu",
       Icon: CheckCircle,
       color: "#22C55E",
       needsNote: true,
-      helpText: "Le client recoit un mail avec votre note (facultative).",
+      helpText: "Le client reçoit un e-mail avec votre note, si vous en écrivez une.",
     },
     {
       target: "CLOSED",
@@ -100,7 +101,7 @@ const ACTIONS_BY_CURRENT_STATUS: Record<ApiTicket["status"], StatusActionDef[]> 
       Icon: Lock,
       color: "#6b7280",
       needsNote: true,
-      helpText: "Le client recoit un mail.",
+      helpText: "Le client reçoit un e-mail.",
     },
     {
       target: "PENDING",
@@ -108,7 +109,7 @@ const ACTIONS_BY_CURRENT_STATUS: Record<ApiTicket["status"], StatusActionDef[]> 
       Icon: PlayArrow,
       color: "#c2410c",
       needsNote: false,
-      helpText: "Retire la prise en charge, le ticket redevient PENDING.",
+      helpText: "Vous n'êtes plus en charge du ticket, il repasse en attente.",
     },
   ],
   RESOLVED: [
@@ -118,15 +119,15 @@ const ACTIONS_BY_CURRENT_STATUS: Record<ApiTicket["status"], StatusActionDef[]> 
       Icon: LockOpen,
       color: "var(--accent-deep)",
       needsNote: false,
-      helpText: "Le ticket redevient IN_PROGRESS. Vous restez assigne.",
+      helpText: "Le ticket repasse en cours. Il reste à votre nom.",
     },
     {
       target: "CLOSED",
-      label: "Archiver definitivement",
+      label: "Archiver définitivement",
       Icon: Lock,
       color: "#6b7280",
       needsNote: false,
-      helpText: "Ferme le ticket. Plus de messages possibles.",
+      helpText: "Ferme le ticket. Plus personne ne peut y écrire.",
     },
   ],
   CLOSED: [
@@ -136,7 +137,7 @@ const ACTIONS_BY_CURRENT_STATUS: Record<ApiTicket["status"], StatusActionDef[]> 
       Icon: LockOpen,
       color: "#c2410c",
       needsNote: false,
-      helpText: "Le ticket redevient PENDING, l'assignation est reset.",
+      helpText: "Le ticket repasse en attente et n'est plus attribué à personne.",
     },
   ],
 };
@@ -191,12 +192,12 @@ export default function AdminTicketDetailPage({ params }: Props) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.error ?? `HTTP ${res.status}`);
       }
-      setSnack({ open: true, msg: `Ticket marque comme ${pendingAction.label.toLowerCase()}`, sev: "success" });
+      setSnack({ open: true, msg: `Ticket mis à jour : ${pendingAction.label.toLowerCase()}`, sev: "success" });
       setPendingAction(null);
       setNote("");
       // ticket refetch trigger par le websocket ticket-updated
     } catch (err: any) {
-      setActionError(err?.message ?? "Echec de la mise a jour");
+      setActionError(err?.message ?? "Le ticket n'a pas été mis à jour. Réessayez dans un instant.");
     } finally {
       setApplying(false);
     }
@@ -204,14 +205,14 @@ export default function AdminTicketDetailPage({ params }: Props) {
 
   if (authStatus !== "authenticated" || !session?.user?.id || !ticketId) {
     return (
-      <PageContainer title="Ticket" description="Detail admin">
+      <PageContainer title="Ticket" description="Détail du ticket">
         <Box />
       </PageContainer>
     );
   }
   if (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN") {
     return (
-      <PageContainer title="Ticket" description="Detail admin">
+      <PageContainer title="Ticket" description="Détail du ticket">
         <Alert severity="error">Accès refusé : reservé aux administrateurs.</Alert>
       </PageContainer>
     );
@@ -221,17 +222,12 @@ export default function AdminTicketDetailPage({ params }: Props) {
   const actions = ticket ? ACTIONS_BY_CURRENT_STATUS[ticket.status] : [];
 
   return (
-    <PageContainer title="Ticket" description="Detail admin">
+    <PageContainer title="Ticket" description="Détail du ticket">
       <Stack spacing={2}>
-        <Box>
-          <Button
-            startIcon={<ArrowBack />}
-            onClick={() => router.push("/admin/ticket")}
-            sx={{ color: BRAND_TEAL }}
-          >
-            Retour aux tickets
-          </Button>
-        </Box>
+        <SectionHeader
+          title="Ticket"
+          retour={{ libelle: "Retour aux tickets", href: "/admin/ticket" }}
+        />
 
         <Box
           sx={{
@@ -377,8 +373,8 @@ export default function AdminTicketDetailPage({ params }: Props) {
                   label="Note pour le client (facultative)"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="Ex: Le probleme est corrige, votre configuration a ete mise a jour..."
-                  helperText="Cette note sera inseree dans l'email envoye au client."
+                  placeholder="Exemple : le problème est corrigé, votre configuration a été mise à jour."
+                  helperText="Cette note sera reprise dans l'e-mail envoyé au client."
                   disabled={applying}
                 />
               )}

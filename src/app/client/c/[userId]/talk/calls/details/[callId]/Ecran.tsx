@@ -1,9 +1,10 @@
 "use client";
 
+import { useTalkBasePath } from "@/utils/talkRoutes";
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Box, Typography, CircularProgress, Alert, Button } from "@mui/material";
-import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 
 type Speaker = "Lyrae" | "User";
 
@@ -13,9 +14,9 @@ export default function CallConversationPage({ params }: { params: { id: string;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const router = useRouter();
 
   const userProductId = Number(params.id);
+  const basePath = useTalkBasePath(userProductId);
   const callId = Number(params.callId);
   const searchParams = useSearchParams();
 
@@ -48,31 +49,13 @@ export default function CallConversationPage({ params }: { params: { id: string;
   }, [userProductId, callId]);
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-      <Box
-        sx={{
-          maxWidth: "800px",
-          margin: "0 auto",   // centre horizontalement
-        }}
-      >
-        <Button
-          variant="contained"
-          startIcon={<ArrowBackIosIcon />}
-          onClick={() => {
-            if (from) {
-              router.push(from);
-            } else {
-              router.back();
-            }
-          }}
-          sx={{ backgroundColor: "var(--accent)", mb: 2 }}
-        >
-          Retour
-        </Button>
-
-        <Typography variant="h5" gutterBottom>
-          Conversation
-        </Typography>
+    <Box>
+      {/* Une conversation se lit mieux en colonne étroite. */}
+      <Box sx={{ maxWidth: 800 }}>
+        <SectionHeader
+          title="Conversation"
+          retour={{ libelle: "Retour à la liste", href: from || `${basePath}/calls` }}
+        />
 
         {loading && (
           <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>

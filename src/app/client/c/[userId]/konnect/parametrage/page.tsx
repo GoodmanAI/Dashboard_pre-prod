@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import React, { useEffect, useState } from "react";
 import {
   Accordion,
@@ -289,15 +290,10 @@ export default function ParametrageKonnectPage() {
           rendu conditionnel y produirait `false | Element`, que TypeScript
           refuse. D'où ce conteneur unique. */}
       <Box>
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h5" fontWeight={700}>
-            Portail patient
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Ce que voit et peut faire un patient qui prend rendez-vous en ligne.
-            Les modifications s&apos;appliquent au prochain parcours démarré.
-          </Typography>
-        </Box>
+        <SectionHeader
+          title="Paramètres du portail"
+          subtitle="Ce que voit et peut faire un patient qui prend rendez-vous en ligne. Les modifications s'appliquent au prochain parcours démarré."
+        />
 
         {/* ---------------- Identité du centre ---------------- */}
         <Accordion defaultExpanded>

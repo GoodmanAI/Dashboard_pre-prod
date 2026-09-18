@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -253,17 +254,10 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
     <Box>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography
-          variant="h5"
-          sx={{ fontWeight: 700, color: INK, letterSpacing: "-0.02em", mb: 0.5 }}
-        >
-          FAQ patient
-        </Typography>
-        <Typography variant="body2" sx={{ color: INK_MUTED, mb: 2, maxWidth: 620 }}>
-          Ces questions/réponses sont utilisées par le bot d&apos;accueil pour répondre
-          aux patients au téléphone. Chaque modification est prise en compte
-          automatiquement.
-        </Typography>
+        <SectionHeader
+          title="Questions fréquentes"
+          subtitle="Les réponses que LyraeTalk donne au téléphone quand un patient pose une question pratique : horaires, accès, préparation. Une modification s'applique tout de suite."
+        />
 
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
           <Chip

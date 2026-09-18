@@ -21,7 +21,8 @@ export default function SectionHeader({
   retour,
 }: {
   title: string;
-  subtitle?: string;
+  /** Une phrase, ou un fragment quand il faut du gras ou un lien. */
+  subtitle?: React.ReactNode;
   actions?: React.ReactNode;
   retour?: { libelle: string; href: string };
 }) {
