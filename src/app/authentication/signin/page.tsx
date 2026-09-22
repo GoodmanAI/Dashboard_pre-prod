@@ -288,7 +288,7 @@ export default function SignIn() {
           color: "#A0AEC0",
         }}
       >
-        © 2025, Made with ❤️ by NeuracorpAI
+        © NeuracorpAI
       </Typography>
     </Box>
   );

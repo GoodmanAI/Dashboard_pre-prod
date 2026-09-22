@@ -638,7 +638,7 @@ function TransfersSection({
               </Typography>
               {serviceDisabledCount > 0 && (
                 <Typography variant="caption" sx={{ color: "#b91c1c", fontWeight: 600 }}>
-                  ⚠️ Un site a activé le kill switch sur la période
+                  Un site a coupé le service sur la période
                 </Typography>
               )}
             </Box>

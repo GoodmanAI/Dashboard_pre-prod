@@ -23,6 +23,58 @@ function canonicalPhoneFR(p: string | null | undefined): string {
   return d;
 }
 
+/**
+ * Lit les appels d'un centre, en ne gardant que ceux qui ont plus d'un échange.
+ *
+ * Avec `sansTranscription`, `steps` n'est jamais ramené : le filtre « plus d'un échange »
+ * se fait en SQL, puis la lecture ne sélectionne que les colonnes légères. `steps` vaut
+ * `{}` par défaut et non un tableau, d'où le `CASE` (PostgreSQL ne garantit pas l'ordre
+ * d'évaluation d'un `AND`, et `jsonb_array_length` échoue sur un objet).
+ */
+async function lireAppels(where: any, sansTranscription: boolean): Promise<any[]> {
+  if (!sansTranscription) {
+    const lignes = await prisma.callConversation.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+    return lignes.filter((c: any) => Array.isArray(c.steps) && c.steps.length > 1);
+  }
+
+  const depuis: Date = where.createdAt?.gte ?? new Date(0);
+  const jusqua: Date = where.createdAt?.lte ?? new Date();
+  const ids = await prisma.$queryRaw<{ id: number }[]>`
+    SELECT id FROM "CallConversation"
+    WHERE "userProductId" = ${where.userProductId}
+      AND "createdAt" >= ${depuis}
+      AND "createdAt" <= ${jusqua}
+      AND (CASE WHEN jsonb_typeof(steps::jsonb) = 'array' THEN jsonb_array_length(steps::jsonb) ELSE 0 END) > 1`;
+  if (ids.length === 0) return [];
+
+  // Par paquets : PostgreSQL plafonne le nombre de paramètres liés d'une requête.
+  const PAQUET = 20000;
+  const lignes: any[] = [];
+  for (let i = 0; i < ids.length; i += PAQUET) {
+    const paquet = ids.slice(i, i + PAQUET).map((r) => r.id);
+    lignes.push(
+      ...(await prisma.callConversation.findMany({
+        where: { ...where, id: { in: paquet } },
+        select: {
+          id: true,
+          userProductId: true,
+          centerId: true,
+          treated: true,
+          flagged: true,
+          stats: true,
+          createdAt: true,
+        },
+      }))
+    );
+  }
+  return lignes.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth();
@@ -49,6 +101,11 @@ export async function GET(request: NextRequest) {
     const previousFromParam = searchParams.get("previousFrom");
     const previousToParam = searchParams.get("previousTo");
     const includePrevious = !!(previousFromParam && previousToParam);
+    // `champs=stats` : les écrans de statistiques ne lisent que `createdAt` et `stats`.
+    // Sans ce paramètre, chaque ligne part avec `steps`, la transcription entière de
+    // l'appel, qui pèse l'essentiel de la réponse. Ajout du 18/09/2026 ; sans le
+    // paramètre, la réponse est inchangée.
+    const sansTranscription = searchParams.get("champs") === "stats";
 
     // Recherche par numéro de téléphone : on ignore date / status / examType
     // pour rechercher sur la totalité des appels du centre.
@@ -297,17 +354,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    
-    // 🔹 Une seule requête DB
-    let calls = await prisma.callConversation.findMany({
-      where: whereClause,
-      orderBy: { createdAt: "desc" },
-    });
-
-    // 🔹 Filtre JS obligatoire
-    calls = calls.filter((c: any) => {
-      return Array.isArray(c.steps) && c.steps.length > 1;
-    });
+        let calls: any[] = await lireAppels(whereClause, sansTranscription);
 
     if (statusParam === "hung_up") {
       calls = calls.filter((c: any) => {
@@ -353,15 +400,8 @@ export async function GET(request: NextRequest) {
             lte: new Date(previousToParam!),
           },
         };
-        let previousCalls = await prisma.callConversation.findMany({
-          where: previousWhere,
-          orderBy: { createdAt: "desc" },
-        });
-
         // Reproduire les filtres post-fetch JS identiquement.
-        previousCalls = previousCalls.filter(
-          (c: any) => Array.isArray(c.steps) && c.steps.length > 1
-        );
+        let previousCalls: any[] = await lireAppels(previousWhere, sansTranscription);
         if (statusParam === "hung_up") {
           previousCalls = previousCalls.filter((c: any) => {
             const s = c.stats || {};

@@ -17,7 +17,17 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { WarningAmber, CheckCircle, Phone, Event, MedicalServices } from "@mui/icons-material";
+import {
+  WarningAmber,
+  CheckCircle,
+  Phone,
+  Event,
+  MedicalServices,
+  Send,
+  MoveToInbox,
+  TaskAlt,
+  ErrorOutline,
+} from "@mui/icons-material";
 import { IconInfoCircle, IconAlertTriangle } from "@tabler/icons-react";
 import ExamTypeBadge, { toExamTypeCode } from "@/components/shared/ExamTypeBadge";
 import { io as ioClient, Socket } from "socket.io-client";
@@ -46,7 +56,7 @@ import {
    Actions secretaire :
      - Cliquer sur le numero pour le copier
      - Appeler tel:xxx via le lien direct
-     - "Marquer traite" -> POST /alerts/{id}/resolve (fait disparaitre la carte)
+     - "Marquer traité" -> POST /alerts/{id}/resolve (fait disparaitre la carte)
 ============================================================================= */
 
 const EXAM_LABELS: Record<string, string> = {
@@ -318,7 +328,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
     ) {
       setSnack({
         open: true,
-        msg: `Valeur invalide (${ALERT_AFTER_HOURS_MIN}-${ALERT_AFTER_HOURS_MAX}h)`,
+        msg: `Le délai doit être compris entre ${ALERT_AFTER_HOURS_MIN} et ${ALERT_AFTER_HOURS_MAX} heures.`,
         sev: "error",
       });
       return;
@@ -340,9 +350,9 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
           throw new Error(data.error || `HTTP ${res.status}`);
         }
         setItems((prev) => prev.filter((i) => i.id !== id));
-        setSnack({ open: true, msg: "Alerte marquee comme traitee", sev: "success" });
+        setSnack({ open: true, msg: "Alerte marquée comme traitée", sev: "success" });
       } catch (err: any) {
-        setSnack({ open: true, msg: err?.message || "Echec", sev: "error" });
+        setSnack({ open: true, msg: err?.message || "L'alerte n'a pas été mise à jour. Réessayez dans un instant.", sev: "error" });
       } finally {
         setResolving((prev) => {
           const next = new Set(prev);
@@ -378,12 +388,12 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
   return (
     <PageContainer
       title="Ordonnances manquantes"
-      description="RDVs pour lesquels aucune ordonnance n'a ete deposee dans les delais"
+      description="Rendez-vous pour lesquels aucune ordonnance n'a été déposée à temps"
     >
       <Box>
         <SectionHeader
           title="Ordonnances manquantes"
-          subtitle="Patients dont le lien de depot a ete envoye il y a plus de X heures sans upload, et ordonnances refusees par Xplore"
+          subtitle={`Les patients qui ont reçu le lien de dépôt il y a plus de ${thresholdHours} heures et n'ont rien envoyé, et les ordonnances refusées par votre logiciel de gestion.`}
           actions={
             tab === "pending" ? (
               <Chip
@@ -398,7 +408,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
             ) : (
               <Chip
                 size="small"
-                label={`${rejectedCount} refusees Xplore`}
+                label={`${rejectedCount} refusée${rejectedCount > 1 ? "s" : ""}`}
                 sx={{
                   bgcolor: rejectedCount > 0 ? "rgba(239,68,68,0.15)" : "rgba(var(--accent-rgb), 0.15)",
                   color: rejectedCount > 0 ? "#b91c1c" : "var(--accent-deep)",
@@ -424,36 +434,36 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
         >
           {[
             {
-              label: "Liens envoyes",
+              label: "Liens envoyés",
               value: statsTotals?.requested,
               color: "#3b82f6",
-              icon: "📤",
+              icon: <Send fontSize="inherit" />,
             },
             {
-              label: "Deposees patient",
+              label: "Déposées par le patient",
               value: statsTotals?.uploaded,
               color: "var(--accent)",
-              icon: "📥",
+              icon: <MoveToInbox fontSize="inherit" />,
               sub:
                 statsTotals && statsTotals.requested > 0
                   ? `${Math.round((statsTotals.uploaded / statsTotals.requested) * 100)}%`
                   : undefined,
             },
             {
-              label: "Acceptees Xplore",
+              label: "Acceptées",
               value: statsTotals?.acked,
               color: "#16a34a",
-              icon: "✅",
+              icon: <TaskAlt fontSize="inherit" />,
               sub:
                 statsTotals && statsTotals.uploaded > 0
                   ? `${Math.round((statsTotals.acked / statsTotals.uploaded) * 100)}%`
                   : undefined,
             },
             {
-              label: "Refusees Xplore",
+              label: "Refusées",
               value: statsTotals?.rejected,
               color: "#ef4444",
-              icon: "⚠️",
+              icon: <ErrorOutline fontSize="inherit" />,
               sub:
                 statsTotals && statsTotals.uploaded > 0
                   ? `${Math.round((statsTotals.rejected / statsTotals.uploaded) * 100)}%`
@@ -524,7 +534,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               value="rejected"
               icon={<IconAlertTriangle size={18} />}
               iconPosition="start"
-              label={`Refusees Xplore (${rejectedCount})`}
+              label={`Refusées (${rejectedCount})`}
             />
           </Tabs>
         </Card>
@@ -644,8 +654,8 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
             sx={{ mb: 2, borderRadius: 2 }}
           >
             {autoResolvedCount === 1
-              ? "1 alerte a ete classee automatiquement : le rendez-vous est deja passe."
-              : `${autoResolvedCount} alertes ont ete classees automatiquement : leur rendez-vous est deja passe.`}
+              ? "1 alerte a été classée automatiquement : le rendez-vous est déjà passé."
+              : `${autoResolvedCount} alertes ont été classées automatiquement : leur rendez-vous est déjà passé.`}
           </Alert>
         )}
 
@@ -660,7 +670,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               Aucune alerte en cours
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Aucun patient n&apos;a depasse le seuil de {thresholdHours}h sans deposer son ordonnance.
+              Aucun patient n&apos;a dépassé {thresholdHours} heures sans déposer son ordonnance.
             </Typography>
           </Card>
         ) : (
@@ -670,11 +680,11 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               icon={<IconInfoCircle size={20} />}
               sx={{ borderRadius: 2 }}
             >
-              Cliquez sur le numero pour le copier. Une fois le patient rappele, cliquez
-              &laquo; Marquer traite &raquo; pour retirer la carte de la liste. Le RDV reste
-              en attente d&apos;ordonnance tant que le PDF n&apos;a pas ete depose sur la
-              plateforme. Les rendez-vous anterieurs a aujourd&apos;hui sont classes
-              automatiquement : plus la peine de rappeler, l&apos;examen est passe.
+              Cliquez sur le numéro pour le copier. Une fois le patient rappelé, cliquez
+              &laquo; Marquer traité &raquo; pour retirer la carte de la liste. Le rendez-vous reste
+              en attente d&apos;ordonnance tant que le patient n&apos;a pas déposé son document sur la
+              plateforme. Les rendez-vous déjà passés sont classés
+              automatiquement : inutile de rappeler, l&apos;examen a eu lieu.
             </Alert>
 
             {orderedItems.map((item) => {
@@ -682,7 +692,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               const critical = item.hoursSinceCreated > thresholdHours * 2;
               const examLabel = item.examType
                 ? EXAM_LABELS[item.examType] ?? item.examType
-                : "Examen non specifie";
+                : "Examen non précisé";
               const formattedPhone = formatPhoneFr(item.phone);
 
               return (
@@ -714,7 +724,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                         </Typography>
                         <Chip
                           size="small"
-                          label={`${Math.round(item.hoursSinceCreated)}h sans upload`}
+                          label={`${Math.round(item.hoursSinceCreated)} h sans dépôt`}
                           sx={{
                             bgcolor: critical ? "rgba(185,28,28,0.15)" : "rgba(234,88,12,0.15)",
                             color: critical ? "#b91c1c" : "#c2410c",
@@ -784,7 +794,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                       </Stack>
 
                       <Typography variant="caption" color="text.secondary">
-                        Lien SMS envoye {formatFrDateShort(item.createdAt)}
+                        Lien SMS envoyé {formatFrDateShort(item.createdAt)}
                       </Typography>
                     </Box>
 
@@ -802,7 +812,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                         {resolving.has(item.id) ? (
                           <CircularProgress size={20} sx={{ color: "#FFF" }} />
                         ) : (
-                          "Marquer traite"
+                          "Marquer traité"
                         )}
                       </Button>
                     </Box>

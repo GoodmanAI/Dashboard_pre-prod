@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -42,7 +43,7 @@ export default function ClientTicketDetailPage({ params }: Props) {
 
   if (status !== "authenticated" || !session?.user?.id || !ticketId) {
     return (
-      <PageContainer title="Ticket" description="Detail du ticket support">
+      <PageContainer title="Ticket" description="Détail du ticket">
         <Box />
       </PageContainer>
     );
@@ -53,18 +54,13 @@ export default function ClientTicketDetailPage({ params }: Props) {
   return (
     <PageContainer
       title="Ticket"
-      description="Detail du ticket support"
+      description="Détail du ticket"
     >
       <Stack spacing={2}>
-        <Box>
-          <Button
-            startIcon={<ArrowBack />}
-            onClick={() => router.push("/client/ticket")}
-            sx={{ color: "var(--accent)" }}
-          >
-            Retour aux tickets
-          </Button>
-        </Box>
+        <SectionHeader
+          title="Ticket"
+          retour={{ libelle: "Retour aux tickets", href: "/client/ticket" }}
+        />
 
         <Card sx={{ p: { xs: 2, sm: 3 } }}>
           <TicketConversation
@@ -75,8 +71,8 @@ export default function ClientTicketDetailPage({ params }: Props) {
         </Card>
 
         <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
-          Le support est notifie par email de vos messages. Vous serez notifie
-          par email quand votre ticket sera resolu ou ferme.
+          Le support reçoit vos messages par e-mail. Vous serez prévenu
+          par e-mail quand votre ticket sera résolu ou fermé.
         </Typography>
       </Stack>
     </PageContainer>

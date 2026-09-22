@@ -1,7 +1,8 @@
 "use client";
 
 import { Alert, Box } from "@mui/material";
-import { useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import ModuleInfoAdmin from "@/components/moduleInfo/ModuleInfoAdmin";
@@ -38,7 +39,7 @@ export default function DashboardTalkForm({ params }: TalkPageProps) {
   const readOnly = !peutEcrire;
 
   return (
-    <Box sx={{ my: 4, px: { xs: 2, sm: 4 } }}>
+    <Box>
       {readOnly && (
         <Box sx={{ maxWidth: 960, mx: "auto", mb: 3 }}>
           <Alert severity="info">

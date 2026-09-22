@@ -70,7 +70,7 @@ export default function EditPermissionsDialog({ user, onClose, onSuccess }: Prop
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       onSuccess(
-        `Permissions mises a jour pour ${user.email}. Le sous-compte sera deconnecte au prochain refresh.`
+        `Permissions mises à jour pour ${user.email}. Le compte devra se reconnecter pour les voir.`
       );
     } catch (e: any) {
       setError(e?.message ?? "Erreur inconnue");
@@ -82,7 +82,7 @@ export default function EditPermissionsDialog({ user, onClose, onSuccess }: Prop
   return (
     <Dialog open={!!user} onClose={submitting ? undefined : onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ fontWeight: 700 }}>
-        Editer permissions
+        Modifier les permissions
         <Typography variant="body2" sx={{ color: "#7A8FA6", fontWeight: 400, mt: 0.5 }}>
           {user.name ?? user.email}
         </Typography>

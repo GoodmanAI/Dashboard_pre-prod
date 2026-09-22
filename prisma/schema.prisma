@@ -341,6 +341,12 @@ model CallConversation {
   createdAt     DateTime @default(now())
 
   userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
+
+  // Poses par prisma/migrations/manual/2026_09_18_callconversation_index.sql (CONCURRENTLY,
+  // donc hors migration Prisma). Un troisieme index, partiel sur `flagged`, ne s'exprime
+  // pas ici et ne vit que dans ce fichier.
+  @@index([userProductId, createdAt(sort: Desc)])
+  @@index([createdAt])
 }
 
 /// FAQ patient editee par le client depuis le dashboard (chantier 2026-08-05).

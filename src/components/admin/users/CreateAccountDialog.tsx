@@ -102,8 +102,8 @@ export default function CreateAccountDialog({
       }
       onSuccess(
         mode === "admin"
-          ? `Admin ${data.user.email} cree.`
-          : `Sous-compte ${data.user.email} cree.`
+          ? `Le compte administrateur ${data.user.email} est créé.`
+          : `Le sous-compte ${data.user.email} est créé.`
       );
     } catch (e: any) {
       setError(e?.message ?? "Erreur inconnue");
@@ -140,7 +140,7 @@ export default function CreateAccountDialog({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             disabled={submitting}
-            helperText="Min 12 caracteres, avec majuscule, minuscule, chiffre et special."
+            helperText="12 caractères au moins, avec une majuscule, une minuscule, un chiffre et un caractère spécial."
           />
 
           {mode === "sub-account" && (
@@ -189,7 +189,7 @@ export default function CreateAccountDialog({
           disabled={!canSubmit || submitting}
           sx={{ bgcolor: BRAND_TEAL, "&:hover": { bgcolor: "#3aa896" } }}
         >
-          {submitting ? "Creation..." : "Creer"}
+          {submitting ? "Création en cours" : "Créer le compte"}
         </Button>
       </DialogActions>
     </Dialog>

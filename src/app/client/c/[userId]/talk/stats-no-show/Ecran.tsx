@@ -246,12 +246,12 @@ export default function StatsNoShowPage({ params }: Props) {
 
   return (
     <PageContainer
-      title="Stats No-Show"
+      title="Rendez-vous non honorés"
       description="Impact des rappels SMS sur les confirmations et annulations de RDV"
     >
       <Box>
         <SectionHeader
-          title="Stats No-Show"
+          title="Rendez-vous non honorés"
           subtitle="Rappels SMS envoyés et leur conversion en confirmation / annulation, par type d'examen"
           actions={loading ? <Chip size="small" label="chargement…" variant="outlined" /> : undefined}
         />

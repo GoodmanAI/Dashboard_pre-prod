@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -81,15 +82,15 @@ const STATUS_META: Record<
 > = {
   PENDING: { label: "En attente", color: "#c2410c", bg: "rgba(234,88,12,0.12)", dotColor: "#EA580C", sortOrder: 0 },
   IN_PROGRESS: { label: "En cours", color: "var(--accent-deep)", bg: "rgba(var(--accent-rgb), 0.15)", dotColor: BRAND_TEAL, sortOrder: 1 },
-  RESOLVED: { label: "Resolu", color: "#166534", bg: "rgba(34,197,94,0.15)", dotColor: "#22C55E", sortOrder: 2 },
-  CLOSED: { label: "Ferme", color: "#4b5563", bg: "rgba(107,114,128,0.15)", dotColor: "#94a3b8", sortOrder: 3 },
+  RESOLVED: { label: "Résolu", color: "#166534", bg: "rgba(34,197,94,0.15)", dotColor: "#22C55E", sortOrder: 2 },
+  CLOSED: { label: "Fermé", color: "#4b5563", bg: "rgba(107,114,128,0.15)", dotColor: "#94a3b8", sortOrder: 3 },
 };
 
 function relativeTime(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "-";
   const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (seconds < 60) return "a l'instant";
+  if (seconds < 60) return "à l'instant";
   if (seconds < 3600) return `il y a ${Math.floor(seconds / 60)} min`;
   if (seconds < 86400) return `il y a ${Math.floor(seconds / 3600)} h`;
   const days = Math.floor(seconds / 86400);
@@ -162,44 +163,26 @@ export default function ClientSupportPage() {
 
   return (
     <PageContainer title="Support" description="Vos tickets support">
-      <Box sx={{ bgcolor: PAGE_BG, minHeight: "calc(100vh - 100px)", mx: -3, px: 3, py: 3 }}>
-        {/* HERO : compteur + CTA nouveau ticket */}
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={2}
-          alignItems={{ xs: "stretch", md: "center" }}
-          justifyContent="space-between"
-          sx={{ mb: 3 }}
-        >
-          <Box>
-            <Typography variant="h4" sx={{ color: TEXT_MAIN, fontWeight: 800, lineHeight: 1.1, mb: 0.5 }}>
-              Support
-            </Typography>
-            <Typography variant="body2" sx={{ color: TEXT_MUTED }}>
-              {activeCount === 0 && counts.all === 0
-                ? "Aucun ticket pour le moment."
-                : activeCount === 0
+      <Box>
+        <SectionHeader
+          title="Support"
+          subtitle={
+            activeCount === 0 && counts.all === 0
+              ? "Aucun ticket pour le moment."
+              : activeCount === 0
                 ? `Tous vos tickets sont traités (${counts.all} au total).`
-                : `${activeCount} ticket${activeCount > 1 ? "s" : ""} en cours de traitement.`}
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<IconPlus size={18} />}
-            onClick={() => setCreateOpen(true)}
-            sx={{
-              bgcolor: BRAND_TEAL,
-              "&:hover": { bgcolor: BRAND_TEAL_DARK },
-              px: 3,
-              py: 1.2,
-              fontWeight: 700,
-              boxShadow: "0 4px 12px rgba(var(--accent-rgb), 0.3)",
-              textTransform: "none",
-            }}
-          >
-            Nouveau ticket
-          </Button>
-        </Stack>
+                : `${activeCount} ticket${activeCount > 1 ? "s" : ""} en cours de traitement.`
+          }
+          actions={
+            <Button
+              variant="contained"
+              startIcon={<IconPlus size={18} />}
+              onClick={() => setCreateOpen(true)}
+            >
+              Nouveau ticket
+            </Button>
+          }
+        />
 
         {/* Filtres : chips par status + recherche */}
         <Card
@@ -284,7 +267,7 @@ export default function ClientSupportPage() {
             setCreateOpen(false);
             // Pas de #id dans le message pour ne pas leaker l'id global.
             // Le displayNumber sera visible sur la card apres load().
-            setSnack({ open: true, msg: "Ticket cree avec succes, un email a ete envoye au support", sev: "success" });
+            setSnack({ open: true, msg: "Ticket créé. Le support a reçu un e-mail et vous répondra ici.", sev: "success" });
             load();
           }}
           asUserIdQuery={asUserIdQuery}
@@ -543,7 +526,7 @@ function CreateTicketDialog({
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
       onCreated(data.ticket?.id ?? 0);
     } catch (err: any) {
-      setSubmitError(err?.message ?? "Echec de la creation");
+      setSubmitError(err?.message ?? "Le ticket n'a pas été créé. Vérifiez votre connexion et réessayez.");
     } finally {
       setSubmitting(false);
     }
@@ -634,7 +617,7 @@ function CreateTicketDialog({
               error={contactEmail.length > 0 && !emailValid}
               helperText={
                 contactEmail.length > 0 && !emailValid
-                  ? "Adresse email invalide"
+                  ? "Cette adresse e-mail n'est pas valide"
                   : "Vous recevrez un email quand votre ticket sera résolu ou fermé."
               }
               sx={{ mt: 0.5 }}

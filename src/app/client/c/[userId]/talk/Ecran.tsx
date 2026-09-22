@@ -498,7 +498,7 @@ export default function TalkPage({ params }: TalkPageProps) {
             </Grid>
             <Grid item xs={12} sm={6} md={6}>
               <NavCard
-                title="Module informationnel"
+                title="Questions fréquentes"
                 description="Infos centre, accès, horaires, examens"
                 icon={<IconInfoCircle size={20} />}
                 href={`${basePath}/informationnel`}

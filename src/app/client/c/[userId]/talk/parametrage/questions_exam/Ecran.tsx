@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useTalkBasePath } from "@/utils/talkRoutes";
+import SectionHeader from "@/components/admin/SectionHeader";
+import { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -14,15 +15,14 @@ import {
   TableRow,
   Paper,
   TextField,
-  Typography,
   Pagination,
   Snackbar,
   Portal,
   Alert
 } from "@mui/material";
-import SaveIcon from "@mui/icons-material/Save";
-import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
-import { useSession } from "next-auth/react";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import { useSession } from "next-auth/react";
+
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 
@@ -62,7 +62,7 @@ function parseStringArray(value?: string): string[] {
 
 export default function EditExamQuestions({ params }: PageProps) {
   const userProductId = Number(params.id);
-  const router = useRouter();
+  const basePath = useTalkBasePath(userProductId);
   // Lecture seule, revue le 15/09/2026 : elle se lisait sur le seul booleen
   // herite `isSecretary`, donc un sous-compte moderne cree avec cette page en
   // lecture voyait tous ses champs actifs et decouvrait le refus a
@@ -71,6 +71,8 @@ export default function EditExamQuestions({ params }: PageProps) {
   const readOnly = !peutEcrire;
 
   const [exams, setExams] = useState<Record<string, Exam>>({});
+  // Ce que le serveur connaît : sert à compter les examens modifiés.
+  const [initial, setInitial] = useState<Record<string, Exam>>({});
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -120,6 +122,7 @@ export default function EditExamQuestions({ params }: PageProps) {
       });
 
       setExams(normalized);
+      setInitial(normalized);
     };
 
     fetchExams();
@@ -189,6 +192,7 @@ export default function EditExamQuestions({ params }: PageProps) {
       });
 
       if (!res.ok) throw new Error("Erreur sauvegarde");
+      setInitial(exams);
 
       setSnack({
         open: true,
@@ -206,28 +210,22 @@ export default function EditExamQuestions({ params }: PageProps) {
     }
   };
 
+  const modifications = useMemo(
+    () =>
+      Object.keys(exams).filter(
+        (code) => JSON.stringify(exams[code]) !== JSON.stringify(initial[code])
+      ).length,
+    [exams, initial]
+  );
 
   return (
     <main>
-      <Box p={3}>
-        {/* Retour */}
-        <Button
-          variant="contained"
-          startIcon={<ArrowBackIosIcon />}
-          onClick={() => router.back()}
-          sx={{
-            backgroundColor: "var(--accent)",
-            "&:hover": { backgroundColor: "#3bb49d" },
-            mb: 3,
-          }}
-        >
-          Retour
-        </Button>
-
-        {/* Titre */}
-        <Typography variant="h5" fontWeight="bold" mb={3}>
-          Configuration des interrogatoires par examen
-        </Typography>
+      <Box>
+        <SectionHeader
+          title="Questions par examen"
+          subtitle="Les questions que LyraeTalk pose au patient avant de proposer un rendez-vous, examen par examen."
+          retour={{ libelle: "Retour à LyraeTalk", href: basePath }}
+        />
 
         {readOnly && (
           <Alert severity="info" sx={{ mb: 2 }}>
@@ -329,36 +327,13 @@ export default function EditExamQuestions({ params }: PageProps) {
         )}
         </Box>
 
-        {/* Barre sticky */}
-        {!readOnly && (
-          <Box
-            sx={{
-              position: "sticky",
-              bottom: 0,
-              backgroundColor: "rgba(248,248,248,0.9)",
-              backdropFilter: "blur(6px)",
-              py: 2,
-              px: 2,
-              mt: 3,
-              borderTop: "1px solid #eee",
-              display: "flex",
-              justifyContent: "flex-end",
-            }}
-          >
-            <Button
-              variant="contained"
-              startIcon={<SaveIcon />}
-              onClick={handleSave}
-              disabled={saving}
-              sx={{
-                backgroundColor: "var(--accent)",
-                "&:hover": { backgroundColor: "#3bb49d" },
-              }}
-            >
-              Enregistrer
-            </Button>
-          </Box>
-        )}
+        <BarreEnregistrement
+          modifications={modifications}
+          enregistrement={saving}
+          onEnregistrer={handleSave}
+          onAnnuler={() => setExams(initial)}
+          lectureSeule={readOnly}
+        />
       </Box>
       <Portal>
         <Snackbar

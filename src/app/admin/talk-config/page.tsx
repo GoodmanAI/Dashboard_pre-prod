@@ -1,10 +1,10 @@
 "use client";
 
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
-  Button,
   CircularProgress,
   Divider,
   MenuItem,
@@ -62,6 +62,11 @@ export default function TalkConfigPage() {
 
   const [actifs, setActifs] = useState<Record<string, boolean>>({});
   const [saisies, setSaisies] = useState<Record<string, any>>({});
+  // Ce que le serveur a rendu au dernier chargement, pour compter les modifications.
+  const [charge, setCharge] = useState<{
+    actifs: Record<string, boolean>;
+    saisies: Record<string, any>;
+  }>({ actifs: {}, saisies: {} });
 
   // La liste des centres vient du parc : c'est déjà la vue de tous les centres
   // LyraeTalk, inutile d'en ouvrir une seconde.
@@ -113,6 +118,7 @@ export default function TalkConfigPage() {
       }
       setActifs(a);
       setSaisies(s);
+      setCharge({ actifs: a, saisies: s });
     } catch {
       setErreur("Impossible de charger la configuration de ce centre.");
     }
@@ -121,6 +127,17 @@ export default function TalkConfigPage() {
   useEffect(() => {
     if (typeof selection === "number") void charger(selection);
   }, [selection, charger]);
+
+  // Réglages qui diffèrent de ce que le serveur a rendu : allumés, éteints, ou retouchés.
+  const modifications = useMemo(
+    () =>
+      CHAMPS_SITE.filter(
+        (c) =>
+          Boolean(actifs[c.chemin]) !== Boolean(charge.actifs[c.chemin]) ||
+          (actifs[c.chemin] && saisies[c.chemin] !== charge.saisies[c.chemin])
+      ).length,
+    [actifs, saisies, charge]
+  );
 
   const nbActifs = useMemo(
     () => Object.values(actifs).filter(Boolean).length,
@@ -318,15 +335,6 @@ export default function TalkConfigPage() {
               {nbActifs > 1 ? "s" : ""} ici, {CHAMPS_SITE.length - nbActifs} laissé
               {CHAMPS_SITE.length - nbActifs > 1 ? "s" : ""} au robot
             </Typography>
-            <Button
-              variant="contained"
-              disableElevation
-              disabled={occupe || typeof selection !== "number"}
-              onClick={() => void enregistrer()}
-              sx={{ textTransform: "none", bgcolor: "var(--accent)" }}
-            >
-              Enregistrer
-            </Button>
           </Stack>
         </Paper>
 
@@ -367,6 +375,20 @@ export default function TalkConfigPage() {
           </Typography>
         </Box>
       </Box>
+
+      {typeof selection === "number" ? (
+        <BarreEnregistrement
+          modifications={modifications}
+          enregistrement={occupe}
+          onEnregistrer={() => void enregistrer()}
+          onAnnuler={() => {
+            setActifs(charge.actifs);
+            setSaisies(charge.saisies);
+          }}
+        />
+      ) : (
+        <></>
+      )}
 
       <Snackbar
         open={message !== null}

@@ -1083,7 +1083,7 @@ export default function NouveauCentrePage() {
                       href={`/client/c/${userId}/talk/informationnel`}
                       sx={{ textTransform: "none" }}
                     >
-                      Module informationnel
+                      Questions fréquentes
                     </Button>
                   )}
                 </Stack>

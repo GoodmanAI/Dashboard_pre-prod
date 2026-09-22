@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useEffect, useMemo, useState } from "react";
 import {
   Box,
@@ -16,11 +17,10 @@ import {
   IconButton,
   Tooltip,
 } from "@mui/material";
-import { IconFlagFilled, IconFlag, IconDownload, IconAlertTriangle } from "@tabler/icons-react";
+import { IconFlagFilled, IconFlag, IconDownload, IconAlertTriangle, IconPhone } from "@tabler/icons-react";
 import { io } from "socket.io-client";
 import { useRouter } from "next/navigation";
 import { useTalkBasePath } from "@/utils/talkRoutes";
-import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 
 type Speaker = "Lyrae" | "User";
 
@@ -239,44 +239,21 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
   );
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-        <Button
-          variant="contained"
-          startIcon={<ArrowBackIosIcon />}
-          onClick={() => router.back()}
-          sx={{ backgroundColor: "var(--accent)" }}
-        >
-          Retour
-        </Button>
-
-        <Button
-          variant="outlined"
-          onClick={() => router.push(`${basePath}/calls`)}
-          sx={{
-            borderColor: "var(--accent)",
-            color: "var(--accent-deep)",
-            textTransform: "none",
-            fontWeight: 600,
-          }}
-        >
-          Liste des appels
-        </Button>
-      </Box>
-
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 3 }}>
-        <IconAlertTriangle size={28} color="#ef4444" />
-        <Typography variant="h5" fontWeight={700}>
-          Incidents signalés
-        </Typography>
-        {!loading && (
-          <Chip
-            size="small"
-            label={`${calls.length} appel${calls.length > 1 ? "s" : ""}`}
-            sx={{ bgcolor: "rgba(239,68,68,0.12)", color: "#ef4444", fontWeight: 600 }}
-          />
-        )}
-      </Box>
+    <Box>
+      <SectionHeader
+        title="Incidents signalés"
+        subtitle={
+          loading
+            ? "Appels où un problème a été relevé."
+            : `${calls.length} appel${calls.length > 1 ? "s" : ""} où un problème a été relevé.`
+        }
+        retour={{ libelle: "Retour à LyraeTalk", href: basePath }}
+        actions={
+          <Button variant="outlined" onClick={() => router.push(`${basePath}/calls`)}>
+            Liste des appels
+          </Button>
+        }
+      />
 
       {loading && (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
@@ -347,7 +324,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
                             lineHeight: 1.6,
                           }}
                         >
-                          <span aria-hidden style={{ fontSize: 12 }}>📞</span>
+                          <IconPhone size={13} aria-hidden />
                           {formatPhoneFR(call.stats?.phoneNumber)}
                         </Box>
 

@@ -158,10 +158,10 @@ export default function UsersManagementPage() {
     try {
       const res = await fetch(`/api/admin/users/${u.id}/kick`, { method: "POST" });
       if (!res.ok) throw new Error("Kick failed");
-      setSnack({ msg: `${u.email} deconnecte.`, kind: "success" });
+      setSnack({ msg: `${u.email} a été déconnecté.`, kind: "success" });
       load();
     } catch (e: any) {
-      setSnack({ msg: e?.message ?? "Erreur kick", kind: "error" });
+      setSnack({ msg: e?.message ?? "La déconnexion n'a pas abouti. Réessayez dans un instant.", kind: "error" });
     }
   };
 
@@ -171,7 +171,7 @@ export default function UsersManagementPage() {
     if (!u) return;
     if (
       !confirm(
-        `Supprimer definitivement le compte ${u.email} (${u.role}) ?\nCette action est irreversible.`
+        `Supprimer définitivement le compte ${u.email} (${u.role}) ?\nCette action ne peut pas être annulée.`
       )
     )
       return;
@@ -181,7 +181,7 @@ export default function UsersManagementPage() {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error ?? `HTTP ${res.status}`);
       }
-      setSnack({ msg: `${u.email} supprime.`, kind: "success" });
+      setSnack({ msg: `Le compte ${u.email} est supprimé.`, kind: "success" });
       load();
     } catch (e: any) {
       setSnack({ msg: e?.message ?? "Erreur suppression", kind: "error" });
@@ -217,7 +217,7 @@ export default function UsersManagementPage() {
     >
       <SectionHeader
         title="Comptes & permissions"
-        subtitle="SUPER_ADMIN : creer, editer et deconnecter les comptes"
+        subtitle="Créer, modifier et déconnecter les comptes. Réservé aux super-administrateurs."
       />
 
       <Card sx={{ p: 0, overflow: "hidden" }}>
@@ -413,12 +413,12 @@ export default function UsersManagementPage() {
           isSubAccount(menuAnchor.user) && (
             <MenuItem onClick={handleEditPermissions}>
               <IconEdit size={16} style={{ marginRight: 8 }} />
-              Editer permissions
+              Modifier les permissions
             </MenuItem>
           )}
         <MenuItem onClick={handleKick}>
           <IconLogout size={16} style={{ marginRight: 8 }} />
-          Deconnecter (kick)
+          Déconnecter
         </MenuItem>
         <MenuItem onClick={handleDelete} sx={{ color: "#dc2626" }}>
           <IconTrash size={16} style={{ marginRight: 8 }} />
