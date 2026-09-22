@@ -225,7 +225,6 @@ export default function FunnelMiniChart({ calls }: Props) {
                 minHeight: 32,
                 py: 0.5,
                 px: 1,
-                textTransform: "none",
                 fontSize: 10.5,
                 fontWeight: 600,
               },

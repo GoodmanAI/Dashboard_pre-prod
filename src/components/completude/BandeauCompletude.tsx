@@ -100,7 +100,6 @@ function ListeManques({ manques }: { manques: Manque[] }) {
               href={m.href}
               size="small"
               sx={{
-                textTransform: "none",
                 p: 0,
                 minWidth: 0,
                 fontSize: 13,

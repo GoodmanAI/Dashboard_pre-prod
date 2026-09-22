@@ -726,7 +726,6 @@ export default function CallListPage({ params }: CallListPageProps) {
           sx={{
             borderColor: "var(--accent)",
             color: "var(--accent)",
-            textTransform: "none",
             fontWeight: 600,
           }}
         >
@@ -779,7 +778,7 @@ export default function CallListPage({ params }: CallListPageProps) {
             <Button
               variant="text"
               onClick={() => setAnchorEl(null)}
-              sx={{ color: "text.secondary", textTransform: "none" }}
+              sx={{ color: "text.secondary" }}
             >
               Annuler
             </Button>
@@ -793,8 +792,7 @@ export default function CallListPage({ params }: CallListPageProps) {
               sx={{
                 bgcolor: "var(--accent)",
                 fontWeight: 600,
-                textTransform: "none",
-                "&:hover": { bgcolor: "#3BA992" },
+                "&:hover": { bgcolor: "var(--accent-press)" },
               }}
             >
               Appliquer
@@ -1117,8 +1115,7 @@ export default function CallListPage({ params }: CallListPageProps) {
               borderColor: "var(--accent)",
               color: "var(--accent-deep)",
               fontWeight: 600,
-              textTransform: "none",
-              "&:hover": { borderColor: "#3BA992", bgcolor: "rgba(var(--accent-rgb), 0.08)" },
+              "&:hover": { borderColor: "var(--accent-press)", bgcolor: "rgba(var(--accent-rgb), 0.08)" },
             }}
           >
             Exporter PDF

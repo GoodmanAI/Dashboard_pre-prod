@@ -197,7 +197,6 @@ export default function SelecteurProduit() {
         onClick={(e) => setAncre(e.currentTarget)}
         endIcon={<IconChevronDown size={18} />}
         sx={{
-          textTransform: "none",
           color: "var(--accent-deep)",
           bgcolor: "rgba(var(--accent-rgb), 0.10)",
           px: 1.75,

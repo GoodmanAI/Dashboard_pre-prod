@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirmation } from "@/components/shared/DialogConfirmation";
+import Retour from "@/components/shared/Retour";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -12,7 +14,6 @@ import {
   Divider,
   IconButton,
   InputAdornment,
-  Snackbar,
   Stack,
   Switch,
   TextField,
@@ -29,6 +30,17 @@ import {
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
+import {
+  INK,
+  INK_MUTED,
+  BORDER,
+  SURFACE,
+  SURFACE_MUTED,
+  SURFACE_HOVER,
+  BRAND,
+  BRAND_DARK,
+  DANGER,
+} from "@/lib/jetons";
 
 /**
  * ModuleInfoAdmin (refonte design 2026-08-06).
@@ -40,16 +52,6 @@ import {
  * - Actions par item : editer (inline), activer/desactiver, supprimer.
  * - Chaque mutation bumpe la version + webhook Azure warm-up en fire-and-forget.
  */
-
-const BRAND = "var(--accent)";
-const BRAND_DARK = "#2C9B85";
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const SURFACE = "#FFFFFF";
-const SURFACE_MUTED = "#F7FAFB";
-const SURFACE_HOVER = "#F1F7F5";
-const BORDER = "#E4EAEE";
-const DANGER = "#E1573B";
 
 interface Item {
   id: string;
@@ -73,6 +75,7 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [snack, setSnack] = useState<{ msg: string; kind: "success" | "error" } | null>(null);
+  const { confirmer, dialogue } = useConfirmation();
   const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [newQuestion, setNewQuestion] = useState("");
@@ -95,7 +98,7 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
       setItems(Array.isArray(data.items) ? data.items : []);
       setVersion(data.version ?? null);
     } catch (e: any) {
-      setError(e?.message ?? "Erreur de chargement");
+      setError(e?.message ?? "Les questions n'ont pas pu être chargées. Rechargez la page.");
     } finally {
       setLoading(false);
     }
@@ -173,7 +176,7 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
       await load();
       flashSaved(item.id);
     } catch (e: any) {
-      setSnack({ msg: e?.message ?? "Erreur", kind: "error" });
+      setSnack({ msg: e?.message ?? "La question n'a pas été enregistrée. Réessayez dans un instant.", kind: "error" });
       load();
     }
   };
@@ -232,11 +235,12 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
 
   const handleDelete = async (item: EditableItem) => {
     if (
-      !confirm(
-        `Supprimer définitivement cette Q/R ?\n\n« ${item.question.slice(0, 120)}${
-          item.question.length > 120 ? "…" : ""
-        } »`
-      )
+      !(await confirmer({
+        titre: "Supprimer cette question ?",
+        texte: `« ${item.question.slice(0, 120)}${item.question.length > 120 ? "…" : ""} » sera retirée des réponses de LyraeTalk. Cette action ne peut pas être annulée.`,
+        libelleAction: "Supprimer la question",
+        destructif: true,
+      }))
     )
       return;
     try {
@@ -328,7 +332,6 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
             bgcolor: showCreate ? INK_MUTED : BRAND,
             color: "#fff",
             fontWeight: 600,
-            textTransform: "none",
             px: 2.5,
             whiteSpace: "nowrap",
             "&:hover": { bgcolor: showCreate ? INK : BRAND_DARK },
@@ -386,7 +389,7 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
                   setNewReponse("");
                 }}
                 disabled={creating}
-                sx={{ textTransform: "none", color: INK_MUTED }}
+                sx={{ color: INK_MUTED }}
               >
                 Annuler
               </Button>
@@ -399,7 +402,6 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
                   bgcolor: BRAND,
                   color: "#fff",
                   fontWeight: 600,
-                  textTransform: "none",
                   px: 3,
                   "&:hover": { bgcolor: BRAND_DARK },
                 }}
@@ -464,7 +466,6 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
               bgcolor: BRAND,
               color: "#fff",
               fontWeight: 600,
-              textTransform: "none",
               "&:hover": { bgcolor: BRAND_DARK },
             }}
           >
@@ -523,24 +524,13 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
         </>
       )}
 
-      <Snackbar
-        open={!!snack}
-        autoHideDuration={3000}
-        onClose={() => setSnack(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          severity={snack?.kind ?? "success"}
-          onClose={() => setSnack(null)}
-          variant="filled"
-          sx={{
-            fontWeight: 500,
-            bgcolor: snack?.kind === "error" ? DANGER : BRAND_DARK,
-          }}
-        >
-          {snack?.msg}
-        </Alert>
-      </Snackbar>
+      {dialogue}
+      <Retour
+        ouvert={!!snack}
+        message={snack?.msg}
+        gravite={snack?.kind ?? "success"}
+        onFermer={() => setSnack(null)}
+      />
     </Box>
   );
 }
@@ -653,7 +643,6 @@ function QRCard({
                     bgcolor: BRAND,
                     color: "#fff",
                     fontWeight: 600,
-                    textTransform: "none",
                     px: 2.5,
                     "&:hover": { bgcolor: BRAND_DARK },
                     "&.Mui-disabled": { bgcolor: "#D5DFE5", color: "#8FA0AE" },
@@ -665,7 +654,7 @@ function QRCard({
                   size="small"
                   onClick={() => onCancelEdit(item.id)}
                   disabled={item._saving}
-                  sx={{ textTransform: "none", color: INK_MUTED }}
+                  sx={{ color: INK_MUTED }}
                 >
                   Annuler
                 </Button>

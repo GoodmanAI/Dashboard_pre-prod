@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import { useCallback, useEffect, useState } from "react";
 import {
   Accordion,
@@ -10,7 +11,6 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
-  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -278,7 +278,7 @@ export default function SmsConfirmationConfigCard({
           <Typography variant="body2" color="text.secondary">
             Sélectionnez les types d&apos;examens pour lesquels un SMS de
             rappel sera envoyé au patient avant son rendez-vous (pour limiter
-            les no-show), et indiquez les numéros de poste Xplore concernés
+            les no-show), et indiquez les numéros de poste concernés dans votre logiciel de gestion
             pour chaque type activé.
           </Typography>
 
@@ -293,7 +293,7 @@ export default function SmsConfirmationConfigCard({
                   <TableRow>
                     <TableCell padding="checkbox" />
                     <TableCell>Type d&apos;examen</TableCell>
-                    <TableCell>Postes Xplore (séparés par une virgule)</TableCell>
+                    <TableCell>Postes (séparés par une virgule)</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -383,16 +383,12 @@ export default function SmsConfirmationConfigCard({
           {error && <Alert severity="error">{error}</Alert>}
         </Stack>
 
-        <Snackbar
-          open={savedAt !== null}
-          autoHideDuration={1500}
-          onClose={() => setSavedAt(null)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        >
-          <Alert severity="success" variant="filled" sx={{ width: "100%" }}>
-            Enregistré
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={savedAt !== null}
+          message={<>Enregistré</>}
+          gravite={"success"}
+          onFermer={() => setSavedAt(null)}
+        />
       </AccordionDetails>
     </Accordion>
   );

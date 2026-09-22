@@ -111,7 +111,7 @@ const AdminActionsPage = () => {
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
 
   return (
-    <PageContainer title="Admin Actions" description="Accès rapide aux modules">
+    <PageContainer title="Actions" description="Accès rapide aux modules">
       <Box>
         {/* === Gestion comptes (SUPER_ADMIN uniquement) === */}
         {isSuperAdmin && (

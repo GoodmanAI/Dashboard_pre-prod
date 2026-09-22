@@ -457,15 +457,15 @@ const ProfilePage = () => {
       });
       const data = await res.json();
       if (!res.ok) {
-        setPasswordError(data.error || "Une erreur est survenue.");
+        setPasswordError(data.error || "Le mot de passe n'a pas été modifié. Vérifiez le mot de passe actuel et réessayez.");
       } else {
-        setPasswordSuccess(data.message || "Mot de passe modifié avec succès.");
+        setPasswordSuccess(data.message || "Mot de passe modifié.");
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
       }
     } catch {
-      setPasswordError("Une erreur est survenue.");
+      setPasswordError("Le serveur n'a pas répondu. Vérifiez votre connexion et réessayez.");
     } finally {
       setPasswordLoading(false);
     }
@@ -845,7 +845,7 @@ const ProfilePage = () => {
                   sx={{
                     bgcolor: "var(--accent)",
                     fontWeight: 600,
-                    "&:hover": { bgcolor: "#3BA992" },
+                    "&:hover": { bgcolor: "var(--accent-press)" },
                   }}
                 >
                   {passwordLoading ? (

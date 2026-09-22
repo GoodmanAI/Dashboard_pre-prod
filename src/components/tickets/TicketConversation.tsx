@@ -15,6 +15,14 @@ import {
 } from "@mui/material";
 import { Send } from "@mui/icons-material";
 import { io as ioClient, Socket } from "socket.io-client";
+import {
+  BRAND_TEAL,
+  BRAND_TEAL_DARK,
+  BRAND_TEAL_SOFT,
+  TEXT_MAIN,
+  TEXT_MUTED,
+  NEUTRAL_BG,
+} from "@/lib/jetons";
 
 /**
  * Composant reutilisable : affichage complet d'un ticket + chat thread +
@@ -34,13 +42,6 @@ import { io as ioClient, Socket } from "socket.io-client";
  * La couleur des bulles reflete "moi" (droite, teal) vs "autre" (gauche,
  * gris). L'identite "moi" est determinee par currentUserId (passe en prop).
  */
-
-const BRAND_TEAL = "var(--accent)";
-const BRAND_TEAL_DARK = "var(--accent-press)";
-const BRAND_TEAL_SOFT = "#E6F7F3";
-const NEUTRAL_BG = "#F1F5F9";
-const TEXT_MAIN = "#1F3448";
-const TEXT_MUTED = "#7A8FA6";
 
 // ---- Types (miroir des reponses API) --------------------------------------
 

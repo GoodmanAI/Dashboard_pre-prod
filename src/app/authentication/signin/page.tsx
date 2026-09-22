@@ -106,7 +106,7 @@ export default function SignIn() {
     const talkId: number | null = product?.id ?? null;
 
     const target = getFirstAccessiblePath(session?.user as any, (session?.user as any)?.id ?? null);
-    router.push(target ?? "/client/services/talk/");
+    router.push(target ?? "/client");
     router.refresh();
   };
 
@@ -265,7 +265,6 @@ export default function SignIn() {
                 color: "#FFFFFF",
                 fontWeight: 700,
                 fontSize: "13px",
-                textTransform: "none",
                 py: 1.2,
                 ":hover": { backgroundColor: "var(--accent-press)" },
               }}

@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -10,7 +11,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  Snackbar,
   Stack,
   Switch,
   TextField,
@@ -25,6 +25,7 @@ import {
   lireChemin,
   type ChampSite,
 } from "@/lib/talkSiteChamps";
+import { INK, INK_MUTED, BORDER, SURFACE_MUTED } from "@/lib/jetons";
 
 /**
  * Configuration du robot par centre, celle qui vivait dans son code.
@@ -44,11 +45,6 @@ import {
  * ce qui permettra d'ajouter les seize réglages restants sans retoucher cet
  * écran.
  */
-
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE_MUTED = "#F7FAFB";
 
 type Centre = { userProductId: number; clientNom: string | null };
 
@@ -390,11 +386,11 @@ export default function TalkConfigPage() {
         <></>
       )}
 
-      <Snackbar
-        open={message !== null}
-        autoHideDuration={4000}
-        onClose={() => setMessage(null)}
+      <Retour
+        ouvert={message !== null}
         message={message ?? ""}
+        gravite={"success"}
+        onFermer={() => setMessage(null)}
       />
     </PageContainer>
   );

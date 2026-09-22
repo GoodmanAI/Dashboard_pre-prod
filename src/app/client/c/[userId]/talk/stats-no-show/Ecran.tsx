@@ -203,7 +203,7 @@ export default function StatsNoShowPage({ params }: Props) {
         setStats(data);
       } catch (e: any) {
         if (e?.name === "AbortError") return;
-        setError(e?.message || "Erreur de chargement");
+        setError(e?.message || "Les données n'ont pas pu être chargées. Vérifiez votre connexion et rechargez la page.");
       } finally {
         setLoading(false);
       }

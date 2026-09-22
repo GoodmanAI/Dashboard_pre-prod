@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import SectionHeader from "@/components/admin/SectionHeader";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -9,7 +10,6 @@ import {
   CircularProgress,
   MenuItem,
   Paper,
-  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -48,6 +48,16 @@ import {
 import ImportExportMapping, {
   CHAMPS_KONNECT,
 } from "@/components/mapping/ImportExportMapping";
+import {
+  INK,
+  INK_MUTED,
+  BORDER,
+  SURFACE,
+  SURFACE_MUTED,
+  SURFACE_HOVER,
+  BRAND,
+  BRAND_DARK,
+} from "@/lib/jetons";
 
 /**
  * Mapping d'examens LyraeKonnect d'un centre.
@@ -96,15 +106,6 @@ import ImportExportMapping, {
  * - « Réservable en ligne » : parmi ceux-là, ceux que le patient réserve seul.
  *   Décoché, aucun créneau ne lui est proposé et on lui offre d'être rappelé.
  */
-
-const BRAND = "var(--accent)";
-const BRAND_DARK = "var(--accent-press)";
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE = "#FFFFFF";
-const SURFACE_MUTED = "#F7FAFB";
-const SURFACE_HOVER = "#F5FBFA";
 
 const PAR_PAGE = 25;
 
@@ -342,7 +343,7 @@ export default function MappingExamensKonnect() {
 
   if (chargement) {
     return (
-      <PageContainer title="Mapping d'examens" description="Correspondance avec votre RIS">
+      <PageContainer title="Correspondance des examens" description="Correspondance avec votre RIS">
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress sx={{ color: BRAND }} />
         </Box>
@@ -353,7 +354,7 @@ export default function MappingExamensKonnect() {
   const visibles = filtrees.slice(page * PAR_PAGE, page * PAR_PAGE + PAR_PAGE);
 
   return (
-    <PageContainer title="Mapping d'examens" description="Correspondance avec votre RIS">
+    <PageContainer title="Correspondance des examens" description="Correspondance avec votre RIS">
       <Box>
         <SectionHeader
           title="Correspondance des examens"
@@ -870,16 +871,12 @@ export default function MappingExamensKonnect() {
           libelle="Enregistrer le mapping"
         />
 
-        <Snackbar
-          open={succes}
-          autoHideDuration={4000}
-          onClose={() => setSucces(false)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert severity="success" onClose={() => setSucces(false)}>
-            Mapping enregistré. Le portail patient l&apos;appliquera dans la minute.
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={succes}
+          message={<>Mapping enregistré. Le portail patient l&apos;appliquera dans la minute.</>}
+          gravite={"success"}
+          onFermer={() => setSucces(false)}
+        />
       </Box>
     </PageContainer>
   );

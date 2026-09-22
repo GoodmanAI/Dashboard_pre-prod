@@ -11,6 +11,7 @@ import {
   Skeleton,
   Chip,
   Divider,
+  Alert,
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -127,6 +128,9 @@ export default function TalkPage({ params }: TalkPageProps) {
   const [previewData, setPreviewData] = useState<PreviewPoint[]>([]);
   const [loadingPreview, setLoadingPreview] = useState<boolean>(true);
   const [mounted, setMounted] = useState(false);
+  // Une erreur de chargement des appels se dit : des tuiles à zéro feraient croire à une
+  // journée sans appel.
+  const [erreurAppels, setErreurAppels] = useState<string | null>(null);
   useEffect(() => setMounted(true), []);
 
   // Redirige si non authentifié
@@ -171,6 +175,7 @@ export default function TalkPage({ params }: TalkPageProps) {
       try {
         setLoadingCounts(true);
         setLoadingPreview(true);
+        setErreurAppels(null);
 
         // La journée est celle du navigateur : le « aujourd'hui » d'une secrétaire est
         // celui de son fuseau, pas celui du serveur.
@@ -211,6 +216,9 @@ export default function TalkPage({ params }: TalkPageProps) {
         if (!isAbortError(e)) {
           setCallsCountByIntent(intents.map(() => 0));
           setPreviewData([]);
+          setErreurAppels(
+            "Les appels du jour n'ont pas pu être chargés : les chiffres ci-dessous ne sont pas à jour. Rechargez la page."
+          );
         }
       } finally {
         setLoadingCounts(false);
@@ -359,6 +367,12 @@ export default function TalkPage({ params }: TalkPageProps) {
             subtitle="Service vocal · 24 dernières heures"
           />
 
+          {erreurAppels && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {erreurAppels}
+            </Alert>
+          )}
+
           {/* === Row 1 : KPI tiles === */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12} sm={6} md={3}>
@@ -424,10 +438,10 @@ export default function TalkPage({ params }: TalkPageProps) {
                 startIcon={<IconChartBar size={18} />}
                 onClick={() => router.push(`${basePath}/stats_appel`)}
                 sx={{
-                  borderColor: "#48C8AF",
+                  borderColor: "var(--accent)",
                   color: "#2a6f64",
                   fontWeight: 600,
-                  "&:hover": { borderColor: "#3BA992", bgcolor: "rgba(72,200,175,0.08)" },
+                  "&:hover": { borderColor: "var(--accent-press)", bgcolor: "rgba(72,200,175,0.08)" },
                 }}
               >
                 Statistiques détaillées
@@ -473,7 +487,7 @@ export default function TalkPage({ params }: TalkPageProps) {
               mb: 2,
             }}
           >
-            <Box sx={{ width: 4, height: 28, borderRadius: 1, bgcolor: "#48C8AF" }} />
+            <Box sx={{ width: 4, height: 28, borderRadius: 1, bgcolor: "var(--accent)" }} />
             <Typography variant="subtitle1" fontWeight={800}>
               Accès rapide
             </Typography>

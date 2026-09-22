@@ -23,6 +23,7 @@ import {
   IconUser,
 } from "@tabler/icons-react";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
+import { BRAND_TEAL, BRAND_TEAL_SOFT, TEXT_MAIN, TEXT_MUTED, PAGE_BG } from "@/lib/jetons";
 
 /**
  * Page Support (cote admin) — refonte Lot C
@@ -36,12 +37,6 @@ import PageContainer from "@/app/(DashboardLayout)/components/container/PageCont
  * chaque card indiquant le client + son centre. Clic = ouvre la page detail
  * /admin/ticket/[id] (deja livree au Lot B).
  */
-
-const BRAND_TEAL = "var(--accent)";
-const BRAND_TEAL_SOFT = "#E6F7F3";
-const TEXT_MAIN = "#1F3448";
-const TEXT_MUTED = "#7A8FA6";
-const PAGE_BG = "#FAFCFB";
 
 type Status = "PENDING" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
 

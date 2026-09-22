@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import { useTalkBasePath } from "@/utils/talkRoutes";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { useEffect, useMemo, useState } from "react";
@@ -16,7 +17,6 @@ import {
   Paper,
   TextField,
   Pagination,
-  Snackbar,
   Portal,
   Alert
 } from "@mui/material";
@@ -336,14 +336,12 @@ export default function EditExamQuestions({ params }: PageProps) {
         />
       </Box>
       <Portal>
-        <Snackbar
-          anchorOrigin={{ vertical: "top", horizontal: "right" }}
-          open={snack.open}
-          autoHideDuration={3000}
-          onClose={() => setSnack((s) => ({ ...s, open: false }))}
-        >
-          <Alert severity={snack.severity}>{snack.message}</Alert>
-        </Snackbar>
+        <Retour
+          ouvert={snack.open}
+          message={snack.message}
+          gravite={snack.severity}
+          onFermer={() => setSnack((s) => ({ ...s, open: false }))}
+        />
       </Portal>
     </main>
   );

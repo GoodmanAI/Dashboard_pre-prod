@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -8,7 +9,6 @@ import {
   CircularProgress,
   IconButton,
   Paper,
-  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -25,10 +25,12 @@ import AddIcon from "@mui/icons-material/Add";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
+import { INK, INK_MUTED, BORDER, SURFACE, SURFACE_MUTED, BRAND } from "@/lib/jetons";
 
 /**
  * Sites d'un centre LyraeKonnect.
@@ -40,13 +42,6 @@ import { useSuiviModifications } from "@/hooks/useSuiviModifications";
  * Même direction artistique que l'écran de mapping : constantes de couleur
  * communes, table dense, une seule sauvegarde qui remplace l'ensemble.
  */
-
-const BRAND = "var(--accent)";
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE = "#FFFFFF";
-const SURFACE_MUTED = "#F7FAFB";
 
 type Site = {
   site_id: string;
@@ -88,7 +83,8 @@ function EnTete({
   );
 }
 
-export default function SitesKonnect() {
+export default function SitesKonnect() {
+
   // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
   // apres la saisie. La garde serveur reste seule responsable du refus reel.
   const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_SITES);
@@ -319,7 +315,7 @@ export default function SitesKonnect() {
           <Button
             startIcon={<AddIcon />}
             onClick={() => setSites((prev) => [...prev, { ...SITE_VIDE }])}
-            sx={{ textTransform: "none", color: INK }}
+            sx={{ color: INK }}
           >
             Ajouter un site
           </Button>
@@ -351,16 +347,12 @@ export default function SitesKonnect() {
           libelle="Enregistrer les sites"
         />
 
-        <Snackbar
-          open={succes}
-          autoHideDuration={4000}
-          onClose={() => setSucces(false)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert severity="success" onClose={() => setSucces(false)}>
-            Sites enregistrés. Le portail patient les appliquera dans la minute.
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={succes}
+          message={<>Sites enregistrés. Le portail patient les appliquera dans la minute.</>}
+          gravite={"success"}
+          onFermer={() => setSucces(false)}
+        />
       </Box>
     </PageContainer>
   );

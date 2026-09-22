@@ -79,7 +79,6 @@ export default function ManageClientsPage() {
             mb: 2,
             ml: -1,
             px: 1,
-            textTransform: "none",
             fontWeight: 500,
             "&:hover": { bgcolor: "rgba(var(--accent-rgb), 0.08)", color: "var(--accent-deep)" },
           }}
@@ -100,7 +99,6 @@ export default function ManageClientsPage() {
               px: 2,
               borderBottom: "1px solid #e5e7eb",
               "& .MuiTab-root": {
-                textTransform: "none",
                 fontWeight: 600,
                 minHeight: 48,
               },
@@ -260,7 +258,7 @@ function ResetPasswordPanel({
           sx={{
             bgcolor: "var(--accent)",
             fontWeight: 600,
-            "&:hover": { bgcolor: "#3BA992" },
+            "&:hover": { bgcolor: "var(--accent-press)" },
           }}
         >
           {submitting ? "En cours…" : "Réinitialiser le mot de passe"}
@@ -293,7 +291,7 @@ function ResetPasswordPanel({
             onClick={handleReset}
             variant="contained"
             disabled={submitting}
-            sx={{ bgcolor: "var(--accent)", fontWeight: 600, "&:hover": { bgcolor: "#3BA992" } }}
+            sx={{ bgcolor: "var(--accent)", fontWeight: 600, "&:hover": { bgcolor: "var(--accent-press)" } }}
           >
             Confirmer
           </Button>
@@ -730,7 +728,7 @@ function ProductsPanel({ clients, loading }: { clients: Client[]; loading: boole
                     sx={{
                       bgcolor: "var(--accent)",
                       fontWeight: 600,
-                      "&:hover": { bgcolor: "#3BA992" },
+                      "&:hover": { bgcolor: "var(--accent-press)" },
                     }}
                   >
                     {ligne.removedAt ? "Réaffilier" : "Affilier"}
@@ -775,7 +773,7 @@ function ProductsPanel({ clients, loading }: { clients: Client[]; loading: boole
                       variant="outlined"
                       size="small"
                       href="/admin/external-mapping"
-                      sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+                      sx={{ whiteSpace: "nowrap" }}
                     >
                       {ligne.tenantId ? "Modifier" : "Rattacher un cabinet"}
                     </Button>
