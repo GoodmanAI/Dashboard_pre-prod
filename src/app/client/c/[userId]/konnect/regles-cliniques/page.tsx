@@ -19,6 +19,7 @@ import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
+import { INK, INK_MUTED, BORDER } from "@/lib/jetons";
 
 /**
  * Règles que le cabinet peut activer (lot B, `konnect.regles-etat`).
@@ -40,10 +41,6 @@ import { useSuiviModifications } from "@/hooks/useSuiviModifications";
  */
 
 const DOMAINE = "konnect.regles-etat";
-
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
 
 /**
  * Miroir des règles `activable_par_cabinet=True` de `regles/catalogue.py`.

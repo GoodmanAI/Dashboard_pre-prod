@@ -30,6 +30,7 @@ import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
+import { INK, INK_MUTED, BORDER, SURFACE, SURFACE_MUTED, BRAND } from "@/lib/jetons";
 
 /**
  * Sites d'un centre LyraeKonnect.
@@ -41,13 +42,6 @@ import { useSuiviModifications } from "@/hooks/useSuiviModifications";
  * Même direction artistique que l'écran de mapping : constantes de couleur
  * communes, table dense, une seule sauvegarde qui remplace l'ensemble.
  */
-
-const BRAND = "var(--accent)";
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE = "#FFFFFF";
-const SURFACE_MUTED = "#F7FAFB";
 
 type Site = {
   site_id: string;
@@ -321,7 +315,7 @@ export default function SitesKonnect() {
           <Button
             startIcon={<AddIcon />}
             onClick={() => setSites((prev) => [...prev, { ...SITE_VIDE }])}
-            sx={{ textTransform: "none", color: INK }}
+            sx={{ color: INK }}
           >
             Ajouter un site
           </Button>

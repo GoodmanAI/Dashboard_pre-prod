@@ -40,6 +40,7 @@ import {
   type ConduitePlanning,
   type ReponsesTalk,
 } from "@/lib/questionnaireTalk";
+import { INK, INK_MUTED, BORDER, BRAND } from "@/lib/jetons";
 
 /**
  * Nouveau centre — l'assistant de mise en service (lots 4B et 4C, 15/09/2026).
@@ -72,11 +73,6 @@ import {
  * Ni secret, ni consentement d'OCR cloud, ni `serviceEnabled`, ni `reconnaissance` : ce
  * sont des interrupteurs d'exploitation, pas des réglages d'installation.
  */
-
-const BRAND = "var(--accent)";
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
 
 /**
  * Le style des boutons d'action.
@@ -580,7 +576,6 @@ export default function NouveauCentrePage() {
                     size="small"
                     startIcon={<IconRefresh size={14} />}
                     onClick={() => setMotDePasse(genererMotDePasse())}
-                    sx={{ textTransform: "none" }}
                   >
                     Régénérer
                   </Button>
@@ -588,7 +583,6 @@ export default function NouveauCentrePage() {
                     size="small"
                     startIcon={<IconCopy size={14} />}
                     onClick={() => void navigator.clipboard?.writeText(motDePasse)}
-                    sx={{ textTransform: "none" }}
                   >
                     Copier
                   </Button>
@@ -1071,7 +1065,6 @@ export default function NouveauCentrePage() {
                           ? `/client/c/${userId}/talk/parametrage/mapping_exam`
                           : `/client/c/${userId}/konnect/examens`
                       }
-                      sx={{ textTransform: "none" }}
                     >
                       Mapping {p.libelle}
                     </Button>
@@ -1081,7 +1074,6 @@ export default function NouveauCentrePage() {
                       size="small"
                       variant="outlined"
                       href={`/client/c/${userId}/talk/informationnel`}
-                      sx={{ textTransform: "none" }}
                     >
                       Questions fréquentes
                     </Button>
@@ -1143,7 +1135,7 @@ export default function NouveauCentrePage() {
                             <Button
                               size="small"
                               href={m.href}
-                              sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+                              sx={{ whiteSpace: "nowrap" }}
                             >
                               Régler
                             </Button>
@@ -1166,7 +1158,6 @@ export default function NouveauCentrePage() {
                   disabled={occupe}
                   startIcon={<IconArrowLeft size={15} />}
                   onClick={() => setEtape(5)}
-                  sx={{ textTransform: "none" }}
                 >
                   Retour
                 </Button>
@@ -1180,7 +1171,7 @@ export default function NouveauCentrePage() {
                 >
                   Passer en production
                 </Button>
-                <Button href="/admin/comptes" sx={{ textTransform: "none" }}>
+                <Button href="/admin/comptes">
                   Voir la fiche du client
                 </Button>
               </Stack>
@@ -1235,7 +1226,6 @@ function Suite({
           startIcon={<IconArrowLeft size={15} />}
           disabled={occupe}
           onClick={onRetour}
-          sx={{ textTransform: "none" }}
         >
           Retour
         </Button>
@@ -1251,7 +1241,7 @@ function Suite({
         {libelle}
       </Button>
       {onPasser && (
-        <Button disabled={occupe} onClick={onPasser} sx={{ textTransform: "none" }}>
+        <Button disabled={occupe} onClick={onPasser}>
           Passer
         </Button>
       )}

@@ -519,7 +519,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
             onChange={(_, v) => setTab(v)}
             sx={{
               px: 2,
-              "& .MuiTab-root": { textTransform: "none", fontWeight: 600, minHeight: 48 },
+              "& .MuiTab-root": { fontWeight: 600, minHeight: 48 },
               "& .Mui-selected": { color: "var(--accent)" },
               "& .MuiTabs-indicator": { backgroundColor: "var(--accent)" },
             }}

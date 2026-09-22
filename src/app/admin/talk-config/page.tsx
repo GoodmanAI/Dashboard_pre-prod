@@ -25,6 +25,7 @@ import {
   lireChemin,
   type ChampSite,
 } from "@/lib/talkSiteChamps";
+import { INK, INK_MUTED, BORDER, SURFACE_MUTED } from "@/lib/jetons";
 
 /**
  * Configuration du robot par centre, celle qui vivait dans son code.
@@ -44,11 +45,6 @@ import {
  * ce qui permettra d'ajouter les seize réglages restants sans retoucher cet
  * écran.
  */
-
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE_MUTED = "#F7FAFB";
 
 type Centre = { userProductId: number; clientNom: string | null };
 

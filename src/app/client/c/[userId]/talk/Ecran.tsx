@@ -438,10 +438,10 @@ export default function TalkPage({ params }: TalkPageProps) {
                 startIcon={<IconChartBar size={18} />}
                 onClick={() => router.push(`${basePath}/stats_appel`)}
                 sx={{
-                  borderColor: "#48C8AF",
+                  borderColor: "var(--accent)",
                   color: "#2a6f64",
                   fontWeight: 600,
-                  "&:hover": { borderColor: "#3BA992", bgcolor: "rgba(72,200,175,0.08)" },
+                  "&:hover": { borderColor: "var(--accent-press)", bgcolor: "rgba(72,200,175,0.08)" },
                 }}
               >
                 Statistiques détaillées
@@ -487,7 +487,7 @@ export default function TalkPage({ params }: TalkPageProps) {
               mb: 2,
             }}
           >
-            <Box sx={{ width: 4, height: 28, borderRadius: 1, bgcolor: "#48C8AF" }} />
+            <Box sx={{ width: 4, height: 28, borderRadius: 1, bgcolor: "var(--accent)" }} />
             <Typography variant="subtitle1" fontWeight={800}>
               Accès rapide
             </Typography>

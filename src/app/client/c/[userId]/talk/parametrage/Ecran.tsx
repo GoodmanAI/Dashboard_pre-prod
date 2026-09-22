@@ -251,7 +251,7 @@ const VOICE_DEMOS: Array<{
 //           startIcon={<AddIcon />}
 //           onClick={() => canAdd && onChange([...value, ""])}
 //           disabled={!canAdd}
-//           sx={{ textTransform: "none" }}
+//
 //         >
 //           Ajouter une question
 //         </Button>
@@ -827,7 +827,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                             sx={{
                               borderColor: "var(--accent)",
                               color: "var(--accent)",
-                              textTransform: "none",
                               "&:hover": { backgroundColor: "rgba(var(--accent-rgb), 0.08)" },
                             }}
                           >
@@ -1562,7 +1561,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                             }}
                             sx={{
                               "& .MuiToggleButton-root": {
-                                textTransform: "none",
                                 fontSize: 11,
                                 fontWeight: 600,
                                 py: 0.5,

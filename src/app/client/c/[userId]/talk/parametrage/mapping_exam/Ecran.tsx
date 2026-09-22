@@ -65,6 +65,18 @@ import {
   RangeeChamp,
   SEUIL_FICHES,
 } from "@/components/mapping/cellules";
+import {
+  INK,
+  INK_MUTED,
+  BORDER,
+  SURFACE,
+  SURFACE_MUTED,
+  SURFACE_HOVER,
+  BRAND,
+  BRAND_DARK,
+  DANGER,
+  WARNING,
+} from "@/lib/jetons";
 
 /**
  * Correspondance des examens (refonte design 2026-08-06).
@@ -103,17 +115,7 @@ import {
  * qui a bloque dix centres le meme jour.
  */
 
-const BRAND = "var(--accent)";
-const BRAND_DARK = "#2C9B85";
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE = "#FFFFFF";
-const SURFACE_MUTED = "#F7FAFB";
-const SURFACE_HOVER = "#F5FBFA";
 const SURFACE_DISABLED = "#EEF2F5";
-const DANGER = "#E1573B";
-const WARNING = "#F5A623";
 
 const INJECTABLE_TYPES = new Set(["CT", "MR"]);
 const ROWS_PER_PAGE = 25;
@@ -575,7 +577,6 @@ export default function MappingExam({ params }: TalkPageProps) {
             sx={{
               bgcolor: SURFACE_MUTED,
               "& .MuiToggleButton-root": {
-                textTransform: "none",
                 border: `1px solid ${BORDER}`,
                 fontSize: 13,
                 color: INK_MUTED,
@@ -602,7 +603,6 @@ export default function MappingExam({ params }: TalkPageProps) {
             sx={{
               bgcolor: SURFACE_MUTED,
               "& .MuiToggleButton-root": {
-                textTransform: "none",
                 border: `1px solid ${BORDER}`,
                 fontSize: 13,
                 color: INK_MUTED,
@@ -870,7 +870,6 @@ export default function MappingExam({ params }: TalkPageProps) {
               }}
               disabled={saving}
               sx={{
-                textTransform: "none",
                 borderColor: BORDER,
                 color: INK,
                 "&:hover": { borderColor: BRAND, color: BRAND, bgcolor: SURFACE_HOVER },

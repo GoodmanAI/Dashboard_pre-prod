@@ -265,7 +265,6 @@ export default function SignIn() {
                 color: "#FFFFFF",
                 fontWeight: 700,
                 fontSize: "13px",
-                textTransform: "none",
                 py: 1.2,
                 ":hover": { backgroundColor: "var(--accent-press)" },
               }}

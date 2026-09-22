@@ -845,7 +845,7 @@ const ProfilePage = () => {
                   sx={{
                     bgcolor: "var(--accent)",
                     fontWeight: 600,
-                    "&:hover": { bgcolor: "#3BA992" },
+                    "&:hover": { bgcolor: "var(--accent-press)" },
                   }}
                 >
                   {passwordLoading ? (

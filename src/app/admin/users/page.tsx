@@ -36,6 +36,7 @@ import SectionHeader from "@/components/admin/SectionHeader";
 import CreateAccountDialog from "@/components/admin/users/CreateAccountDialog";
 import EditPermissionsDialog from "@/components/admin/users/EditPermissionsDialog";
 import { isSubAccount } from "@/lib/permissions";
+import { BRAND_TEAL, TEXT_MAIN, TEXT_MUTED } from "@/lib/jetons";
 
 /**
  * Page de gestion des comptes (chantier 3, Lot C).
@@ -50,10 +51,6 @@ import { isSubAccount } from "@/lib/permissions";
  *   - Kick session (bump tokenVersion)
  *   - Delete
  */
-
-const BRAND_TEAL = "var(--accent)";
-const TEXT_MAIN = "#1F3448";
-const TEXT_MUTED = "#7A8FA6";
 
 type ApiUser = {
   id: number;
@@ -247,7 +244,7 @@ export default function UsersManagementPage() {
             value={tab}
             onChange={(_, v) => setTab(v)}
             sx={{
-              "& .MuiTab-root": { textTransform: "none", fontWeight: 600 },
+              "& .MuiTab-root": { fontWeight: 600 },
               "& .Mui-selected": { color: BRAND_TEAL },
               "& .MuiTabs-indicator": { backgroundColor: BRAND_TEAL },
             }}
@@ -281,7 +278,7 @@ export default function UsersManagementPage() {
                 onClick={handleCreateAdmin}
                 sx={{
                   bgcolor: BRAND_TEAL,
-                  "&:hover": { bgcolor: "#3aa896" },
+                  "&:hover": { bgcolor: "var(--accent-press)" },
                 }}
               >
                 Nouvel admin
@@ -295,7 +292,7 @@ export default function UsersManagementPage() {
                 onClick={() => router.push("/admin/nouveau-centre")}
                 sx={{
                   bgcolor: BRAND_TEAL,
-                  "&:hover": { bgcolor: "#3aa896" },
+                  "&:hover": { bgcolor: "var(--accent-press)" },
                 }}
               >
                 Nouveau centre
@@ -310,7 +307,7 @@ export default function UsersManagementPage() {
                 disabled={clientsForParent.length === 0}
                 sx={{
                   bgcolor: BRAND_TEAL,
-                  "&:hover": { bgcolor: "#3aa896" },
+                  "&:hover": { bgcolor: "var(--accent-press)" },
                 }}
               >
                 Nouveau sous-compte

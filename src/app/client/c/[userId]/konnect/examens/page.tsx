@@ -48,6 +48,16 @@ import {
 import ImportExportMapping, {
   CHAMPS_KONNECT,
 } from "@/components/mapping/ImportExportMapping";
+import {
+  INK,
+  INK_MUTED,
+  BORDER,
+  SURFACE,
+  SURFACE_MUTED,
+  SURFACE_HOVER,
+  BRAND,
+  BRAND_DARK,
+} from "@/lib/jetons";
 
 /**
  * Mapping d'examens LyraeKonnect d'un centre.
@@ -96,15 +106,6 @@ import ImportExportMapping, {
  * - « Réservable en ligne » : parmi ceux-là, ceux que le patient réserve seul.
  *   Décoché, aucun créneau ne lui est proposé et on lui offre d'être rappelé.
  */
-
-const BRAND = "var(--accent)";
-const BRAND_DARK = "var(--accent-press)";
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE = "#FFFFFF";
-const SURFACE_MUTED = "#F7FAFB";
-const SURFACE_HOVER = "#F5FBFA";
 
 const PAR_PAGE = 25;
 

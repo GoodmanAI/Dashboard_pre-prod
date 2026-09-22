@@ -31,6 +31,7 @@ import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
+import { INK, INK_MUTED, BORDER, SURFACE } from "@/lib/jetons";
 
 /**
  * Règles de fusion d'examens (lot E).
@@ -48,11 +49,6 @@ import { useSuiviModifications } from "@/hooks/useSuiviModifications";
  */
 
 const DOMAINE = "konnect.regles-fusion";
-
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE = "#FFFFFF";
 
 type Regle = {
   examens: string[];
@@ -351,7 +347,7 @@ export default function ReglesFusionKonnect() {
             startIcon={<AddIcon />}
             disabled={examens.length === 0}
             onClick={() => setRegles((p) => [...p, { ...REGLE_VIDE }])}
-            sx={{ textTransform: "none", color: INK }}
+            sx={{ color: INK }}
           >
             Ajouter une règle
           </Button>

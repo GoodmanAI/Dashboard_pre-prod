@@ -1651,7 +1651,7 @@ export default function StatsAppelPage({ params }: any) {
                 <Button
                   variant="text"
                   onClick={() => setAnchorEl(null)}
-                  sx={{ color: "text.secondary", textTransform: "none" }}
+                  sx={{ color: "text.secondary" }}
                 >
                   Annuler
                 </Button>
@@ -1662,10 +1662,9 @@ export default function StatsAppelPage({ params }: any) {
                     setAnchorEl(null);
                   }}
                   sx={{
-                    bgcolor: "#48C8AF",
+                    bgcolor: "var(--accent)",
                     fontWeight: 600,
-                    textTransform: "none",
-                    "&:hover": { bgcolor: "#3BA992" },
+                    "&:hover": { bgcolor: "var(--accent-press)" },
                   }}
                 >
                   Appliquer
@@ -1681,10 +1680,9 @@ export default function StatsAppelPage({ params }: any) {
             onClick={handleExportCsv}
             disabled={loading || calls.length === 0}
             sx={{
-              borderColor: "#48C8AF",
-              color: "#48C8AF",
+              borderColor: "var(--accent)",
+              color: "var(--accent)",
               "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
-              textTransform: "none",
             }}
           >
             Télécharger CSV
@@ -1837,7 +1835,6 @@ export default function StatsAppelPage({ params }: any) {
                 sx={{
                   minHeight: 36,
                   "& .MuiTab-root": {
-                    textTransform: "none",
                     fontWeight: 600,
                     fontSize: 12,
                     minHeight: 36,

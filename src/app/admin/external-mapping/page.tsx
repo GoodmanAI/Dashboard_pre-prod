@@ -280,7 +280,6 @@ export default function ExternalMappingPage() {
                         onClick={() => addCode(row)}
                         sx={{
                           backgroundColor: "var(--accent)",
-                          textTransform: "none",
                           ":hover": { backgroundColor: "var(--accent-press)" },
                         }}
                       >
@@ -334,7 +333,6 @@ export default function ExternalMappingPage() {
                           onClick={() => saveTenant(row)}
                           sx={{
                             backgroundColor: "var(--accent)",
-                            textTransform: "none",
                             whiteSpace: "nowrap",
                             ":hover": { backgroundColor: "var(--accent-press)" },
                           }}

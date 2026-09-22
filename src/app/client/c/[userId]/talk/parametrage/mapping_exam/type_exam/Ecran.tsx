@@ -30,6 +30,18 @@ import ExamTypeBadge, {
   EXAM_TYPE_LABELS,
 } from "@/components/shared/ExamTypeBadge";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import {
+  INK,
+  INK_MUTED,
+  BORDER,
+  SURFACE,
+  SURFACE_MUTED,
+  SURFACE_HOVER,
+  BRAND,
+  BRAND_DARK,
+  DANGER,
+  WARNING,
+} from "@/lib/jetons";
 
 /**
  * Correspondance des Types d'examens (diminutifs) - refonte 2026-08-06.
@@ -48,17 +60,6 @@ import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
  * Design aligne sur /parametrage/mapping_exam (chantier UI 2026-08-06) :
  * badges couleur ExamTypeBadge partages, save bar sticky, guard modifs.
  */
-
-const BRAND = "var(--accent)";
-const BRAND_DARK = "#2C9B85";
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE = "#FFFFFF";
-const SURFACE_MUTED = "#F7FAFB";
-const SURFACE_HOVER = "#F5FBFA";
-const DANGER = "#E1573B";
-const WARNING = "#F5A623";
 
 // Ordre d'affichage (indice dans la reponse API mappe sur cette liste).
 const EXAM_LIST: { label: string; typeCode: string; description: string }[] = [

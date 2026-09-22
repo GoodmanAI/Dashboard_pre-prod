@@ -203,7 +203,7 @@ export default function PlanningCompletKonnect({
           disableElevation
           disabled={!modifie || enregistrement || Boolean(lectureSeule) || Boolean(messageManquant)}
           onClick={() => void enregistrer()}
-          sx={{ textTransform: "none", bgcolor: "var(--accent)", "&:hover": { bgcolor: "var(--accent-press)" } }}
+          sx={{ bgcolor: "var(--accent)", "&:hover": { bgcolor: "var(--accent-press)" } }}
         >
           {enregistrement ? "Enregistrement…" : "Enregistrer les consignes"}
         </Button>

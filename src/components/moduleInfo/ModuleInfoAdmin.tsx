@@ -30,6 +30,17 @@ import {
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
+import {
+  INK,
+  INK_MUTED,
+  BORDER,
+  SURFACE,
+  SURFACE_MUTED,
+  SURFACE_HOVER,
+  BRAND,
+  BRAND_DARK,
+  DANGER,
+} from "@/lib/jetons";
 
 /**
  * ModuleInfoAdmin (refonte design 2026-08-06).
@@ -41,16 +52,6 @@ import {
  * - Actions par item : editer (inline), activer/desactiver, supprimer.
  * - Chaque mutation bumpe la version + webhook Azure warm-up en fire-and-forget.
  */
-
-const BRAND = "var(--accent)";
-const BRAND_DARK = "#2C9B85";
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const SURFACE = "#FFFFFF";
-const SURFACE_MUTED = "#F7FAFB";
-const SURFACE_HOVER = "#F1F7F5";
-const BORDER = "#E4EAEE";
-const DANGER = "#E1573B";
 
 interface Item {
   id: string;
@@ -331,7 +332,6 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
             bgcolor: showCreate ? INK_MUTED : BRAND,
             color: "#fff",
             fontWeight: 600,
-            textTransform: "none",
             px: 2.5,
             whiteSpace: "nowrap",
             "&:hover": { bgcolor: showCreate ? INK : BRAND_DARK },
@@ -389,7 +389,7 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
                   setNewReponse("");
                 }}
                 disabled={creating}
-                sx={{ textTransform: "none", color: INK_MUTED }}
+                sx={{ color: INK_MUTED }}
               >
                 Annuler
               </Button>
@@ -402,7 +402,6 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
                   bgcolor: BRAND,
                   color: "#fff",
                   fontWeight: 600,
-                  textTransform: "none",
                   px: 3,
                   "&:hover": { bgcolor: BRAND_DARK },
                 }}
@@ -467,7 +466,6 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
               bgcolor: BRAND,
               color: "#fff",
               fontWeight: 600,
-              textTransform: "none",
               "&:hover": { bgcolor: BRAND_DARK },
             }}
           >
@@ -645,7 +643,6 @@ function QRCard({
                     bgcolor: BRAND,
                     color: "#fff",
                     fontWeight: 600,
-                    textTransform: "none",
                     px: 2.5,
                     "&:hover": { bgcolor: BRAND_DARK },
                     "&.Mui-disabled": { bgcolor: "#D5DFE5", color: "#8FA0AE" },
@@ -657,7 +654,7 @@ function QRCard({
                   size="small"
                   onClick={() => onCancelEdit(item.id)}
                   disabled={item._saving}
-                  sx={{ textTransform: "none", color: INK_MUTED }}
+                  sx={{ color: INK_MUTED }}
                 >
                   Annuler
                 </Button>

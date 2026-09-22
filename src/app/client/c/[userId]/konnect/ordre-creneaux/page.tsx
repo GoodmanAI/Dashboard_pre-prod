@@ -21,6 +21,7 @@ import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
+import { INK, INK_MUTED, BORDER, SURFACE } from "@/lib/jetons";
 
 /**
  * Ordre de proposition des créneaux (lot E, `cabinet_slot_ranking`).
@@ -38,11 +39,6 @@ import { useSuiviModifications } from "@/hooks/useSuiviModifications";
  */
 
 const DOMAINE = "konnect.slot-ranking";
-
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE = "#FFFFFF";
 
 /** Miroir de `TOLERANCES_VALIDES` (`slot_ranking/api.py`). */
 const TOLERANCES = [

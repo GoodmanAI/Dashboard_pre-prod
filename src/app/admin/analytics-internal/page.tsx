@@ -1641,7 +1641,6 @@ function FeatureMonitoringSection({
           borderBottom: 1,
           borderColor: "divider",
           "& .MuiTab-root": {
-            textTransform: "none",
             fontWeight: 600,
             fontSize: 13,
             minHeight: 42,
@@ -2262,7 +2261,6 @@ function TimeseriesCard({
           borderBottom: 1,
           borderColor: "divider",
           "& .MuiTab-root": {
-            textTransform: "none",
             fontWeight: 600,
             fontSize: 13,
             minHeight: 40,
@@ -2653,14 +2651,14 @@ const AnalyticsInternalPage = () => {
                       onClick={() =>
                         setSelectedUserProductIds(centreOptions.map((c) => c.userProductId))
                       }
-                      sx={{ textTransform: "none", color: "#2a6f64" }}
+                      sx={{ color: "#2a6f64" }}
                     >
                       Tout sélectionner
                     </Button>
                     <Button
                       size="small"
                       onClick={() => setSelectedUserProductIds([])}
-                      sx={{ textTransform: "none", color: "#6b7280" }}
+                      sx={{ color: "#6b7280" }}
                     >
                       Effacer
                     </Button>
@@ -2710,7 +2708,6 @@ const AnalyticsInternalPage = () => {
                     sx={{
                       backgroundColor: "#48C8AF",
                       "&:hover": { backgroundColor: "#3bb49d" },
-                      textTransform: "none",
                       whiteSpace: "nowrap",
                     }}
                   >
@@ -2854,7 +2851,6 @@ const AnalyticsInternalPage = () => {
                   sx={{
                     borderColor: "#48C8AF",
                     color: "#2a6f64",
-                    textTransform: "none",
                     "&:hover": {
                       borderColor: "#3bb49d",
                       backgroundColor: "rgba(72,200,175,0.08)",

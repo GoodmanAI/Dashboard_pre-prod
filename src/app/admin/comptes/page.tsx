@@ -53,6 +53,7 @@ import {
   type Ligne,
   type Produit,
 } from "@/components/admin/comptes/briques";
+import { BORDER, BRAND_TEAL, TEXT_MAIN, TEXT_MUTED } from "@/lib/jetons";
 
 /**
  * Clients et comptes — la vue d'ensemble de l'administration (lot 3, 15/09/2026).
@@ -75,11 +76,6 @@ import {
  * Les deux boîtes de dialogue (création, édition des droits) sont celles de
  * `admin/users`, importées telles quelles.
  */
-
-const BRAND_TEAL = "var(--accent)";
-const TEXT_MAIN = "#1F3448";
-const TEXT_MUTED = "#7A8FA6";
-const BORDER = "#E4EAEE";
 
 export default function ComptesPage() {
   const router = useRouter();
@@ -296,19 +292,14 @@ export default function ComptesPage() {
         spacing={2}
         sx={{ mb: 2, alignItems: { md: "center" } }}
       >
-        {/*
-          `textTransform: "none"` n'est pas cosmetique : le theme MUI du depot pose
-          `capitalize` sur la typographie `button` (`utils/theme/DefaultColors.tsx:103`),
-          qui s'applique aussi aux `ToggleButton`. Sans cette ligne, « Tous les produits »
-          s'affiche « Tous Les Produits ». Defaut vu a l'ecran le 15/09/2026, invisible a
-          la compilation comme au lint.
-        */}
+        {/* Le theme (utils/theme/DefaultColors.tsx) pose `textTransform: none` sur tous
+            les boutons depuis le 18/09/2026 : plus rien a defaire ecran par ecran. */}
         <ToggleButtonGroup
           size="small"
           exclusive
           value={filtreProduit}
           onChange={(_, v) => v && setFiltreProduit(v)}
-          sx={{ "& .MuiToggleButton-root": { textTransform: "none" } }}
+          sx={{ "& .MuiToggleButton-root": {} }}
         >
           <ToggleButton value="tous">Tous les produits</ToggleButton>
           {ORDRE_PRODUITS.map((slug) => (
@@ -404,7 +395,6 @@ export default function ComptesPage() {
                           size="small"
                           startIcon={<IconPlus size={15} />}
                           onClick={() => ouvrirAffiliation(ligne)}
-                          sx={{ textTransform: "none" }}
                         >
                           Affilier un produit
                         </Button>
@@ -466,7 +456,6 @@ export default function ComptesPage() {
                           size="small"
                           startIcon={<IconPlus size={15} />}
                           onClick={() => setCreationPour(ligne)}
-                          sx={{ textTransform: "none" }}
                         >
                           Ajouter un sous-compte
                         </Button>
@@ -555,7 +544,7 @@ export default function ComptesPage() {
                   key={d.productId}
                   variant="outlined"
                   onClick={() => affilier(d.productId, d.libelle)}
-                  sx={{ textTransform: "none", justifyContent: "flex-start" }}
+                  sx={{ justifyContent: "flex-start" }}
                 >
                   {d.libelle}
                 </Button>
@@ -564,7 +553,7 @@ export default function ComptesPage() {
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setAffiliationPour(null)} sx={{ textTransform: "none" }}>
+          <Button onClick={() => setAffiliationPour(null)}>
             Fermer
           </Button>
         </DialogActions>
@@ -580,10 +569,10 @@ export default function ComptesPage() {
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setARetirer(null)} sx={{ textTransform: "none" }}>
+          <Button onClick={() => setARetirer(null)}>
             Annuler
           </Button>
-          <Button variant="contained" onClick={retirerProduit} sx={{ textTransform: "none" }}>
+          <Button variant="contained" onClick={retirerProduit}>
             Retirer
           </Button>
         </DialogActions>

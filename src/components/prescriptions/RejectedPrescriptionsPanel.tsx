@@ -342,7 +342,6 @@ export default function RejectedPrescriptionsPanel({
                     onClick={() => handleDownload(it.id)}
                     fullWidth
                     sx={{
-                      textTransform: "none",
                       fontWeight: 600,
                       borderColor: "#E4EAEE",
                       color: "#1F3448",
@@ -364,7 +363,6 @@ export default function RejectedPrescriptionsPanel({
                     sx={{
                       bgcolor: "var(--accent)",
                       "&:hover": { bgcolor: "var(--accent-press)" },
-                      textTransform: "none",
                       fontWeight: 600,
                     }}
                   >

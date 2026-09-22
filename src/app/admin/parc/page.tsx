@@ -38,6 +38,7 @@ import {
   demandeConfirmation,
   type StatutCentre,
 } from "@/lib/centreStatut";
+import { INK, INK_MUTED, BORDER, SURFACE_MUTED } from "@/lib/jetons";
 
 /**
  * Parc clients — où en est chaque centre, produit par produit (lot 1 du plan
@@ -57,11 +58,6 @@ import {
  * le classement doit s'afficher même si le calcul de complétude échoue, parce
  * qu'il est le geste utile de cette page.
  */
-
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE_MUTED = "#F7FAFB";
 
 type Ligne = {
   userProductId: number;
@@ -315,11 +311,11 @@ export default function ParcClients() {
               value={filtre}
               onChange={(_, v) => v && setFiltre(v)}
             >
-              <ToggleButton value="tous" sx={{ textTransform: "none" }}>
+              <ToggleButton value="tous">
                 Tous les produits
               </ToggleButton>
               {ORDRE_PRODUITS.map((slug) => (
-                <ToggleButton key={slug} value={slug} sx={{ textTransform: "none" }}>
+                <ToggleButton key={slug} value={slug}>
                   {PRODUITS[slug].libelle}
                 </ToggleButton>
               ))}
@@ -448,7 +444,7 @@ export default function ParcClients() {
                           }
                           size="small"
                           endIcon={<IconArrowRight size={15} />}
-                          sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+                          sx={{ whiteSpace: "nowrap" }}
                         >
                           Ouvrir
                         </Button>
@@ -507,13 +503,13 @@ export default function ParcClients() {
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setAConfirmer(null)} sx={{ textTransform: "none" }}>
+          <Button onClick={() => setAConfirmer(null)}>
             Annuler
           </Button>
           <Button
             variant="contained"
             disableElevation
-            sx={{ textTransform: "none", bgcolor: "var(--accent)" }}
+            sx={{ bgcolor: "var(--accent)" }}
             onClick={() => {
               const l = aConfirmer;
               setAConfirmer(null);

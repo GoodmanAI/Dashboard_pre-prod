@@ -5,6 +5,7 @@ import { Alert, Box, CircularProgress, Paper, Stack, Typography } from "@mui/mat
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
+import { INK, INK_MUTED, BORDER, PERDU } from "@/lib/jetons";
 
 /**
  * Où les patients s'arrêtent dans le parcours (lot F).
@@ -28,11 +29,6 @@ import SectionHeader from "@/components/admin/SectionHeader";
  * mapping vient de rappeler ce que coûte un import statique de trop : 139 ko pour
  * une page qu'on ouvre tous les jours.
  */
-
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const PERDU = "#C0563B";
 
 type Etape = { libelle: string; atteint: number; taux: number; perdus: number };
 type Funnel = {

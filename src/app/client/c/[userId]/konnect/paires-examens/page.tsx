@@ -30,6 +30,7 @@ import { useCentreProduit } from "@/hooks/useCentreProduit";
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 import { PAGES } from "@/lib/permissions";
+import { INK, INK_MUTED, BORDER } from "@/lib/jetons";
 
 /**
  * Multi examens (18/09/2026) : ce qu'un patient qui a plusieurs examens peut réserver
@@ -56,10 +57,6 @@ import { PAGES } from "@/lib/permissions";
  */
 
 const DOMAINE = "konnect.paires-examens";
-
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
 
 /** `dabord` : le libellé du choix d'ordre, avec son article. */
 type Modalite = { code: string; nom: string; dabord: string };
@@ -397,7 +394,6 @@ export default function MultiExamensKonnect() {
               setExclusions((prec) => [...prec, { code: aAjouter.code, libelle: aAjouter.libelle }]);
               setAAjouter(null);
             }}
-            sx={{ textTransform: "none" }}
           >
             Ajouter l&apos;exception
           </Button>

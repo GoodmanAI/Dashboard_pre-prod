@@ -30,6 +30,7 @@ import {
 } from "@mui/icons-material";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import TicketConversation, { ApiTicket } from "@/components/tickets/TicketConversation";
+import { BRAND_TEAL, BRAND_TEAL_DARK } from "@/lib/jetons";
 
 /**
  * Page detail ticket cote admin : /admin/ticket/[id]
@@ -44,9 +45,6 @@ import TicketConversation, { ApiTicket } from "@/components/tickets/TicketConver
  * Cette page ecoute onTicketLoaded pour connaitre l'etat actuel et adapter
  * les boutons disponibles.
  */
-
-const BRAND_TEAL = "var(--accent)";
-const BRAND_TEAL_DARK = "var(--accent-press)";
 
 type TargetStatus = "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "PENDING";
 

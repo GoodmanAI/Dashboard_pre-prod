@@ -27,6 +27,7 @@ import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { MOTIFS_RAPPEL, type MotifRappel } from "@/lib/konnectDemandesRappel";
+import { INK, INK_MUTED, BORDER, SURFACE, SURFACE_MUTED } from "@/lib/jetons";
 
 /**
  * Demandes de rappel des patients LyraeKonnect
@@ -54,12 +55,6 @@ import { MOTIFS_RAPPEL, type MotifRappel } from "@/lib/konnectDemandesRappel";
  * motif, par statut ou par patient. Le filtrage se fait ici : la route rend au plus 500
  * lignes d'un seul centre.
  */
-
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE = "#FFFFFF";
-const SURFACE_MUTED = "#F7FAFB";
 
 type Demande = {
   id: number;
@@ -436,7 +431,7 @@ export default function DemandesRappelKonnect() {
                             size="small"
                             disabled={enCours === d.id}
                             onClick={() => void majuster(d, "a_rappeler")}
-                            sx={{ textTransform: "none", fontSize: 12.5 }}
+                            sx={{ fontSize: 12.5 }}
                           >
                             Remettre à rappeler
                           </Button>
@@ -449,7 +444,6 @@ export default function DemandesRappelKonnect() {
                               disabled={enCours === d.id}
                               onClick={() => void majuster(d, "rappele")}
                               sx={{
-                                textTransform: "none",
                                 fontSize: 12.5,
                                 bgcolor: "var(--accent)",
                                 "&:hover": { bgcolor: "var(--accent-press)" },
@@ -461,7 +455,7 @@ export default function DemandesRappelKonnect() {
                               size="small"
                               disabled={enCours === d.id}
                               onClick={() => void majuster(d, "sans_suite")}
-                              sx={{ textTransform: "none", fontSize: 12.5, color: INK_MUTED }}
+                              sx={{ fontSize: 12.5, color: INK_MUTED }}
                             >
                               Sans suite
                             </Button>

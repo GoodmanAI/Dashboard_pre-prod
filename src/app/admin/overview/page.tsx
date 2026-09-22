@@ -288,7 +288,7 @@ function CentreTodayCard({
             right: 0,
             height: 2,
             bgcolor: "transparent",
-            "& .MuiLinearProgress-bar": { bgcolor: "#48C8AF" },
+            "& .MuiLinearProgress-bar": { bgcolor: "var(--accent)" },
           }}
         />
       )}
@@ -790,7 +790,7 @@ const AdminOverviewPage = () => {
                   width: 4,
                   height: 36,
                   borderRadius: 2,
-                  bgcolor: "#48C8AF",
+                  bgcolor: "var(--accent)",
                 }}
               />
               <Box>
@@ -854,7 +854,7 @@ const AdminOverviewPage = () => {
                     size="small"
                     label={`${checked.size} / ${allCentres.length}`}
                     sx={{
-                      bgcolor: "#48C8AF",
+                      bgcolor: "var(--accent)",
                       color: "#fff",
                       fontWeight: 600,
                     }}
@@ -931,7 +931,7 @@ const AdminOverviewPage = () => {
                     variant="contained"
                     disabled={!dirty}
                     onClick={save}
-                    sx={{ bgcolor: "#48C8AF", "&:hover": { bgcolor: "#3BA992" } }}
+                    sx={{ bgcolor: "var(--accent)", "&:hover": { bgcolor: "var(--accent-press)" } }}
                   >
                     Sauvegarder
                   </Button>
@@ -957,7 +957,7 @@ const AdminOverviewPage = () => {
                   width: 4,
                   height: 36,
                   borderRadius: 2,
-                  bgcolor: "#48C8AF",
+                  bgcolor: "var(--accent)",
                 }}
               />
               <Box sx={{ flex: 1 }}>

@@ -28,6 +28,7 @@ import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
+import { INK, INK_MUTED, BORDER, SURFACE } from "@/lib/jetons";
 
 /**
  * Ordre d'affichage de l'entonnoir patient (lot E).
@@ -46,11 +47,6 @@ import { useSuiviModifications } from "@/hooks/useSuiviModifications";
  */
 
 const DOMAINE = "konnect.entonnoir-ordre";
-
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE = "#FFFFFF";
 
 /** Ordre de repli du portail (`pivot/service.py`, `_MODALITE_ORDRE`). */
 const MODALITES_DEFAUT = ["RX", "US", "MR", "CT", "MG", "OT"];

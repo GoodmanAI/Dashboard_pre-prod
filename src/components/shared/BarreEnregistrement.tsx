@@ -3,6 +3,7 @@
 import React from "react";
 import { Box, Button, CircularProgress, Typography } from "@mui/material";
 import { IconDeviceFloppy } from "@tabler/icons-react";
+import { INK_MUTED, BORDER, SURFACE, DANGER } from "@/lib/jetons";
 
 /**
  * Barre d'enregistrement flottante, en bas à droite de l'écran.
@@ -27,11 +28,6 @@ import { IconDeviceFloppy } from "@tabler/icons-react";
  * posés avant le bouton d'enregistrement. `lectureSeule` retire le compteur et
  * l'enregistrement : il ne reste que les actions, ou rien s'il n'y en a pas.
  */
-
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE = "#FFFFFF";
-const DANGER = "#B3261E";
 
 type Props = {
   /** Nombre de modifications en attente, ou `true` quand l'écran ne sait pas les compter. */
@@ -110,7 +106,6 @@ export default function BarreEnregistrement({
                 disabled={enregistrement}
                 size="small"
                 sx={{
-                  textTransform: "none",
                   color: INK_MUTED,
                   "&:hover": { color: DANGER },
                 }}
@@ -142,7 +137,6 @@ export default function BarreEnregistrement({
             bgcolor: "var(--accent)",
             color: "#fff",
             fontWeight: 600,
-            textTransform: "none",
             px: 2.5,
             whiteSpace: "nowrap",
             "&:hover": { bgcolor: "var(--accent-press)" },

@@ -23,6 +23,7 @@ import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
+import { INK, INK_MUTED, BORDER } from "@/lib/jetons";
 
 /**
  * Mots propres au cabinet (lot B, `cabinet_synonyme`).
@@ -56,10 +57,6 @@ import { useSuiviModifications } from "@/hooks/useSuiviModifications";
  */
 
 const DOMAINE = "konnect.synonymes";
-
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
 
 /** Miroir de `_normaliser_synonyme` : au-delà, Konnect tronque en silence. */
 const MAX_TERME = 200;
@@ -423,7 +420,7 @@ export default function MotsCabinetKonnect() {
             size="small"
             startIcon={<IconPlus size={16} />}
             onClick={() => setMots((prec) => [...prec, { ...LIGNE_VIDE }])}
-            sx={{ textTransform: "none", mt: mots.length === 0 ? 0 : 1 }}
+            sx={{ mt: mots.length === 0 ? 0 : 1 }}
           >
             Ajouter un mot
           </Button>

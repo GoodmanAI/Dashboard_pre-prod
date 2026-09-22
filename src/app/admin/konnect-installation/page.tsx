@@ -24,6 +24,7 @@ import { cheminCentre } from "@/lib/cheminsCentre";
 import SectionHeader from "@/components/admin/SectionHeader";
 import type { Manque } from "@/lib/completude/types";
 import type { StatutCentre } from "@/lib/centreStatut";
+import { INK, INK_MUTED, BORDER, SURFACE_MUTED, OK, MANQUE } from "@/lib/jetons";
 
 /**
  * Installer un centre LyraeKonnect, de bout en bout (lots G6 et I1).
@@ -44,13 +45,6 @@ import type { StatutCentre } from "@/lib/centreStatut";
  * que les écrans existants. On vient de fermer une double vérité côté Konnect, on
  * n'en ouvre pas une ici : deux vues du même endroit, pas deux endroits.
  */
-
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE_MUTED = "#F7FAFB";
-const OK = "#186A3B";
-const MANQUE = "#9B2226";
 
 type Centre = {
   userProductId: number;
@@ -169,7 +163,7 @@ function BlocRenvoi({
           href={href}
           size="small"
           endIcon={<IconArrowRight size={15} />}
-          sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+          sx={{ whiteSpace: "nowrap" }}
         >
           Ouvrir
         </Button>
@@ -277,7 +271,6 @@ export default function InstallationKonnect() {
     }
   }
 
-
   async function enregistrerRis() {
     if (!centre) return;
     const ok = await appeler(
@@ -359,7 +352,7 @@ export default function InstallationKonnect() {
               component={Link}
               href="/admin/nouveau-centre"
               startIcon={<IconPlus size={16} />}
-              sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+              sx={{ whiteSpace: "nowrap" }}
             >
               Nouveau centre
             </Button>
@@ -411,7 +404,6 @@ export default function InstallationKonnect() {
                   variant="outlined"
                   size="small"
                   href="/admin/external-mapping"
-                  sx={{ textTransform: "none" }}
                 >
                   {centre.tenantId ? "Modifier dans Identifiants externes" : "Rattacher un portail"}
                 </Button>
@@ -457,7 +449,7 @@ export default function InstallationKonnect() {
                       risCodeSite.trim() === (centre.risCodeSite ?? ""))
                   }
                   onClick={() => void enregistrerRis()}
-                  sx={{ textTransform: "none", bgcolor: "var(--accent)", mt: 0.25 }}
+                  sx={{ bgcolor: "var(--accent)", mt: 0.25 }}
                 >
                   Enregistrer
                 </Button>
@@ -513,7 +505,7 @@ export default function InstallationKonnect() {
                     disableElevation
                     disabled={occupe || cloudOcr === cloudOcrEnregistre}
                     onClick={() => void enregistrerCloudOcr()}
-                    sx={{ textTransform: "none", bgcolor: "var(--accent)" }}
+                    sx={{ bgcolor: "var(--accent)" }}
                   >
                     Enregistrer
                   </Button>
