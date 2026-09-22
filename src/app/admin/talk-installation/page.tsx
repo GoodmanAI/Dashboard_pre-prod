@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -10,7 +11,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -569,16 +569,12 @@ export default function InstallationTalk() {
           </Alert>
         )}
 
-        <Snackbar
-          open={Boolean(message)}
-          autoHideDuration={4000}
-          onClose={() => setMessage(null)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert severity="success" onClose={() => setMessage(null)}>
-            {message}
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={Boolean(message)}
+          message={message}
+          gravite={"success"}
+          onFermer={() => setMessage(null)}
+        />
       </Box>
     </PageContainer>
   );

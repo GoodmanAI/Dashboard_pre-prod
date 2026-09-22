@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirmation } from "@/components/shared/DialogConfirmation";
+import Retour from "@/components/shared/Retour";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -8,7 +10,6 @@ import {
   Card,
   Chip,
   CircularProgress,
-  Snackbar,
   Stack,
   Typography,
 } from "@mui/material";
@@ -116,6 +117,7 @@ export default function RejectedPrescriptionsPanel({
   const [error, setError] = useState<string | null>(null);
   const [resolving, setResolving] = useState<Set<number>>(new Set());
   const [snack, setSnack] = useState<{ msg: string; kind: "success" | "error" } | null>(null);
+  const { confirmer, dialogue } = useConfirmation();
 
   const load = useCallback(async () => {
     if (!Number.isFinite(userProductId)) return;
@@ -150,9 +152,11 @@ export default function RejectedPrescriptionsPanel({
 
   const handleResolve = async (id: number) => {
     if (
-      !confirm(
-        "Confirmer que cette ordonnance a bien été redéposée manuellement dans Xplore ?"
-      )
+      !(await confirmer({
+        titre: "Ordonnance redéposée ?",
+        texte: "Confirmez que vous avez redéposé cette ordonnance à la main dans votre logiciel de gestion. Elle quittera la liste.",
+        libelleAction: "Oui, elle est redéposée",
+      }))
     )
       return;
     setResolving((prev) => new Set(prev).add(id));
@@ -377,20 +381,13 @@ export default function RejectedPrescriptionsPanel({
         })}
       </Stack>
 
-      <Snackbar
-        open={!!snack}
-        autoHideDuration={4000}
-        onClose={() => setSnack(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          severity={snack?.kind ?? "success"}
-          onClose={() => setSnack(null)}
-          sx={{ width: "100%" }}
-        >
-          {snack?.msg}
-        </Alert>
-      </Snackbar>
+      {dialogue}
+      <Retour
+        ouvert={!!snack}
+        message={snack?.msg}
+        gravite={snack?.kind ?? "success"}
+        onFermer={() => setSnack(null)}
+      />
     </>
   );
 }

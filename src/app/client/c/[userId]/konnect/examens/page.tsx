@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import SectionHeader from "@/components/admin/SectionHeader";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -9,7 +10,6 @@ import {
   CircularProgress,
   MenuItem,
   Paper,
-  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -870,16 +870,12 @@ export default function MappingExamensKonnect() {
           libelle="Enregistrer le mapping"
         />
 
-        <Snackbar
-          open={succes}
-          autoHideDuration={4000}
-          onClose={() => setSucces(false)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert severity="success" onClose={() => setSucces(false)}>
-            Mapping enregistré. Le portail patient l&apos;appliquera dans la minute.
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={succes}
+          message={<>Mapping enregistré. Le portail patient l&apos;appliquera dans la minute.</>}
+          gravite={"success"}
+          onFermer={() => setSucces(false)}
+        />
       </Box>
     </PageContainer>
   );

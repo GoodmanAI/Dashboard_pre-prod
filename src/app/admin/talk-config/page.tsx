@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -10,7 +11,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  Snackbar,
   Stack,
   Switch,
   TextField,
@@ -390,11 +390,11 @@ export default function TalkConfigPage() {
         <></>
       )}
 
-      <Snackbar
-        open={message !== null}
-        autoHideDuration={4000}
-        onClose={() => setMessage(null)}
+      <Retour
+        ouvert={message !== null}
         message={message ?? ""}
+        gravite={"success"}
+        onFermer={() => setMessage(null)}
       />
     </PageContainer>
   );

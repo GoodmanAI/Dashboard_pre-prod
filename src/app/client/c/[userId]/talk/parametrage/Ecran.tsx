@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
@@ -18,7 +19,6 @@ import {
   Chip,
   IconButton,
   Stack,
-  Snackbar,
   Alert,
   Divider,
   Radio,
@@ -1654,21 +1654,12 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         lectureSeule={readOnly}
       />
 
-      <Snackbar
-        open={snack.open}
-        autoHideDuration={2800}
-        onClose={() => setSnack((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          onClose={() => setSnack((s) => ({ ...s, open: false }))}
-          severity={snack.sev}
-          variant="filled"
-          sx={{ width: "100%" }}
-        >
-          {snack.msg}
-        </Alert>
-      </Snackbar>
+      <Retour
+        ouvert={snack.open}
+        message={snack.msg}
+        gravite={snack.sev}
+        onFermer={() => setSnack((s) => ({ ...s, open: false }))}
+      />
 
       {/* Dialog de confirmation lors de la désactivation du service */}
       <Dialog

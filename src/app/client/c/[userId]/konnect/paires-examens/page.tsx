@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -11,7 +12,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  Snackbar,
   Switch,
   Table,
   TableBody,
@@ -450,16 +450,12 @@ export default function MultiExamensKonnect() {
           }}
         />
 
-        <Snackbar
-          open={succes}
-          autoHideDuration={4000}
-          onClose={() => setSucces(false)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert severity="success" onClose={() => setSucces(false)}>
-            Réglages enregistrés. Le portail patient les reprend à sa prochaine synchronisation.
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={succes}
+          message={<>Réglages enregistrés. Le portail patient les reprend à sa prochaine synchronisation.</>}
+          gravite={"success"}
+          onFermer={() => setSucces(false)}
+        />
       </Box>
     </PageContainer>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -9,7 +10,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  Snackbar,
   Stack,
   Tooltip,
   Typography,
@@ -23,7 +23,8 @@ import ExamTypeBadge, {
   EXAM_TYPE_LABELS,
   toExamTypeCode,
 } from "@/components/shared/ExamTypeBadge";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
@@ -120,7 +121,8 @@ function deplacer<T>(liste: T[], index: number, delta: number): T[] {
   return copie;
 }
 
-export default function OrdreEntonnoirKonnect() {
+export default function OrdreEntonnoirKonnect() {
+
   // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
   // apres la saisie. La garde serveur reste seule responsable du refus reel.
   const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_ENTONNOIR);
@@ -398,7 +400,8 @@ export default function OrdreEntonnoirKonnect() {
         <BarreEnregistrement
           modifications={modifications}
           enregistrement={enregistrement}
-          onEnregistrer={enregistrer}
+          onEnregistrer={enregistrer}
+
           blocage={raisonLectureSeule}
           onAnnuler={
             initial
@@ -411,16 +414,12 @@ export default function OrdreEntonnoirKonnect() {
           libelle="Enregistrer l'ordre"
         />
 
-        <Snackbar
-          open={succes}
-          autoHideDuration={4000}
-          onClose={() => setSucces(false)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert severity="success" onClose={() => setSucces(false)}>
-            Ordre enregistré. Le portail patient l&apos;appliquera dans la minute.
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={succes}
+          message={<>Ordre enregistré. Le portail patient l&apos;appliquera dans la minute.</>}
+          gravite={"success"}
+          onFermer={() => setSucces(false)}
+        />
       </Box>
     </PageContainer>
   );

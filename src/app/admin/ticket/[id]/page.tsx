@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -16,7 +17,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -401,21 +401,12 @@ export default function AdminTicketDetailPage({ params }: Props) {
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={snack.open}
-        autoHideDuration={2800}
-        onClose={() => setSnack((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          onClose={() => setSnack((s) => ({ ...s, open: false }))}
-          severity={snack.sev}
-          variant="filled"
-          sx={{ width: "100%" }}
-        >
-          {snack.msg}
-        </Alert>
-      </Snackbar>
+      <Retour
+        ouvert={snack.open}
+        message={snack.msg}
+        gravite={snack.sev}
+        onFermer={() => setSnack((s) => ({ ...s, open: false }))}
+      />
     </PageContainer>
   );
 }

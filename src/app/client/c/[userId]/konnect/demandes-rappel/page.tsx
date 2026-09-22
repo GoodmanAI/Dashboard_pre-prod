@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -11,7 +12,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -499,16 +499,12 @@ export default function DemandesRappelKonnect() {
           </Alert>
         )}
 
-        <Snackbar
-          open={message !== null}
-          autoHideDuration={4000}
-          onClose={() => setMessage(null)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert severity="success" onClose={() => setMessage(null)}>
-            {message}
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={message !== null}
+          message={message}
+          gravite={"success"}
+          onFermer={() => setMessage(null)}
+        />
       </Box>
     </PageContainer>
   );

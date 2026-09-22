@@ -1,12 +1,12 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
   Box,
   CircularProgress,
   Paper,
-  Snackbar,
   Stack,
   Switch,
   Typography,
@@ -14,7 +14,8 @@ import {
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
@@ -64,7 +65,8 @@ type Etats = Record<string, boolean>;
 
 const DEFAUT: Etats = Object.fromEntries(REGLES_ACTIVABLES.map((r) => [r.id, false]));
 
-export default function ReglesCliniquesKonnect() {
+export default function ReglesCliniquesKonnect() {
+
   // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
   // apres la saisie. La garde serveur reste seule responsable du refus reel.
   const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_REGLES_CLINIQUES);
@@ -217,22 +219,19 @@ export default function ReglesCliniquesKonnect() {
         <BarreEnregistrement
           modifications={modifications}
           enregistrement={enregistrement}
-          onEnregistrer={enregistrer}
+          onEnregistrer={enregistrer}
+
           blocage={raisonLectureSeule}
           onAnnuler={() => setEtats(initial)}
           libelle="Enregistrer les règles"
         />
 
-        <Snackbar
-          open={succes}
-          autoHideDuration={4000}
-          onClose={() => setSucces(false)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert severity="success" onClose={() => setSucces(false)}>
-            Règles enregistrées. Le portail patient les appliquera dans la minute.
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={succes}
+          message={<>Règles enregistrées. Le portail patient les appliquera dans la minute.</>}
+          gravite={"success"}
+          onFermer={() => setSucces(false)}
+        />
       </Box>
     </PageContainer>
   );

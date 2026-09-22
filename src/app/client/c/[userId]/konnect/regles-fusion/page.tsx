@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -13,7 +14,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  Snackbar,
   Stack,
   Switch,
   TextField,
@@ -26,7 +26,8 @@ import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import ExamTypeBadge, { toExamTypeCode } from "@/components/shared/ExamTypeBadge";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
@@ -64,7 +65,8 @@ type Examen = { code: string; libelle: string; type: string | null };
 
 const REGLE_VIDE: Regle = { examens: [], code_ris: "", libelle_patient: "", actif: true };
 
-export default function ReglesFusionKonnect() {
+export default function ReglesFusionKonnect() {
+
   // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
   // apres la saisie. La garde serveur reste seule responsable du refus reel.
   const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_REGLES_FUSION);
@@ -370,16 +372,12 @@ export default function ReglesFusionKonnect() {
           libelle="Enregistrer les règles"
         />
 
-        <Snackbar
-          open={succes}
-          autoHideDuration={4000}
-          onClose={() => setSucces(false)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert severity="success" onClose={() => setSucces(false)}>
-            Règles enregistrées. Le portail patient les appliquera dans la minute.
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={succes}
+          message={<>Règles enregistrées. Le portail patient les appliquera dans la minute.</>}
+          gravite={"success"}
+          onFermer={() => setSucces(false)}
+        />
       </Box>
     </PageContainer>
   );

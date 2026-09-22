@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirmation } from "@/components/shared/DialogConfirmation";
+import Retour from "@/components/shared/Retour";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -13,7 +15,6 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  Snackbar,
   Stack,
   Tab,
   Tabs,
@@ -90,6 +91,7 @@ export default function UsersManagementPage() {
     user: ApiUser;
   } | null>(null);
   const [snack, setSnack] = useState<{ msg: string; kind: "success" | "error" } | null>(null);
+  const { confirmer, dialogue } = useConfirmation();
 
   // Guard SUPER_ADMIN (route also blocked by API)
   useEffect(() => {
@@ -154,7 +156,14 @@ export default function UsersManagementPage() {
     const u = menuAnchor?.user;
     handleCloseMenu();
     if (!u) return;
-    if (!confirm(`Deconnecter ${u.email} de toutes ses sessions ?`)) return;
+    if (
+      !(await confirmer({
+        titre: "Déconnecter ce compte ?",
+        texte: `${u.email} sera déconnecté de toutes ses sessions et devra se reconnecter.`,
+        libelleAction: "Déconnecter",
+      }))
+    )
+      return;
     try {
       const res = await fetch(`/api/admin/users/${u.id}/kick`, { method: "POST" });
       if (!res.ok) throw new Error("Kick failed");
@@ -170,9 +179,12 @@ export default function UsersManagementPage() {
     handleCloseMenu();
     if (!u) return;
     if (
-      !confirm(
-        `Supprimer définitivement le compte ${u.email} (${u.role}) ?\nCette action ne peut pas être annulée.`
-      )
+      !(await confirmer({
+        titre: "Supprimer ce compte ?",
+        texte: `Le compte ${u.email} (${u.role}) sera supprimé définitivement. Cette action ne peut pas être annulée.`,
+        libelleAction: "Supprimer le compte",
+        destructif: true,
+      }))
     )
       return;
     try {
@@ -184,7 +196,7 @@ export default function UsersManagementPage() {
       setSnack({ msg: `Le compte ${u.email} est supprimé.`, kind: "success" });
       load();
     } catch (e: any) {
-      setSnack({ msg: e?.message ?? "Erreur suppression", kind: "error" });
+      setSnack({ msg: e?.message ?? "Le compte n'a pas été supprimé. Réessayez dans un instant.", kind: "error" });
     }
   };
 
@@ -450,20 +462,13 @@ export default function UsersManagementPage() {
         }}
       />
 
-      <Snackbar
-        open={!!snack}
-        autoHideDuration={4000}
-        onClose={() => setSnack(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          severity={snack?.kind ?? "success"}
-          onClose={() => setSnack(null)}
-          sx={{ width: "100%" }}
-        >
-          {snack?.msg}
-        </Alert>
-      </Snackbar>
+      {dialogue}
+      <Retour
+        ouvert={!!snack}
+        message={snack?.msg}
+        gravite={snack?.kind ?? "success"}
+        onFermer={() => setSnack(null)}
+      />
     </PageContainer>
   );
 }

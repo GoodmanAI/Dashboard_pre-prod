@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirmation } from "@/components/shared/DialogConfirmation";
+import Retour from "@/components/shared/Retour";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -11,7 +13,6 @@ import {
   CircularProgress,
   IconButton,
   Portal,
-  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -110,6 +111,7 @@ export default function EditTypeExam({ params }: TalkPageProps) {
   const [originalMapping, setOriginalMapping] = useState<Mapping>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { confirmer, dialogue } = useConfirmation();
   const [snack, setSnack] = useState<{
     open: boolean;
     message: string;
@@ -170,8 +172,16 @@ export default function EditTypeExam({ params }: TalkPageProps) {
     }));
   };
 
-  const handleReset = () => {
-    if (!confirm(`Annuler les ${dirtyCount} modifications non sauvegardées ?`)) return;
+  const handleReset = async () => {
+    if (
+      !(await confirmer({
+        titre: "Annuler les modifications ?",
+        texte: `Les ${dirtyCount} modification${dirtyCount > 1 ? "s" : ""} non enregistrée${dirtyCount > 1 ? "s" : ""} seront perdues.`,
+        libelleAction: "Annuler les modifications",
+        destructif: true,
+      }))
+    )
+      return;
     setMapping(JSON.parse(JSON.stringify(originalMapping)));
   };
 
@@ -213,17 +223,17 @@ export default function EditTypeExam({ params }: TalkPageProps) {
       {/* Header */}
       <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
         <IconButton
-          onClick={() => {
-            if (dirtyCount > 0) {
-              const ok = confirm(
-                `Vous avez ${dirtyCount} modification${
-                  dirtyCount > 1 ? "s" : ""
-                } non enregistrée${
-                  dirtyCount > 1 ? "s" : ""
-                }. Quitter sans sauvegarder ?`
-              );
-              if (!ok) return;
-            }
+          onClick={async () => {
+            if (
+              dirtyCount > 0 &&
+              !(await confirmer({
+                titre: "Quitter sans enregistrer ?",
+                texte: `Vous avez ${dirtyCount} modification${dirtyCount > 1 ? "s" : ""} non enregistrée${dirtyCount > 1 ? "s" : ""}. Elles seront perdues.`,
+                libelleAction: "Quitter sans enregistrer",
+                destructif: true,
+              }))
+            )
+              return;
             guard.disable();
             router.back();
           }}
@@ -461,23 +471,13 @@ export default function EditTypeExam({ params }: TalkPageProps) {
       />
 
       <Portal>
-        <Snackbar
-          anchorOrigin={{ vertical: "top", horizontal: "right" }}
-          open={snack.open}
-          autoHideDuration={3000}
-          onClose={() => setSnack((s) => ({ ...s, open: false }))}
-        >
-          <Alert
-            severity={snack.severity}
-            variant="filled"
-            sx={{
-              fontWeight: 500,
-              bgcolor: snack.severity === "error" ? DANGER : BRAND_DARK,
-            }}
-          >
-            {snack.message}
-          </Alert>
-        </Snackbar>
+          {dialogue}
+      <Retour
+          ouvert={snack.open}
+          message={snack.message}
+          gravite={snack.severity}
+          onFermer={() => setSnack((s) => ({ ...s, open: false }))}
+        />
       </Portal>
     </Box>
   );

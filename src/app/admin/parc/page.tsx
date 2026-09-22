@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -14,7 +15,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -528,11 +528,11 @@ export default function ParcClients() {
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={message !== null}
-        autoHideDuration={3000}
-        onClose={() => setMessage(null)}
+      <Retour
+        ouvert={message !== null}
         message={message ?? ""}
+        gravite={"success"}
+        onFermer={() => setMessage(null)}
       />
     </PageContainer>
   );

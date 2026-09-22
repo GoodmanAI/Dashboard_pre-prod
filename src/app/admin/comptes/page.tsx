@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -18,7 +19,6 @@ import {
   DialogTitle,
   Divider,
   IconButton,
-  Snackbar,
   Stack,
   TextField,
   ToggleButton,
@@ -601,12 +601,11 @@ export default function ComptesPage() {
         onConfirmer={supprimer}
       />
 
-      <Snackbar
-        open={message !== null}
-        autoHideDuration={5000}
-        onClose={() => setMessage(null)}
+      <Retour
+        ouvert={message !== null}
         message={message ?? ""}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        gravite={"success"}
+        onFermer={() => setMessage(null)}
       />
       </Box>
     </PageContainer>

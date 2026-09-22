@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirmation } from "@/components/shared/DialogConfirmation";
+import Retour from "@/components/shared/Retour";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -12,7 +14,6 @@ import {
   Divider,
   IconButton,
   InputAdornment,
-  Snackbar,
   Stack,
   Switch,
   TextField,
@@ -73,6 +74,7 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [snack, setSnack] = useState<{ msg: string; kind: "success" | "error" } | null>(null);
+  const { confirmer, dialogue } = useConfirmation();
   const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [newQuestion, setNewQuestion] = useState("");
@@ -232,11 +234,12 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
 
   const handleDelete = async (item: EditableItem) => {
     if (
-      !confirm(
-        `Supprimer définitivement cette Q/R ?\n\n« ${item.question.slice(0, 120)}${
-          item.question.length > 120 ? "…" : ""
-        } »`
-      )
+      !(await confirmer({
+        titre: "Supprimer cette question ?",
+        texte: `« ${item.question.slice(0, 120)}${item.question.length > 120 ? "…" : ""} » sera retirée des réponses de LyraeTalk. Cette action ne peut pas être annulée.`,
+        libelleAction: "Supprimer la question",
+        destructif: true,
+      }))
     )
       return;
     try {
@@ -523,24 +526,13 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
         </>
       )}
 
-      <Snackbar
-        open={!!snack}
-        autoHideDuration={3000}
-        onClose={() => setSnack(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          severity={snack?.kind ?? "success"}
-          onClose={() => setSnack(null)}
-          variant="filled"
-          sx={{
-            fontWeight: 500,
-            bgcolor: snack?.kind === "error" ? DANGER : BRAND_DARK,
-          }}
-        >
-          {snack?.msg}
-        </Alert>
-      </Snackbar>
+      {dialogue}
+      <Retour
+        ouvert={!!snack}
+        message={snack?.msg}
+        gravite={snack?.kind ?? "success"}
+        onFermer={() => setSnack(null)}
+      />
     </Box>
   );
 }

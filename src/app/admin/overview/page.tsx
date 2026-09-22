@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import { useEffect, useMemo, useState } from "react";
 import { ACCENT } from "@/lib/accent";
 import { useSession } from "next-auth/react";
@@ -17,7 +18,6 @@ import {
   ListItemText,
   Button,
   Divider,
-  Snackbar,
   Alert,
   TextField,
   InputAdornment,
@@ -1046,16 +1046,12 @@ const AdminOverviewPage = () => {
         </Grid>
       </Box>
 
-      <Snackbar
-        open={snack}
-        autoHideDuration={2500}
-        onClose={() => setSnack(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert severity="success" variant="filled" onClose={() => setSnack(false)}>
-          Centres actifs sauvegardés
-        </Alert>
-      </Snackbar>
+      <Retour
+        ouvert={snack}
+        message={<>Centres actifs sauvegardés</>}
+        gravite={"success"}
+        onFermer={() => setSnack(false)}
+      />
     </PageContainer>
   );
 };

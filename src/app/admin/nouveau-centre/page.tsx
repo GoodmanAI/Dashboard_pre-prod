@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
@@ -15,7 +16,6 @@ import {
   LinearProgress,
   Radio,
   RadioGroup,
-  Snackbar,
   Stack,
   Step,
   StepLabel,
@@ -1192,12 +1192,11 @@ export default function NouveauCentrePage() {
           )}
         </Card>
 
-        <Snackbar
-          open={message !== null}
-          autoHideDuration={4000}
-          onClose={() => setMessage(null)}
+        <Retour
+          ouvert={message !== null}
           message={message ?? ""}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+          gravite={"success"}
+          onFermer={() => setMessage(null)}
         />
       </Box>
     </PageContainer>

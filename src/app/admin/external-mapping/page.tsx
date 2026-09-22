@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { useEffect, useState } from "react";
 import {
@@ -9,7 +10,6 @@ import {
   Card,
   Chip,
   CircularProgress,
-  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -364,16 +364,12 @@ export default function ExternalMappingPage() {
         )}
       </Card>
 
-      <Snackbar
-        open={toast !== null}
-        autoHideDuration={2000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert severity="success" variant="filled">
-          {toast}
-        </Alert>
-      </Snackbar>
+      <Retour
+        ouvert={toast !== null}
+        message={toast}
+        gravite={"success"}
+        onFermer={() => setToast(null)}
+      />
     </Box>
   );
 }

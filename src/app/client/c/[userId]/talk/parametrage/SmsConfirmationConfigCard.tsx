@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import { useCallback, useEffect, useState } from "react";
 import {
   Accordion,
@@ -10,7 +11,6 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
-  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -383,16 +383,12 @@ export default function SmsConfirmationConfigCard({
           {error && <Alert severity="error">{error}</Alert>}
         </Stack>
 
-        <Snackbar
-          open={savedAt !== null}
-          autoHideDuration={1500}
-          onClose={() => setSavedAt(null)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        >
-          <Alert severity="success" variant="filled" sx={{ width: "100%" }}>
-            Enregistré
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={savedAt !== null}
+          message={<>Enregistré</>}
+          gravite={"success"}
+          onFermer={() => setSavedAt(null)}
+        />
       </AccordionDetails>
     </Accordion>
   );

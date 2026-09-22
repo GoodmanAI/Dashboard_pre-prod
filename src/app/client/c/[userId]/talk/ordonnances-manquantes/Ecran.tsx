@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -10,7 +11,6 @@ import {
   CircularProgress,
   MenuItem,
   Select,
-  Snackbar,
   Stack,
   Tab,
   Tabs,
@@ -825,21 +825,12 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
           </>
         )}
 
-        <Snackbar
-          open={snack.open}
-          autoHideDuration={2800}
-          onClose={() => setSnack((s) => ({ ...s, open: false }))}
-          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        >
-          <Alert
-            onClose={() => setSnack((s) => ({ ...s, open: false }))}
-            severity={snack.sev}
-            variant="filled"
-            sx={{ width: "100%" }}
-          >
-            {snack.msg}
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={snack.open}
+          message={snack.msg}
+          gravite={snack.sev}
+          onFermer={() => setSnack((s) => ({ ...s, open: false }))}
+        />
       </Box>
     </PageContainer>
   );
