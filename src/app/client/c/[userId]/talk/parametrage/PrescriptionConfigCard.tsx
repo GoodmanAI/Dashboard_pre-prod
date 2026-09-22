@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import {
   Accordion,
@@ -11,7 +12,6 @@ import {
   CircularProgress,
   Chip,
   FormControlLabel,
-  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -287,21 +287,12 @@ const PrescriptionConfigCard = forwardRef<
           </Stack>
         )}
 
-        <Snackbar
-          open={snack.open}
-          autoHideDuration={2800}
-          onClose={() => setSnack((s) => ({ ...s, open: false }))}
-          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        >
-          <Alert
-            onClose={() => setSnack((s) => ({ ...s, open: false }))}
-            severity={snack.sev}
-            variant="filled"
-            sx={{ width: "100%" }}
-          >
-            {snack.msg}
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={snack.open}
+          message={snack.msg}
+          gravite={snack.sev}
+          onFermer={() => setSnack((s) => ({ ...s, open: false }))}
+        />
       </AccordionDetails>
     </Accordion>
   );

@@ -360,7 +360,7 @@ export default function ImportExportMapping<T extends LigneMappingImportable>({
           variant="outlined"
           startIcon={<IconDownload size={16} />}
           onClick={() => void telechargerModele()}
-          sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+          sx={{ whiteSpace: "nowrap" }}
         >
           Télécharger le tableau
         </Button>
@@ -369,7 +369,7 @@ export default function ImportExportMapping<T extends LigneMappingImportable>({
           variant="outlined"
           startIcon={<IconUpload size={16} />}
           onClick={() => champFichier.current?.click()}
-          sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+          sx={{ whiteSpace: "nowrap" }}
         >
           Importer un fichier
         </Button>
@@ -458,7 +458,7 @@ export default function ImportExportMapping<T extends LigneMappingImportable>({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRapport(null)} sx={{ textTransform: "none" }}>
+          <Button onClick={() => setRapport(null)}>
             Fermer
           </Button>
         </DialogActions>

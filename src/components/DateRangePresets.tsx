@@ -100,7 +100,7 @@ export default function DateRangePresets({
                 : "1px solid rgba(var(--accent-rgb), 0.3)",
               transition: "all 160ms ease",
               "&:hover": {
-                bgcolor: isActive ? "#3BA992" : "rgba(var(--accent-rgb), 0.08)",
+                bgcolor: isActive ? "var(--accent-press)" : "rgba(var(--accent-rgb), 0.08)",
                 borderColor: "var(--accent)",
               },
             }}

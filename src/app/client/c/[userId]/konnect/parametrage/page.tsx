@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import SectionHeader from "@/components/admin/SectionHeader";
 import React, { useEffect, useState } from "react";
 import {
@@ -16,7 +17,6 @@ import {
   MenuItem,
   Radio,
   RadioGroup,
-  Snackbar,
   Stack,
   Switch,
   Typography,
@@ -671,16 +671,12 @@ export default function ParametrageKonnectPage() {
           </Button>
         </Box>
 
-        <Snackbar
-          open={succes}
-          autoHideDuration={4000}
-          onClose={() => setSucces(false)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert severity="success" onClose={() => setSucces(false)}>
-            Configuration enregistrée.
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={succes}
+          message={<>Configuration enregistrée.</>}
+          gravite={"success"}
+          onFermer={() => setSucces(false)}
+        />
       </Box>
     </PageContainer>
   );

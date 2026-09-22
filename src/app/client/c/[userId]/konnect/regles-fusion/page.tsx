@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -13,7 +14,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  Snackbar,
   Stack,
   Switch,
   TextField,
@@ -26,10 +26,12 @@ import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import ExamTypeBadge, { toExamTypeCode } from "@/components/shared/ExamTypeBadge";
-import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
+
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
+import { INK, INK_MUTED, BORDER, SURFACE } from "@/lib/jetons";
 
 /**
  * Règles de fusion d'examens (lot E).
@@ -48,11 +50,6 @@ import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 
 const DOMAINE = "konnect.regles-fusion";
 
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE = "#FFFFFF";
-
 type Regle = {
   examens: string[];
   code_ris: string;
@@ -64,7 +61,8 @@ type Examen = { code: string; libelle: string; type: string | null };
 
 const REGLE_VIDE: Regle = { examens: [], code_ris: "", libelle_patient: "", actif: true };
 
-export default function ReglesFusionKonnect() {
+export default function ReglesFusionKonnect() {
+
   // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
   // apres la saisie. La garde serveur reste seule responsable du refus reel.
   const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_REGLES_FUSION);
@@ -349,7 +347,7 @@ export default function ReglesFusionKonnect() {
             startIcon={<AddIcon />}
             disabled={examens.length === 0}
             onClick={() => setRegles((p) => [...p, { ...REGLE_VIDE }])}
-            sx={{ textTransform: "none", color: INK }}
+            sx={{ color: INK }}
           >
             Ajouter une règle
           </Button>
@@ -370,16 +368,12 @@ export default function ReglesFusionKonnect() {
           libelle="Enregistrer les règles"
         />
 
-        <Snackbar
-          open={succes}
-          autoHideDuration={4000}
-          onClose={() => setSucces(false)}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert severity="success" onClose={() => setSucces(false)}>
-            Règles enregistrées. Le portail patient les appliquera dans la minute.
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={succes}
+          message={<>Règles enregistrées. Le portail patient les appliquera dans la minute.</>}
+          gravite={"success"}
+          onFermer={() => setSucces(false)}
+        />
       </Box>
     </PageContainer>
   );

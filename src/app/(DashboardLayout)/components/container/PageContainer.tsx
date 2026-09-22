@@ -1,4 +1,7 @@
-import { Helmet, HelmetProvider } from 'react-helmet-async';
+"use client";
+
+import { Helmet, HelmetProvider } from "react-helmet-async";
+import { useProduitActif } from "@/hooks/useProduitActif";
 
 type Props = {
   /** Balise meta description de la page (SEO). */
@@ -14,21 +17,29 @@ type Props = {
  * - Fournit un `HelmetProvider` pour la gestion asynchrone du `<head>`.
  * - Injecte le titre et la meta description de la page via `Helmet`.
  * - Rend le contenu passé en enfants.
+ *
+ * Le titre de l'onglet est « Page | Produit ». Jusqu'au 22/09/2026 il valait
+ * « LyraeTalk | Dashboard » partout, y compris sous Konnect : les 40 `title` passés
+ * par les écrans n'étaient jamais lus.
  */
-const PageContainer = ({ title, description, children }: Props) => (
-  // Fournisseur nécessaire pour l’utilisation de Helmet en environnement async/SSR.
-  <HelmetProvider>
-    <div>
-      {/* Métadonnées de document (SEO) */}
-      <Helmet>
-        <title>LyraeTalk | Dashboard</title>
-        <meta name="description" content={description} />
-      </Helmet>
+const PageContainer = ({ title, description, children }: Props) => {
+  const produit = useProduitActif();
+  const titreOnglet = title ? `${title} | ${produit.nom}` : produit.nom;
+  return (
+    // Fournisseur nécessaire pour l’utilisation de Helmet en environnement async/SSR.
+    <HelmetProvider>
+      <div>
+        {/* Métadonnées de document (SEO) */}
+        <Helmet>
+          <title>{titreOnglet}</title>
+          <meta name="description" content={description} />
+        </Helmet>
 
-      {/* Contenu de la page */}
-      {children}
-    </div>
-  </HelmetProvider>
-);
+        {/* Contenu de la page */}
+        {children}
+      </div>
+    </HelmetProvider>
+  );
+};
 
 export default PageContainer;

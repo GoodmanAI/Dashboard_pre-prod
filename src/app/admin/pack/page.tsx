@@ -20,6 +20,7 @@ import SectionHeader from "@/components/admin/SectionHeader";
 import { lireClasseur, telechargerClasseur, type Feuille } from "@/lib/pack/classeur";
 import { ONGLETS, type Constat, type Ecriture } from "@/lib/pack/domaines";
 import type { Pack } from "@/lib/pack/types";
+import { INK, INK_MUTED, BORDER, BRAND } from "@/lib/jetons";
 
 /**
  * Le pack de configuration : exporter un centre, le remplir, le rendre (lot 4D).
@@ -49,11 +50,6 @@ import type { Pack } from "@/lib/pack/types";
  * Cellule vide, colonne absente, ligne absente, onglet absent : rien de tout cela n'est
  * lu comme une intention de supprimer. Voir `src/lib/pack/domaines.ts`.
  */
-
-const BRAND = "var(--accent)";
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
 
 const BOUTON_ACTION = {
   textTransform: "none" as const,
@@ -334,7 +330,6 @@ export default function PackPage() {
                 disabled={occupe || cibleId === ""}
                 startIcon={<IconUpload size={16} />}
                 onClick={() => champFichier.current?.click()}
-                sx={{ textTransform: "none" }}
               >
                 Choisir un classeur
               </Button>
@@ -434,7 +429,7 @@ export default function PackPage() {
                     ? "Rien à appliquer"
                     : `Appliquer ${totalModifie} modification${totalModifie > 1 ? "s" : ""}`}
                 </Button>
-                <Button disabled={occupe} onClick={() => setRapports(null)} sx={{ textTransform: "none" }}>
+                <Button disabled={occupe} onClick={() => setRapports(null)}>
                   Annuler
                 </Button>
                 {occupe && <CircularProgress size={18} sx={{ color: BRAND }} />}

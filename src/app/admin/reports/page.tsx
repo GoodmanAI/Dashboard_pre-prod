@@ -301,7 +301,6 @@ export default function ReportsPage() {
               sx={{
                 borderColor: dateRange ? "var(--accent)" : "rgba(0,0,0,0.23)",
                 color: dateRange ? "var(--accent-deep)" : "text.secondary",
-                textTransform: "none",
                 fontWeight: 500,
               }}
             >
@@ -328,7 +327,7 @@ export default function ReportsPage() {
                 borderColor: "var(--accent)",
                 color: "var(--accent-deep)",
                 fontWeight: 600,
-                "&:hover": { borderColor: "#3BA992", bgcolor: "rgba(var(--accent-rgb), 0.08)" },
+                "&:hover": { borderColor: "var(--accent-press)", bgcolor: "rgba(var(--accent-rgb), 0.08)" },
               }}
             >
               Exporter CSV

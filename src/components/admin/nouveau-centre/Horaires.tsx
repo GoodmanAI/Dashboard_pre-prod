@@ -3,10 +3,7 @@
 import { Box, Button, IconButton, Stack, Switch, TextField, Tooltip, Typography } from "@mui/material";
 import { IconCopy, IconPlus, IconX } from "@tabler/icons-react";
 import { JOURS, type Journee, type Plage } from "@/lib/questionnaireTalk";
-
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
+import { INK, INK_MUTED, BORDER } from "@/lib/jetons";
 
 /**
  * Les horaires d'ouverture, avec report d'un jour sur les suivants.
@@ -142,7 +139,6 @@ export default function Horaires({
                           ranges: [...j.ranges, { start: "14:00", end: "18:00" }],
                         })
                       }
-                      sx={{ textTransform: "none" }}
                     >
                       Couper la journée
                     </Button>
@@ -158,7 +154,7 @@ export default function Horaires({
                     size="small"
                     startIcon={<IconCopy size={14} />}
                     onClick={() => reporter(jour.cle)}
-                    sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+                    sx={{ whiteSpace: "nowrap" }}
                   >
                     Reporter
                   </Button>

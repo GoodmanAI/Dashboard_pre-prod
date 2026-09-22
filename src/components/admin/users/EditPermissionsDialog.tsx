@@ -13,8 +13,7 @@ import {
 } from "@mui/material";
 import PermissionsGrid from "./PermissionsGrid";
 import { AccessLevel, PageKey } from "@/lib/permissions";
-
-const BRAND_TEAL = "var(--accent)";
+import { BRAND_TEAL } from "@/lib/jetons";
 
 type ApiUser = {
   id: number;
@@ -73,7 +72,7 @@ export default function EditPermissionsDialog({ user, onClose, onSuccess }: Prop
         `Permissions mises à jour pour ${user.email}. Le compte devra se reconnecter pour les voir.`
       );
     } catch (e: any) {
-      setError(e?.message ?? "Erreur inconnue");
+      setError(e?.message ?? "Les permissions n'ont pas été enregistrées. Réessayez dans un instant.");
     } finally {
       setSubmitting(false);
     }
@@ -105,7 +104,7 @@ export default function EditPermissionsDialog({ user, onClose, onSuccess }: Prop
           onClick={handleSubmit}
           variant="contained"
           disabled={submitting || Object.keys(permissions).length === 0}
-          sx={{ bgcolor: BRAND_TEAL, "&:hover": { bgcolor: "#3aa896" } }}
+          sx={{ bgcolor: BRAND_TEAL, "&:hover": { bgcolor: "var(--accent-press)" } }}
         >
           {submitting ? "Enregistrement..." : "Enregistrer"}
         </Button>

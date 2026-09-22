@@ -409,8 +409,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
               borderColor: "var(--accent)",
               color: "var(--accent-deep)",
               fontWeight: 600,
-              textTransform: "none",
-              "&:hover": { borderColor: "#3BA992", bgcolor: "rgba(var(--accent-rgb), 0.08)" },
+              "&:hover": { borderColor: "var(--accent-press)", bgcolor: "rgba(var(--accent-rgb), 0.08)" },
             }}
           >
             Exporter PDF

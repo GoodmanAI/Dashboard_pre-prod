@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import { IconLifebuoy } from "@tabler/icons-react";
 import { io as ioClient, Socket } from "socket.io-client";
+import { BRAND_TEAL, TEXT_MAIN, TEXT_MUTED, NEUTRAL_BG } from "@/lib/jetons";
 
 /**
  * Bell notification globale dans le header, dediee aux tickets support.
@@ -34,11 +35,6 @@ import { io as ioClient, Socket } from "socket.io-client";
  *
  * Silencieux si le user n'est pas authentifie (rend rien).
  */
-
-const BRAND_TEAL = "var(--accent)";
-const TEXT_MAIN = "#1F3448";
-const TEXT_MUTED = "#7A8FA6";
-const NEUTRAL_BG = "#F1F5F9";
 
 const POLL_INTERVAL_MS = 60_000;
 
@@ -260,7 +256,6 @@ export default function NotificationBell() {
               disabled={markingAll}
               sx={{
                 color: BRAND_TEAL,
-                textTransform: "none",
                 fontSize: 12,
                 fontWeight: 600,
                 minWidth: 0,

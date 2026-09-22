@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import { useEffect, useMemo, useState } from "react";
 import { ACCENT } from "@/lib/accent";
 import { useSession } from "next-auth/react";
@@ -17,7 +18,6 @@ import {
   ListItemText,
   Button,
   Divider,
-  Snackbar,
   Alert,
   TextField,
   InputAdornment,
@@ -288,7 +288,7 @@ function CentreTodayCard({
             right: 0,
             height: 2,
             bgcolor: "transparent",
-            "& .MuiLinearProgress-bar": { bgcolor: "#48C8AF" },
+            "& .MuiLinearProgress-bar": { bgcolor: "var(--accent)" },
           }}
         />
       )}
@@ -780,7 +780,7 @@ const AdminOverviewPage = () => {
   }
 
   return (
-    <PageContainer title="Admin Overview" description="Centres actifs">
+    <PageContainer title="Vue d'ensemble" description="Centres actifs">
       <Box>
         <Grid container spacing={3}>
           <Grid item xs={12} lg={8}>
@@ -790,7 +790,7 @@ const AdminOverviewPage = () => {
                   width: 4,
                   height: 36,
                   borderRadius: 2,
-                  bgcolor: "#48C8AF",
+                  bgcolor: "var(--accent)",
                 }}
               />
               <Box>
@@ -854,7 +854,7 @@ const AdminOverviewPage = () => {
                     size="small"
                     label={`${checked.size} / ${allCentres.length}`}
                     sx={{
-                      bgcolor: "#48C8AF",
+                      bgcolor: "var(--accent)",
                       color: "#fff",
                       fontWeight: 600,
                     }}
@@ -931,7 +931,7 @@ const AdminOverviewPage = () => {
                     variant="contained"
                     disabled={!dirty}
                     onClick={save}
-                    sx={{ bgcolor: "#48C8AF", "&:hover": { bgcolor: "#3BA992" } }}
+                    sx={{ bgcolor: "var(--accent)", "&:hover": { bgcolor: "var(--accent-press)" } }}
                   >
                     Sauvegarder
                   </Button>
@@ -957,7 +957,7 @@ const AdminOverviewPage = () => {
                   width: 4,
                   height: 36,
                   borderRadius: 2,
-                  bgcolor: "#48C8AF",
+                  bgcolor: "var(--accent)",
                 }}
               />
               <Box sx={{ flex: 1 }}>
@@ -1046,16 +1046,12 @@ const AdminOverviewPage = () => {
         </Grid>
       </Box>
 
-      <Snackbar
-        open={snack}
-        autoHideDuration={2500}
-        onClose={() => setSnack(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert severity="success" variant="filled" onClose={() => setSnack(false)}>
-          Centres actifs sauvegardés
-        </Alert>
-      </Snackbar>
+      <Retour
+        ouvert={snack}
+        message={<>Centres actifs sauvegardés</>}
+        gravite={"success"}
+        onFermer={() => setSnack(false)}
+      />
     </PageContainer>
   );
 };

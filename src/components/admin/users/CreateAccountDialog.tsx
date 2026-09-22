@@ -19,8 +19,7 @@ import {
 } from "@mui/material";
 import PermissionsGrid from "./PermissionsGrid";
 import { AccessLevel, PageKey } from "@/lib/permissions";
-
-const BRAND_TEAL = "var(--accent)";
+import { BRAND_TEAL } from "@/lib/jetons";
 
 type ClientOption = {
   id: number;
@@ -106,7 +105,7 @@ export default function CreateAccountDialog({
           : `Le sous-compte ${data.user.email} est créé.`
       );
     } catch (e: any) {
-      setError(e?.message ?? "Erreur inconnue");
+      setError(e?.message ?? "Le compte n'a pas été créé. Réessayez dans un instant.");
     } finally {
       setSubmitting(false);
     }
@@ -187,7 +186,7 @@ export default function CreateAccountDialog({
           onClick={handleSubmit}
           variant="contained"
           disabled={!canSubmit || submitting}
-          sx={{ bgcolor: BRAND_TEAL, "&:hover": { bgcolor: "#3aa896" } }}
+          sx={{ bgcolor: BRAND_TEAL, "&:hover": { bgcolor: "var(--accent-press)" } }}
         >
           {submitting ? "Création en cours" : "Créer le compte"}
         </Button>

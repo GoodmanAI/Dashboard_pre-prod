@@ -1,12 +1,12 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import { useTalkBasePath } from "@/utils/talkRoutes";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { useState, useEffect } from "react";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import {
   Button,
-  Snackbar,
   Alert,
   Portal,
   Switch,
@@ -233,14 +233,12 @@ export default function DoubleExamPage({ params }: DoubleExamPageProps) {
       />
 
       <Portal>
-        <Snackbar
-          anchorOrigin={{ vertical: "top", horizontal: "right" }}
-          open={snack.open}
-          autoHideDuration={3000}
-          onClose={() => setSnack((s) => ({ ...s, open: false }))}
-        >
-          <Alert severity={snack.severity}>{snack.message}</Alert>
-        </Snackbar>
+        <Retour
+          ouvert={snack.open}
+          message={snack.message}
+          gravite={snack.severity}
+          onFermer={() => setSnack((s) => ({ ...s, open: false }))}
+        />
       </Portal>
     </main>
   );

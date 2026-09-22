@@ -1,5 +1,7 @@
 "use client";
 
+import { useConfirmation } from "@/components/shared/DialogConfirmation";
+import Retour from "@/components/shared/Retour";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
@@ -13,7 +15,6 @@ import {
   MenuItem,
   Portal,
   Select,
-  Snackbar,
   Stack,
   Switch,
   Table,
@@ -64,6 +65,18 @@ import {
   RangeeChamp,
   SEUIL_FICHES,
 } from "@/components/mapping/cellules";
+import {
+  INK,
+  INK_MUTED,
+  BORDER,
+  SURFACE,
+  SURFACE_MUTED,
+  SURFACE_HOVER,
+  BRAND,
+  BRAND_DARK,
+  DANGER,
+  WARNING,
+} from "@/lib/jetons";
 
 /**
  * Correspondance des examens (refonte design 2026-08-06).
@@ -102,17 +115,7 @@ import {
  * qui a bloque dix centres le meme jour.
  */
 
-const BRAND = "var(--accent)";
-const BRAND_DARK = "#2C9B85";
-const INK = "#0F2A3F";
-const INK_MUTED = "#5A6B7B";
-const BORDER = "#E4EAEE";
-const SURFACE = "#FFFFFF";
-const SURFACE_MUTED = "#F7FAFB";
-const SURFACE_HOVER = "#F5FBFA";
 const SURFACE_DISABLED = "#EEF2F5";
-const DANGER = "#E1573B";
-const WARNING = "#F5A623";
 
 const INJECTABLE_TYPES = new Set(["CT", "MR"]);
 const ROWS_PER_PAGE = 25;
@@ -178,6 +181,7 @@ export default function MappingExam({ params }: TalkPageProps) {
   const [originalData, setOriginalData] = useState<ExamRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { confirmer, dialogue } = useConfirmation();
   const [snack, setSnack] = useState<{
     open: boolean;
     message: string;
@@ -405,8 +409,16 @@ export default function MappingExam({ params }: TalkPageProps) {
     }
   };
 
-  const handleReset = () => {
-    if (!confirm(`Annuler les ${dirtyCount} modifications non sauvegardées ?`)) return;
+  const handleReset = async () => {
+    if (
+      !(await confirmer({
+        titre: "Annuler les modifications ?",
+        texte: `Les ${dirtyCount} modification${dirtyCount > 1 ? "s" : ""} non enregistrée${dirtyCount > 1 ? "s" : ""} seront perdues.`,
+        libelleAction: "Annuler les modifications",
+        destructif: true,
+      }))
+    )
+      return;
     setData(JSON.parse(JSON.stringify(originalData)));
   };
 
@@ -420,15 +432,17 @@ export default function MappingExam({ params }: TalkPageProps) {
         sx={{ mb: 2 }}
       >
         <IconButton
-          onClick={() => {
-            if (dirtyCount > 0) {
-              const ok = confirm(
-                `Vous avez ${dirtyCount} modification${
-                  dirtyCount > 1 ? "s" : ""
-                } non enregistrée${dirtyCount > 1 ? "s" : ""}. Quitter sans sauvegarder ?`
-              );
-              if (!ok) return;
-            }
+          onClick={async () => {
+            if (
+              dirtyCount > 0 &&
+              !(await confirmer({
+                titre: "Quitter sans enregistrer ?",
+                texte: `Vous avez ${dirtyCount} modification${dirtyCount > 1 ? "s" : ""} non enregistrée${dirtyCount > 1 ? "s" : ""}. Elles seront perdues.`,
+                libelleAction: "Quitter sans enregistrer",
+                destructif: true,
+              }))
+            )
+              return;
             guard.disable();
             router.back();
           }}
@@ -563,7 +577,6 @@ export default function MappingExam({ params }: TalkPageProps) {
             sx={{
               bgcolor: SURFACE_MUTED,
               "& .MuiToggleButton-root": {
-                textTransform: "none",
                 border: `1px solid ${BORDER}`,
                 fontSize: 13,
                 color: INK_MUTED,
@@ -590,7 +603,6 @@ export default function MappingExam({ params }: TalkPageProps) {
             sx={{
               bgcolor: SURFACE_MUTED,
               "& .MuiToggleButton-root": {
-                textTransform: "none",
                 border: `1px solid ${BORDER}`,
                 fontSize: 13,
                 color: INK_MUTED,
@@ -839,24 +851,25 @@ export default function MappingExam({ params }: TalkPageProps) {
               size="small"
               variant="outlined"
               startIcon={<IconSettings size={15} />}
-              onClick={() => {
+              onClick={async () => {
                 // router.push() est programmatique -> pas intercepte par le guard.
                 // On confirme manuellement puis on disable() pour eviter un double
                 // prompt lors de l'unmount.
-                if (dirtyCount > 0) {
-                  const ok = confirm(
-                    `Vous avez ${dirtyCount} modification${
-                      dirtyCount > 1 ? "s" : ""
-                    } non enregistrée${dirtyCount > 1 ? "s" : ""}. Continuer sans sauvegarder ?`
-                  );
-                  if (!ok) return;
-                }
+                if (
+                  dirtyCount > 0 &&
+                  !(await confirmer({
+                    titre: "Continuer sans enregistrer ?",
+                    texte: `Vous avez ${dirtyCount} modification${dirtyCount > 1 ? "s" : ""} non enregistrée${dirtyCount > 1 ? "s" : ""}. Elles seront perdues.`,
+                    libelleAction: "Continuer sans enregistrer",
+                    destructif: true,
+                  }))
+                )
+                  return;
                 guard.disable();
                 router.push(`${basePath}/parametrage/mapping_exam/type_exam`);
               }}
               disabled={saving}
               sx={{
-                textTransform: "none",
                 borderColor: BORDER,
                 color: INK,
                 "&:hover": { borderColor: BRAND, color: BRAND, bgcolor: SURFACE_HOVER },
@@ -868,26 +881,13 @@ export default function MappingExam({ params }: TalkPageProps) {
       />
 
       <Portal>
-        <Snackbar
-          anchorOrigin={{ vertical: "top", horizontal: "right" }}
-          open={snack.open}
-          // Trois secondes suffisent pour « 4 modifications enregistrées ». Depuis que
-          // la route nomme les codes en conflit, le message peut demander à être lu :
-          // il disparaissait avant qu'on ait fini.
-          autoHideDuration={snack.message.length > 60 ? 9000 : 3000}
-          onClose={() => setSnack((s) => ({ ...s, open: false }))}
-        >
-          <Alert
-            severity={snack.severity}
-            variant="filled"
-            sx={{
-              fontWeight: 500,
-              bgcolor: snack.severity === "error" ? DANGER : BRAND_DARK,
-            }}
-          >
-            {snack.message}
-          </Alert>
-        </Snackbar>
+          {dialogue}
+      <Retour
+          ouvert={snack.open}
+          message={snack.message}
+          gravite={snack.severity}
+          onFermer={() => setSnack((s) => ({ ...s, open: false }))}
+        />
       </Portal>
     </Box>
   );

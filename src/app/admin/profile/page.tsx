@@ -18,6 +18,7 @@ import {
 import { IconEye, IconEyeOff, IconLock, IconShieldCheck } from "@tabler/icons-react";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
+import { BRAND_TEAL, TEXT_MAIN, TEXT_MUTED } from "@/lib/jetons";
 
 /**
  * Page profil ADMIN — self-service change password (chantier 3).
@@ -28,10 +29,6 @@ import SectionHeader from "@/components/admin/SectionHeader";
  * Reutilise l'endpoint /api/client/change-password (agnostique au role,
  * refuse le SUPER_ADMIN cote serveur en double garde).
  */
-
-const BRAND_TEAL = "var(--accent)";
-const TEXT_MAIN = "#1F3448";
-const TEXT_MUTED = "#7A8FA6";
 
 export default function AdminProfilePage() {
   const { data: session, status } = useSession();
@@ -89,9 +86,9 @@ export default function AdminProfilePage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Une erreur est survenue.");
+        setError(data.error || "Le mot de passe n'a pas été modifié. Vérifiez le mot de passe actuel et réessayez.");
       } else {
-        setSuccess(data.message || "Mot de passe modifie avec succes.");
+        setSuccess(data.message || "Mot de passe modifié.");
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
@@ -228,8 +225,7 @@ export default function AdminProfilePage() {
               disabled={loading}
               sx={{
                 bgcolor: BRAND_TEAL,
-                "&:hover": { bgcolor: "#3aa896" },
-                textTransform: "none",
+                "&:hover": { bgcolor: "var(--accent-press)" },
                 fontWeight: 600,
               }}
             >

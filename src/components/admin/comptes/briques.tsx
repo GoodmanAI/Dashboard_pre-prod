@@ -18,6 +18,7 @@ import {
 import { IconEdit, IconLock, IconLogout, IconTrash, IconUserCircle } from "@tabler/icons-react";
 import { PAGE_GROUPS, type PageKey } from "@/lib/permissions";
 import { STATUTS, type StatutCentre } from "@/lib/centreStatut";
+import { BORDER, TEXT_MAIN, TEXT_MUTED } from "@/lib/jetons";
 
 /**
  * Les briques d'affichage de l'ecran « Clients et comptes » (lot 3, 15/09/2026).
@@ -31,10 +32,6 @@ import { STATUTS, type StatutCentre } from "@/lib/centreStatut";
  * La lecon vient de l'ecran de mapping, le 14/09/2026 : trois defauts visuels y
  * compilaient parfaitement, et seule l'ouverture de l'ecran les a trouves.
  */
-
-const TEXT_MAIN = "#1F3448";
-const TEXT_MUTED = "#7A8FA6";
-const BORDER = "#E4EAEE";
 
 export type Compte = {
   id: number;
@@ -319,7 +316,7 @@ export function DialogSuppression({
         />
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onAnnuler} sx={{ textTransform: "none" }}>
+        <Button onClick={onAnnuler}>
           Annuler
         </Button>
         <Button
@@ -327,7 +324,6 @@ export function DialogSuppression({
           color="error"
           disabled={!correspond || enCours}
           onClick={onConfirmer}
-          sx={{ textTransform: "none" }}
         >
           {enCours ? "Suppression…" : "Supprimer"}
         </Button>

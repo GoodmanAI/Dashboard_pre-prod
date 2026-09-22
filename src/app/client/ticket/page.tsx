@@ -1,5 +1,6 @@
 "use client";
 
+import Retour from "@/components/shared/Retour";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -18,7 +19,6 @@ import {
   Divider,
   IconButton,
   InputAdornment,
-  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -33,6 +33,15 @@ import {
 import { Close, Send } from "@mui/icons-material";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import { useCentre } from "@/app/context/CentreContext";
+import {
+  BRAND_TEAL,
+  BRAND_TEAL_DARK,
+  BRAND_TEAL_SOFT,
+  TEXT_MAIN,
+  TEXT_MUTED,
+  CARD_BG,
+  PAGE_BG,
+} from "@/lib/jetons";
 
 /**
  * Page Support (cote client) — refonte Lot C
@@ -47,14 +56,6 @@ import { useCentre } from "@/app/context/CentreContext";
  *   - Empty state engageant avec CTA pour creer un premier ticket
  *   - Palette Neuracorp existante (teal) pour rester coherent avec le reste
  */
-
-const BRAND_TEAL = "var(--accent)";
-const BRAND_TEAL_DARK = "var(--accent-press)";
-const BRAND_TEAL_SOFT = "#E6F7F3";
-const TEXT_MAIN = "#1F3448";
-const TEXT_MUTED = "#7A8FA6";
-const CARD_BG = "#FFFFFF";
-const PAGE_BG = "#FAFCFB";
 
 type Status = "PENDING" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
 
@@ -273,21 +274,12 @@ export default function ClientSupportPage() {
           asUserIdQuery={asUserIdQuery}
         />
 
-        <Snackbar
-          open={snack.open}
-          autoHideDuration={2800}
-          onClose={() => setSnack((s) => ({ ...s, open: false }))}
-          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        >
-          <Alert
-            onClose={() => setSnack((s) => ({ ...s, open: false }))}
-            severity={snack.sev}
-            variant="filled"
-            sx={{ width: "100%" }}
-          >
-            {snack.msg}
-          </Alert>
-        </Snackbar>
+        <Retour
+          ouvert={snack.open}
+          message={snack.msg}
+          gravite={snack.sev}
+          onFermer={() => setSnack((s) => ({ ...s, open: false }))}
+        />
       </Box>
     </PageContainer>
   );
@@ -467,7 +459,6 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
           "&:hover": { bgcolor: BRAND_TEAL_DARK },
           px: 4,
           py: 1.2,
-          textTransform: "none",
           fontWeight: 700,
         }}
       >
@@ -638,7 +629,7 @@ function CreateTicketDialog({
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 3 }}>
-        <Button onClick={onClose} disabled={submitting} sx={{ color: TEXT_MUTED, textTransform: "none" }}>
+        <Button onClick={onClose} disabled={submitting} sx={{ color: TEXT_MUTED }}>
           Annuler
         </Button>
         <Button
@@ -650,7 +641,6 @@ function CreateTicketDialog({
             bgcolor: BRAND_TEAL,
             "&:hover": { bgcolor: BRAND_TEAL_DARK },
             px: 3,
-            textTransform: "none",
             fontWeight: 700,
             boxShadow: "0 4px 12px rgba(var(--accent-rgb), 0.3)",
           }}

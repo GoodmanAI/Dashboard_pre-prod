@@ -18,8 +18,7 @@ import {
   PAGE_LABELS,
   presetSecretaire,
 } from "@/lib/permissions";
-
-const BRAND_TEAL = "var(--accent)";
+import { BRAND_TEAL } from "@/lib/jetons";
 
 type Props = {
   value: Partial<Record<PageKey, AccessLevel>>;
@@ -141,7 +140,6 @@ export default function PermissionsGrid({ value, onChange, disabled }: Props) {
             variant="outlined"
             disabled={disabled}
             onClick={() => onChange(presetSecretaire())}
-            sx={{ textTransform: "none" }}
           >
             Préréglage secrétaire
           </Button>
@@ -150,7 +148,6 @@ export default function PermissionsGrid({ value, onChange, disabled }: Props) {
             variant="outlined"
             disabled={disabled}
             onClick={toutEnLecture}
-            sx={{ textTransform: "none" }}
           >
             Tout en lecture
           </Button>
@@ -158,7 +155,6 @@ export default function PermissionsGrid({ value, onChange, disabled }: Props) {
             size="small"
             disabled={disabled}
             onClick={() => onChange({})}
-            sx={{ textTransform: "none" }}
           >
             Tout décocher
           </Button>

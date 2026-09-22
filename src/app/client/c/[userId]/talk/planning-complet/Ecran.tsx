@@ -143,7 +143,7 @@ function ScrollableCardList({ children }: { children: React.ReactNode }) {
 const RDV_STATUS_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   full_planning_redirect: {
     label: "Patient redirigé vers le secrétariat",
-    color: "#48C8AF",
+    color: "var(--accent)",
     icon: <IconArrowRight size={18} />,
   },
   full_planning_end: {
@@ -683,7 +683,7 @@ export default function PlanningCompletPage({ params }: Props) {
         setExamNonPris(j2 as ExamNonPrisResponse);
       } catch (err: any) {
         if (err?.name === "AbortError") return;
-        setError(err?.message || "Erreur de chargement");
+        setError(err?.message || "Les données n'ont pas pu être chargées. Vérifiez votre connexion et rechargez la page.");
       } finally {
         setLoading(false);
       }
@@ -778,14 +778,13 @@ export default function PlanningCompletPage({ params }: Props) {
             variant="fullWidth"
             sx={{
               "& .MuiTab-root": {
-                textTransform: "none",
                 fontWeight: 700,
                 fontSize: 14,
                 minHeight: 56,
                 py: 1.5,
               },
               "& .Mui-selected": { color: "#2a6f64 !important" },
-              "& .MuiTabs-indicator": { backgroundColor: "#48C8AF", height: 3 },
+              "& .MuiTabs-indicator": { backgroundColor: "var(--accent)", height: 3 },
             }}
           >
             <Tab
@@ -1020,7 +1019,7 @@ export default function PlanningCompletPage({ params }: Props) {
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                           data={[
-                            { label: "Planning complet", count: data.confirmed.total, color: "#48C8AF" },
+                            { label: "Planning complet", count: data.confirmed.total, color: "var(--accent)" },
                             { label: "À examiner", count: data.toInvestigate.total, color: "#f59e0b" },
                           ]}
                           margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
@@ -1178,7 +1177,7 @@ export default function PlanningCompletPage({ params }: Props) {
                       width: 4,
                       height: 24,
                       borderRadius: 2,
-                      bgcolor: "#48C8AF",
+                      bgcolor: "var(--accent)",
                     }}
                   />
                   <Typography variant="h6" fontWeight={800}>
