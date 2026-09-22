@@ -7,10 +7,13 @@ import {
   Box,
   Typography,
   Grid,
-  Paper,
-  Button,
+  Card,
+  CardActionArea,
+  Chip,
   CircularProgress,
 } from "@mui/material";
+import { IconArrowRight } from "@tabler/icons-react";
+import SectionHeader from "@/components/admin/SectionHeader";
 import { produitDepuisNom } from "@/lib/produits";
 import { cheminCentre, PRODUITS_MIGRES } from "@/lib/cheminsCentre";
 
@@ -77,7 +80,11 @@ const ClientHomePage = () => {
   }
 
   if (!userProducts.length) {
-    return <Typography>Aucun produit trouvé.</Typography>;
+    return (
+      <Typography color="text.secondary">
+        Aucun produit n&apos;est rattaché à votre compte. Contactez le support pour en ouvrir un.
+      </Typography>
+    );
   }
 
   // Tri stable par id, et on n'affiche QUE les produits du catalogue.
@@ -88,13 +95,12 @@ const ClientHomePage = () => {
     .sort((a, b) => a.id - b.id)
     .filter((el) => produitDepuisNom(el.name) !== null);
 
+  // « LyraeTalk » s'affiche « Lyrae Talk », la marque en avant.
   const renderProductName = (name: string) => {
     if (name.toLowerCase().startsWith("lyrae")) {
-      const remainder = name.slice(5);
       return (
         <>
-          <span style={{ fontWeight: 900 }}>LYRAE</span>
-          {remainder}
+          <span style={{ fontWeight: 900 }}>Lyrae</span> {name.slice(5)}
         </>
       );
     }
@@ -118,106 +124,73 @@ const ClientHomePage = () => {
   };
 
   return (
-    <Box sx={{ backgroundColor: "#F8F8F8", minHeight: "100vh", p: 4 }}>
-      <Box sx={{ textAlign: "left", mb: 4 }}>
-        <Typography variant="h1" sx={{ mb: 1, fontWeight: 500 }}>
-          Bienvenue,{" "}
-          <Box component="span" sx={{ fontWeight: 1000 }}>
-            {session?.user?.name ?? ""}
-          </Box>{" "}
-          !
-        </Typography>
-        <Typography variant="subtitle1">
-          Accédez à vos services et produits via le menu de gauche.
-        </Typography>
-      </Box>
+    <Box>
+      <SectionHeader
+        title={`Bienvenue${session?.user?.name ? `, ${session.user.name}` : ""}`}
+        subtitle="Vos produits Lyrae. Le menu de gauche mène directement à chacun d'eux."
+      />
 
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         {sortedProducts.map((product) => {
           const isActive = !product.removedAt;
-          const statusText = isActive ? "On" : "Off";
-          const borderColor = isActive ? "var(--accent)" : "#A0AEC0";
           const assignedDate = product.assignedAt
-            ? new Date(product.assignedAt).toLocaleDateString()
+            ? new Date(product.assignedAt).toLocaleDateString("fr-FR")
             : "";
+          const ouvrir = () => {
+            const route = getProductRoute(product.name);
+            if (route.startsWith("http")) window.open(route + `/${product.id}`, "_blank");
+            else router.push(route + `/${product.id}`);
+          };
 
           return (
-            <Grid item xs={12} sm={6} md={3} key={product.id}>
-              <Paper
+            <Grid item xs={12} md={6} key={product.id}>
+              {/* Même carte-lien que l'accueil Konnect : atteignable au clavier. */}
+              <Card
+                variant="outlined"
                 sx={{
-                  width: "220px",
-                  height: "220px",
-                  p: "10px",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-start",
-                  gap: "10px",
-                  backgroundColor: "#FFFFFF",
-                  border: `2px solid ${borderColor}`,
-                  borderRadius: "16px",
-                  m: "auto",
+                  borderColor: "#E4EAEE",
+                  borderRadius: 2,
+                  height: "100%",
+                  transition: "border-color .15s",
+                  "&:hover": { borderColor: "var(--accent)" },
                 }}
               >
-                <Typography sx={{ fontFamily: "Inter", fontWeight: 400, fontSize: "16px", color: "#34495E", mb: 1 }}>
-                  {renderProductName(product.name)}
-                </Typography>
-
-                <Box sx={{ display: "flex", alignItems: "center", width: "100%", justifyContent: "space-between", mb: 1 }}>
-                  <Box sx={{ border: "1px solid #CBD5E1", borderRadius: "4px", p: "6px 20px", display: "flex", alignItems: "center" }}>
-                    <Typography sx={{ fontSize: "10px", fontWeight: 500, color: "#34495E" }}>Statut:</Typography>
-                    <Box sx={{
-                      ml: 1,
-                      width: "24px",
-                      height: "20px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderRadius: "9999px",
-                      backgroundColor: isActive ? "#22C55E" : "#CBD5E1",
-                    }}>
-                      <Typography sx={{ fontSize: "10px", fontWeight: 500, color: isActive ? "#FFFFFF" : "#34495E" }}>
-                        {statusText}
-                      </Typography>
-                    </Box>
+                <CardActionArea onClick={ouvrir} sx={{ height: "100%", p: 2.5 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>
+                      {renderProductName(product.name)}
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={isActive ? "Actif" : "Inactif"}
+                      sx={{
+                        fontWeight: 600,
+                        bgcolor: isActive ? "rgba(var(--accent-rgb), 0.15)" : "#EEF1F4",
+                        color: isActive ? "var(--accent-deep)" : "text.secondary",
+                      }}
+                    />
                   </Box>
-                  {isActive && (
-                    <Box sx={{ textAlign: "right" }}>
-                      <Typography sx={{ fontSize: "10px", fontWeight: 400, color: "#34495E" }}>Adhésion le</Typography>
-                      <Typography sx={{ fontSize: "10px", fontWeight: 700, color: "#34495E", mt: -1 }}>
-                        {assignedDate}
-                      </Typography>
-                    </Box>
+                  {product.description && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                      {product.description}
+                    </Typography>
                   )}
-                </Box>
-
-                <Box sx={{ width: "190px", height: "150px", display: "flex", flexDirection: "column", gap: "16px", overflow: "hidden" }}>
-                  <Typography sx={{ fontFamily: "Inter", fontWeight: 400, fontSize: "11px", lineHeight: "13px", textAlign: "justify", color: "#34495E", overflow: "hidden" }}>
-                    {product.description}
-                  </Typography>
-                </Box>
-
-                <Box sx={{ flexGrow: 1 }} />
-                <Button
-                  variant="contained"
-                  sx={{
-                    backgroundColor: isActive ? "var(--accent)" : "#555555",
-                    borderRadius: "99px",
-                    color: "#FFFFFF",
-                    fontWeight: 500,
-                    fontSize: "12px",
-                    textTransform: "none",
-                    width: "100%",
-                    "&:hover": { backgroundColor: isActive ? "#3EB49C" : "#444444" },
-                  }}
-                  onClick={() => {
-                    const route = getProductRoute(product.name);
-                    if (route.startsWith("http")) window.open(route + `/${product.id}`, "_blank");
-                    else router.push(route + `/${product.id}`);
-                  }}
-                >
-                  {isActive ? "Accéder à ma solution" : "En savoir plus"}
-                </Button>
-              </Paper>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ color: "var(--accent-deep)", fontWeight: 600, flex: 1 }}
+                    >
+                      {isActive ? "Ouvrir" : "En savoir plus"}
+                    </Typography>
+                    {isActive && assignedDate && (
+                      <Typography variant="caption" color="text.secondary">
+                        Depuis le {assignedDate}
+                      </Typography>
+                    )}
+                    <IconArrowRight size={18} color="var(--accent-deep)" />
+                  </Box>
+                </CardActionArea>
+              </Card>
             </Grid>
           );
         })}

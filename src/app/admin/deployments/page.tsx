@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -255,23 +256,20 @@ export default function DeploymentsPage() {
     <PageContainer title="Déploiements" description="État de déploiement des briques Lyrae">
       {/* Élément racine unique : PageContainer type ses children en JSX.Element. */}
       <Box>
-        <Stack direction="row" alignItems="flex-start" justifyContent="space-between" mb={3} spacing={2}>
-          <Box>
-            <Typography variant="h4">Déploiements</Typography>
-            <Typography variant="body2" color="textSecondary">
-              Ce qui tourne sur chaque VM, comparé à ce qui est poussé sur sa branche.
-            </Typography>
-          </Box>
-          <Button
-            variant="outlined"
-            startIcon={<IconRefresh size={18} />}
-            onClick={() => load()}
-            disabled={loading}
-            sx={{ flexShrink: 0 }}
-          >
-            Rafraîchir
-          </Button>
-        </Stack>
+        <SectionHeader
+          title="Déploiements"
+          subtitle="Ce qui tourne sur chaque machine, comparé à ce qui est poussé sur sa branche."
+          actions={
+            <Button
+              variant="outlined"
+              startIcon={<IconRefresh size={18} />}
+              onClick={() => load()}
+              disabled={loading}
+            >
+              Rafraîchir
+            </Button>
+          }
+        />
 
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>

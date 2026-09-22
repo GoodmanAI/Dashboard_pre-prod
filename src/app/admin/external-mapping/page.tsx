@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -186,14 +187,11 @@ export default function ExternalMappingPage() {
   }
 
   return (
-    <Box sx={{ p: 4 }}>
-      <Typography variant="h4" sx={{ mb: 1, color: "#34495E", fontWeight: 600 }}>
-        Identifiants externes
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        Tous les identifiants sous lesquels un centre est connu des autres
-        briques, réunis ici.
-      </Typography>
+    <Box>
+      <SectionHeader
+        title="Identifiants externes"
+        subtitle="Tous les identifiants sous lesquels un centre est connu des autres briques, réunis ici."
+      />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         <strong>Codes RIS</strong> : les codes employés par le logiciel métier
         via AI2Xplore. Un centre peut en avoir plusieurs ; chacun est unique au
