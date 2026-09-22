@@ -343,7 +343,7 @@ export default function MappingExamensKonnect() {
 
   if (chargement) {
     return (
-      <PageContainer title="Mapping d'examens" description="Correspondance avec votre RIS">
+      <PageContainer title="Correspondance des examens" description="Correspondance avec votre RIS">
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress sx={{ color: BRAND }} />
         </Box>
@@ -354,7 +354,7 @@ export default function MappingExamensKonnect() {
   const visibles = filtrees.slice(page * PAR_PAGE, page * PAR_PAGE + PAR_PAGE);
 
   return (
-    <PageContainer title="Mapping d'examens" description="Correspondance avec votre RIS">
+    <PageContainer title="Correspondance des examens" description="Correspondance avec votre RIS">
       <Box>
         <SectionHeader
           title="Correspondance des examens"

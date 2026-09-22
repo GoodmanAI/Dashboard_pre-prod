@@ -780,7 +780,7 @@ const AdminOverviewPage = () => {
   }
 
   return (
-    <PageContainer title="Admin Overview" description="Centres actifs">
+    <PageContainer title="Vue d'ensemble" description="Centres actifs">
       <Box>
         <Grid container spacing={3}>
           <Grid item xs={12} lg={8}>
