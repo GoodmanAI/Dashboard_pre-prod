@@ -106,7 +106,7 @@ export default function CreateAccountDialog({
           : `Le sous-compte ${data.user.email} est créé.`
       );
     } catch (e: any) {
-      setError(e?.message ?? "Erreur inconnue");
+      setError(e?.message ?? "Le compte n'a pas été créé. Réessayez dans un instant.");
     } finally {
       setSubmitting(false);
     }

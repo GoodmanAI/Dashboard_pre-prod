@@ -2420,7 +2420,7 @@ const AnalyticsInternalPage = () => {
         setData(json);
       } catch (err: any) {
         if (err?.name === "AbortError") return;
-        setError(err?.message || "Erreur de chargement");
+        setError(err?.message || "Les données n'ont pas pu être chargées. Vérifiez votre connexion et rechargez la page.");
       } finally {
         setLoading(false);
       }

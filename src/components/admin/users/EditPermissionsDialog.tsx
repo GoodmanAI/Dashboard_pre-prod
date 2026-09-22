@@ -73,7 +73,7 @@ export default function EditPermissionsDialog({ user, onClose, onSuccess }: Prop
         `Permissions mises à jour pour ${user.email}. Le compte devra se reconnecter pour les voir.`
       );
     } catch (e: any) {
-      setError(e?.message ?? "Erreur inconnue");
+      setError(e?.message ?? "Les permissions n'ont pas été enregistrées. Réessayez dans un instant.");
     } finally {
       setSubmitting(false);
     }

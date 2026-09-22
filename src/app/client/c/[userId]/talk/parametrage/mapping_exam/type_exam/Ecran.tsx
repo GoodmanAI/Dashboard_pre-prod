@@ -140,7 +140,7 @@ export default function EditTypeExam({ params }: TalkPageProps) {
       } catch {
         setSnack({
           open: true,
-          message: "Erreur de chargement",
+          message: "Les types d'examens n'ont pas pu être chargés. Rechargez la page.",
           severity: "error",
         });
       } finally {

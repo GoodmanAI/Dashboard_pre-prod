@@ -683,7 +683,7 @@ export default function PlanningCompletPage({ params }: Props) {
         setExamNonPris(j2 as ExamNonPrisResponse);
       } catch (err: any) {
         if (err?.name === "AbortError") return;
-        setError(err?.message || "Erreur de chargement");
+        setError(err?.message || "Les données n'ont pas pu être chargées. Vérifiez votre connexion et rechargez la page.");
       } finally {
         setLoading(false);
       }

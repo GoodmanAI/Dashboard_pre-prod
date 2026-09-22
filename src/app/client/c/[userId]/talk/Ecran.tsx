@@ -11,6 +11,7 @@ import {
   Skeleton,
   Chip,
   Divider,
+  Alert,
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -127,6 +128,9 @@ export default function TalkPage({ params }: TalkPageProps) {
   const [previewData, setPreviewData] = useState<PreviewPoint[]>([]);
   const [loadingPreview, setLoadingPreview] = useState<boolean>(true);
   const [mounted, setMounted] = useState(false);
+  // Une erreur de chargement des appels se dit : des tuiles à zéro feraient croire à une
+  // journée sans appel.
+  const [erreurAppels, setErreurAppels] = useState<string | null>(null);
   useEffect(() => setMounted(true), []);
 
   // Redirige si non authentifié
@@ -171,6 +175,7 @@ export default function TalkPage({ params }: TalkPageProps) {
       try {
         setLoadingCounts(true);
         setLoadingPreview(true);
+        setErreurAppels(null);
 
         // La journée est celle du navigateur : le « aujourd'hui » d'une secrétaire est
         // celui de son fuseau, pas celui du serveur.
@@ -211,6 +216,9 @@ export default function TalkPage({ params }: TalkPageProps) {
         if (!isAbortError(e)) {
           setCallsCountByIntent(intents.map(() => 0));
           setPreviewData([]);
+          setErreurAppels(
+            "Les appels du jour n'ont pas pu être chargés : les chiffres ci-dessous ne sont pas à jour. Rechargez la page."
+          );
         }
       } finally {
         setLoadingCounts(false);
@@ -358,6 +366,12 @@ export default function TalkPage({ params }: TalkPageProps) {
             title="Vue d'ensemble"
             subtitle="Service vocal · 24 dernières heures"
           />
+
+          {erreurAppels && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {erreurAppels}
+            </Alert>
+          )}
 
           {/* === Row 1 : KPI tiles === */}
           <Grid container spacing={2} sx={{ mb: 3 }}>

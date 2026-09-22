@@ -133,7 +133,7 @@ export default function RejectedPrescriptionsPanel({
       const data = await res.json();
       setItems(Array.isArray(data.items) ? data.items : []);
     } catch (e: any) {
-      setError(e?.message ?? "Erreur de chargement");
+      setError(e?.message ?? "Les ordonnances refusées n'ont pas pu être chargées. Rechargez la page.");
     } finally {
       setLoading(false);
     }
@@ -165,7 +165,7 @@ export default function RejectedPrescriptionsPanel({
       setSnack({ msg: "Ordonnance marquée comme traitée.", kind: "success" });
       setItems((prev) => prev.filter((it) => it.id !== id));
     } catch (e: any) {
-      setSnack({ msg: e?.message ?? "Erreur", kind: "error" });
+      setSnack({ msg: e?.message ?? "L'ordonnance n'a pas été marquée comme traitée. Réessayez dans un instant.", kind: "error" });
     } finally {
       setResolving((prev) => {
         const next = new Set(prev);

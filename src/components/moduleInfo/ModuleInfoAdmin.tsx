@@ -95,7 +95,7 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
       setItems(Array.isArray(data.items) ? data.items : []);
       setVersion(data.version ?? null);
     } catch (e: any) {
-      setError(e?.message ?? "Erreur de chargement");
+      setError(e?.message ?? "Les questions n'ont pas pu être chargées. Rechargez la page.");
     } finally {
       setLoading(false);
     }
@@ -173,7 +173,7 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
       await load();
       flashSaved(item.id);
     } catch (e: any) {
-      setSnack({ msg: e?.message ?? "Erreur", kind: "error" });
+      setSnack({ msg: e?.message ?? "La question n'a pas été enregistrée. Réessayez dans un instant.", kind: "error" });
       load();
     }
   };

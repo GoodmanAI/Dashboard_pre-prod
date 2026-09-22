@@ -89,9 +89,9 @@ export default function AdminProfilePage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Une erreur est survenue.");
+        setError(data.error || "Le mot de passe n'a pas été modifié. Vérifiez le mot de passe actuel et réessayez.");
       } else {
-        setSuccess(data.message || "Mot de passe modifie avec succes.");
+        setSuccess(data.message || "Mot de passe modifié.");
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");

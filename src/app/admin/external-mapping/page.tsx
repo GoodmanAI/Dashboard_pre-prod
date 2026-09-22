@@ -89,7 +89,7 @@ export default function ExternalMappingPage() {
         Object.fromEntries(fusionnees.map((r) => [r.userProductId, r.tenantId ?? ""]))
       );
     } catch (e: any) {
-      setError(e.message || "Erreur de chargement");
+      setError(e.message || "Les données n'ont pas pu être chargées. Vérifiez votre connexion et rechargez la page.");
     } finally {
       setLoading(false);
     }
