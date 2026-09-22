@@ -175,7 +175,7 @@ export default function SmsBookingConfirmationCard({
           setEnabled(prev);
           setError(
             data?.error ??
-              "Impossible de desactiver : des ordonnances sont actives."
+              "Ce SMS ne peut pas être désactivé tant que le dépôt d'ordonnance est actif : il porte le lien de dépôt."
           );
           return;
         }
@@ -195,7 +195,7 @@ export default function SmsBookingConfirmationCard({
   const switchDisabled = saving || (prescriptionLocked && enabled);
 
   const tooltipTitle = prescriptionLocked
-    ? `Verrouille sur ON : ordonnances actives pour ${prescriptionLabels}. Le lien de depot patient est envoye dans ce SMS. Desactivez d'abord les ordonnances pour pouvoir eteindre ce reglage.`
+    ? `Toujours actif : le dépôt d'ordonnance est en service pour ${prescriptionLabels}, et ce SMS porte le lien de dépôt. Désactivez d'abord le dépôt d'ordonnance.`
     : "";
 
   return (
@@ -205,7 +205,7 @@ export default function SmsBookingConfirmationCard({
           <Typography variant="h6">Confirmation de RDV par SMS</Typography>
           <Chip
             size="small"
-            label={enabled ? "Active" : "Desactive"}
+            label={enabled ? "Activé" : "Désactivé"}
             sx={{
               bgcolor: enabled ? "rgba(var(--accent-rgb), 0.15)" : "rgba(0,0,0,0.06)",
               color: enabled ? "var(--accent-deep)" : "text.secondary",
@@ -228,11 +228,11 @@ export default function SmsBookingConfirmationCard({
                   variant="outlined"
                   sx={{ borderColor: "rgba(var(--accent-rgb), 0.4)" }}
                 >
-                  Ce reglage est <strong>verrouille sur ON</strong> car des
-                  ordonnances sont actives pour : <strong>{prescriptionLabels}</strong>.
-                  Le lien de depot patient est inclus dans ce SMS. Pour pouvoir
-                  desactiver, desactivez d&apos;abord les ordonnances concernees
-                  dans la carte &laquo; Depot d&apos;ordonnance patient &raquo;.
+                  Ce réglage reste <strong>toujours actif</strong> car le dépôt
+                  d&apos;ordonnance est en service pour : <strong>{prescriptionLabels}</strong>.
+                  Ce SMS porte le lien de dépôt du patient. Pour pouvoir le
+                  désactiver, désactivez d&apos;abord le dépôt pour ces examens
+                  dans la carte &laquo; Dépôt d&apos;ordonnance patient &raquo;.
                 </Alert>
               )}
 

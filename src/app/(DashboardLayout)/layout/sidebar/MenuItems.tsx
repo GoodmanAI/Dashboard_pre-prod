@@ -80,7 +80,7 @@ const Menuitems: SidebarItem[] = [
   { navlabel: true, subheader: "Configuration" },
    {
     id: uniqueId(),
-    title: "Mapping des examens",
+    title: "Correspondance des examens",
     icon: IconFilePencil,
     href: "/client/c/{USER_ID}/talk/parametrage/mapping_exam",
   },
@@ -92,7 +92,7 @@ const Menuitems: SidebarItem[] = [
   },
   {
     id: uniqueId(),
-    title: "Module informationnel",
+    title: "Questions fréquentes",
     icon: IconQuestionMark,
     href: "/client/c/{USER_ID}/talk/informationnel",
   },
@@ -123,7 +123,7 @@ const Menuitems: SidebarItem[] = [
   },
   {
     id: uniqueId(),
-    title: "Stats No-Show",
+    title: "Rendez-vous non honorés",
     icon: IconMessage2,
     href: "/client/c/{USER_ID}/talk/stats-no-show",
   },
@@ -177,13 +177,13 @@ export const AdminMenuitems: SidebarItem[] = [
   { navlabel: true, subheader: "Admin" },
   {
     id: uniqueId(),
-    title: "Overview",
+    title: "Vue d'ensemble",
     icon: IconDashboard,
     href: "/admin/overview",
   },
   {
     id: uniqueId(),
-    title: "Stats produit",
+    title: "Statistiques produit",
     icon: IconChartHistogram,
     href: "/admin/analytics-internal",
   },
@@ -285,7 +285,7 @@ export const AdminMenuitems: SidebarItem[] = [
   { navlabel: true, subheader: "Client" },
   {
     id: uniqueId(),
-    title: "Mapping des examens",
+    title: "Correspondance des examens",
     icon: IconFilePencil,
     href: "/client/c/{USER_ID}/talk/parametrage/mapping_exam",
   },
@@ -297,7 +297,7 @@ export const AdminMenuitems: SidebarItem[] = [
   },
   {
     id: uniqueId(),
-    title: "Module informationnel",
+    title: "Questions fréquentes",
     icon: IconQuestionMark,
     href: "/client/c/{USER_ID}/talk/informationnel",
   },
@@ -327,7 +327,7 @@ export const AdminMenuitems: SidebarItem[] = [
   },
   {
     id: uniqueId(),
-    title: "Stats No-Show",
+    title: "Rendez-vous non honorés",
     icon: IconMessage2,
     href: "/client/c/{USER_ID}/talk/stats-no-show",
   },
@@ -380,7 +380,7 @@ export const KonnectMenuitems: SidebarItem[] = [
   },
   {
     id: uniqueId(),
-    title: "Mapping d'examens",
+    title: "Correspondance des examens",
     icon: IconListDetails,
     href: "/client/c/{USER_ID}/konnect/examens",
   },

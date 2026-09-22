@@ -326,6 +326,10 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   pages `calls`, `incidents` ou `stats_appel`. **`dashboard` n'en fait plus partie depuis
   le 18/09/2026** : il y avait été ajouté le 16/09 pour que l'accueil n'affiche pas zéro,
   et donnait de fait les appels du centre à quiconque lisait la réponse réseau.
+- **`champs=stats`** (18/09/2026), avec `mode=all` : les lignes partent **sans `steps`** (la
+  transcription). Pour les écrans qui ne lisent que `createdAt` et `stats` (statistiques
+  d'appels, vue d'ensemble admin). Même droit que les lignes. Sans le paramètre, la
+  réponse est inchangée.
 - **`mode=agregat`** (18/09/2026) rend des comptes, jamais de ligne : `jour` (total,
   urgences, rdvPris, indice) entre `jourDebut` et `jourFin` fournis par le navigateur,
   `parJour` (quatorze derniers jours avec appels) et `total` entre `from` et `to`. Il

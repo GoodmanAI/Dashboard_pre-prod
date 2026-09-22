@@ -20,6 +20,12 @@ import { IconDeviceFloppy } from "@tabler/icons-react";
  * un champ obligatoire vide). Le texte est affiché à la place du compteur, et le
  * bouton reste éteint : l'utilisateur voit pourquoi il ne peut pas enregistrer,
  * plutôt qu'un bouton mort sans explication.
+ *
+ * `modifications` accepte un booléen pour les écrans qui savent seulement qu'il y
+ * a du changement (comparaison d'un instantané), sans pouvoir le compter.
+ * `actions` porte les boutons propres à l'écran (un renvoi vers un écran voisin),
+ * posés avant le bouton d'enregistrement. `lectureSeule` retire le compteur et
+ * l'enregistrement : il ne reste que les actions, ou rien s'il n'y en a pas.
  */
 
 const INK_MUTED = "#5A6B7B";
@@ -28,7 +34,8 @@ const SURFACE = "#FFFFFF";
 const DANGER = "#B3261E";
 
 type Props = {
-  modifications: number;
+  /** Nombre de modifications en attente, ou `true` quand l'écran ne sait pas les compter. */
+  modifications: number | boolean;
   enregistrement: boolean;
   onEnregistrer: () => void;
   onAnnuler?: () => void;
@@ -36,6 +43,10 @@ type Props = {
   blocage?: string | null;
   /** Texte du bouton au repos. Par défaut « Enregistrer ». */
   libelle?: string;
+  /** Boutons propres à l'écran, posés avant « Enregistrer ». */
+  actions?: React.ReactNode;
+  /** L'utilisateur n'a pas le droit d'écrire : seules les actions restent. */
+  lectureSeule?: boolean;
 };
 
 export default function BarreEnregistrement({
@@ -45,9 +56,17 @@ export default function BarreEnregistrement({
   onAnnuler,
   blocage,
   libelle = "Enregistrer",
+  actions,
+  lectureSeule = false,
 }: Props) {
   const bloque = Boolean(blocage);
-  const rienAFaire = modifications === 0;
+  const rienAFaire = !modifications;
+  const compteur =
+    typeof modifications === "number"
+      ? `${modifications} modif.`
+      : "Modifications en attente";
+
+  if (lectureSeule && !actions) return null;
 
   return (
     <Box
@@ -65,18 +84,25 @@ export default function BarreEnregistrement({
         py: 1.25,
         boxShadow: "0 10px 30px rgba(15, 42, 63, 0.10)",
         alignItems: "center",
+        // Ancrée à droite sans largeur maximale, elle dépassait par la gauche sur
+        // un petit écran, hors de toute barre de défilement.
+        flexWrap: "wrap",
+        justifyContent: "flex-end",
         maxWidth: "min(560px, calc(100vw - 48px))",
       }}
     >
-      {bloque ? (
+      {lectureSeule ? null : bloque ? (
         <Typography variant="body2" sx={{ color: DANGER, fontWeight: 500 }}>
           {blocage}
         </Typography>
       ) : (
-        modifications > 0 && (
+        !rienAFaire && (
           <>
-            <Typography variant="body2" sx={{ color: INK_MUTED, fontWeight: 500 }}>
-              {modifications} modif.
+            <Typography
+              variant="body2"
+              sx={{ color: INK_MUTED, fontWeight: 500 }}
+            >
+              {compteur}
             </Typography>
             {onAnnuler && (
               <Button
@@ -96,32 +122,36 @@ export default function BarreEnregistrement({
         )
       )}
 
-      <Button
-        size="small"
-        variant="contained"
-        disableElevation
-        startIcon={
-          enregistrement ? (
-            <CircularProgress size={14} sx={{ color: "#fff" }} />
-          ) : (
-            <IconDeviceFloppy size={15} />
-          )
-        }
-        onClick={onEnregistrer}
-        disabled={enregistrement || rienAFaire || bloque}
-        sx={{
-          bgcolor: "var(--accent)",
-          color: "#fff",
-          fontWeight: 600,
-          textTransform: "none",
-          px: 2.5,
-          whiteSpace: "nowrap",
-          "&:hover": { bgcolor: "var(--accent-press)" },
-          "&.Mui-disabled": { bgcolor: "#D5DFE5", color: "#8FA0AE" },
-        }}
-      >
-        {enregistrement ? "Enregistrement en cours" : libelle}
-      </Button>
+      {actions}
+
+      {!lectureSeule && (
+        <Button
+          size="small"
+          variant="contained"
+          disableElevation
+          startIcon={
+            enregistrement ? (
+              <CircularProgress size={14} sx={{ color: "#fff" }} />
+            ) : (
+              <IconDeviceFloppy size={15} />
+            )
+          }
+          onClick={onEnregistrer}
+          disabled={enregistrement || rienAFaire || bloque}
+          sx={{
+            bgcolor: "var(--accent)",
+            color: "#fff",
+            fontWeight: 600,
+            textTransform: "none",
+            px: 2.5,
+            whiteSpace: "nowrap",
+            "&:hover": { bgcolor: "var(--accent-press)" },
+            "&.Mui-disabled": { bgcolor: "#D5DFE5", color: "#8FA0AE" },
+          }}
+        >
+          {enregistrement ? "Enregistrement en cours" : libelle}
+        </Button>
+      )}
     </Box>
   );
 }

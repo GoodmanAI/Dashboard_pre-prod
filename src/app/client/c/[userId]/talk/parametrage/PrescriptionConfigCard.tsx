@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -57,11 +57,21 @@ const DEFAULT_ALERT_HOURS = 48;
 const MIN_ALERT_HOURS = 1;
 const MAX_ALERT_HOURS = 720;
 
-export default function PrescriptionConfigCard({
-  userProductId,
-}: {
-  userProductId: number;
-}) {
+/** Ce que l'écran parent pilote depuis sa barre d'enregistrement. */
+export type PrescriptionConfigHandle = {
+  /** Rend `false` si rien n'a été enregistré (validation ou erreur serveur). */
+  enregistrer: () => Promise<boolean>;
+};
+
+/**
+ * La carte n'a pas de bouton à elle : elle signale ses modifications par
+ * `onDirtyChange`, et c'est la barre d'enregistrement de l'écran qui appelle
+ * `enregistrer()`. Un seul bouton par écran, toujours au même endroit.
+ */
+const PrescriptionConfigCard = forwardRef<
+  PrescriptionConfigHandle,
+  { userProductId: number; onDirtyChange?: (dirty: boolean) => void }
+>(function PrescriptionConfigCard({ userProductId, onDirtyChange }, ref) {
   // Le même droit que celui qu'exige la route (`PARAMETRAGE` en écriture). Ce bloc
   // lisait le booléen hérité `isSecretary` : un sous-compte en lecture seule voyait donc
   // des champs actifs, que le serveur refusait ensuite à l'enregistrement.
@@ -117,15 +127,19 @@ export default function PrescriptionConfigCard({
     setDirty(true);
   }, []);
 
-  const handleSave = useCallback(async () => {
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
+  const handleSave = useCallback(async (): Promise<boolean> => {
     const hoursNum = parseInt(alertAfterHours, 10);
     if (!Number.isFinite(hoursNum) || hoursNum < MIN_ALERT_HOURS || hoursNum > MAX_ALERT_HOURS) {
       setSnack({
         open: true,
-        msg: `Le delai doit etre entre ${MIN_ALERT_HOURS} et ${MAX_ALERT_HOURS} heures.`,
+        msg: `Le délai d'alerte des ordonnances doit être entre ${MIN_ALERT_HOURS} et ${MAX_ALERT_HOURS} heures.`,
         sev: "error",
       });
-      return;
+      return false;
     }
 
     setSaving(true);
@@ -156,19 +170,27 @@ export default function PrescriptionConfigCard({
           .join(", ");
         setSnack({
           open: true,
-          msg: `Configuration enregistree. Confirmation SMS auto-activee pour : ${labels}.`,
+          msg: `Ordonnances enregistrées. La confirmation par SMS a été activée pour : ${labels}.`,
           sev: "success",
         });
       } else {
-        setSnack({ open: true, msg: "Configuration enregistree.", sev: "success" });
+        setSnack({ open: true, msg: "Ordonnances enregistrées.", sev: "success" });
       }
+      return true;
     } catch (err) {
       console.error("[PrescriptionConfigCard] save failed:", err);
-      setSnack({ open: true, msg: "Echec de l'enregistrement.", sev: "error" });
+      setSnack({
+        open: true,
+        msg: "Les ordonnances n'ont pas été enregistrées. Réessayez dans un instant.",
+        sev: "error",
+      });
+      return false;
     } finally {
       setSaving(false);
     }
   }, [alertAfterHours, enabledExamTypes, userProductId]);
+
+  useImperativeHandle(ref, () => ({ enregistrer: handleSave }), [handleSave]);
 
   const enabledCount = Object.values(enabledExamTypes).filter(Boolean).length;
 
@@ -262,35 +284,6 @@ export default function PrescriptionConfigCard({
                 size="small"
               />
             </Box>
-
-            {!readOnly && dirty && (
-              <Alert severity="warning" sx={{ borderRadius: 2 }}>
-                Vous avez des modifications non enregistrees. Cliquez sur &laquo;
-                Enregistrer &raquo; ci-dessous pour valider.
-              </Alert>
-            )}
-
-            {!readOnly && (
-              <Box>
-                <button
-                  type="button"
-                  disabled={!dirty || saving}
-                  onClick={handleSave}
-                  style={{
-                    padding: "8px 20px",
-                    borderRadius: 6,
-                    border: "none",
-                    backgroundColor: !dirty || saving ? "#CFE9E1" : "var(--accent)",
-                    color: "#FFF",
-                    fontWeight: 600,
-                    cursor: !dirty || saving ? "default" : "pointer",
-                    fontSize: 14,
-                  }}
-                >
-                  {saving ? "Enregistrement..." : "Enregistrer la configuration ordonnance"}
-                </button>
-              </Box>
-            )}
           </Stack>
         )}
 
@@ -312,4 +305,6 @@ export default function PrescriptionConfigCard({
       </AccordionDetails>
     </Accordion>
   );
-}
+});
+
+export default PrescriptionConfigCard;

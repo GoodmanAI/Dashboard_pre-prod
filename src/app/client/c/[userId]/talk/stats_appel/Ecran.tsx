@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
@@ -621,10 +622,6 @@ export default function StatsAppelPage({ params }: any) {
   const [previousCalls, setPreviousCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Distribution par sous-centre
-  const [centresCounts, setCentresCounts] = useState<Array<{ id: number; name: string; count: number }>>([]);
-  const [loadingCentres, setLoadingCentres] = useState(false);
-
   // Date range state - CORRIGÉ : déplacé avant les useEffect
   const [dateRange, setDateRange] = useState<DateRange>(() => {
     const today = new Date();
@@ -634,14 +631,7 @@ export default function StatsAppelPage({ params }: any) {
     };
   });
   const [dateRangeDraft, setDateRangeDraft] = useState<DateRange>(dateRange);
-  const anchorRef = useRef<string | null>(null);
   const reqSeqRef = useRef(0);
-
-  useEffect(() => {
-    if (!anchorRef.current) {
-      anchorRef.current = new Date().toISOString();
-    }
-  }, []);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -655,23 +645,21 @@ export default function StatsAppelPage({ params }: any) {
     return sid && Number.isFinite(Number(sid)) ? Number(sid) : null;
   }, [centres.length, selectedUserId, session?.user?.id]);
 
-  const daysAgoForRange = useMemo(() => {
-    const diff =
-      (dateRange.to.getTime() - dateRange.from.getTime()) /
-      (1000 * 60 * 60 * 24);
+  /**
+   * Période de comparaison N-1 dérivée du dateRange courant.
+   * `null` pour les ranges d'1 jour (delta non pertinent).
+   */
+  const previousRange = useMemo(
+    () => computePreviousRange(dateRange.from, dateRange.to),
+    [dateRange.from, dateRange.to]
+  );
 
-    return Math.max(1, Math.ceil(diff));
-  }, [dateRange]);
-
-  // Fetch principal
+  // Un seul appel pour la période et sa période de comparaison, borné aux dates
+  // affichées et sans les transcriptions (`champs=stats`). Avant le 18/09/2026 l'écran
+  // demandait TOUT l'historique du centre, transcriptions comprises, filtrait les dates
+  // dans le navigateur, et refaisait la même requête à chaque changement de période.
   useEffect(() => {
     if (status !== "authenticated") return;
-
-    if ((centres.length > 0 && !effectiveUserId) || !effectiveUserId) {
-      setCalls([]);
-      setLoading(false);
-      return;
-    }
 
     const seq = ++reqSeqRef.current;
     const controller = new AbortController();
@@ -680,58 +668,42 @@ export default function StatsAppelPage({ params }: any) {
       try {
         setLoading(true);
 
+        // Date minimum : toujours 00:00. Date maximum : maintenant si c'est aujourd'hui,
+        // sinon la fin de la journée.
+        const fromDate = new Date(dateRange.from);
+        fromDate.setHours(0, 0, 0, 0);
+        const toDate = new Date(dateRange.to);
+        const nowDate = new Date();
+        if (toDate.toDateString() === nowDate.toDateString()) {
+          toDate.setTime(nowDate.getTime());
+        } else {
+          toDate.setHours(23, 59, 59, 999);
+        }
+
         const params = new URLSearchParams({
-          daysAgo: String(daysAgoForRange),
-          demo: "1",
-          demoDays: "35",
-          anchor: anchorRef.current as string,
-          asUserId: String(effectiveUserId),
-          demoPreserveDow: "1",
+          userProductId: String(userProductId),
+          mode: "all",
+          champs: "stats",
+          from: fromDate.toISOString(),
+          to: toDate.toISOString(),
         });
+        if (previousRange) {
+          params.set("previousFrom", previousRange.from.toISOString());
+          params.set("previousTo", previousRange.to.toISOString());
+        }
 
-        const callsUrl = `/api/calls?${params.toString()}&userProductId=${userProductId}&mode=all`;
-
-        const callsRes = await fetch(callsUrl, {
+        const res = await fetch(`/api/calls?${params.toString()}`, {
           signal: controller.signal,
           cache: "no-store",
           headers: { "Cache-Control": "no-store" },
         });
-
-        const response = await callsRes.json();
-
-        // === NORMALISATION DES BORNES ===
-        const nowDate = new Date();
-
-        // Date minimum → toujours 00:00
-        const fromDate = new Date(dateRange.from);
-        fromDate.setHours(0, 0, 0, 0);
-
-        // Date maximum
-        const toDate = new Date(dateRange.to);
-
-        // Si la date max est aujourd’hui → heure actuelle
-        const isToday =
-          toDate.toDateString() === nowDate.toDateString();
-
-        if (isToday) {
-          toDate.setTime(nowDate.getTime());
-        } else {
-          // Sinon → fin de journée
-          toDate.setHours(23, 59, 59, 999);
-        }
-
-        const fromTime = fromDate.getTime();
-        const toTime = toDate.getTime();
-
-        const filteredCalls = response.filter((call: any) => {
-          const callTime = new Date(call.createdAt).getTime();
-          return callTime >= fromTime && callTime <= toTime;
-        });
-
-        setCalls(filteredCalls);
-
+        const reponse = await res.json();
         if (reqSeqRef.current !== seq) return;
 
+        // Tableau simple, ou { data, previous } quand la comparaison est demandée.
+        const courante = Array.isArray(reponse) ? reponse : (reponse?.data ?? []);
+        setCalls(Array.isArray(courante) ? courante : []);
+        setPreviousCalls(Array.isArray(reponse?.previous) ? reponse.previous : []);
       } catch (e) {
         if (!isAbortError(e)) {
           console.error("Erreur lors du fetch des appels:", e);
@@ -742,54 +714,7 @@ export default function StatsAppelPage({ params }: any) {
     })();
 
     return () => controller.abort();
-  }, [status, centres.length, effectiveUserId, dateRange, userProductId, daysAgoForRange]);
-
-  /**
-   * Période de comparaison N-1 dérivée du dateRange courant.
-   * `null` pour les ranges d'1 jour (delta non pertinent).
-   */
-  const previousRange = useMemo(
-    () => computePreviousRange(dateRange.from, dateRange.to),
-    [dateRange.from, dateRange.to]
-  );
-
-  /**
-   * Fetch des appels de la période précédente — pour calcul des deltas vs N-1
-   * sur les tuiles KPI. Pas exécuté si `previousRange` est null (single day).
-   * Utilise le mécanisme `from`/`to` existant côté backend.
-   */
-  useEffect(() => {
-    if (!effectiveUserId || !previousRange) {
-      setPreviousCalls([]);
-      return;
-    }
-    const controller = new AbortController();
-    (async () => {
-      try {
-        const params = new URLSearchParams({
-          userProductId: String(userProductId),
-          mode: "all",
-          from: previousRange.from.toISOString(),
-          to: previousRange.to.toISOString(),
-          asUserId: String(effectiveUserId),
-        });
-        const res = await fetch(`/api/calls?${params.toString()}`, {
-          signal: controller.signal,
-          cache: "no-store",
-          headers: { "Cache-Control": "no-store" },
-        });
-        const data = await res.json();
-        // Mode all renvoie un array (ou { data, previous } si includePrevious).
-        const list = Array.isArray(data) ? data : data?.data ?? [];
-        setPreviousCalls(list);
-      } catch (e) {
-        if (!isAbortError(e)) {
-          console.error("Erreur fetch appels période précédente :", e);
-        }
-      }
-    })();
-    return () => controller.abort();
-  }, [effectiveUserId, userProductId, previousRange]);
+  }, [status, dateRange, previousRange, userProductId]);
 
   useEffect(() => {
     (async () => {
@@ -893,75 +818,6 @@ export default function StatsAppelPage({ params }: any) {
     return () => controller.abort();
   }, [effectiveUserId, userProductId, previousRange]);
   
-  // Fetch sous-centres (ADMIN)
-  useEffect(() => {
-    if (status !== "authenticated") return;
-
-    if (centres.length === 0) {
-      setCentresCounts([]);
-      return;
-    }
-
-    const controller = new AbortController();
-    let aborted = false;
-
-    (async () => {
-      try {
-        setLoadingCentres(true);
-
-        const daysAgo = daysAgoForRange;
-
-        const results = await Promise.all(
-          (centres as any[]).map(async (c: any) => {
-            const id = Number(c?.id);
-            if (!Number.isFinite(id)) {
-              return { id: -1, name: "Centre inconnu", count: 0 };
-            }
-
-            const name =
-              c?.name ?? c?.label ?? c?.title ?? c?.user?.name ?? `Centre ${id}`;
-
-            const params = new URLSearchParams({
-              daysAgo: String(daysAgo),
-              demo: "1",
-              demoDays: "35",
-              anchor: anchorRef.current as string,
-              asUserId: String(id),
-              demoPreserveDow: "1",
-            });
-
-            try {
-              const res = await fetch(`/api/calls?${params.toString()}&mode=all`, {
-                signal: controller.signal,
-                cache: "no-store",
-                headers: { "Cache-Control": "no-store" },
-              });
-
-              if (!res.ok) return { id, name, count: 0 };
-
-              const list: Call[] = await res.json();
-              return { id, name, count: Array.isArray(list) ? list.length : 0 };
-            } catch (e) {
-              if (isAbortError(e)) return { id, name, count: 0 };
-              return { id, name, count: 0 };
-            }
-          })
-        );
-
-        if (!aborted) {
-          setCentresCounts(results.filter((r) => r.id !== -1));
-        }
-      } finally {
-        if (!aborted) setLoadingCentres(false);
-      }
-    })();
-
-    return () => {
-      aborted = true;
-      controller.abort();
-    };
-  }, [status, centres, dateRange, daysAgoForRange]);
-
   /* ========== Stats tuiles ========== */
   const totalAppels = calls.length;
   const nbRDV = useMemo(() => {
@@ -1729,38 +1585,20 @@ export default function StatsAppelPage({ params }: any) {
   }
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-      {/* En-tête */}
-      <Box
-        sx={{
-          mb: 2,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 2,
-          flexWrap: "wrap",
-        }}
-      >
-        <Box>
-          <Typography variant="h4" fontWeight={800}>
-            Statistiques d&apos;appels
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Analyse personnalisable par période
-          </Typography>
-        </Box>
+    <Box>
+      <SectionHeader
+        title="Statistiques d'appels"
+        subtitle="Ce que LyraeTalk a fait des appels du centre, sur la période de votre choix."
+        retour={{ libelle: "Retour à LyraeTalk", href: basePath }}
+      />
+      {/* Barre d'outils : période et export */}
+      <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
           <DateRangePresets range={dateRange} onChange={setDateRange} />
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Button
               variant="outlined"
               onClick={(e) => setAnchorEl(e.currentTarget)}
-              sx={{
-                borderColor: "#48C8AF",
-                color: "#48C8AF",
-                textTransform: "none",
-                fontWeight: 600,
-              }}
             >
               Du {dateRange.from.toLocaleDateString()} au{" "}
               {dateRange.to.toLocaleDateString()}
@@ -1850,19 +1688,6 @@ export default function StatsAppelPage({ params }: any) {
             }}
           >
             Télécharger CSV
-          </Button>
-
-          <Button
-            variant="outlined"
-            onClick={() => router.push(`${basePath}`)}
-            sx={{
-              borderColor: "#48C8AF",
-              color: "#48C8AF",
-              "&:hover": { backgroundColor: "rgba(72,200,175,0.08)" },
-              textTransform: "none",
-            }}
-          >
-            ← Retour à Talk
           </Button>
         </Box>
       </Box>

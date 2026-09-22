@@ -1,5 +1,6 @@
 "use client";
 
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Alert,
@@ -34,13 +35,13 @@ import {
   IconArrowLeft,
   IconCircleCheck,
   IconClock,
-  IconDeviceFloppy,
   IconSearch,
   IconSettings,
   IconX,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useTalkBasePath } from "@/utils/talkRoutes";
@@ -827,108 +828,44 @@ export default function MappingExam({ params }: TalkPageProps) {
         </Box>
       )}
 
-      {/* -------- Sticky action bar en bas -------- */}
-      <Box
-        sx={{
-          position: "fixed",
-          bottom: 16,
-          right: 24,
-          zIndex: 10,
-          display: "flex",
-          gap: 1.5,
-          bgcolor: SURFACE,
-          border: `1px solid ${BORDER}`,
-          borderRadius: 3,
-          px: 2,
-          py: 1.25,
-          boxShadow: "0 10px 30px rgba(15, 42, 63, 0.10)",
-          alignItems: "center",
-          // Meme garde-fou que `BarreEnregistrement`, la barre equivalente de
-          // Konnect : ancree a droite sans largeur maximale, elle depassait par la
-          // GAUCHE de l'ecran sur un petit ecran, hors de toute barre de defilement.
-          flexWrap: "wrap",
-          justifyContent: "flex-end",
-          maxWidth: "min(560px, calc(100vw - 48px))",
-        }}
-      >
-        {dirtyCount > 0 && !readOnly && (
-          <>
-            <Typography variant="body2" sx={{ color: INK_MUTED, fontWeight: 500 }}>
-              {dirtyCount} modif.
-            </Typography>
+      <BarreEnregistrement
+        modifications={dirtyCount}
+        enregistrement={saving}
+        onEnregistrer={handleSave}
+        onAnnuler={handleReset}
+        lectureSeule={readOnly}
+        actions={
             <Button
-              onClick={handleReset}
-              disabled={saving}
               size="small"
+              variant="outlined"
+              startIcon={<IconSettings size={15} />}
+              onClick={() => {
+                // router.push() est programmatique -> pas intercepte par le guard.
+                // On confirme manuellement puis on disable() pour eviter un double
+                // prompt lors de l'unmount.
+                if (dirtyCount > 0) {
+                  const ok = confirm(
+                    `Vous avez ${dirtyCount} modification${
+                      dirtyCount > 1 ? "s" : ""
+                    } non enregistrée${dirtyCount > 1 ? "s" : ""}. Continuer sans sauvegarder ?`
+                  );
+                  if (!ok) return;
+                }
+                guard.disable();
+                router.push(`${basePath}/parametrage/mapping_exam/type_exam`);
+              }}
+              disabled={saving}
               sx={{
                 textTransform: "none",
-                color: INK_MUTED,
-                "&:hover": { color: DANGER },
+                borderColor: BORDER,
+                color: INK,
+                "&:hover": { borderColor: BRAND, color: BRAND, bgcolor: SURFACE_HOVER },
               }}
             >
-              Annuler
+              {readOnly ? "Types d'examens" : "Modifier types"}
             </Button>
-          </>
-        )}
-
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<IconSettings size={15} />}
-          onClick={() => {
-            // router.push() est programmatique -> pas intercepte par le guard.
-            // On confirme manuellement puis on disable() pour eviter un double
-            // prompt lors de l'unmount.
-            if (dirtyCount > 0) {
-              const ok = confirm(
-                `Vous avez ${dirtyCount} modification${
-                  dirtyCount > 1 ? "s" : ""
-                } non enregistrée${dirtyCount > 1 ? "s" : ""}. Continuer sans sauvegarder ?`
-              );
-              if (!ok) return;
-            }
-            guard.disable();
-            router.push(`${basePath}/parametrage/mapping_exam/type_exam`);
-          }}
-          disabled={saving}
-          sx={{
-            textTransform: "none",
-            borderColor: BORDER,
-            color: INK,
-            "&:hover": { borderColor: BRAND, color: BRAND, bgcolor: SURFACE_HOVER },
-          }}
-        >
-          {readOnly ? "Types d'examens" : "Modifier types"}
-        </Button>
-
-        {!readOnly && (
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={
-              saving ? (
-                <CircularProgress size={14} sx={{ color: "#fff" }} />
-              ) : (
-                <IconDeviceFloppy size={15} />
-              )
-            }
-            onClick={handleSave}
-            disabled={saving || dirtyCount === 0}
-            disableElevation
-            sx={{
-              bgcolor: BRAND,
-              color: "#fff",
-              fontWeight: 600,
-              textTransform: "none",
-              px: 2.5,
-              "&:hover": { bgcolor: BRAND_DARK },
-              "&.Mui-disabled": { bgcolor: "#D5DFE5", color: "#8FA0AE" },
-            }}
-          >
-            {saving ? "Enregistrement…" : "Enregistrer"}
-          </Button>
-        )}
-      </Box>
+        }
+      />
 
       <Portal>
         <Snackbar

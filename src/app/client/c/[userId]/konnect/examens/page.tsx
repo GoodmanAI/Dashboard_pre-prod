@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -354,15 +355,17 @@ export default function MappingExamensKonnect() {
   return (
     <PageContainer title="Mapping d'examens" description="Correspondance avec votre RIS">
       <Box>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: INK, mb: 0.5 }}>
-          Mapping d&apos;examens
-        </Typography>
-        <Typography variant="body2" sx={{ color: INK_MUTED, mb: 2.5 }}>
-          À gauche, notre référentiel. À droite, les codes de{" "}
-          <strong>votre logiciel de gestion</strong> : ce sont eux qui servent à créer
-          le rendez-vous, ils doivent correspondre exactement. Un examen sans code
-          n&apos;est pas proposé au patient.
-        </Typography>
+        <SectionHeader
+          title="Correspondance des examens"
+          subtitle={
+            <>
+              À gauche, notre référentiel. À droite, les codes de{" "}
+              <strong>votre logiciel de gestion</strong> : ce sont eux qui servent à créer
+              le rendez-vous, ils doivent correspondre exactement. Un examen sans code
+              n&apos;est pas proposé au patient.
+            </>
+          }
+        />
 
         <Alert severity="info" icon={false} sx={{ mb: 2.5 }}>
           <Typography sx={{ fontSize: 13, fontWeight: 600, color: INK, mb: 0.5 }}>

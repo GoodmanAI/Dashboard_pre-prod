@@ -688,7 +688,7 @@ const AdminOverviewPage = () => {
         try {
           const url =
             `/api/calls?userProductId=${centre.userProductId}` +
-            `&mode=all&from=${range.from.toISOString()}&to=${range.to.toISOString()}`;
+            `&mode=all&champs=stats&from=${range.from.toISOString()}&to=${range.to.toISOString()}`;
           const res = await fetch(url, { signal: controller.signal });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
@@ -703,7 +703,7 @@ const AdminOverviewPage = () => {
           if (!activeIds.has(centre.userProductId)) return;
           setCentresData((prev) => ({
             ...prev,
-            [centre.userProductId]: { calls: [], loading: false, error: "Erreur" },
+            [centre.userProductId]: { calls: [], loading: false, error: "Les appels de ce centre n'ont pas pu être chargés." },
           }));
         }
       })();

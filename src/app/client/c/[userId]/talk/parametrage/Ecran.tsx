@@ -1,5 +1,6 @@
 "use client";
 
+import SectionHeader from "@/components/admin/SectionHeader";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   Box,
@@ -43,21 +44,23 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import SaveIcon from "@mui/icons-material/Save";
+import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import PauseIcon from "@mui/icons-material/Pause";
 import VolumeUpIcon from "@mui/icons-material/VolumeUp";
 import { useRouter } from "next/navigation";
-import { IconChevronLeft } from "@tabler/icons-react";
 import { useCentre } from "@/app/context/CentreContext";
 import { useTalkBasePath } from "@/utils/talkRoutes";
-import { useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import SmsConfirmationConfigCard from "./SmsConfirmationConfigCard";
 import SmsBookingConfirmationCard from "./SmsBookingConfirmationCard";
-import PrescriptionConfigCard from "./PrescriptionConfigCard";
+import PrescriptionConfigCard, {
+  type PrescriptionConfigHandle,
+} from "./PrescriptionConfigCard";
 
 type ExamKey = "radiographie" | "irm" | "echographie" | "scanner" | "mammo";
 type VoiceKey = "femme" | "homme" | "neutre";
@@ -670,10 +673,26 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
     return snapshotRef.current !== JSON.stringify({ settings, doubleExamsMapping });
   }, [settings, doubleExamsMapping]);
 
-  useUnsavedChangesGuard(isDirty, {
+  // La carte « Ordonnances » a sa propre route d'enregistrement, mais pas son propre
+  // bouton : la barre de l'écran enregistre les deux, chacun seulement s'il a changé.
+  const ordonnancesRef = useRef<PrescriptionConfigHandle>(null);
+  const [ordonnancesModifiees, setOrdonnancesModifiees] = useState(false);
+  const [ordonnancesEnCours, setOrdonnancesEnCours] = useState(false);
+
+  useUnsavedChangesGuard(isDirty || ordonnancesModifiees, {
     message:
       "Vous avez modifié le paramétrage. Voulez-vous vraiment quitter sans sauvegarder ?",
   });
+
+  const enregistrerTout = async () => {
+    if (ordonnancesModifiees) {
+      setOrdonnancesEnCours(true);
+      const ok = await ordonnancesRef.current?.enregistrer();
+      setOrdonnancesEnCours(false);
+      if (!ok) return;
+    }
+    if (isDirty) await handleSave();
+  };
 
   const handleSave = async () => {
     if (!settings.botName.trim()) {
@@ -715,41 +734,12 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   };
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#F8F8F8", minHeight: "100vh" }}>
-      {/* En-tête */}
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
-        <Typography variant="h4">Paramétrage Talk</Typography>
-        <Box sx={{ display: "flex", gap: 1 }}>
-          {userProductId &&
-            <Button
-              variant="outlined"
-              startIcon={<IconChevronLeft size={18} />}
-              onClick={() => router.push(`${basePath}`)}
-              sx={{
-                borderColor: "var(--accent)",
-                color: "var(--accent)",
-                "&:hover": { backgroundColor: "rgba(var(--accent-rgb), 0.08)" },
-              }}
-            >
-              Retour à Talk
-            </Button>
-          }
-          {!readOnly && (
-            <Button
-              variant="contained"
-              startIcon={<SaveIcon />}
-              onClick={handleSave}
-              disabled={saving}
-              sx={{
-                backgroundColor: "var(--accent)",
-                "&:hover": { backgroundColor: "#3bb49d" },
-              }}
-            >
-              Enregistrer
-            </Button>
-          )}
-        </Box>
-      </Box>
+    <Box>
+      <SectionHeader
+        title="Paramètres généraux"
+        subtitle="La voix, l'accueil, les horaires et les examens pris en charge par LyraeTalk pour ce centre."
+        retour={userProductId ? { libelle: "Retour à LyraeTalk", href: basePath } : undefined}
+      />
 
       {readOnly && (
         <Alert severity="info" sx={{ mb: 2 }}>
@@ -1249,7 +1239,11 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       <SmsConfirmationConfigCard userProductId={Number(params.id)} />
 
       {/* Depot d'ordonnance patient (lien dans le SMS de confirmation) */}
-      <PrescriptionConfigCard userProductId={Number(params.id)} />
+      <PrescriptionConfigCard
+        ref={ordonnancesRef}
+        userProductId={Number(params.id)}
+        onDirtyChange={setOrdonnancesModifiees}
+      />
 
       {/* Options */}
       <Accordion>
@@ -1653,37 +1647,12 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
 
       </Box>
 
-      {/* Barre d’action */}
-      {!readOnly && (
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={1}
-          sx={{
-            position: "sticky",
-            bottom: 0,
-            bgcolor: "rgba(248,248,248,0.9)",
-            backdropFilter: "blur(6px)",
-            py: 1.5,
-            px: 2,
-            mt: 2,
-            borderTop: "1px solid #eee",
-            justifyContent: "flex-end",
-          }}
-        >
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            onClick={handleSave}
-            disabled={saving}
-            sx={{
-              backgroundColor: "var(--accent)",
-              "&:hover": { backgroundColor: "#3bb49d" },
-            }}
-          >
-            Enregistrer
-          </Button>
-        </Stack>
-      )}
+      <BarreEnregistrement
+        modifications={isDirty || ordonnancesModifiees}
+        enregistrement={saving || ordonnancesEnCours}
+        onEnregistrer={enregistrerTout}
+        lectureSeule={readOnly}
+      />
 
       <Snackbar
         open={snack.open}
