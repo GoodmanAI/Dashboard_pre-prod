@@ -278,7 +278,7 @@ export default function SmsConfirmationConfigCard({
           <Typography variant="body2" color="text.secondary">
             Sélectionnez les types d&apos;examens pour lesquels un SMS de
             rappel sera envoyé au patient avant son rendez-vous (pour limiter
-            les no-show), et indiquez les numéros de poste Xplore concernés
+            les no-show), et indiquez les numéros de poste concernés dans votre logiciel de gestion
             pour chaque type activé.
           </Typography>
 
@@ -293,7 +293,7 @@ export default function SmsConfirmationConfigCard({
                   <TableRow>
                     <TableCell padding="checkbox" />
                     <TableCell>Type d&apos;examen</TableCell>
-                    <TableCell>Postes Xplore (séparés par une virgule)</TableCell>
+                    <TableCell>Postes (séparés par une virgule)</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>

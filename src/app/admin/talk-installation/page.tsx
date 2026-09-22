@@ -291,7 +291,7 @@ export default function InstallationTalk() {
     <PageContainer title="Installation Talk" description="Installer un centre">
       <Box>
         <SectionHeader
-          title="Installation d'un centre"
+          title="Installation LyraeTalk d'un centre"
           subtitle="Ce qu'il faut faire une fois pour que le robot réponde"
         />
 

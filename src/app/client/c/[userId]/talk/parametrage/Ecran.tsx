@@ -1281,7 +1281,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                   <Typography variant="subtitle1">Motif</Typography>
                   <Typography variant="body2" color="text.secondary">
                     Demande le motif écrit sur l’ordonnance. 
-                    Il sera noté dans le champ commentaire Xplore.
+                    Il sera noté dans le commentaire du rendez-vous, dans votre logiciel de gestion.
                   </Typography>
                 </Box>
 
@@ -1307,7 +1307,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                   <Typography variant="body2" color="text.secondary">
                     Pose les questions en fin de prise de rendez-vous 
                     pour aider à la préparation de l’examen.
-                    Les réponses seront inscrites dans le champ commentaire Xplore.
+                    Les réponses seront notées dans le commentaire du rendez-vous, dans votre logiciel de gestion.
                   </Typography>
                 </Box>
 
@@ -1457,11 +1457,11 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               icon={<IconInfoCircle size={18} />}
               sx={{ mb: 2, borderColor: "rgba(var(--accent-rgb), 0.4)" }}
             >
-              Indiquez quelles combinaisons de deux examens votre centre gère, et
-              comment votre système Xplore doit les traiter :
+              Indiquez quelles combinaisons de deux examens votre centre prend en charge,
+              et comment les créer dans votre logiciel de gestion :
               <br />
-              <strong>Single</strong> : 1 seul examen Xplore avec commentaire.
-              <strong> Double</strong> : 2 examens distincts créés dans Xplore.
+              <strong>Un seul rendez-vous</strong> : le second examen est noté dans le commentaire.
+              <strong> Deux rendez-vous</strong> : un par examen.
             </Alert>
 
             <TableContainer
@@ -1490,7 +1490,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                   >
                     <TableCell>Combinaison</TableCell>
                     <TableCell align="center" sx={{ width: 120 }}>Activé</TableCell>
-                    <TableCell align="center" sx={{ width: 260 }}>Mode Xplore</TableCell>
+                    <TableCell align="center" sx={{ width: 260 }}>Dans votre logiciel</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -1576,11 +1576,11 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                               },
                             }}
                           >
-                            <Tooltip title="1 seul RDV Xplore, les 2 examens dans le commentaire" arrow>
-                              <ToggleButton value="single">Single</ToggleButton>
+                            <Tooltip title="Un seul rendez-vous, les deux examens dans le commentaire" arrow>
+                              <ToggleButton value="single">Un rendez-vous</ToggleButton>
                             </Tooltip>
-                            <Tooltip title="2 RDV Xplore distincts, un par examen" arrow>
-                              <ToggleButton value="double">Double</ToggleButton>
+                            <Tooltip title="Deux rendez-vous distincts, un par examen" arrow>
+                              <ToggleButton value="double">Deux rendez-vous</ToggleButton>
                             </Tooltip>
                           </ToggleButtonGroup>
                         </TableCell>
@@ -1618,7 +1618,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               <Alert severity="warning" variant="outlined">
                 Cocher cette case désactive complètement LyraeTalk pour ce centre.
                 Tous les appels seront <strong>transférés directement</strong> sans
-                passer par le bot. Une confirmation vous sera demandée à
+                passer par LyraeTalk. Une confirmation vous sera demandée à
                 l&apos;enregistrement.
               </Alert>
               <FormControlLabel
@@ -1686,7 +1686,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           </DialogContentText>
           <Alert severity="warning" sx={{ my: 2 }}>
             Tous les appels entrants seront <strong>transférés directement</strong> sans
-            passer par le bot. Aucune prise de rendez-vous, aucune identification patient,
+            passer par LyraeTalk. Aucune prise de rendez-vous, aucune identification patient,
             aucune redirection automatique ne sera assurée par LyraeTalk tant que le service
             restera désactivé.
           </Alert>

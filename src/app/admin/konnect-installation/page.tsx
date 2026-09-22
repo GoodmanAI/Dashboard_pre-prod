@@ -326,7 +326,7 @@ export default function InstallationKonnect() {
     <PageContainer title="Installation Konnect" description="Installer un centre">
       <Box>
         <SectionHeader
-          title="Installation d'un centre"
+          title="Installation Konnect d'un centre"
           subtitle="Ce qu'il faut faire une fois pour qu'un portail fonctionne"
         />
 
