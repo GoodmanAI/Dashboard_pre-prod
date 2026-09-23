@@ -40,8 +40,21 @@ export default function DialogConfirmation({
   onAnnuler: () => void;
 }) {
   return (
-    <Dialog open={ouvert} onClose={enCours ? undefined : onAnnuler} maxWidth="xs" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700 }}>{titre}</DialogTitle>
+    <Dialog
+      open={ouvert}
+      onClose={enCours ? undefined : onAnnuler}
+      maxWidth="xs"
+      fullWidth
+      // Même arrondi et même ombre que les cartes de l'application : un dialogue du
+      // site, pas une fenêtre du navigateur.
+      PaperProps={{
+        sx: {
+          borderRadius: 3,
+          boxShadow: "0 18px 50px rgba(15, 42, 63, 0.22)",
+        },
+      }}
+    >
+      <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>{titre}</DialogTitle>
       <DialogContent>
         <DialogContentText component="div">{texte}</DialogContentText>
       </DialogContent>
