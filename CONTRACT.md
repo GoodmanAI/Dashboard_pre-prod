@@ -332,6 +332,12 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   transcription). Pour les écrans qui ne lisent que `createdAt` et `stats` (statistiques
   d'appels, vue d'ensemble admin). Même droit que les lignes. Sans le paramètre, la
   réponse est inchangée.
+- **`stats.internal` ne part plus** (23/09/2026). Les mesures que le robot pose sur
+  lui-même (identification, STT, performances d'API) sont retirées de toutes les lignes
+  rendues par cette route : elles pesaient les deux tiers de la réponse, et seul l'écran
+  d'analyse interne les lit, par sa propre route (`/api/admin/analytics-internal`, qui
+  interroge la base directement). La **pagination** ne charge plus non plus les `steps`
+  de toute la plage, seulement ceux des lignes de la page rendue.
 - **`mode=agregat`** (18/09/2026) rend des comptes, jamais de ligne : `jour` (total,
   urgences, rdvPris, indice) entre `jourDebut` et `jourFin` fournis par le navigateur,
   `parJour` (quatorze derniers jours avec appels) et `total` entre `from` et `to`. Il

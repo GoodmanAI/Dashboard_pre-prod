@@ -31,13 +31,44 @@ function canonicalPhoneFR(p: string | null | undefined): string {
  * `{}` par défaut et non un tableau, d'où le `CASE` (PostgreSQL ne garantit pas l'ordre
  * d'évaluation d'un `AND`, et `jsonb_array_length` échoue sur un objet).
  */
+/**
+ * `stats.internal` : les mesures que le robot pose sur lui-même (identification, STT,
+ * performances d'API). Seul l'écran d'analyse interne les lit, et il a sa propre route.
+ *
+ * Mesuré en production le 23/09/2026 sur le plus gros centre : cette seule clé pèse les
+ * DEUX TIERS de la réponse (7 jours : 5,6 Mo dont 3,7 pour `internal` ; une recherche par
+ * téléphone remontait 98 Mo). On ne l'envoie plus aux écrans.
+ */
+function sansMesuresInternes(ligne: any): any {
+  const stats = ligne?.stats;
+  if (!stats || typeof stats !== "object" || !("internal" in stats)) return ligne;
+  const { internal: _internal, ...reste } = stats as Record<string, unknown>;
+  return { ...ligne, stats: reste };
+}
+
+/**
+ * Rend à ces lignes leur transcription : la liste en affiche les deux premiers échanges.
+ * Une requête pour les dix lignes d'une page, au lieu de les traîner sur toute la plage.
+ */
+async function avecTranscriptions(lignes: any[]): Promise<any[]> {
+  if (lignes.length === 0 || lignes[0]?.steps !== undefined) return lignes;
+  const steps = await prisma.callConversation.findMany({
+    where: { id: { in: lignes.map((c) => c.id) } },
+    select: { id: true, steps: true },
+  });
+  const parId = new Map(steps.map((s) => [s.id, s.steps]));
+  return lignes.map((c) => ({ ...c, steps: parId.get(c.id) ?? {} }));
+}
+
 async function lireAppels(where: any, sansTranscription: boolean): Promise<any[]> {
   if (!sansTranscription) {
     const lignes = await prisma.callConversation.findMany({
       where,
       orderBy: { createdAt: "desc" },
     });
-    return lignes.filter((c: any) => Array.isArray(c.steps) && c.steps.length > 1);
+    return lignes
+      .filter((c: any) => Array.isArray(c.steps) && c.steps.length > 1)
+      .map(sansMesuresInternes);
   }
 
   const depuis: Date = where.createdAt?.gte ?? new Date(0);
@@ -70,9 +101,9 @@ async function lireAppels(where: any, sansTranscription: boolean): Promise<any[]
       }))
     );
   }
-  return lignes.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  return lignes
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .map(sansMesuresInternes);
 }
 
 export async function GET(request: NextRequest) {
@@ -354,7 +385,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-        let calls: any[] = await lireAppels(whereClause, sansTranscription);
+        // La liste des appels n'affiche qu'une page de dix lignes, mais le filtrage se
+        // fait encore en mémoire : on lit toute la plage SANS les transcriptions, et on
+        // ne les charge que pour les lignes retenues (plus bas). Avant le 23/09/2026 la
+        // plage entière partait avec ses transcriptions, et une recherche par téléphone
+        // (cinq ans) en chargeait 14 Mo pour en afficher dix.
+        const modePagine = mode !== "all";
+        let calls: any[] = await lireAppels(whereClause, sansTranscription || modePagine);
 
     if (statusParam === "hung_up") {
       calls = calls.filter((c: any) => {
@@ -457,7 +494,7 @@ export async function GET(request: NextRequest) {
     }
 
     const total = calls.length;
-    const paginatedCalls = calls.slice(skip, skip + limit);
+    const paginatedCalls = await avecTranscriptions(calls.slice(skip, skip + limit));
 
     if (examType) {
       // `stats.exam_type_id` porte le code du LOGICIEL DU CENTRE, pas le code
@@ -486,7 +523,7 @@ export async function GET(request: NextRequest) {
         const codes = Array.isArray(id) ? id : [id];
         return codes.some((c: unknown) => codesScannerIrm.has(String(c)));
       });
-      const examPaginatedCalls = scannersCalls.slice(skip, skip + limit);
+      const examPaginatedCalls = await avecTranscriptions(scannersCalls.slice(skip, skip + limit));
 
       return NextResponse.json(
         {
