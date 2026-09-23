@@ -63,15 +63,36 @@ export async function GET(req: NextRequest) {
     // Charge en parallèle : (1) les appels de la période, (2) le mapping
     // ris_code → libellé via TalkSettings.exams (clé `codeExamenClient` =
     // ris_code envoyé par le bot, valeur `libelle` = nom human-readable).
+    // Les DEUX champs lus, extraits par PostgreSQL, au lieu de tout `stats`.
+    //
+    // Mesuré en production le 23/09/2026 sur le plus gros centre : `stats` entier pèse
+    // 4,5 Mo sur 7 jours et 22 Mo sur 30 jours, dont 6,6 Ko servent ici. Le reste est
+    // surtout `stats.internal`, les mesures du robot sur lui-même, qu'aucun écran de
+    // planning ne regarde. Tout cela traversait le réseau et passait par `JSON.parse`
+    // avant d'être jeté.
+    //
+    // `->>` rend NULL quand la clé manque, ce que la boucle traite déjà (`if (!code)`).
+    //
+    // Les bornes partent en TEXTE ISO castées en `timestamp`, jamais en objet `Date` :
+    // `CallConversation."createdAt"` est un `timestamp without time zone` qui porte de
+    // l'UTC, et un paramètre `Date` de `$queryRaw` est lu par PostgreSQL dans le fuseau
+    // du serveur (Europe/Paris). Mesuré le 23/09/2026 : deux heures d'appels manquaient
+    // à chaque borne, soit 18 lignes sur 7 297. Le cast explicite ignore le fuseau et
+    // compare bien de l'UTC à de l'UTC, comme le fait Prisma en mode ORM.
     const [calls, talkSettings] = await Promise.all([
-      prisma.callConversation.findMany({
-        where: {
-          userProductId,
-          createdAt: { gte: from, lte: to },
-        },
-        select: { id: true, createdAt: true, stats: true },
-        orderBy: { createdAt: "desc" },
-      }),
+      prisma.$queryRaw<
+        { id: number; createdAt: Date; no_slot_api_retrieve: string | null; rdv_status: string | null }[]
+      >`
+        SELECT id,
+               "createdAt",
+               stats->>'no_slot_api_retrieve' AS no_slot_api_retrieve,
+               stats->>'rdv_status'           AS rdv_status
+        FROM "CallConversation"
+        WHERE "userProductId" = ${userProductId}
+          AND "createdAt" >= ${from.toISOString()}::timestamp
+          AND "createdAt" <= ${to.toISOString()}::timestamp
+        ORDER BY "createdAt" DESC
+      `,
       prisma.talkSettings.findUnique({
         where: { userProductId },
         select: { exams: true },
@@ -151,15 +172,15 @@ export async function GET(req: NextRequest) {
     const typeByDay = new Map<string, Record<string, number>>();
 
     for (const c of calls) {
-      const stats = (c.stats as any) || {};
-      const code = stats.no_slot_api_retrieve;
-      // Le champ contient soit un ris_code (string non vide), soit est absent.
-      // On tolère le legacy `true` ou autres valeurs truthy non-string en les
-      // bucketant comme "Sans code" (rétrocompat avec les anciens enregistrements).
+      const code = c.no_slot_api_retrieve;
+      // Le champ contient soit un ris_code, soit rien. `->>` rend aussi la chaîne d'un
+      // legacy `true` : elle tombe dans "Sans code", comme avant (rétrocompat avec les
+      // anciens enregistrements).
       if (!code) continue;
 
-      const examCode = typeof code === "string" && code.trim() !== "" ? code.trim() : "__unknown__";
-      const status = stats.rdv_status as string | undefined;
+      const examCode =
+        code.trim() !== "" && code !== "true" && code !== "false" ? code.trim() : "__unknown__";
+      const status = c.rdv_status ?? undefined;
       const iso = new Date(c.createdAt).toISOString();
 
       // Catégorisation :
