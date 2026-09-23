@@ -100,8 +100,10 @@ plus : c'est le même libellé, plus long.
 
 Le 18/09/2026, le corps gagne deux champs optionnels. `motif` : une valeur parmi
 `examen_non_reservable` (défaut), `plusieurs_examens`, `ordonnance_illisible`,
-`examen_non_trouve`, `aucun_creneau`, `incident_reservation`, `contre_indication` ; un
-motif inconnu est refusé en 400. Ce sont des énumérations : en ajouter, jamais en renommer
+`examen_non_trouve`, `aucun_creneau`, `incident_reservation`, `contre_indication`, et
+depuis le 23/09/2026 `ordonnance_a_rattacher` (le rendez-vous est pris, l'ordonnance n'a
+pas pu être rattachée au logiciel du centre : la secrétaire l'attache à la main par le
+lien) ; un motif inconnu est refusé en 400. Ce sont des énumérations : en ajouter, jamais en renommer
 (`src/lib/konnectDemandesRappel.ts`). La priorité est déduite par le Dashboard
 (`contre_indication` passe en tête de file), jamais fournie par Konnect. `lienOrdonnance` :
 une adresse https vers l'ordonnance dans Konnect, à durée de vie limitée ; le fichier reste
