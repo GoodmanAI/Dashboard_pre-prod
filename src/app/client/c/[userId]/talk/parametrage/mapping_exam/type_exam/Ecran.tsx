@@ -17,10 +17,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import {
-  IconArrowLeft,
-  IconInfoCircle,
-} from "@tabler/icons-react";
+import { IconArrowLeft, IconInfoCircle } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -124,7 +121,7 @@ export default function EditTypeExam({ params }: TalkPageProps) {
       setLoading(true);
       try {
         const res = await fetch(
-          `/api/configuration/mapping/type_exam?userProductId=${userProductId}`
+          `/api/configuration/mapping/type_exam?userProductId=${userProductId}`,
         );
         const data = await res.json();
         // On part de EXAM_LIST, pas de ce que renvoie l'API : le type d'une
@@ -136,14 +133,15 @@ export default function EditTypeExam({ params }: TalkPageProps) {
               fr: label,
               diminutif: data?.[typeCode]?.diminutif ?? typeCode,
             },
-          ])
+          ]),
         );
         setMapping(mapped);
         setOriginalMapping(JSON.parse(JSON.stringify(mapped)));
       } catch {
         setSnack({
           open: true,
-          message: "Les types d'examens n'ont pas pu être chargés. Rechargez la page.",
+          message:
+            "Les types d'examens n'ont pas pu être chargés. Rechargez la page.",
           severity: "error",
         });
       } finally {
@@ -161,9 +159,9 @@ export default function EditTypeExam({ params }: TalkPageProps) {
   }, [mapping, originalMapping]);
 
   const guard = useUnsavedChangesGuard(dirtyCount > 0, {
-    message: `Vous avez ${dirtyCount} modification${
+    message: `Vos ${dirtyCount} modification${dirtyCount > 1 ? "s" : ""} non enregistrée${
       dirtyCount > 1 ? "s" : ""
-    } non enregistrée${dirtyCount > 1 ? "s" : ""}. Voulez-vous vraiment quitter sans sauvegarder ?`,
+    } seront perdues.`,
   });
 
   const handleChange = (code: string, value: string) => {
@@ -195,7 +193,7 @@ export default function EditTypeExam({ params }: TalkPageProps) {
           method: "POST",
           body: JSON.stringify(mapping),
           headers: { "Content-Type": "application/json" },
-        }
+        },
       );
       if (!response.ok) throw new Error("Save failed");
       setOriginalMapping(JSON.parse(JSON.stringify(mapping)));
@@ -221,6 +219,7 @@ export default function EditTypeExam({ params }: TalkPageProps) {
 
   return (
     <Box sx={{ pb: 12, px: { xs: 2, sm: 3 }, py: 3 }}>
+      {guard.dialogue}
       {/* Header */}
       <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
         <IconButton
@@ -259,9 +258,9 @@ export default function EditTypeExam({ params }: TalkPageProps) {
             Diminutifs des types d&apos;examens
           </Typography>
           <Typography variant="body2" sx={{ color: INK_MUTED, mt: 0.25 }}>
-            Code court utilisé par le bot Lyrae pour identifier chaque
-            modalité d&apos;imagerie (radiographie, échographie…). Ces
-            diminutifs sont techniques et n&apos;apparaissent pas au patient.
+            Code court utilisé par le bot Lyrae pour identifier chaque modalité
+            d&apos;imagerie (radiographie, échographie…). Ces diminutifs sont
+            techniques et n&apos;apparaissent pas au patient.
           </Typography>
         </Box>
       </Stack>
@@ -452,11 +451,11 @@ export default function EditTypeExam({ params }: TalkPageProps) {
                 À quoi servent ces diminutifs ?
               </Typography>
               <Typography variant="caption" sx={{ color: INK_MUTED }}>
-                Le bot Lyrae les utilise en interne pour classer les demandes
-                de rendez-vous par modalité. Ils doivent rester courts (2 à 8
-                caractères, sans espaces) et cohérents avec ce que votre
-                système RIS/PACS utilise déjà. Les valeurs par défaut (US, MG,
-                RX, MR, CT) fonctionnent dans la grande majorité des cas.
+                Le bot Lyrae les utilise en interne pour classer les demandes de
+                rendez-vous par modalité. Ils doivent rester courts (2 à 8
+                caractères, sans espaces) et cohérents avec ce que votre système
+                RIS/PACS utilise déjà. Les valeurs par défaut (US, MG, RX, MR,
+                CT) fonctionnent dans la grande majorité des cas.
               </Typography>
             </Box>
           </Stack>
@@ -472,8 +471,8 @@ export default function EditTypeExam({ params }: TalkPageProps) {
       />
 
       <Portal>
-          {dialogue}
-      <Retour
+        {dialogue}
+        <Retour
           ouvert={snack.open}
           message={snack.message}
           gravite={snack.severity}
