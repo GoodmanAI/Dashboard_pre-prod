@@ -19,6 +19,10 @@ export const MOTIFS_RAPPEL = {
   aucun_creneau: { libelle: "Aucun créneau en ligne", urgent: false },
   incident_reservation: { libelle: "Problème pendant la réservation", urgent: false },
   contre_indication: { libelle: "Contre-indication à vérifier", urgent: true },
+  // 23/09/2026 : le rendez-vous est pris, mais l'ordonnance n'a pas pu être rattachée au
+  // logiciel du centre. Pas un rappel du patient : la secrétaire télécharge l'ordonnance
+  // par le lien et l'attache à la main. Même file, parce que c'est la seule.
+  ordonnance_a_rattacher: { libelle: "Ordonnance à rattacher au logiciel", urgent: false },
 } as const;
 
 export type MotifRappel = keyof typeof MOTIFS_RAPPEL;

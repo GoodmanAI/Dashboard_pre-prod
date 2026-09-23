@@ -37,6 +37,8 @@ type Funnel = {
   conversion_globale: number;
   abandons: number;
   sorties_humaines: number;
+  /** Rappels promis au patient que le portail n'a pas pu transmettre (23/09/2026). */
+  rappels_non_transmis?: number;
   etapes: Etape[];
 };
 
@@ -171,6 +173,16 @@ export default function StatistiquesKonnect() {
                 aide="demande à traiter au secrétariat"
               />
             </Stack>
+
+            {(funnel.rappels_non_transmis ?? 0) > 0 && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {funnel.rappels_non_transmis} patient
+                {funnel.rappels_non_transmis! > 1 ? "s ont" : " a"} lu « le secrétariat vous
+                rappelle » sans que la demande n&apos;arrive ici : le portail n&apos;a pas
+                pu la transmettre (numéro absent ou liaison coupée). Ces patients n&apos;ont
+                que le numéro du centre. Si le chiffre monte, prévenez le support.
+              </Alert>
+            )}
 
             {pireEtape && pireEtape.perdus > 0 && (
               <Alert severity="warning" sx={{ mb: 3 }}>
