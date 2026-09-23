@@ -73,11 +73,16 @@ async function lireAppels(where: any, sansTranscription: boolean): Promise<any[]
 
   const depuis: Date = where.createdAt?.gte ?? new Date(0);
   const jusqua: Date = where.createdAt?.lte ?? new Date();
+  // Bornes en TEXTE ISO castées en `timestamp`, jamais en objet `Date` : la colonne
+  // est un `timestamp without time zone` qui porte de l'UTC, et PostgreSQL lit un
+  // paramètre `Date` dans le fuseau du serveur (Europe/Paris). Sans ce cast, deux
+  // heures d'appels manquaient à la borne basse, et rien en aval ne les rattrapait
+  // (mesuré le 23/09/2026 : 18 lignes sur 7 297).
   const ids = await prisma.$queryRaw<{ id: number }[]>`
     SELECT id FROM "CallConversation"
     WHERE "userProductId" = ${where.userProductId}
-      AND "createdAt" >= ${depuis}
-      AND "createdAt" <= ${jusqua}
+      AND "createdAt" >= ${depuis.toISOString()}::timestamp
+      AND "createdAt" <= ${jusqua.toISOString()}::timestamp
       AND (CASE WHEN jsonb_typeof(steps::jsonb) = 'array' THEN jsonb_array_length(steps::jsonb) ELSE 0 END) > 1`;
   if (ids.length === 0) return [];
 
