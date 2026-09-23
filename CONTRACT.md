@@ -338,6 +338,15 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   d'analyse interne les lit, par sa propre route (`/api/admin/analytics-internal`, qui
   interroge la base directement). La **pagination** ne charge plus non plus les `steps`
   de toute la plage, seulement ceux des lignes de la page rendue.
+- **Bornes de date en SQL brut** (23/09/2026) : la sélection des identifiants compare
+  désormais `"createdAt"` à des chaînes ISO castées en `timestamp`, et non à des objets
+  `Date`. La colonne est un `timestamp without time zone` qui porte de l'UTC, que
+  PostgreSQL lisait dans le fuseau du serveur (Europe/Paris) : deux heures d'appels
+  manquaient à la borne basse, sans que rien en aval les rattrape (30 lignes sur 2 422
+  pour un mois du plus gros centre). Même règle pour
+  `GET /api/planning-complet/aggregate`, qui projette maintenant en SQL les deux seules
+  clés qu'il lit (`stats->>'no_slot_api_retrieve'`, `stats->>'rdv_status'`) au lieu de
+  charger tout `stats` : 22 Mo sur 30 jours contre 6,6 Ko utiles, et 2 500 ms contre 370.
 - **`mode=agregat`** (18/09/2026) rend des comptes, jamais de ligne : `jour` (total,
   urgences, rdvPris, indice) entre `jourDebut` et `jourFin` fournis par le navigateur,
   `parJour` (quatorze derniers jours avec appels) et `total` entre `from` et `to`. Il
