@@ -85,7 +85,10 @@ const DOUBLE_EXAMS: { key: string; label: string }[] = [
   { key: "mammographie_radio", label: "Mammographie + Radio" },
   { key: "mammographie_irm", label: "Mammographie + IRM" },
   { key: "mammographie_scanner", label: "Mammographie + Scanner" },
-  { key: "mammographie_echomammaire", label: "Mammographie + Échographie mammaire" },
+  {
+    key: "mammographie_echomammaire",
+    label: "Mammographie + Échographie mammaire",
+  },
   { key: "radio_radio", label: "Radio + Radio" },
   { key: "radio_irm", label: "Radio + IRM" },
   { key: "radio_scanner", label: "Radio + Scanner" },
@@ -97,7 +100,6 @@ type PlanningAction = {
   message?: string;
   phone?: string;
 };
-
 
 type TalkSettings = {
   voice: VoiceKey;
@@ -290,9 +292,9 @@ const VOICE_DEMOS: Array<{
 // }
 
 interface TalkPageProps {
-    params: {
-        id: string; // captured from the URL
-    };
+  params: {
+    id: string; // captured from the URL
+  };
 }
 
 function DayHoursField({
@@ -314,9 +316,7 @@ function DayHoursField({
         <Button
           variant="outlined"
           size="small"
-          onClick={() =>
-            onChange({ ...data, enabled: !data.enabled })
-          }
+          onClick={() => onChange({ ...data, enabled: !data.enabled })}
         >
           {data.enabled ? "Ouvert" : "Fermé"}
         </Button>
@@ -389,7 +389,10 @@ function DayHoursField({
  * longtemps valu « CHATEAUBERNARD » sans code postal. Mieux vaut afficher la
  * valeur dans le mauvais champ que la faire disparaître.
  */
-function separerAddress2(valeur: unknown): { codePostal: string; ville: string } {
+function separerAddress2(valeur: unknown): {
+  codePostal: string;
+  ville: string;
+} {
   const brut = typeof valeur === "string" ? valeur.trim() : "";
   const m = brut.match(/^(\d{5})\s*(.*)$/);
   if (m) return { codePostal: m[1], ville: m[2].trim() };
@@ -409,13 +412,20 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   // l'enregistrement. `useDroitPage` couvre les deux cas.
   const { peutEcrire, raisonLectureSeule } = useDroitPage(PAGES.PARAMETRAGE);
   const readOnly = !peutEcrire;
-  
+
   const [settings, setSettings] = useState<TalkSettings>(DEFAULTS);
   const [saving, setSaving] = useState(false);
   // Snapshot pris apres le premier chargement complet (settings + weeklyHours
   // + doubleExamsMapping). Set aussi apres chaque save reussi. Sert de base
   // de comparaison pour le dirty tracking du guard "unsaved changes".
-  const snapshotRef = useRef<string | null>(null);
+  // Ce que le serveur connaît, pour savoir s'il reste quelque chose à enregistrer.
+  //
+  // C'EST UN ÉTAT, PAS UNE REF (23/09/2026). En ref, le rafraîchir après un
+  // enregistrement ne provoquait aucun rendu : `isDirty` gardait sa valeur d'avant, la
+  // barre affichait « Modifications en attente » sur un écran pourtant à jour, et
+  // quitter la page réclamait une confirmation pour rien. La sauvegarde, elle, avait
+  // bien eu lieu : l'écran mentait, il ne perdait rien.
+  const [snapshot, setSnapshot] = useState<string | null>(null);
   const [confirmDisableOpen, setConfirmDisableOpen] = useState(false);
   const [snack, setSnack] = useState<{
     open: boolean;
@@ -447,10 +457,13 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
     (async () => {
       try {
         const res = await fetch(
-          `/api/configuration/mapping/double_exam?userProductId=${userProductId}`
+          `/api/configuration/mapping/double_exam?userProductId=${userProductId}`,
         );
         const data = await res.json();
-        const formatted: Record<string, { enabled: boolean; mode: "single" | "double" }> = {};
+        const formatted: Record<
+          string,
+          { enabled: boolean; mode: "single" | "double" }
+        > = {};
         for (const exam of DOUBLE_EXAMS) {
           formatted[exam.key] = {
             enabled: data?.[exam.key]?.enabled ?? false,
@@ -465,12 +478,13 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   }, [userProductId]);
 
   useEffect(() => {
-
     async function fetchSettings() {
       setLoaded(true);
       try {
         setLoading(true);
-        const res = await fetch(`/api/configuration?userProductId=${userProductId}`);
+        const res = await fetch(
+          `/api/configuration?userProductId=${userProductId}`,
+        );
         if (!res.ok) {
           console.error("Failed to load settings:", res.statusText);
           setLoading(false);
@@ -485,13 +499,10 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           fullPlanningNotes: Object.fromEntries(
             Object.entries(data.fullPlanningNotes || {}).map(([key, value]) => {
               if (typeof value === "string") {
-                return [
-                  key,
-                  { type: "fin_appel", message: value }
-                ];
+                return [key, { type: "fin_appel", message: value }];
               }
               return [key, value];
-            })
+            }),
           ) as Record<ExamKey, PlanningAction>,
         }));
 
@@ -510,7 +521,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         setLoading(false);
       }
     }
-    
+
     if (loaded == false) {
       fetchSettings();
     }
@@ -530,7 +541,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   useEffect(() => {
     async function loadWeeklyHours() {
       const res = await fetch(
-        `/api/configuration/informationnel/horaires?userProductId=${userProductId}`
+        `/api/configuration/informationnel/horaires?userProductId=${userProductId}`,
       );
       const json = await res.json();
 
@@ -552,18 +563,24 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
     setSettings((s) => ({ ...s, [key]: val }));
 
   const updateExamAccepted = (k: ExamKey, checked: boolean) =>
-    setSettings((s) => ({ ...s, examsAccepted: { ...s.examsAccepted, [k]: checked } }));
+    setSettings((s) => ({
+      ...s,
+      examsAccepted: { ...s.examsAccepted, [k]: checked },
+    }));
 
   const updateExamQuestions = (k: ExamKey, list: string[]) =>
-    setSettings((s) => ({ ...s, examQuestions: { ...s.examQuestions, [k]: list.slice(0, 3) } }));
+    setSettings((s) => ({
+      ...s,
+      examQuestions: { ...s.examQuestions, [k]: list.slice(0, 3) },
+    }));
 
   const handleSwitchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
       reconnaissance: event.target.checked,
     }));
   };
-  
+
   /**
    * Exécution effective du save. Séparé de `handleSave` pour pouvoir être
    * déclenché soit directement, soit après confirmation utilisateur quand le
@@ -575,7 +592,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
    * Cet écran envoie trois requêtes vers trois routes distinctes. Jusqu'au 16/09/2026,
    * aucune des trois ne testait `res.ok` : un refus du serveur (403 de droits, 500,
    * validation) laissait passer, et le `setSnack("Paramètres enregistrés")` qui suivait
-   * s'affichait quand même. Pire, `snapshotRef` était remis à jour, donc le garde-fou
+   * s'affichait quand même. Pire, le point de référence était remis à jour, donc le garde-fou
    * « vous avez des modifications non enregistrées » se taisait lui aussi. Le client
    * repartait convaincu d'avoir enregistré.
    *
@@ -590,7 +607,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
     const envoyer = async (
       quoi: string,
       url: string,
-      corps: unknown
+      corps: unknown,
     ): Promise<string | null> => {
       try {
         const res = await fetch(url, {
@@ -617,12 +634,12 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           envoyer(
             "les horaires",
             `/api/configuration/informationnel/horaires?userProductId=${userProductId}`,
-            { userProductId, weeklyHours: settings.weeklyHours }
+            { userProductId, weeklyHours: settings.weeklyHours },
           ),
           envoyer(
             "les doubles examens",
             `/api/configuration/mapping/double_exam?userProductId=${userProductId}`,
-            doubleExamsMapping
+            doubleExamsMapping,
           ),
         ])
       ).filter((x): x is string => x !== null);
@@ -633,8 +650,8 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           msg: `Rien n'a été perdu, mais ${echecs.join(", ")} n'ont pas pu être enregistrés. Réessayez, et prévenez votre administrateur si cela se reproduit.`,
           sev: "error",
         });
-        // Le snapshot n'est PAS rafraîchi : l'écran garde ses modifications et
-        // continue d'avertir avant de quitter la page.
+        // Le point de référence n'est PAS rafraîchi : l'écran garde ses modifications
+        // et continue d'avertir avant de quitter la page.
         return;
       }
 
@@ -643,8 +660,9 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         msg: "Paramètres enregistrés",
         sev: "success",
       });
-      // Refresh du snapshot -> le guard "unsaved" repart a zero
-      snapshotRef.current = JSON.stringify({ settings, doubleExamsMapping });
+      // Le point de référence devient ce qui vient d'être enregistré : la barre
+      // s'éteint, et le garde-fou de sortie se tait.
+      setSnapshot(JSON.stringify({ settings, doubleExamsMapping }));
     } catch {
       setSnack({ open: true, msg: "Échec de l’enregistrement.", sev: "error" });
     } finally {
@@ -658,20 +676,20 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   // moment. Les 2 loads de weeklyHours et doubleExams peuvent arriver apres
   // mais dans la pratique tres vite -> on tolere.
   useEffect(() => {
-    if (!loading && snapshotRef.current === null) {
+    if (!loading && snapshot === null) {
       // Petit delai pour laisser les autres useEffect de load pousser leurs
-      // updates dans settings avant qu'on ne fige le snapshot.
+      // updates dans settings avant qu'on ne fige le point de référence.
       const t = setTimeout(() => {
-        snapshotRef.current = JSON.stringify({ settings, doubleExamsMapping });
+        setSnapshot(JSON.stringify({ settings, doubleExamsMapping }));
       }, 400);
       return () => clearTimeout(t);
     }
-  }, [loading, settings, doubleExamsMapping]);
+  }, [loading, settings, doubleExamsMapping, snapshot]);
 
   const isDirty = useMemo(() => {
-    if (!snapshotRef.current) return false;
-    return snapshotRef.current !== JSON.stringify({ settings, doubleExamsMapping });
-  }, [settings, doubleExamsMapping]);
+    if (!snapshot) return false;
+    return snapshot !== JSON.stringify({ settings, doubleExamsMapping });
+  }, [settings, doubleExamsMapping, snapshot]);
 
   // La carte « Ordonnances » a sa propre route d'enregistrement, mais pas son propre
   // bouton : la barre de l'écran enregistre les deux, chacun seulement s'il a changé.
@@ -679,10 +697,13 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   const [ordonnancesModifiees, setOrdonnancesModifiees] = useState(false);
   const [ordonnancesEnCours, setOrdonnancesEnCours] = useState(false);
 
-  useUnsavedChangesGuard(isDirty || ordonnancesModifiees, {
-    message:
-      "Vous avez modifié le paramétrage. Voulez-vous vraiment quitter sans sauvegarder ?",
-  });
+  const { dialogue: dialogueSortie } = useUnsavedChangesGuard(
+    isDirty || ordonnancesModifiees,
+    {
+      message:
+        "Les modifications du paramétrage que vous n'avez pas enregistrées seront perdues.",
+    },
+  );
 
   const enregistrerTout = async () => {
     if (ordonnancesModifiees) {
@@ -696,7 +717,11 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
 
   const handleSave = async () => {
     if (!settings.botName.trim()) {
-      setSnack({ open: true, msg: "Le nom du chatbot est requis.", sev: "error" });
+      setSnack({
+        open: true,
+        msg: "Le nom du chatbot est requis.",
+        sev: "error",
+      });
       return;
     }
     // Si le service est désactivé (cochée), on demande confirmation avant de save
@@ -735,10 +760,15 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
 
   return (
     <Box>
+      {dialogueSortie}
       <SectionHeader
         title="Paramètres généraux"
         subtitle="La voix, l'accueil, les horaires et les examens pris en charge par LyraeTalk pour ce centre."
-        retour={userProductId ? { libelle: "Retour à LyraeTalk", href: basePath } : undefined}
+        retour={
+          userProductId
+            ? { libelle: "Retour à LyraeTalk", href: basePath }
+            : undefined
+        }
       />
 
       {readOnly && (
@@ -749,9 +779,15 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
 
       {/* Info centre */}
       <Card sx={{ borderRadius: 2, border: "1px solid #e0e0e0", mb: 2 }}>
-        <CardContent sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <CardContent
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <Typography variant="body2" color="text.secondary">
-            Paramètres pour le {" "}
+            Paramètres pour le{" "}
             <strong>{selectedCentre?.name ?? "compte"}</strong>.
           </Typography>
         </CardContent>
@@ -768,82 +804,102 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           "&:disabled": { opacity: 0.7 },
         }}
       >
-      {/* Préférences générales */}
-      <Accordion defaultExpanded>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6">Préférences générales</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Stack spacing={2}>
-            {/* Sélecteur de voix avec pré-écoute */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Choix de la voix
-              </Typography>
+        {/* Préférences générales */}
+        <Accordion defaultExpanded>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6">Préférences générales</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Stack spacing={2}>
+              {/* Sélecteur de voix avec pré-écoute */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Choix de la voix
+                </Typography>
 
-              <Stack
-                direction={{ xs: "column", md: "row" }}
-                spacing={2}
-                useFlexGap
-                flexWrap="wrap"
-              >
-                {VOICE_DEMOS.map((v) => {
-                  const checked = settings.voice === v.key;
-                  const playing = playingKey === v.key;
-                  return (
-                    <Card
-                      key={v.key}
-                      variant={checked ? "elevation" : "outlined"}
-                      sx={{
-                        flex: "1 1 280px",
-                        borderRadius: 2,
-                        borderColor: checked ? "var(--accent)" : "#e0e0e0",
-                        outline: checked ? "2px solid var(--accent)" : "none",
-                        transition: "outline-color .2s",
-                      }}
-                    >
-                      <CardContent sx={{ display: "grid", gap: 1 }}>
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <VolumeUpIcon fontSize="small" />
-                          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                            {v.label}
-                          </Typography>
-                          <Box sx={{ flex: 1 }} />
-                          <Radio
-                            checked={checked}
-                            onChange={() => update("voice", v.key)}
-                            value={v.key}
-                          />
-                        </Stack>
-                        <Typography variant="body2" color="text.secondary">
-                          {v.desc}
-                        </Typography>
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={playing ? <PauseIcon /> : <PlayArrowIcon />}
-                            onClick={() => togglePlay(v.key)}
-                            sx={{
-                              borderColor: "var(--accent)",
-                              color: "var(--accent)",
-                              "&:hover": { backgroundColor: "rgba(var(--accent-rgb), 0.08)" },
-                            }}
+                <Stack
+                  direction={{ xs: "column", md: "row" }}
+                  spacing={2}
+                  useFlexGap
+                  flexWrap="wrap"
+                >
+                  {VOICE_DEMOS.map((v) => {
+                    const checked = settings.voice === v.key;
+                    const playing = playingKey === v.key;
+                    return (
+                      <Card
+                        key={v.key}
+                        variant={checked ? "elevation" : "outlined"}
+                        sx={{
+                          flex: "1 1 280px",
+                          borderRadius: 2,
+                          borderColor: checked ? "var(--accent)" : "#e0e0e0",
+                          outline: checked ? "2px solid var(--accent)" : "none",
+                          transition: "outline-color .2s",
+                        }}
+                      >
+                        <CardContent sx={{ display: "grid", gap: 1 }}>
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={1}
                           >
-                            {playing ? "Pause" : "Écouter l’aperçu"}
-                          </Button>
-                          {checked && (
-                            <Chip label="Sélectionnée" size="small" color="success" />
-                          )}
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </Stack>
-            </Box>
+                            <VolumeUpIcon fontSize="small" />
+                            <Typography
+                              variant="subtitle1"
+                              sx={{ fontWeight: 700 }}
+                            >
+                              {v.label}
+                            </Typography>
+                            <Box sx={{ flex: 1 }} />
+                            <Radio
+                              checked={checked}
+                              onChange={() => update("voice", v.key)}
+                              value={v.key}
+                            />
+                          </Stack>
+                          <Typography variant="body2" color="text.secondary">
+                            {v.desc}
+                          </Typography>
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                          >
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={
+                                playing ? <PauseIcon /> : <PlayArrowIcon />
+                              }
+                              onClick={() => togglePlay(v.key)}
+                              sx={{
+                                borderColor: "var(--accent)",
+                                color: "var(--accent)",
+                                "&:hover": {
+                                  backgroundColor:
+                                    "rgba(var(--accent-rgb), 0.08)",
+                                },
+                              }}
+                            >
+                              {playing ? "Pause" : "Écouter l’aperçu"}
+                            </Button>
+                            {checked && (
+                              <Chip
+                                label="Sélectionnée"
+                                size="small"
+                                color="success"
+                              />
+                            )}
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </Stack>
+              </Box>
 
-            {/* <TextField
+              {/* <TextField
               fullWidth
               label="Nom du chatbot"
               value={settings.botName}
@@ -851,17 +907,17 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               InputLabelProps={{ shrink: true }}
             /> */}
 
-            <TextField
-              label="Message d’accueil personnalisé"
-              value={settings.welcomeMsg}
-              onChange={(e) => update("welcomeMsg", e.target.value)}
-              fullWidth
-              multiline
-              minRows={2}
-              InputLabelProps={{ shrink: true }}
-            />
+              <TextField
+                label="Message d’accueil personnalisé"
+                value={settings.welcomeMsg}
+                onChange={(e) => update("welcomeMsg", e.target.value)}
+                fullWidth
+                multiline
+                minRows={2}
+                InputLabelProps={{ shrink: true }}
+              />
 
-            {/* <TextField
+              {/* <TextField
               label="Consigne à donner au patient si urgence détectée en heure non ouvrable. "
               value={settings.emergencyOutOfHours}
               onChange={(e) => update("emergencyOutOfHours", e.target.value)}
@@ -872,77 +928,76 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               InputLabelProps={{ shrink: true }}
             /> */}
 
-            <TextField
-              fullWidth
-              label="Nom du centre"
-              value={settings.centerName}
-              onChange={(e) => update("centerName", e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-
-            <TextField
-              fullWidth
-              label="Adresse"
-              value={settings.address}
-              onChange={(e) => update("address", e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField
-                label="Code postal"
-                value={zipCode}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setZipCode(val);
-                  update("address2", `${val} ${city}`.trim());
-                }}
                 fullWidth
+                label="Nom du centre"
+                value={settings.centerName}
+                onChange={(e) => update("centerName", e.target.value)}
                 InputLabelProps={{ shrink: true }}
               />
 
               <TextField
-                label="Ville"
-                value={city}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setCity(val);
-                  update("address2", `${zipCode} ${val}`.trim());
-                }}
                 fullWidth
+                label="Adresse"
+                value={settings.address}
+                onChange={(e) => update("address", e.target.value)}
                 InputLabelProps={{ shrink: true }}
               />
-            </Stack>
 
-            <TextField
-              fullWidth
-              label="Téléphone du centre"
-              value={settings.centerPhone}
-              onChange={(e) => update("centerPhone", e.target.value)}
-              placeholder="01 23 45 67 89"
-              InputLabelProps={{ shrink: true }}
-            />
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <TextField
+                  label="Code postal"
+                  value={zipCode}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setZipCode(val);
+                    update("address2", `${val} ${city}`.trim());
+                  }}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                />
 
-            <TextField
-              fullWidth
-              label="Site web du centre"
-              value={settings.centerWebsite}
-              onChange={(e) => update("centerWebsite", e.target.value)}
-              placeholder="https://www.centre-imagerie.fr"
-              InputLabelProps={{ shrink: true }}
-            />
+                <TextField
+                  label="Ville"
+                  value={city}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCity(val);
+                    update("address2", `${zipCode} ${val}`.trim());
+                  }}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Stack>
 
-            <TextField
-              fullWidth
-              label="Email du centre"
-              value={settings.centerMail}
-              onChange={(e) => update("centerMail", e.target.value)}
-              placeholder="contact@centre.fr"
-              InputLabelProps={{ shrink: true }}
-            />
+              <TextField
+                fullWidth
+                label="Téléphone du centre"
+                value={settings.centerPhone}
+                onChange={(e) => update("centerPhone", e.target.value)}
+                placeholder="01 23 45 67 89"
+                InputLabelProps={{ shrink: true }}
+              />
 
+              <TextField
+                fullWidth
+                label="Site web du centre"
+                value={settings.centerWebsite}
+                onChange={(e) => update("centerWebsite", e.target.value)}
+                placeholder="https://www.centre-imagerie.fr"
+                InputLabelProps={{ shrink: true }}
+              />
 
-            {/* <Box>
+              <TextField
+                fullWidth
+                label="Email du centre"
+                value={settings.centerMail}
+                onChange={(e) => update("centerMail", e.target.value)}
+                placeholder="contact@centre.fr"
+                InputLabelProps={{ shrink: true }}
+              />
+
+              {/* <Box>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Mode d’appel
               </Typography>
@@ -973,386 +1028,431 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                 }
               </Stack>
             </Box> */}
-          </Stack>
-        </AccordionDetails>
-      </Accordion>
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
 
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Typography variant="h6">Horaires & disponibilité</Typography>
-            {(() => {
-              const openDays = Object.values(settings.weeklyHours ?? {}).filter(
-                (d: any) => d?.enabled && Array.isArray(d?.ranges) && d.ranges.length > 0
-              ).length;
-              const totalDays = Object.keys(settings.weeklyHours ?? {}).length || 7;
-              return (
-                <Chip
-                  size="small"
-                  label={`${openDays} / ${totalDays} jours ouverts`}
-                  sx={{
-                    bgcolor: openDays > 0 ? "rgba(var(--accent-rgb), 0.15)" : "rgba(0,0,0,0.06)",
-                    color: openDays > 0 ? "var(--accent-deep)" : "text.secondary",
-                    fontWeight: 700,
-                  }}
-                />
-              );
-            })()}
-          </Stack>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 2,
-            }}
-          >
-            {Object.entries(settings.weeklyHours).map(([day, data]) => {
-              const mapping: any = {
-                monday: "lundi",
-                tuesday: "mardi",
-                wednesday: "mercredi",
-                thursday: "jeudi",
-                friday: "vendredi",
-                saturday: "samedi",
-                sunday: "dimanche",
-              };
-
-              return (
-                <DayHoursField
-                  key={day}
-                  day={mapping[day]}
-                  data={data}
-                  onChange={(updated) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      weeklyHours: {
-                        ...prev.weeklyHours,
-                        [day]: updated,
-                      },
-                    }))
-                  }
-                />
-              );
-            })}
-          </Box>
-        </AccordionDetails>
-      </Accordion>
-
-      {/* Planning rempli */}
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Typography variant="h6">Planning rempli : consignes</Typography>
-            {(() => {
-              // Consigne consideree definie si le type a un message (fin_appel)
-              // OU un numero de tel (redirection) non vide.
-              const notes = settings.fullPlanningNotes ?? {};
-              const configured = Object.values(notes).filter((n: any) => {
-                if (!n?.type) return false;
-                if (n.type === "fin_appel") return (n.message ?? "").trim().length > 0;
-                if (n.type === "redirection") return (n.phone ?? "").trim().length > 0;
-                return false;
-              }).length;
-              const total = 5;
-              return (
-                <Chip
-                  size="small"
-                  label={`${configured} / ${total} consignes definies`}
-                  sx={{
-                    bgcolor: configured > 0 ? "rgba(var(--accent-rgb), 0.15)" : "rgba(0,0,0,0.06)",
-                    color: configured > 0 ? "var(--accent-deep)" : "text.secondary",
-                    fontWeight: 700,
-                  }}
-                />
-              );
-            })()}
-          </Stack>
-        </AccordionSummary>
-
-        <AccordionDetails>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Définissez une consigne par examen lorsque le planning est complet.
-          </Typography>
-
-          <Stack spacing={3}>
-  {([
-    ["radiographie", "Radiographie"],
-    ["irm", "IRM"],
-    ["echographie", "Échographie"],
-    ["scanner", "Scanner"],
-    ["mammo", "Mammographie"],
-  ] as [ExamKey, string][]).map(([key, label]) => {
-
-    // Safe chaining : un centre fraichement provisionne peut avoir
-    // fullPlanningNotes = {} (JSON vide), auquel cas fullPlanningNotes[key]
-    // = undefined et current.type crashait la page (2026-08-05).
-    // Fallback sur {} garantit que current.type = undefined (pas crash).
-    const current = settings.fullPlanningNotes?.[key] ?? {};
-
-    return (
-      <Box key={key}>
-        <Typography variant="subtitle1" sx={{ mb: 1 }}>
-          {label}
-        </Typography>
-
-        {/* Choix du comportement */}
-        <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-          <FormControlLabel
-            control={
-              <Radio
-                checked={current.type === "fin_appel"}
-                onChange={() =>
-                  update("fullPlanningNotes", {
-                    ...settings.fullPlanningNotes,
-                    [key]: { type: "fin_appel", message: "" },
-                  })
-                }
-              />
-            }
-            label="Fin d’appel"
-          />
-
-          <FormControlLabel
-            control={
-              <Radio
-                checked={current.type === "redirection"}
-                onChange={() =>
-                  update("fullPlanningNotes", {
-                    ...settings.fullPlanningNotes,
-                    [key]: { type: "redirection", phone: "" },
-                  })
-                }
-              />
-            }
-            label="Redirection"
-          />
-        </Stack>
-
-        {/* Champ conditionnel */}
-        {current.type === "fin_appel" && (
-          <TextField
-            fullWidth
-            size="small"
-            multiline
-            minRows={2}
-            label="Message de fin d’appel"
-            value={current.message || ""}
-            onChange={(e) =>
-              update("fullPlanningNotes", {
-                ...settings.fullPlanningNotes,
-                [key]: {
-                  ...current,
-                  message: e.target.value,
-                },
-              })
-            }
-          />
-        )}
-
-        {current.type === "redirection" && (
-          <TextField
-            fullWidth
-            size="small"
-            label="Numéro de redirection"
-            placeholder="01 23 45 67 89"
-            value={current.phone || ""}
-            onChange={(e) =>
-              update("fullPlanningNotes", {
-                ...settings.fullPlanningNotes,
-                [key]: {
-                  ...current,
-                  phone: e.target.value,
-                },
-              })
-            }
-          />
-        )}
-      </Box>
-    );
-  })}
-</Stack>
-
-        </AccordionDetails>
-      </Accordion>
-
-
-      {/* Examens acceptés */}
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Typography variant="h6">Examens acceptés</Typography>
-            {(() => {
-              const accepted = Object.values(settings.examsAccepted ?? {}).filter(
-                Boolean
-              ).length;
-              const total = 5;
-              return (
-                <Chip
-                  size="small"
-                  label={`${accepted} / ${total} examens acceptes`}
-                  sx={{
-                    bgcolor: accepted > 0 ? "rgba(var(--accent-rgb), 0.15)" : "rgba(0,0,0,0.06)",
-                    color: accepted > 0 ? "var(--accent-deep)" : "text.secondary",
-                    fontWeight: 700,
-                  }}
-                />
-              );
-            })()}
-          </Stack>
-        </AccordionSummary>
-        <AccordionDetails>
-          <FormGroup row>
-            {(
-              [
-                ["radiographie", "Radiographie"],
-                ["irm", "IRM"],
-                ["echographie", "Échographie"],
-                ["scanner", "Scanner"],
-                ["mammo", "Mammographie"],
-              ] as [ExamKey, string][]
-            ).map(([k, label]) => (
-              <FormControlLabel
-                key={k}
-                control={
-                  <Checkbox
-                    checked={!!settings.examsAccepted[k]}
-                    onChange={(e) => updateExamAccepted(k, e.target.checked)}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Typography variant="h6">Horaires & disponibilité</Typography>
+              {(() => {
+                const openDays = Object.values(
+                  settings.weeklyHours ?? {},
+                ).filter(
+                  (d: any) =>
+                    d?.enabled &&
+                    Array.isArray(d?.ranges) &&
+                    d.ranges.length > 0,
+                ).length;
+                const totalDays =
+                  Object.keys(settings.weeklyHours ?? {}).length || 7;
+                return (
+                  <Chip
+                    size="small"
+                    label={`${openDays} / ${totalDays} jours ouverts`}
+                    sx={{
+                      bgcolor:
+                        openDays > 0
+                          ? "rgba(var(--accent-rgb), 0.15)"
+                          : "rgba(0,0,0,0.06)",
+                      color:
+                        openDays > 0 ? "var(--accent-deep)" : "text.secondary",
+                      fontWeight: 700,
+                    }}
                   />
-                }
-                label={label}
-              />
-            ))}
-          </FormGroup>
-          <Typography variant="caption" color="text.secondary">
-            Le chatbot n’acceptera que les motifs cochés.
-          </Typography>
-        </AccordionDetails>
-      </Accordion>
+                );
+              })()}
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 2,
+              }}
+            >
+              {Object.entries(settings.weeklyHours).map(([day, data]) => {
+                const mapping: any = {
+                  monday: "lundi",
+                  tuesday: "mardi",
+                  wednesday: "mercredi",
+                  thursday: "jeudi",
+                  friday: "vendredi",
+                  saturday: "samedi",
+                  sunday: "dimanche",
+                };
 
-      {/* Confirmation de RDV par SMS (à la prise de RDV via bot) */}
-      <SmsBookingConfirmationCard userProductId={Number(params.id)} />
-
-      {/* Rappel de RDV par SMS (no-show) */}
-      <SmsConfirmationConfigCard userProductId={Number(params.id)} />
-
-      {/* Depot d'ordonnance patient (lien dans le SMS de confirmation) */}
-      <PrescriptionConfigCard
-        ref={ordonnancesRef}
-        userProductId={Number(params.id)}
-        onDirtyChange={setOrdonnancesModifiees}
-      />
-
-      {/* Options */}
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Typography variant="h6">Options</Typography>
-            {(() => {
-              const opts = settings.options ?? {};
-              const activeCount = [opts.motif, opts.questions, opts.menstruations].filter(
-                Boolean
-              ).length;
-              const total = 3;
-              return (
-                <Chip
-                  size="small"
-                  label={`${activeCount} / ${total} options actives`}
-                  sx={{
-                    bgcolor: activeCount > 0 ? "rgba(var(--accent-rgb), 0.15)" : "rgba(0,0,0,0.06)",
-                    color: activeCount > 0 ? "var(--accent-deep)" : "text.secondary",
-                    fontWeight: 700,
-                  }}
-                />
-              );
-            })()}
-          </Stack>
-        </AccordionSummary>
-
-        <AccordionDetails>
-          <Stack spacing={3}>
-
-            {/* MOTIF */}
-            <Box>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="subtitle1">Motif</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Demande le motif écrit sur l’ordonnance. 
-                    Il sera noté dans le commentaire du rendez-vous, dans votre logiciel de gestion.
-                  </Typography>
-                </Box>
-
-                <Switch
-                  checked={settings.options?.motif || false}
-                  onChange={(e) =>
-                    update("options", {
-                      ...settings.options,
-                      motif: e.target.checked,
-                    })
-                  }
-                />
-              </Stack>
+                return (
+                  <DayHoursField
+                    key={day}
+                    day={mapping[day]}
+                    data={data}
+                    onChange={(updated) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        weeklyHours: {
+                          ...prev.weeklyHours,
+                          [day]: updated,
+                        },
+                      }))
+                    }
+                  />
+                );
+              })}
             </Box>
+          </AccordionDetails>
+        </Accordion>
 
-            <Divider />
+        {/* Planning rempli */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Typography variant="h6">Planning rempli : consignes</Typography>
+              {(() => {
+                // Consigne consideree definie si le type a un message (fin_appel)
+                // OU un numero de tel (redirection) non vide.
+                const notes = settings.fullPlanningNotes ?? {};
+                const configured = Object.values(notes).filter((n: any) => {
+                  if (!n?.type) return false;
+                  if (n.type === "fin_appel")
+                    return (n.message ?? "").trim().length > 0;
+                  if (n.type === "redirection")
+                    return (n.phone ?? "").trim().length > 0;
+                  return false;
+                }).length;
+                const total = 5;
+                return (
+                  <Chip
+                    size="small"
+                    label={`${configured} / ${total} consignes definies`}
+                    sx={{
+                      bgcolor:
+                        configured > 0
+                          ? "rgba(var(--accent-rgb), 0.15)"
+                          : "rgba(0,0,0,0.06)",
+                      color:
+                        configured > 0
+                          ? "var(--accent-deep)"
+                          : "text.secondary",
+                      fontWeight: 700,
+                    }}
+                  />
+                );
+              })()}
+            </Stack>
+          </AccordionSummary>
 
-            {/* QUESTIONS */}
-            <Box>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="subtitle1">Questions</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Pose les questions en fin de prise de rendez-vous 
-                    pour aider à la préparation de l’examen.
-                    Les réponses seront notées dans le commentaire du rendez-vous, dans votre logiciel de gestion.
-                  </Typography>
-                </Box>
+          <AccordionDetails>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Définissez une consigne par examen lorsque le planning est
+              complet.
+            </Typography>
 
-                <Switch
-                  checked={settings.options?.questions || false}
-                  onChange={(e) =>
-                    update("options", {
-                      ...settings.options,
-                      questions: e.target.checked,
-                    })
+            <Stack spacing={3}>
+              {(
+                [
+                  ["radiographie", "Radiographie"],
+                  ["irm", "IRM"],
+                  ["echographie", "Échographie"],
+                  ["scanner", "Scanner"],
+                  ["mammo", "Mammographie"],
+                ] as [ExamKey, string][]
+              ).map(([key, label]) => {
+                // Safe chaining : un centre fraichement provisionne peut avoir
+                // fullPlanningNotes = {} (JSON vide), auquel cas fullPlanningNotes[key]
+                // = undefined et current.type crashait la page (2026-08-05).
+                // Fallback sur {} garantit que current.type = undefined (pas crash).
+                const current = settings.fullPlanningNotes?.[key] ?? {};
+
+                return (
+                  <Box key={key}>
+                    <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                      {label}
+                    </Typography>
+
+                    {/* Choix du comportement */}
+                    <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+                      <FormControlLabel
+                        control={
+                          <Radio
+                            checked={current.type === "fin_appel"}
+                            onChange={() =>
+                              update("fullPlanningNotes", {
+                                ...settings.fullPlanningNotes,
+                                [key]: { type: "fin_appel", message: "" },
+                              })
+                            }
+                          />
+                        }
+                        label="Fin d’appel"
+                      />
+
+                      <FormControlLabel
+                        control={
+                          <Radio
+                            checked={current.type === "redirection"}
+                            onChange={() =>
+                              update("fullPlanningNotes", {
+                                ...settings.fullPlanningNotes,
+                                [key]: { type: "redirection", phone: "" },
+                              })
+                            }
+                          />
+                        }
+                        label="Redirection"
+                      />
+                    </Stack>
+
+                    {/* Champ conditionnel */}
+                    {current.type === "fin_appel" && (
+                      <TextField
+                        fullWidth
+                        size="small"
+                        multiline
+                        minRows={2}
+                        label="Message de fin d’appel"
+                        value={current.message || ""}
+                        onChange={(e) =>
+                          update("fullPlanningNotes", {
+                            ...settings.fullPlanningNotes,
+                            [key]: {
+                              ...current,
+                              message: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                    )}
+
+                    {current.type === "redirection" && (
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Numéro de redirection"
+                        placeholder="01 23 45 67 89"
+                        value={current.phone || ""}
+                        onChange={(e) =>
+                          update("fullPlanningNotes", {
+                            ...settings.fullPlanningNotes,
+                            [key]: {
+                              ...current,
+                              phone: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                    )}
+                  </Box>
+                );
+              })}
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
+
+        {/* Examens acceptés */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Typography variant="h6">Examens acceptés</Typography>
+              {(() => {
+                const accepted = Object.values(
+                  settings.examsAccepted ?? {},
+                ).filter(Boolean).length;
+                const total = 5;
+                return (
+                  <Chip
+                    size="small"
+                    label={`${accepted} / ${total} examens acceptes`}
+                    sx={{
+                      bgcolor:
+                        accepted > 0
+                          ? "rgba(var(--accent-rgb), 0.15)"
+                          : "rgba(0,0,0,0.06)",
+                      color:
+                        accepted > 0 ? "var(--accent-deep)" : "text.secondary",
+                      fontWeight: 700,
+                    }}
+                  />
+                );
+              })()}
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails>
+            <FormGroup row>
+              {(
+                [
+                  ["radiographie", "Radiographie"],
+                  ["irm", "IRM"],
+                  ["echographie", "Échographie"],
+                  ["scanner", "Scanner"],
+                  ["mammo", "Mammographie"],
+                ] as [ExamKey, string][]
+              ).map(([k, label]) => (
+                <FormControlLabel
+                  key={k}
+                  control={
+                    <Checkbox
+                      checked={!!settings.examsAccepted[k]}
+                      onChange={(e) => updateExamAccepted(k, e.target.checked)}
+                    />
                   }
+                  label={label}
                 />
-              </Stack>
-            </Box>
+              ))}
+            </FormGroup>
+            <Typography variant="caption" color="text.secondary">
+              Le chatbot n’acceptera que les motifs cochés.
+            </Typography>
+          </AccordionDetails>
+        </Accordion>
 
-            <Divider />
+        {/* Confirmation de RDV par SMS (à la prise de RDV via bot) */}
+        <SmsBookingConfirmationCard userProductId={Number(params.id)} />
 
-            {/* MENSTRUATIONS */}
-            <Box>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="subtitle1">Menstruations (Mammographie)</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Lors des mammographies, demande les dernières menstruations 
-                    afin d’adapter le créneau d’examen à une période moins douloureuse.
-                  </Typography>
-                </Box>
+        {/* Rappel de RDV par SMS (no-show) */}
+        <SmsConfirmationConfigCard userProductId={Number(params.id)} />
 
-                <Switch
-                  checked={settings.options?.menstruations || false}
-                  onChange={(e) =>
-                    update("options", {
-                      ...settings.options,
-                      menstruations: e.target.checked,
-                    })
-                  }
-                />
-              </Stack>
-            </Box>
+        {/* Depot d'ordonnance patient (lien dans le SMS de confirmation) */}
+        <PrescriptionConfigCard
+          ref={ordonnancesRef}
+          userProductId={Number(params.id)}
+          onDirtyChange={setOrdonnancesModifiees}
+        />
 
-          </Stack>
-        </AccordionDetails>
-      </Accordion>
+        {/* Options */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Typography variant="h6">Options</Typography>
+              {(() => {
+                const opts = settings.options ?? {};
+                const activeCount = [
+                  opts.motif,
+                  opts.questions,
+                  opts.menstruations,
+                ].filter(Boolean).length;
+                const total = 3;
+                return (
+                  <Chip
+                    size="small"
+                    label={`${activeCount} / ${total} options actives`}
+                    sx={{
+                      bgcolor:
+                        activeCount > 0
+                          ? "rgba(var(--accent-rgb), 0.15)"
+                          : "rgba(0,0,0,0.06)",
+                      color:
+                        activeCount > 0
+                          ? "var(--accent-deep)"
+                          : "text.secondary",
+                      fontWeight: 700,
+                    }}
+                  />
+                );
+              })()}
+            </Stack>
+          </AccordionSummary>
 
-      {/* Consignes spécifiques */}
-      {/* <Accordion>
+          <AccordionDetails>
+            <Stack spacing={3}>
+              {/* MOTIF */}
+              <Box>
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <Box>
+                    <Typography variant="subtitle1">Motif</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Demande le motif écrit sur l’ordonnance. Il sera noté dans
+                      le commentaire du rendez-vous, dans votre logiciel de
+                      gestion.
+                    </Typography>
+                  </Box>
+
+                  <Switch
+                    checked={settings.options?.motif || false}
+                    onChange={(e) =>
+                      update("options", {
+                        ...settings.options,
+                        motif: e.target.checked,
+                      })
+                    }
+                  />
+                </Stack>
+              </Box>
+
+              <Divider />
+
+              {/* QUESTIONS */}
+              <Box>
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <Box>
+                    <Typography variant="subtitle1">Questions</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Pose les questions en fin de prise de rendez-vous pour
+                      aider à la préparation de l’examen. Les réponses seront
+                      notées dans le commentaire du rendez-vous, dans votre
+                      logiciel de gestion.
+                    </Typography>
+                  </Box>
+
+                  <Switch
+                    checked={settings.options?.questions || false}
+                    onChange={(e) =>
+                      update("options", {
+                        ...settings.options,
+                        questions: e.target.checked,
+                      })
+                    }
+                  />
+                </Stack>
+              </Box>
+
+              <Divider />
+
+              {/* MENSTRUATIONS */}
+              <Box>
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <Box>
+                    <Typography variant="subtitle1">
+                      Menstruations (Mammographie)
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Lors des mammographies, demande les dernières
+                      menstruations afin d’adapter le créneau d’examen à une
+                      période moins douloureuse.
+                    </Typography>
+                  </Box>
+
+                  <Switch
+                    checked={settings.options?.menstruations || false}
+                    onChange={(e) =>
+                      update("options", {
+                        ...settings.options,
+                        menstruations: e.target.checked,
+                      })
+                    }
+                  />
+                </Stack>
+              </Box>
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
+
+        {/* Consignes spécifiques */}
+        {/* <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="h6">Consignes d’accessibilité et de logistique</Typography>
         </AccordionSummary>
@@ -1368,8 +1468,8 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         </AccordionDetails>
       </Accordion> */}
 
-      {/* Reconnaissance du numéro de téléphone */}
-      {/* <Accordion>
+        {/* Reconnaissance du numéro de téléphone */}
+        {/* <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="h6">Reconnaissance Automatique</Typography>
         </AccordionSummary>
@@ -1385,264 +1485,298 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         }
       </Accordion> */}
 
-      {/* Reconnaissance du numéro de téléphone */}
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6">Correspondance des examens</Typography>
-        </AccordionSummary>
-        {!loading &&
-          <AccordionDetails>
-            <Button
-              variant="outlined"
-              onClick={() => router.push(`${basePath}/parametrage/mapping_exam`)}
-              sx={{
-                borderColor: "var(--accent)",
-                color: "var(--accent)",
-                "&:hover": { backgroundColor: "rgba(var(--accent-rgb), 0.08)" },
-              }}
-            >
-              Paramétrer les examens
-            </Button>
-          </AccordionDetails>
-        }
-      </Accordion>
+        {/* Reconnaissance du numéro de téléphone */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6">Correspondance des examens</Typography>
+          </AccordionSummary>
+          {!loading && (
+            <AccordionDetails>
+              <Button
+                variant="outlined"
+                onClick={() =>
+                  router.push(`${basePath}/parametrage/mapping_exam`)
+                }
+                sx={{
+                  borderColor: "var(--accent)",
+                  color: "var(--accent)",
+                  "&:hover": {
+                    backgroundColor: "rgba(var(--accent-rgb), 0.08)",
+                  },
+                }}
+              >
+                Paramétrer les examens
+              </Button>
+            </AccordionDetails>
+          )}
+        </Accordion>
 
-      {/* Questionnaire */}
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6">Paramétrer le questionnaire par examen</Typography>
-        </AccordionSummary>
-        {!loading &&
-          <AccordionDetails>
-            <Button
-              variant="outlined"
-              onClick={() => router.push(`${basePath}/parametrage/questions_exam`)}
-              sx={{
-                borderColor: "var(--accent)",
-                color: "var(--accent)",
-                "&:hover": { backgroundColor: "rgba(var(--accent-rgb), 0.08)" },
-              }}
-            >
-              Paramétrer les questions
-            </Button>
-          </AccordionDetails>
-        }
-      </Accordion>
+        {/* Questionnaire */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6">
+              Paramétrer le questionnaire par examen
+            </Typography>
+          </AccordionSummary>
+          {!loading && (
+            <AccordionDetails>
+              <Button
+                variant="outlined"
+                onClick={() =>
+                  router.push(`${basePath}/parametrage/questions_exam`)
+                }
+                sx={{
+                  borderColor: "var(--accent)",
+                  color: "var(--accent)",
+                  "&:hover": {
+                    backgroundColor: "rgba(var(--accent-rgb), 0.08)",
+                  },
+                }}
+              >
+                Paramétrer les questions
+              </Button>
+            </AccordionDetails>
+          )}
+        </Accordion>
 
-      {/* Gestion des doubles examens */}
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <IconLink size={20} color="var(--accent)" />
-            <Typography variant="h6">Gestion des doubles examens</Typography>
-            <Chip
-              size="small"
-              label={`${
-                Object.values(doubleExamsMapping).filter((v) => v?.enabled).length
-              } / ${DOUBLE_EXAMS.length} activés`}
-              sx={{
-                bgcolor: "rgba(var(--accent-rgb), 0.15)",
-                color: "var(--accent-deep)",
-                fontWeight: 700,
-              }}
-            />
-          </Stack>
-        </AccordionSummary>
-        {!loading && (
-          <AccordionDetails>
-            <Alert
-              severity="info"
-              variant="outlined"
-              icon={<IconInfoCircle size={18} />}
-              sx={{ mb: 2, borderColor: "rgba(var(--accent-rgb), 0.4)" }}
-            >
-              Indiquez quelles combinaisons de deux examens votre centre prend en charge,
-              et comment les créer dans votre logiciel de gestion :
-              <br />
-              <strong>Un seul rendez-vous</strong> : le second examen est noté dans le commentaire.
-              <strong> Deux rendez-vous</strong> : un par examen.
-            </Alert>
-
-            <TableContainer
-              component={Paper}
-              elevation={0}
-              sx={{
-                border: "1px solid #e5e7eb",
-                borderRadius: 2,
-                overflow: "hidden",
-              }}
-            >
-              <Table size="small">
-                <TableHead>
-                  <TableRow
-                    sx={{
-                      bgcolor: "rgba(var(--accent-rgb), 0.08)",
-                      "& th": {
-                        fontWeight: 700,
-                        fontSize: 12,
-                        letterSpacing: 0.5,
-                        color: "var(--accent-deep)",
-                        textTransform: "uppercase",
-                        borderBottom: "2px solid rgba(var(--accent-rgb), 0.4)",
-                      },
-                    }}
-                  >
-                    <TableCell>Combinaison</TableCell>
-                    <TableCell align="center" sx={{ width: 120 }}>Activé</TableCell>
-                    <TableCell align="center" sx={{ width: 260 }}>Dans votre logiciel</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {DOUBLE_EXAMS.map((exam, i) => {
-                    const config = doubleExamsMapping[exam.key];
-                    const enabled = config?.enabled ?? false;
-                    const mode = config?.mode ?? "single";
-                    return (
-                      <TableRow
-                        key={exam.key}
-                        sx={{
-                          bgcolor: i % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)",
-                          transition: "background-color 200ms",
-                          "&:hover": { bgcolor: "rgba(var(--accent-rgb), 0.04)" },
-                        }}
-                      >
-                        <TableCell>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              fontWeight: 600,
-                              color: enabled ? "text.primary" : "text.secondary",
-                              transition: "color 200ms",
-                            }}
-                          >
-                            {exam.label}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Switch
-                            checked={enabled}
-                            disabled={readOnly}
-                            onChange={(e) =>
-                              setDoubleExamsMapping((prev) => ({
-                                ...prev,
-                                [exam.key]: {
-                                  ...prev[exam.key],
-                                  enabled: e.target.checked,
-                                  mode: prev[exam.key]?.mode ?? "single",
-                                },
-                              }))
-                            }
-                            sx={{
-                              "& .MuiSwitch-switchBase.Mui-checked": {
-                                color: "var(--accent)",
-                              },
-                              "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
-                                bgcolor: "var(--accent)",
-                              },
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <ToggleButtonGroup
-                            size="small"
-                            exclusive
-                            value={mode}
-                            disabled={!enabled || readOnly}
-                            onChange={(_, newMode) => {
-                              if (!newMode) return; // ne pas laisser désélectionner
-                              setDoubleExamsMapping((prev) => ({
-                                ...prev,
-                                [exam.key]: {
-                                  ...prev[exam.key],
-                                  enabled: prev[exam.key]?.enabled ?? false,
-                                  mode: newMode as "single" | "double",
-                                },
-                              }));
-                            }}
-                            sx={{
-                              "& .MuiToggleButton-root": {
-                                fontSize: 11,
-                                fontWeight: 600,
-                                py: 0.5,
-                                px: 1.5,
-                                borderColor: "rgba(var(--accent-rgb), 0.3)",
-                              },
-                              "& .Mui-selected": {
-                                bgcolor: "rgba(var(--accent-rgb), 0.18) !important",
-                                color: "var(--accent-deep) !important",
-                                borderColor: "var(--accent) !important",
-                              },
-                            }}
-                          >
-                            <Tooltip title="Un seul rendez-vous, les deux examens dans le commentaire" arrow>
-                              <ToggleButton value="single">Un rendez-vous</ToggleButton>
-                            </Tooltip>
-                            <Tooltip title="Deux rendez-vous distincts, un par examen" arrow>
-                              <ToggleButton value="double">Deux rendez-vous</ToggleButton>
-                            </Tooltip>
-                          </ToggleButtonGroup>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </AccordionDetails>
-        )}
-      </Accordion>
-
-      {/* Désactiver le service */}
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Typography variant="h6">Désactiver le service</Typography>
-            {settings.options?.serviceEnabled === false && (
+        {/* Gestion des doubles examens */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <IconLink size={20} color="var(--accent)" />
+              <Typography variant="h6">Gestion des doubles examens</Typography>
               <Chip
                 size="small"
-                label="Service désactivé"
+                label={`${
+                  Object.values(doubleExamsMapping).filter((v) => v?.enabled)
+                    .length
+                } / ${DOUBLE_EXAMS.length} activés`}
                 sx={{
-                  bgcolor: "rgba(239,68,68,0.15)",
-                  color: "#b91c1c",
+                  bgcolor: "rgba(var(--accent-rgb), 0.15)",
+                  color: "var(--accent-deep)",
                   fontWeight: 700,
                 }}
               />
-            )}
-          </Stack>
-        </AccordionSummary>
-        {!loading &&
-          <AccordionDetails>
-            <Stack spacing={2}>
-              <Alert severity="warning" variant="outlined">
-                Cocher cette case désactive complètement LyraeTalk pour ce centre.
-                Tous les appels seront <strong>transférés directement</strong> sans
-                passer par LyraeTalk. Une confirmation vous sera demandée à
-                l&apos;enregistrement.
-              </Alert>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={settings.options?.serviceEnabled === false}
-                    disabled={readOnly}
-                    onChange={(e) =>
-                      update("options", {
-                        ...settings.options,
-                        serviceEnabled: !e.target.checked,
-                      })
-                    }
-                    sx={{
-                      color: "#ef4444",
-                      "&.Mui-checked": { color: "#ef4444" },
-                    }}
-                  />
-                }
-                label="Désactiver le service (transférer tous les appels directement)"
-              />
             </Stack>
-          </AccordionDetails>
-        }
-      </Accordion>
+          </AccordionSummary>
+          {!loading && (
+            <AccordionDetails>
+              <Alert
+                severity="info"
+                variant="outlined"
+                icon={<IconInfoCircle size={18} />}
+                sx={{ mb: 2, borderColor: "rgba(var(--accent-rgb), 0.4)" }}
+              >
+                Indiquez quelles combinaisons de deux examens votre centre prend
+                en charge, et comment les créer dans votre logiciel de gestion :
+                <br />
+                <strong>Un seul rendez-vous</strong> : le second examen est noté
+                dans le commentaire.
+                <strong> Deux rendez-vous</strong> : un par examen.
+              </Alert>
 
+              <TableContainer
+                component={Paper}
+                elevation={0}
+                sx={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 2,
+                  overflow: "hidden",
+                }}
+              >
+                <Table size="small">
+                  <TableHead>
+                    <TableRow
+                      sx={{
+                        bgcolor: "rgba(var(--accent-rgb), 0.08)",
+                        "& th": {
+                          fontWeight: 700,
+                          fontSize: 12,
+                          letterSpacing: 0.5,
+                          color: "var(--accent-deep)",
+                          textTransform: "uppercase",
+                          borderBottom:
+                            "2px solid rgba(var(--accent-rgb), 0.4)",
+                        },
+                      }}
+                    >
+                      <TableCell>Combinaison</TableCell>
+                      <TableCell align="center" sx={{ width: 120 }}>
+                        Activé
+                      </TableCell>
+                      <TableCell align="center" sx={{ width: 260 }}>
+                        Dans votre logiciel
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {DOUBLE_EXAMS.map((exam, i) => {
+                      const config = doubleExamsMapping[exam.key];
+                      const enabled = config?.enabled ?? false;
+                      const mode = config?.mode ?? "single";
+                      return (
+                        <TableRow
+                          key={exam.key}
+                          sx={{
+                            bgcolor:
+                              i % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)",
+                            transition: "background-color 200ms",
+                            "&:hover": {
+                              bgcolor: "rgba(var(--accent-rgb), 0.04)",
+                            },
+                          }}
+                        >
+                          <TableCell>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                fontWeight: 600,
+                                color: enabled
+                                  ? "text.primary"
+                                  : "text.secondary",
+                                transition: "color 200ms",
+                              }}
+                            >
+                              {exam.label}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Switch
+                              checked={enabled}
+                              disabled={readOnly}
+                              onChange={(e) =>
+                                setDoubleExamsMapping((prev) => ({
+                                  ...prev,
+                                  [exam.key]: {
+                                    ...prev[exam.key],
+                                    enabled: e.target.checked,
+                                    mode: prev[exam.key]?.mode ?? "single",
+                                  },
+                                }))
+                              }
+                              sx={{
+                                "& .MuiSwitch-switchBase.Mui-checked": {
+                                  color: "var(--accent)",
+                                },
+                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track":
+                                  {
+                                    bgcolor: "var(--accent)",
+                                  },
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell align="center">
+                            <ToggleButtonGroup
+                              size="small"
+                              exclusive
+                              value={mode}
+                              disabled={!enabled || readOnly}
+                              onChange={(_, newMode) => {
+                                if (!newMode) return; // ne pas laisser désélectionner
+                                setDoubleExamsMapping((prev) => ({
+                                  ...prev,
+                                  [exam.key]: {
+                                    ...prev[exam.key],
+                                    enabled: prev[exam.key]?.enabled ?? false,
+                                    mode: newMode as "single" | "double",
+                                  },
+                                }));
+                              }}
+                              sx={{
+                                "& .MuiToggleButton-root": {
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  py: 0.5,
+                                  px: 1.5,
+                                  borderColor: "rgba(var(--accent-rgb), 0.3)",
+                                },
+                                "& .Mui-selected": {
+                                  bgcolor:
+                                    "rgba(var(--accent-rgb), 0.18) !important",
+                                  color: "var(--accent-deep) !important",
+                                  borderColor: "var(--accent) !important",
+                                },
+                              }}
+                            >
+                              <Tooltip
+                                title="Un seul rendez-vous, les deux examens dans le commentaire"
+                                arrow
+                              >
+                                <ToggleButton value="single">
+                                  Un rendez-vous
+                                </ToggleButton>
+                              </Tooltip>
+                              <Tooltip
+                                title="Deux rendez-vous distincts, un par examen"
+                                arrow
+                              >
+                                <ToggleButton value="double">
+                                  Deux rendez-vous
+                                </ToggleButton>
+                              </Tooltip>
+                            </ToggleButtonGroup>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </AccordionDetails>
+          )}
+        </Accordion>
+
+        {/* Désactiver le service */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Typography variant="h6">Désactiver le service</Typography>
+              {settings.options?.serviceEnabled === false && (
+                <Chip
+                  size="small"
+                  label="Service désactivé"
+                  sx={{
+                    bgcolor: "rgba(239,68,68,0.15)",
+                    color: "#b91c1c",
+                    fontWeight: 700,
+                  }}
+                />
+              )}
+            </Stack>
+          </AccordionSummary>
+          {!loading && (
+            <AccordionDetails>
+              <Stack spacing={2}>
+                <Alert severity="warning" variant="outlined">
+                  Cocher cette case désactive complètement LyraeTalk pour ce
+                  centre. Tous les appels seront{" "}
+                  <strong>transférés directement</strong> sans passer par
+                  LyraeTalk. Une confirmation vous sera demandée à
+                  l&apos;enregistrement.
+                </Alert>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={settings.options?.serviceEnabled === false}
+                      disabled={readOnly}
+                      onChange={(e) =>
+                        update("options", {
+                          ...settings.options,
+                          serviceEnabled: !e.target.checked,
+                        })
+                      }
+                      sx={{
+                        color: "#ef4444",
+                        "&.Mui-checked": { color: "#ef4444" },
+                      }}
+                    />
+                  }
+                  label="Désactiver le service (transférer tous les appels directement)"
+                />
+              </Stack>
+            </AccordionDetails>
+          )}
+        </Accordion>
       </Box>
 
       <BarreEnregistrement
@@ -1671,21 +1805,26 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 1 }}>
-            Vous êtes sur le point de <strong>désactiver LyraeTalk</strong> pour ce centre.
+            Vous êtes sur le point de <strong>désactiver LyraeTalk</strong> pour
+            ce centre.
           </DialogContentText>
           <Alert severity="warning" sx={{ my: 2 }}>
-            Tous les appels entrants seront <strong>transférés directement</strong> sans
-            passer par LyraeTalk. Aucune prise de rendez-vous, aucune identification patient,
-            aucune redirection automatique ne sera assurée par LyraeTalk tant que le service
-            restera désactivé.
+            Tous les appels entrants seront{" "}
+            <strong>transférés directement</strong> sans passer par LyraeTalk.
+            Aucune prise de rendez-vous, aucune identification patient, aucune
+            redirection automatique ne sera assurée par LyraeTalk tant que le
+            service restera désactivé.
           </Alert>
           <DialogContentText>
-            Vous pourrez réactiver le service à tout moment en décochant la case et en
-            enregistrant à nouveau.
+            Vous pourrez réactiver le service à tout moment en décochant la case
+            et en enregistrant à nouveau.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setConfirmDisableOpen(false)} disabled={saving}>
+          <Button
+            onClick={() => setConfirmDisableOpen(false)}
+            disabled={saving}
+          >
             Annuler
           </Button>
           <Button

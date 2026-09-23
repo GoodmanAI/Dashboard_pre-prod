@@ -175,7 +175,10 @@ export default function MappingExam({ params }: TalkPageProps) {
    * atteindre la colonne qu'on remplit. Voir `SEUIL_FICHES`.
    */
   const theme = useTheme();
-  const enFiches = useMediaQuery(theme.breakpoints.down(SEUIL_FICHES), OPTIONS_SEUIL);
+  const enFiches = useMediaQuery(
+    theme.breakpoints.down(SEUIL_FICHES),
+    OPTIONS_SEUIL,
+  );
 
   const [data, setData] = useState<ExamRow[]>([]);
   const [originalData, setOriginalData] = useState<ExamRow[]>([]);
@@ -201,7 +204,7 @@ export default function MappingExam({ params }: TalkPageProps) {
       setLoading(true);
       try {
         const res = await fetch(
-          `/api/configuration/get/mapping?userProductId=${userProductId}`
+          `/api/configuration/get/mapping?userProductId=${userProductId}`,
         );
         let rows: ExamRow[] = [];
         if (res.ok) {
@@ -212,7 +215,11 @@ export default function MappingExam({ params }: TalkPageProps) {
             typeExamenClient: row.typeExamenClient ?? "",
             performed: row.performed ?? true,
             codeExamenClientInject: row.codeExamenClientInject ?? null,
-            horaire: row.horaire ?? { enabled: false, position: "below", time: "" },
+            horaire: row.horaire ?? {
+              enabled: false,
+              position: "below",
+              time: "",
+            },
           }));
         } else if (res.status === 404) {
           // CENTRE JAMAIS CONFIGURÉ : on amorce depuis le référentiel.
@@ -226,7 +233,7 @@ export default function MappingExam({ params }: TalkPageProps) {
           // `/api/referentiel-examens` sert du JSON à la forme d'`ExamRow`, et tire du
           // référentiel en base plutôt que du blob (corrigé le 11/09/2026, Q35).
           const amorce = await fetch(
-            `/api/referentiel-examens?userProductId=${userProductId}`
+            `/api/referentiel-examens?userProductId=${userProductId}`,
           );
           if (amorce.ok) {
             const json = await amorce.json();
@@ -305,7 +312,7 @@ export default function MappingExam({ params }: TalkPageProps) {
 
   const pageRows = useMemo(
     () => filtered.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE),
-    [filtered, page]
+    [filtered, page],
   );
 
   // Reset page on filter change
@@ -324,7 +331,10 @@ export default function MappingExam({ params }: TalkPageProps) {
   }, [data, originalData]);
 
   // ---- KPIs ----
-  const attribCount = useMemo(() => data.filter((r) => r.performed).length, [data]);
+  const attribCount = useMemo(
+    () => data.filter((r) => r.performed).length,
+    [data],
+  );
 
   /**
    * Attribué à Lyrae, mais sans code RIS : le robot ANNONCE cet examen au patient et
@@ -334,25 +344,30 @@ export default function MappingExam({ params }: TalkPageProps) {
    * donc, et on le montre.
    */
   const attribSansCode = useMemo(
-    () => data.filter((r) => r.performed && !(r.codeExamenClient ?? "").trim()).length,
-    [data]
+    () =>
+      data.filter((r) => r.performed && !(r.codeExamenClient ?? "").trim())
+        .length,
+    [data],
   );
 
   // ---- Guard : previens l'utilisateur qui navigue avec des modifs non sauvees
   const guard = useUnsavedChangesGuard(dirtyCount > 0, {
-    message: `Vous avez ${dirtyCount} modification${
+    message: `Vos ${dirtyCount} modification${dirtyCount > 1 ? "s" : ""} non enregistrée${
       dirtyCount > 1 ? "s" : ""
-    } non enregistrée${dirtyCount > 1 ? "s" : ""}. Voulez-vous vraiment quitter cette page sans sauvegarder ?`,
+    } seront perdues.`,
   });
 
   // ---- Handlers ----
-  const handleChange = useCallback((codeExamen: string, key: string, value: any) => {
-    setData((prev) =>
-      prev.map((row) =>
-        row.codeExamen === codeExamen ? { ...row, [key]: value } : row
-      )
-    );
-  }, []);
+  const handleChange = useCallback(
+    (codeExamen: string, key: string, value: any) => {
+      setData((prev) =>
+        prev.map((row) =>
+          row.codeExamen === codeExamen ? { ...row, [key]: value } : row,
+        ),
+      );
+    },
+    [],
+  );
 
   const handleSave = async () => {
     setSaving(true);
@@ -424,13 +439,9 @@ export default function MappingExam({ params }: TalkPageProps) {
 
   return (
     <Box sx={{ pb: 12, px: { xs: 2, sm: 3 }, py: 3 }}>
+      {guard.dialogue}
       {/* -------- Header -------- */}
-      <Stack
-        direction="row"
-        alignItems="center"
-        spacing={1.5}
-        sx={{ mb: 2 }}
-      >
+      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
         <IconButton
           onClick={async () => {
             if (
@@ -523,7 +534,10 @@ export default function MappingExam({ params }: TalkPageProps) {
                 bgcolor: SURFACE_MUTED,
                 "& fieldset": { borderColor: BORDER },
                 "&:hover fieldset": { borderColor: BRAND },
-                "&.Mui-focused fieldset": { borderColor: BRAND, borderWidth: 2 },
+                "&.Mui-focused fieldset": {
+                  borderColor: BRAND,
+                  borderWidth: 2,
+                },
               },
             }}
             InputProps={{
@@ -561,7 +575,9 @@ export default function MappingExam({ params }: TalkPageProps) {
                 <MenuItem key={t} value={t}>
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <ExamTypeBadge type={t} variant="compact" />
-                    <Typography variant="body2">{EXAM_TYPE_SHORT[t] ?? t}</Typography>
+                    <Typography variant="body2">
+                      {EXAM_TYPE_SHORT[t] ?? t}
+                    </Typography>
                   </Stack>
                 </MenuItem>
               ))}
@@ -769,56 +785,59 @@ export default function MappingExam({ params }: TalkPageProps) {
               ))}
             </Stack>
           ) : (
-          <TableContainer sx={{ maxHeight: "none" }}>
-            <Table stickyHeader size="small" sx={{ minWidth: 1180 }}>
-              <TableHead>
-                <TableRow>
-                  <EnTeteMapping
-                    aide="Le centre confie cet examen au robot. Décoché, le robot ne le propose pas au téléphone."
-                    largeur={80}
-                    align="center"
-                  >
-                    Attribué à Lyrae
-                  </EnTeteMapping>
-                  <EnTeteMapping aide="Notre référentiel : modalité, libellé et code internes.">
-                    Examen
-                  </EnTeteMapping>
-                  <EnTeteMapping
-                    aide="Le code de cet examen dans votre logiciel de gestion, et en dessous ce que le robot annonce au patient. Sans le code, l'examen n'est pas réservable."
-                    largeur={220}
-                  >
-                    Code / Libellé patient
-                  </EnTeteMapping>
-                  <EnTeteMapping
-                    aide="Le type dans votre logiciel. La liste propose ceux que vous avez déjà saisis. Facultatif."
-                    largeur={130}
-                  >
-                    Type
-                  </EnTeteMapping>
-                  <EnTeteMapping
-                    aide="Examen avec produit de contraste, scanners et IRM seulement. Cochez pour saisir le code de la version injectée."
-                    largeur={150}
-                  >
-                    Injecté
-                  </EnTeteMapping>
-                  <EnTeteMapping aide="Une consigne d'horaire annoncée avec le créneau." largeur={220}>
-                    Créneau horaire
-                  </EnTeteMapping>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {pageRows.map((row) => (
-                  <ExamTableRow
-                    key={row.codeExamen}
-                    row={row}
-                    disabled={readOnly}
-                    onChange={handleChange}
-                    typesClient={typesClient}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+            <TableContainer sx={{ maxHeight: "none" }}>
+              <Table stickyHeader size="small" sx={{ minWidth: 1180 }}>
+                <TableHead>
+                  <TableRow>
+                    <EnTeteMapping
+                      aide="Le centre confie cet examen au robot. Décoché, le robot ne le propose pas au téléphone."
+                      largeur={80}
+                      align="center"
+                    >
+                      Attribué à Lyrae
+                    </EnTeteMapping>
+                    <EnTeteMapping aide="Notre référentiel : modalité, libellé et code internes.">
+                      Examen
+                    </EnTeteMapping>
+                    <EnTeteMapping
+                      aide="Le code de cet examen dans votre logiciel de gestion, et en dessous ce que le robot annonce au patient. Sans le code, l'examen n'est pas réservable."
+                      largeur={220}
+                    >
+                      Code / Libellé patient
+                    </EnTeteMapping>
+                    <EnTeteMapping
+                      aide="Le type dans votre logiciel. La liste propose ceux que vous avez déjà saisis. Facultatif."
+                      largeur={130}
+                    >
+                      Type
+                    </EnTeteMapping>
+                    <EnTeteMapping
+                      aide="Examen avec produit de contraste, scanners et IRM seulement. Cochez pour saisir le code de la version injectée."
+                      largeur={150}
+                    >
+                      Injecté
+                    </EnTeteMapping>
+                    <EnTeteMapping
+                      aide="Une consigne d'horaire annoncée avec le créneau."
+                      largeur={220}
+                    >
+                      Créneau horaire
+                    </EnTeteMapping>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pageRows.map((row) => (
+                    <ExamTableRow
+                      key={row.codeExamen}
+                      row={row}
+                      disabled={readOnly}
+                      onChange={handleChange}
+                      typesClient={typesClient}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
 
           <TablePagination
@@ -847,42 +866,46 @@ export default function MappingExam({ params }: TalkPageProps) {
         onAnnuler={handleReset}
         lectureSeule={readOnly}
         actions={
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<IconSettings size={15} />}
-              onClick={async () => {
-                // router.push() est programmatique -> pas intercepte par le guard.
-                // On confirme manuellement puis on disable() pour eviter un double
-                // prompt lors de l'unmount.
-                if (
-                  dirtyCount > 0 &&
-                  !(await confirmer({
-                    titre: "Continuer sans enregistrer ?",
-                    texte: `Vous avez ${dirtyCount} modification${dirtyCount > 1 ? "s" : ""} non enregistrée${dirtyCount > 1 ? "s" : ""}. Elles seront perdues.`,
-                    libelleAction: "Continuer sans enregistrer",
-                    destructif: true,
-                  }))
-                )
-                  return;
-                guard.disable();
-                router.push(`${basePath}/parametrage/mapping_exam/type_exam`);
-              }}
-              disabled={saving}
-              sx={{
-                borderColor: BORDER,
-                color: INK,
-                "&:hover": { borderColor: BRAND, color: BRAND, bgcolor: SURFACE_HOVER },
-              }}
-            >
-              {readOnly ? "Types d'examens" : "Modifier types"}
-            </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<IconSettings size={15} />}
+            onClick={async () => {
+              // router.push() est programmatique -> pas intercepte par le guard.
+              // On confirme manuellement puis on disable() pour eviter un double
+              // prompt lors de l'unmount.
+              if (
+                dirtyCount > 0 &&
+                !(await confirmer({
+                  titre: "Continuer sans enregistrer ?",
+                  texte: `Vous avez ${dirtyCount} modification${dirtyCount > 1 ? "s" : ""} non enregistrée${dirtyCount > 1 ? "s" : ""}. Elles seront perdues.`,
+                  libelleAction: "Continuer sans enregistrer",
+                  destructif: true,
+                }))
+              )
+                return;
+              guard.disable();
+              router.push(`${basePath}/parametrage/mapping_exam/type_exam`);
+            }}
+            disabled={saving}
+            sx={{
+              borderColor: BORDER,
+              color: INK,
+              "&:hover": {
+                borderColor: BRAND,
+                color: BRAND,
+                bgcolor: SURFACE_HOVER,
+              },
+            }}
+          >
+            {readOnly ? "Types d'examens" : "Modifier types"}
+          </Button>
         }
       />
 
       <Portal>
-          {dialogue}
-      <Retour
+        {dialogue}
+        <Retour
           ouvert={snack.open}
           message={snack.message}
           gravite={snack.severity}
@@ -968,7 +991,11 @@ function FicheExamen({ row, disabled, onChange, typesClient }: ExamRowProps) {
           code={codeInjection}
           onInjecte={setOuvert}
           onCode={(v) =>
-            onChange(row.codeExamen, "codeExamenClientInject", v === "" ? null : v)
+            onChange(
+              row.codeExamen,
+              "codeExamenClientInject",
+              v === "" ? null : v,
+            )
           }
           disabled={inactif}
           nonApplicable={nonApplicable}
@@ -1072,7 +1099,11 @@ function ExamTableRow({ row, disabled, onChange, typesClient }: ExamRowProps) {
           code={codeInjection}
           onInjecte={setOuvert}
           onCode={(v) =>
-            onChange(row.codeExamen, "codeExamenClientInject", v === "" ? null : v)
+            onChange(
+              row.codeExamen,
+              "codeExamenClientInject",
+              v === "" ? null : v,
+            )
           }
           disabled={inactif}
           nonApplicable={motifNonInjectable(row.typeExamen)}
@@ -1136,7 +1167,10 @@ function HoraireCell({
             size="small"
             value={horaire.position || "below"}
             onChange={(e) =>
-              onChange({ ...horaire, position: e.target.value as "below" | "above" })
+              onChange({
+                ...horaire,
+                position: e.target.value as "below" | "above",
+              })
             }
             disabled={disabled}
             sx={{
@@ -1148,8 +1182,12 @@ function HoraireCell({
               "& .MuiSelect-select": { py: 0.75, px: 1 },
             }}
           >
-            <MenuItem value="below" sx={{ fontSize: 12 }}>Avant</MenuItem>
-            <MenuItem value="above" sx={{ fontSize: 12 }}>Après</MenuItem>
+            <MenuItem value="below" sx={{ fontSize: 12 }}>
+              Avant
+            </MenuItem>
+            <MenuItem value="above" sx={{ fontSize: 12 }}>
+              Après
+            </MenuItem>
           </Select>
           <TextField
             type="time"
@@ -1171,7 +1209,10 @@ function HoraireCell({
                 fontSize: 12,
                 "& fieldset": { borderColor: BORDER },
                 "&:hover fieldset": { borderColor: "#B9C7CE" },
-                "&.Mui-focused fieldset": { borderColor: BRAND, borderWidth: 1.5 },
+                "&.Mui-focused fieldset": {
+                  borderColor: BRAND,
+                  borderWidth: 1.5,
+                },
               },
               "& .MuiOutlinedInput-input": { py: 0.75, px: 0.5 },
             }}
