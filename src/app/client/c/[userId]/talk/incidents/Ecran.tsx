@@ -21,8 +21,10 @@ import { IconFlagFilled, IconFlag, IconDownload, IconAlertTriangle, IconPhone } 
 import { io } from "socket.io-client";
 import { useRouter } from "next/navigation";
 import { useTalkBasePath } from "@/utils/talkRoutes";
+import Transcription from "@/components/transcription/Transcription";
+import { apercuConversation } from "@/lib/entitesTranscription";
+import { exporterTranscriptionPdf, formatPhoneFR } from "@/lib/transcriptionPdf";
 
-type Speaker = "Lyrae" | "User";
 
 interface FlaggedCall {
   id: number;
@@ -39,18 +41,6 @@ interface IncidentsPageProps {
   params: { id: string };
 }
 
-function formatPhoneFR(p?: string | null): string {
-  if (!p) return "-";
-  const digits = p.replace(/\s/g, "");
-  if (digits.startsWith("+33") && digits.length === 12) {
-    return `+33 ${digits[3]} ${digits.slice(4, 6)} ${digits.slice(6, 8)} ${digits.slice(8, 10)} ${digits.slice(10, 12)}`;
-  }
-  if (digits.startsWith("0") && digits.length === 10) {
-    return `${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 6)} ${digits.slice(6, 8)} ${digits.slice(8, 10)}`;
-  }
-  return p;
-}
-
 const formatCallTime = (timestamp?: number) => {
   if (!timestamp) return "";
   const date = new Date(timestamp);
@@ -65,78 +55,6 @@ function formatDateFR(dateValue: string) {
     year: "numeric",
   }).format(date);
   return formatted.replace(/\b([a-zà-ÿ])/i, (m) => m.toUpperCase());
-}
-
-async function exportCallToPdf(call: any, steps: any[]) {
-  const { default: jsPDF } = await import("jspdf");
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 40;
-  const contentWidth = pageWidth - 2 * margin;
-  let y = margin;
-
-  doc.setFontSize(20);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor("#1f2937");
-  doc.text("Transcription d'appel (incident)", margin, y);
-  y += 28;
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor("#374151");
-
-  const date = new Date(call.createdAt);
-  const dateStr = date.toLocaleDateString("fr-FR");
-  const timeStr = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  const phone = formatPhoneFR(call.stats?.phoneNumber);
-
-  const metas: string[] = [
-    `Date : ${dateStr} à ${timeStr}`,
-    `Numéro appelant : ${phone}`,
-  ];
-  if (call.stats?.rdv_status) metas.push(`Statut RDV : ${call.stats.rdv_status}`);
-  if (call.stats?.transferReason) metas.push(`Motif transfert : ${call.stats.transferReason}`);
-  if (call.stats?.duration) metas.push(`Durée : ${call.stats.duration}s`);
-
-  metas.forEach((line) => {
-    doc.text(line, margin, y);
-    y += 14;
-  });
-
-  y += 8;
-  doc.setDrawColor(229, 231, 235);
-  doc.setLineWidth(0.5);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 20;
-
-  doc.setFontSize(11);
-  for (let i = 0; i < steps.length; i++) {
-    const speaker = i % 2 === 0 ? "Lyrae" : "Patient";
-    const text = String(steps[i]?.text ?? "");
-    if (!text) continue;
-
-    const wrapped = doc.splitTextToSize(text, contentWidth - 12);
-    const blockHeight = 16 + wrapped.length * 14 + 6;
-
-    if (y + blockHeight > pageHeight - margin) {
-      doc.addPage();
-      y = margin;
-    }
-
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(speaker === "Lyrae" ? "var(--accent-deep)" : "#374151");
-    doc.text(speaker + " :", margin, y);
-    y += 14;
-
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor("#1f2937");
-    doc.text(wrapped, margin + 12, y);
-    y += wrapped.length * 14 + 10;
-  }
-
-  const fileDate = date.toISOString().slice(0, 10);
-  doc.save(`incident-${call.id}-${fileDate}.pdf`);
 }
 
 export default function IncidentsPage({ params }: IncidentsPageProps) {
@@ -233,7 +151,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
   const filteredSteps = useMemo(
     () =>
       selectedCall?.steps?.filter(
-        (line: any) => !line.text.includes("WaitSound")
+        (line: any) => !String(line?.text ?? "").startsWith("WaitSound:")
       ) ?? [],
     [selectedCall]
   );
@@ -270,9 +188,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
       {!loading && calls.length > 0 && (
         <List sx={{ bgcolor: "white", borderRadius: 2 }}>
           {calls.map((call, index) => {
-            const stepsArray = Object.values(call.steps || {});
-            const firstStep: any = stepsArray[0];
-            const secondStep: any = stepsArray[2];
+            const apercu = apercuConversation(call.steps);
 
             return (
               <Box key={call.id}>
@@ -340,14 +256,14 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
                         />
                       </Box>
 
-                      {firstStep && (
+                      {apercu.lyrae && (
                         <Typography
                           variant="caption"
                           noWrap
                           sx={{ color: "text.secondary", display: "block" }}
                         >
-                          <strong>{firstStep.text}</strong>
-                          {secondStep && <span>, {secondStep.text}</span>}
+                          <strong>{apercu.lyrae}</strong>
+                          {apercu.patient && <span>, {apercu.patient}</span>}
                         </Typography>
                       )}
                     </Box>
@@ -403,7 +319,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
             startIcon={<IconDownload size={16} />}
             disabled={!selectedCall || filteredSteps.length === 0}
             onClick={() => {
-              if (selectedCall) exportCallToPdf(selectedCall, filteredSteps);
+              if (selectedCall) exporterTranscriptionPdf(selectedCall, { titre: "Transcription d'appel (incident)", prefixeFichier: "incident" });
             }}
             sx={{
               borderColor: "var(--accent)",
@@ -416,34 +332,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
           </Button>
         </Box>
 
-        {filteredSteps.map((text: any, idx: number) => {
-          const speaker: Speaker = idx % 2 === 0 ? "Lyrae" : "User";
-
-          return (
-            <Box
-              key={idx}
-              sx={{
-                display: "flex",
-                justifyContent: speaker === "Lyrae" ? "flex-start" : "flex-end",
-                mb: 1,
-              }}
-            >
-              <Box
-                sx={{
-                  p: 1.25,
-                  borderRadius: 2,
-                  bgcolor:
-                    speaker === "Lyrae"
-                      ? "rgba(var(--accent-rgb), 0.15)"
-                      : "#eee",
-                  maxWidth: "75%",
-                }}
-              >
-                <Typography variant="body2">{text.text}</Typography>
-              </Box>
-            </Box>
-          );
-        })}
+        <Transcription steps={selectedCall?.steps} entites={selectedCall?.stats?.entites} />
       </Drawer>
     </Box>
   );
