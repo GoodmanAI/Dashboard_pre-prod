@@ -37,8 +37,7 @@ import { subDays, startOfDay, endOfDay, subYears } from "date-fns";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import DateRangePresets from "@/components/DateRangePresets";
 import { construireExamLabelMap, listerTypesExamen } from "@/lib/examLabels";
-
-type Speaker = "Lyrae" | "User";
+import Transcription from "@/components/transcription/Transcription";
 
 const states: any = { identification_birthdate: "- Etape Identification", identification_firstname: "- Etape Identification", identification_lastname: "- Etape Identification", identification_confirm: "- Etape Identification", identification_birthdate_light: "- Etape Identification", identification_firstname_light: "- Etape Identification", identification_lastname_light: "- Etape Identification", identification_confirm_light: "- Etape Identification", get_intent: "- Etape Intention", confirm_intent: "- Etape Intention", get_phone: "- Etape Téléphone", confirm_phone: "- Etape Téléphone", confirm_identity_rdv: "- Etape Identification", exam_type: "- Etape Intention Examen", confirm_exam: "- Etape Intention Examen", exam_questions: "- Etape Questions", define_mammo: "- Etape définir Mammo", irm_injection_flow: "- Etape injection IRM", scanner_injection_flow: "- Etape injection scanner", multi_exam_confirm: "- Etape multi-examens", multi_exam_get_region: "- Etape multi-examens", multi_exam_one_not_accepted: "- Etape multi-examens", multi_exam_validate: "- Etape multi-examens", get_motif: "- Etape motif", get_dispo: "- Etape Créneaux", get_dispo_double: "- Etape Créneaux", get_period: "- Etape période Mammo", get_period_double: "- Etape période Mammo", slot: "- Etape Créneaux", slot_double: "- Etape Créneaux", validate_exam: "- Etape validation RDV", validate_double_exam: "- Etape validation RDV", consultation: "- Etape Consultation", cancel_fetch: "- Etape Annulation", cancel_confirm: "- Etape Annulation", modify_fetch: "- Etape Modification", modify_confirm: "- Etape Modification", no_slot_modify_proposal: "- Etape Créneau" }
 
@@ -1122,37 +1121,11 @@ export default function CallListPage({ params }: CallListPageProps) {
           </Button>
         </Box>
 
-        {filteredSteps.map((text: any, idx: number) => {
-
-          const speaker: Speaker = idx % 2 === 0 ? "Lyrae" : "User";
-
-          return (
-            <Box
-              key={idx}
-              sx={{
-                display: "flex",
-                justifyContent: speaker === "Lyrae" ? "flex-start" : "flex-end",
-                mb: 1,
-              }}
-            >
-              <Box
-                sx={{
-                  p: 1.25,
-                  borderRadius: 2,
-                  bgcolor:
-                    speaker === "Lyrae"
-                      ? "rgba(var(--accent-rgb), 0.15)"
-                      : "#eee",
-                  maxWidth: "75%",
-                }}
-              >
-                <Typography variant="body2">
-                  {text.text}
-                </Typography>
-              </Box>
-            </Box>
-          );
-        })}
+        <Transcription
+          steps={selectedCall?.steps}
+          entites={selectedCall?.stats?.entites}
+          examLabelMap={examLabelMap}
+        />
 
       </Drawer>
 

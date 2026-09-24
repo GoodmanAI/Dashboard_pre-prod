@@ -347,6 +347,11 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   `GET /api/planning-complet/aggregate`, qui projette maintenant en SQL les deux seules
   clés qu'il lit (`stats->>'no_slot_api_retrieve'`, `stats->>'rdv_status'`) au lieu de
   charger tout `stats` : 22 Mo sur 30 jours contre 6,6 Ko utiles, et 2 500 ms contre 370.
+- **`stats.entites`** (24/09/2026) part tel quel : c'est ce que LyraeTalk a retenu à
+  chaque tour, lu par `src/components/transcription/Transcription.tsx` pour surligner
+  la conversation. `tour` renvoie à l'index dans `steps` **stocké** (WaitSound compris) :
+  un écran qui filtre les WaitSound avant de lire les index se décale. Aucune valeur pour
+  nom, prénom, naissance, téléphone (`contracts/shared/enums.md`).
 - **`mode=agregat`** (18/09/2026) rend des comptes, jamais de ligne : `jour` (total,
   urgences, rdvPris, indice) entre `jourDebut` et `jourFin` fournis par le navigateur,
   `parJour` (quatorze derniers jours avec appels) et `total` entre `from` et `to`. Il

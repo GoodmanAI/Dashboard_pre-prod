@@ -21,8 +21,8 @@ import { IconFlagFilled, IconFlag, IconDownload, IconAlertTriangle, IconPhone } 
 import { io } from "socket.io-client";
 import { useRouter } from "next/navigation";
 import { useTalkBasePath } from "@/utils/talkRoutes";
+import Transcription from "@/components/transcription/Transcription";
 
-type Speaker = "Lyrae" | "User";
 
 interface FlaggedCall {
   id: number;
@@ -416,34 +416,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
           </Button>
         </Box>
 
-        {filteredSteps.map((text: any, idx: number) => {
-          const speaker: Speaker = idx % 2 === 0 ? "Lyrae" : "User";
-
-          return (
-            <Box
-              key={idx}
-              sx={{
-                display: "flex",
-                justifyContent: speaker === "Lyrae" ? "flex-start" : "flex-end",
-                mb: 1,
-              }}
-            >
-              <Box
-                sx={{
-                  p: 1.25,
-                  borderRadius: 2,
-                  bgcolor:
-                    speaker === "Lyrae"
-                      ? "rgba(var(--accent-rgb), 0.15)"
-                      : "#eee",
-                  maxWidth: "75%",
-                }}
-              >
-                <Typography variant="body2">{text.text}</Typography>
-              </Box>
-            </Box>
-          );
-        })}
+        <Transcription steps={selectedCall?.steps} entites={selectedCall?.stats?.entites} />
       </Drawer>
     </Box>
   );
