@@ -643,8 +643,13 @@ Deux états restent possibles, et le robot doit continuer à les traiter :
 ## Invariants à ne pas casser
 
 1. **Header `x-api-key`** — le renommer casse LyraeTalk **et** AI2Xplore simultanément.
-2. **Payload `POST /api/calls/summary`** : tableau `steps` **ordonné**, index 0 = Lyrae,
-   index 1 = User, alternance stricte (`route.ts:30`). Depuis le 2026-09-04,
+2. **Payload `POST /api/calls/summary`** : tableau `steps` **ordonné**, une ligne par prise
+   de parole, préfixée `Lyrae:`, `Patient:` ou `WaitSound:` et suffixée `/HH:MM:SS`. **Le
+   locuteur se lit sur le préfixe** (`lireTour`, `src/lib/entitesTranscription.ts`), jamais
+   sur la position : l'« alternance stricte » écrite ici jusqu'au 24/09/2026 n'a jamais été
+   tenue (WaitSound intercalés, Lyrae deux fois de suite). Le `speaker` stocké vaut
+   `Lyrae`, `User` ou `WaitSound` (ajouté) ; celui des lignes d'avant le 24/09 est calculé
+   à la parité et peut être faux, aucun écran ne le lit plus. Depuis le 2026-09-04,
    `userProductId` est le **centre effectif** et non celui du numéro appelé : sur un
    groupe qui partage un numéro (Quimper 18, Fouesnant 20, Pont-l'Abbé 21), LyraeTalk
    envoie le centre où le patient a pris ou choisi son rendez-vous, et joint le centre

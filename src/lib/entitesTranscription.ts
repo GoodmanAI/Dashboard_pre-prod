@@ -95,6 +95,27 @@ export function lireTour(
   };
 }
 
+/**
+ * L'aperçu d'une ligne de la liste : la première phrase de Lyrae, la première du patient.
+ * Remplace `steps[0]` et `steps[2]`, qui tombaient sur un WaitSound une fois sur deux.
+ */
+export function apercuConversation(
+  steps: Array<{ speaker?: string; text?: string } | string> | Record<string, unknown> | null | undefined
+): { lyrae: string | null; patient: string | null } {
+  const liste = (Array.isArray(steps) ? steps : Object.values(steps ?? {})) as Array<
+    { speaker?: string; text?: string } | string
+  >;
+  let lyrae: string | null = null;
+  let patient: string | null = null;
+  for (let i = 0; i < liste.length && (lyrae === null || patient === null); i++) {
+    const tour = lireTour(liste[i], i);
+    if (!tour.texte) continue;
+    if (tour.locuteur === "Lyrae" && lyrae === null) lyrae = tour.texte;
+    if (tour.locuteur === "Patient" && patient === null) patient = tour.texte;
+  }
+  return { lyrae, patient };
+}
+
 // ── Motifs et lexiques ───────────────────────────────────────────────────────
 
 const MOIS =

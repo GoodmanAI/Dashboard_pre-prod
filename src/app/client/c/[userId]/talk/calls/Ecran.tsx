@@ -38,6 +38,8 @@ import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import DateRangePresets from "@/components/DateRangePresets";
 import { construireExamLabelMap, listerTypesExamen } from "@/lib/examLabels";
 import Transcription from "@/components/transcription/Transcription";
+import { apercuConversation } from "@/lib/entitesTranscription";
+import { exporterTranscriptionPdf, formatPhoneFR } from "@/lib/transcriptionPdf";
 
 const states: any = { identification_birthdate: "- Etape Identification", identification_firstname: "- Etape Identification", identification_lastname: "- Etape Identification", identification_confirm: "- Etape Identification", identification_birthdate_light: "- Etape Identification", identification_firstname_light: "- Etape Identification", identification_lastname_light: "- Etape Identification", identification_confirm_light: "- Etape Identification", get_intent: "- Etape Intention", confirm_intent: "- Etape Intention", get_phone: "- Etape Téléphone", confirm_phone: "- Etape Téléphone", confirm_identity_rdv: "- Etape Identification", exam_type: "- Etape Intention Examen", confirm_exam: "- Etape Intention Examen", exam_questions: "- Etape Questions", define_mammo: "- Etape définir Mammo", irm_injection_flow: "- Etape injection IRM", scanner_injection_flow: "- Etape injection scanner", multi_exam_confirm: "- Etape multi-examens", multi_exam_get_region: "- Etape multi-examens", multi_exam_one_not_accepted: "- Etape multi-examens", multi_exam_validate: "- Etape multi-examens", get_motif: "- Etape motif", get_dispo: "- Etape Créneaux", get_dispo_double: "- Etape Créneaux", get_period: "- Etape période Mammo", get_period_double: "- Etape période Mammo", slot: "- Etape Créneaux", slot_double: "- Etape Créneaux", validate_exam: "- Etape validation RDV", validate_double_exam: "- Etape validation RDV", consultation: "- Etape Consultation", cancel_fetch: "- Etape Annulation", cancel_confirm: "- Etape Annulation", modify_fetch: "- Etape Modification", modify_confirm: "- Etape Modification", no_slot_modify_proposal: "- Etape Créneau" }
 
@@ -205,125 +207,6 @@ interface CallSummary {
 
 interface CallListPageProps {
   params: { id: string };
-}
-
-/**
- * Génère et télécharge un PDF de la transcription d'un appel.
- * Utilise jsPDF (déjà dans les dépendances).
- */
-async function exportCallToPdf(call: any, steps: any[]) {
-  // Import dynamique : évite d'embarquer jsPDF dans le bundle initial
-  const { default: jsPDF } = await import("jspdf");
-
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 40;
-  const contentWidth = pageWidth - 2 * margin;
-
-  let y = margin;
-
-  // ── Titre
-  doc.setFontSize(20);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor("#1f2937");
-  doc.text("Transcription d'appel", margin, y);
-  y += 28;
-
-  // ── Métadonnées
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor("#374151");
-
-  const date = new Date(call.createdAt);
-  const dateStr = date.toLocaleDateString("fr-FR");
-  const timeStr = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  const phone = formatPhoneFR(call.stats?.phoneNumber);
-
-  const metas: string[] = [
-    `Date : ${dateStr} à ${timeStr}`,
-    `Numéro appelant : ${phone}`,
-  ];
-  if (call.stats?.rdv_status) metas.push(`Statut RDV : ${call.stats.rdv_status}`);
-  if (call.stats?.transferReason) metas.push(`Motif transfert : ${call.stats.transferReason}`);
-  if (call.stats?.duration) metas.push(`Durée : ${call.stats.duration}s`);
-
-  metas.forEach((line) => {
-    doc.text(line, margin, y);
-    y += 14;
-  });
-
-  // ── Séparateur
-  y += 8;
-  doc.setDrawColor(229, 231, 235);
-  doc.setLineWidth(0.5);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 20;
-
-  // ── Conversation
-  doc.setFontSize(11);
-  for (let i = 0; i < steps.length; i++) {
-    const speaker = i % 2 === 0 ? "Lyrae" : "Patient";
-    const text = String(steps[i]?.text ?? "");
-    if (!text) continue;
-
-    const wrapped = doc.splitTextToSize(text, contentWidth - 12);
-    const blockHeight = 16 + wrapped.length * 14 + 6;
-
-    // Saut de page si plus de place
-    if (y + blockHeight > pageHeight - margin) {
-      doc.addPage();
-      y = margin;
-    }
-
-    // Locuteur
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(speaker === "Lyrae" ? "var(--accent-deep)" : "#374151");
-    doc.text(speaker + " :", margin, y);
-    y += 14;
-
-    // Texte
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor("#1f2937");
-    doc.text(wrapped, margin + 12, y);
-    y += wrapped.length * 14 + 10;
-  }
-
-  // ── Pied de page sur chaque page : numéro de page + horodatage
-  const pageCount = (doc as any).internal.getNumberOfPages?.() ?? 1;
-  for (let p = 1; p <= pageCount; p++) {
-    doc.setPage(p);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor("#9ca3af");
-    doc.text(
-      `Page ${p}/${pageCount}`,
-      pageWidth - margin,
-      pageHeight - 20,
-      { align: "right" }
-    );
-    doc.text(
-      `Exporté le ${new Date().toLocaleString("fr-FR")}`,
-      margin,
-      pageHeight - 20
-    );
-  }
-
-  const fileDate = date.toISOString().slice(0, 10);
-  doc.save(`appel-${call.id}-${fileDate}.pdf`);
-}
-
-/** Formate un numéro français pour affichage : `+33 6 12 34 56 78` ou `06 12 34 56 78`. */
-function formatPhoneFR(p?: string | null): string {
-  if (!p) return "-";
-  const digits = p.replace(/\s/g, "");
-  if (digits.startsWith("+33") && digits.length === 12) {
-    return `+33 ${digits[3]} ${digits.slice(4, 6)} ${digits.slice(6, 8)} ${digits.slice(8, 10)} ${digits.slice(10, 12)}`;
-  }
-  if (digits.startsWith("0") && digits.length === 10) {
-    return `${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 6)} ${digits.slice(6, 8)} ${digits.slice(8, 10)}`;
-  }
-  return p;
 }
 
 const formatCallTime = (timestamp?: number) => {
@@ -659,7 +542,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
   const filteredSteps =
     selectedCall?.steps?.filter(
-      (line: any) => !line.text.includes("WaitSound")
+      (line: any) => !String(line?.text ?? "").startsWith("WaitSound:")
     ) ?? [];
 
   return (
@@ -901,9 +784,7 @@ export default function CallListPage({ params }: CallListPageProps) {
           <List sx={{ bgcolor: "white", borderRadius: 2 }}>
 
             {calls.map((call, index) => {
-              const stepsArray = Object.values(call.steps || {});
-              const firstStep: any = stepsArray[0];
-              const secondStep: any = stepsArray[2];
+              const apercu = apercuConversation(call.steps);
 
               return (
 
@@ -1026,14 +907,14 @@ export default function CallListPage({ params }: CallListPageProps) {
                         </Box>
 
                         {/* Ligne 3 : aperçu de la conversation */}
-                        {firstStep && (
+                        {apercu.lyrae && (
                           <Typography
                             variant="caption"
                             noWrap
                             sx={{ color: "text.secondary", display: "block" }}
                           >
-                            <strong>{firstStep.text}</strong>
-                            {secondStep && <span>, {secondStep.text}</span>}
+                            <strong>{apercu.lyrae}</strong>
+                            {apercu.patient && <span>, {apercu.patient}</span>}
                           </Typography>
                         )}
                       </Box>
@@ -1108,7 +989,7 @@ export default function CallListPage({ params }: CallListPageProps) {
             startIcon={<IconDownload size={16} />}
             disabled={!selectedCall || filteredSteps.length === 0}
             onClick={() => {
-              if (selectedCall) exportCallToPdf(selectedCall, filteredSteps);
+              if (selectedCall) exporterTranscriptionPdf(selectedCall, { titre: "Transcription d'appel", prefixeFichier: "appel" });
             }}
             sx={{
               borderColor: "var(--accent)",

@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
 import { Prisma } from "@prisma/client";
 import { requireApiKey } from "@/lib/auth-helpers";
+import { lireTour } from "@/lib/entitesTranscription";
 
-type Speaker = "Lyrae" | "User";
+// "WaitSound" ajouté le 24/09/2026 ; "Lyrae" et "User" gardent leur sens.
+type Speaker = "Lyrae" | "User" | "WaitSound";
 
 interface Step {
   speaker: Speaker;
@@ -62,11 +64,15 @@ export async function POST(req: NextRequest) {
       userProductIdFinal = entryUserProductId;
     }
 
-    // Transformation des steps
-    const stepsTransformed: Step[] = steps.map((text: string, index: number) => ({
-      speaker: index % 2 === 0 ? "Lyrae" : "User",
-      text,
-    }));
+    // Le locuteur vient du PRÉFIXE de la ligne (`Lyrae:`, `Patient:`, `WaitSound:`), pas
+    // de sa position. Jusqu'au 24/09/2026 il était calculé à la parité de l'index, sur la
+    // foi d'une « alternance stricte » que LyraeTalk ne tient pas : les WaitSound
+    // s'intercalent et Lyrae peut parler deux fois de suite. Les lignes d'avant portent
+    // donc un `speaker` faux ; les écrans le relisent sur le préfixe (`lireTour`).
+    const stepsTransformed: Step[] = steps.map((text: string, index: number) => {
+      const { locuteur } = lireTour(String(text ?? ""), index);
+      return { speaker: locuteur === "Patient" ? "User" : locuteur, text };
+    });
 
     await prisma.callConversation.create({
       data: {
