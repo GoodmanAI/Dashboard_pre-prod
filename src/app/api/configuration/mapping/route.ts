@@ -4,11 +4,14 @@ import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { requirePagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
+import { versionMapping } from "@/lib/versionMapping";
 
 /**
  * Mapping d'examens LyraeTalk d'un centre.
  *
- *   POST /api/configuration/mapping   body : { userProductId, data: [...] }
+ *   POST /api/configuration/mapping   body : { userProductId, data: [...], version }
+ *        `version` : l'empreinte lue au chargement, 409 si le mapping a changé depuis
+ *        (voir `src/lib/versionMapping.ts`)
  *   GET  /api/configuration/mapping?userProductId=NN
  *
  * Consommateur unique, et session uniquement : l'écran
@@ -169,13 +172,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: contradiction }, { status: 400 });
     }
 
-    const existing = await prisma.talkSettings.findUnique({
-      where: { userProductId: Number(userProductId) },
-    });
+    /**
+     * UN ONGLET PÉRIMÉ N'ÉCRASE PLUS LE TRAVAIL D'UN COLLÈGUE (25/09/2026).
+     *
+     * L'appelant renvoie l'empreinte du mapping qu'il a chargé. Si la base a changé
+     * depuis, on refuse : l'écran envoie les 287 lignes, et les écrire remettrait
+     * chaque ligne modifiée entre-temps à l'état de son chargement. C'est ce qui a
+     * effacé 21 lignes chez GH Pontivy (voir `versionMapping.ts`).
+     *
+     * Une empreinte ABSENTE est refusée aussi, et c'est voulu : c'est ce qu'envoie un
+     * onglet ouvert avant ce déploiement, soit exactement l'onglet dangereux.
+     *
+     * La lecture, la comparaison et l'écriture se font dans une transaction qui
+     * verrouille la ligne : sans verrou, deux enregistrements simultanés liraient la
+     * même empreinte et passeraient tous les deux.
+     */
+    const versionAttendue = typeof body.version === "string" ? body.version : null;
+    const upId = Number(userProductId);
 
-    const existingExams = Array.isArray(existing?.exams)
-      ? (existing.exams as Record<string, any>[])
-      : [];
+    const resultat = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "TalkSettings" WHERE "userProductId" = ${upId} FOR UPDATE`;
+      const existing = await tx.talkSettings.findUnique({ where: { userProductId: upId } });
+
+      if (versionAttendue !== versionMapping(existing?.exams ?? null)) {
+        return { conflit: true as const };
+      }
+
+      const existingExams = Array.isArray(existing?.exams)
+        ? (existing.exams as Record<string, any>[])
+        : [];
 
     /**
      * LA FUSION SE FAIT PAR CODE NEURACORP, PLUS PAR POSITION.
@@ -188,30 +213,56 @@ export async function POST(req: NextRequest) {
      * sans erreur nulle part. Les filtres posés le 11/09/2026 rendent ce geste
      * naturel. Le code NEURACORP est la clé du mapping, c'est donc lui qui apparie.
      */
-    const parCode = new Map<string, Record<string, any>>();
-    for (const ancienne of existingExams) {
-      const code = texte(ancienne?.codeExamen);
-      // Première occurrence gagnante : un doublon déjà stocké ne se départage pas,
-      // et il ne peut plus s'en créer depuis que la validation les refuse.
-      if (code && !parCode.has(code)) parCode.set(code, ancienne);
-    }
+      const parCode = new Map<string, Record<string, any>>();
+      for (const ancienne of existingExams) {
+        const code = texte(ancienne?.codeExamen);
+        // Première occurrence gagnante : un doublon déjà stocké ne se départage pas,
+        // et il ne peut plus s'en créer depuis que la validation les refuse.
+        if (code && !parCode.has(code)) parCode.set(code, ancienne);
+      }
 
-    const merged = lignes.map((row) => ({
-      ...(parCode.get(row.codeExamen) ?? {}),
-      ...row,
-    }));
+      const merged = lignes.map((row) => ({
+        ...(parCode.get(row.codeExamen) ?? {}),
+        ...row,
+      }));
+
+      // 🔹 Upsert
+      const settings = await tx.talkSettings.upsert({
+        where: { userProductId: upId },
+        update: { exams: merged },
+        create: { userProductId: upId, exams: merged },
+      });
+      return { conflit: false as const, settings };
+    });
+
+    if (resultat.conflit) {
+      auditLog("data", "talk-mapping-update", {
+        actor: {
+          id: session.user.id,
+          email: session.user.email ?? null,
+          role: session.user.role,
+          ip: extractIpFromRequest(req),
+          userAgent: extractUserAgent(req),
+        },
+        target: { type: "userProduct", id: upId },
+        success: false,
+        errorReason: versionAttendue ? "mapping-modifie-entre-temps" : "version-absente",
+      });
+      return NextResponse.json(
+        {
+          error: versionAttendue
+            ? "Quelqu'un a enregistré ce mapping depuis que vous avez ouvert la page. Rien n'a été écrit. Rechargez la page pour voir ses changements, puis refaites les vôtres."
+            : "Cette page a été ouverte avant une mise à jour du Dashboard. Rien n'a été écrit. Rechargez la page, puis refaites vos changements.",
+        },
+        { status: 409 }
+      );
+    }
+    const { settings } = resultat;
 
     const attribues = lignes.filter((l) => l.performed && l.codeExamenClient).length;
     const attribuesSansCode = lignes.filter(
       (l) => l.performed && !l.codeExamenClient
     ).length;
-
-    // 🔹 Upsert
-    const settings = await prisma.talkSettings.upsert({
-      where: { userProductId: Number(userProductId) },
-      update: { exams: merged },
-      create: { userProductId: Number(userProductId), exams: merged },
-    });
 
     auditLog("data", "talk-mapping-update", {
       actor: {
@@ -228,6 +279,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       settings,
+      // La nouvelle empreinte, calculée sur ce que la base a rendu : l'écran la garde
+      // pour son prochain enregistrement sans avoir à recharger.
+      version: versionMapping(settings.exams),
       lignes: lignes.length,
       attribues,
       // L'écran s'en sert pour dire, après un enregistrement réussi, que le robot va

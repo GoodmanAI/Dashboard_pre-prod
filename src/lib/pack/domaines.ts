@@ -655,7 +655,7 @@ export const ONGLETS: Onglet[] = [
         c.ecritures.push({
           url: "/api/configuration/mapping",
           methode: "POST",
-          corps: { userProductId: t.userProductId, data: fusionnees },
+          corps: { userProductId: t.userProductId, data: fusionnees, version: t.examsVersion },
         });
       }
       return c;

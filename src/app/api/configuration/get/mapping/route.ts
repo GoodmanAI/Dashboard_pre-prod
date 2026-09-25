@@ -8,6 +8,7 @@ import {
   assertUserProductOwnership,
 } from "@/lib/auth-helpers";
 import { referentielEnBase } from "@/lib/referentielExamens";
+import { versionMapping, EN_TETE_VERSION_MAPPING } from "@/lib/versionMapping";
 
 type Exam = Record<string, any>;
 type ExamMap = Record<string, Exam>;
@@ -242,7 +243,13 @@ export async function GET(req: NextRequest) {
     }
 
     // ✅ Retourne tableau fusionné
-    return NextResponse.json(Object.values(examsMap));
+    //
+    // L'en-tête sert l'écran de mapping, qui le renvoie à l'enregistrement pour qu'un
+    // onglet resté ouvert n'écrase pas le travail d'un collègue (voir versionMapping.ts).
+    // Le robot l'ignore : le corps ne change pas.
+    return NextResponse.json(Object.values(examsMap), {
+      headers: { [EN_TETE_VERSION_MAPPING]: versionMapping(settings?.exams ?? null) },
+    });
   } catch (error: any) {
     console.error("Failed to fetch exams:", error);
 

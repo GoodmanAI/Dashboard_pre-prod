@@ -98,6 +98,12 @@ export type PackTalk = {
    * figer ici les ferait disparaître au premier import.
    */
   exams: Record<string, unknown>[];
+  /**
+   * Empreinte de `exams` à la lecture du pack (`src/lib/versionMapping.ts`). L'import la
+   * renvoie à `POST /api/configuration/mapping`, qui refuse (409) si le mapping a changé
+   * depuis : un pack exporté le matin ne réécrit plus les corrections de l'après-midi.
+   */
+  examsVersion: string;
 
   faq: { question: string; reponse: string; categorie: string | null; enabled: boolean }[];
 
