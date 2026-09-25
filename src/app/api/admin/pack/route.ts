@@ -8,6 +8,7 @@ import { produitDepuisNom, type SlugProduit } from "@/lib/produits";
 import { KONNECT_DEFAUTS, normaliserConfigKonnect, COLONNES_KONNECT } from "@/lib/konnectConfig";
 import { DOMAINES } from "@/lib/productConfig";
 import type { Pack, PackTalk, PackKonnect, JourneeHoraire } from "@/lib/pack/types";
+import { versionMapping } from "@/lib/versionMapping";
 
 /**
  * GET /api/admin/pack?userId=NN — toute la configuration d'un centre, en une lecture.
@@ -111,6 +112,7 @@ async function lireTalk(userProductId: number): Promise<PackTalk> {
     multiExamMapping: objet(settings?.multiExamMapping),
     weeklyHours: horaires(infos?.weeklyHours),
     exams: tableau(settings?.exams),
+    examsVersion: versionMapping(settings?.exams ?? null),
     faq: faq.map((f) => ({
       question: f.question,
       reponse: f.reponse,
