@@ -182,6 +182,10 @@ export default function MappingExam({ params }: TalkPageProps) {
 
   const [data, setData] = useState<ExamRow[]>([]);
   const [originalData, setOriginalData] = useState<ExamRow[]>([]);
+  // Empreinte du mapping au chargement, renvoyée à l'enregistrement : la route refuse
+  // (409) si un collègue a enregistré entre-temps. Sans elle, un onglet ouvert la veille
+  // a effacé 21 lignes chez GH Pontivy le 25/09/2026 (voir `src/lib/versionMapping.ts`).
+  const [version, setVersion] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { confirmer, dialogue } = useConfirmation();
@@ -207,6 +211,8 @@ export default function MappingExam({ params }: TalkPageProps) {
           `/api/configuration/get/mapping?userProductId=${userProductId}`,
         );
         let rows: ExamRow[] = [];
+        // `X-Mapping-Version`, posé par la route même en l'absence de mapping enregistré.
+        setVersion(res.headers.get("X-Mapping-Version"));
         if (res.ok) {
           const json = await res.json();
           const formatted = Array.isArray(json) ? json : Object.values(json);
@@ -375,7 +381,7 @@ export default function MappingExam({ params }: TalkPageProps) {
       const response = await fetch("/api/configuration/mapping", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userProductId, data }),
+        body: JSON.stringify({ userProductId, data, version }),
       });
       const json = await response.json().catch(() => null);
 
@@ -393,6 +399,7 @@ export default function MappingExam({ params }: TalkPageProps) {
       }
 
       setOriginalData(JSON.parse(JSON.stringify(data)));
+      if (typeof json?.version === "string") setVersion(json.version);
       const enregistre = `${dirtyCount} modification${
         dirtyCount > 1 ? "s" : ""
       } enregistrée${dirtyCount > 1 ? "s" : ""}`;

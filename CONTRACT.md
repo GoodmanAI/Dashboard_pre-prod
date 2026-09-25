@@ -612,6 +612,14 @@ téléphone sans pouvoir les réserver.
 **Sur un centre vierge, `performed` vaut `true`** : le client décoche ce qu'il ne
 pratique pas, plus rapide que de tout cocher. C'est le comportement d'origine.
 
+**En-tête `X-Mapping-Version`** (25/09/2026, ajout, corps inchangé). La réponse sans
+`codeExamen` porte l'empreinte de `TalkSettings.exams` (`src/lib/versionMapping.ts`).
+Seul l'écran de mapping la lit : il la renvoie à `POST /api/configuration/mapping`, qui
+répond **409** si le mapping a changé depuis le chargement, ou si l'empreinte manque. Un
+onglet ouvert la veille avait effacé 21 lignes chez GH Pontivy (userProductId 22) en
+réécrivant les 287 lignes de son chargement. LyraeTalk ignore l'en-tête : rien à changer
+côté robot.
+
 **Ce que la donnée servie garantit désormais, et ce qu'elle ne garantit pas**
 (14/09/2026). `POST /api/configuration/mapping`, l'écriture en amont (session
 uniquement, aucune clé d'API n'y entre), refuse qu'un même **code NEURACORP** porte deux
