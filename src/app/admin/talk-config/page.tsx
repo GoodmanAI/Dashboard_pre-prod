@@ -201,7 +201,10 @@ export default function TalkConfigPage() {
     }
   }, [selection, actifs, saisies, nbActifs, charger]);
 
-  function Champ({ champ }: { champ: ChampSite }) {
+  // Une fonction de rendu, pas un composant : déclaré ici comme composant, `Champ`
+  // changeait d'identité à chaque rendu, React démontait le champ à chaque lettre
+  // tapée et la saisie perdait le focus.
+  function rendreChamp(champ: ChampSite) {
     const actif = actifs[champ.chemin] === true;
     return (
       <Box sx={{ py: 1.5 }}>
@@ -355,7 +358,7 @@ export default function TalkConfigPage() {
               {section.champs.map((champ, i) => (
                 <React.Fragment key={champ.chemin}>
                   {i > 0 && <Divider />}
-                  <Champ champ={champ} />
+                  {rendreChamp(champ)}
                 </React.Fragment>
               ))}
             </Paper>
