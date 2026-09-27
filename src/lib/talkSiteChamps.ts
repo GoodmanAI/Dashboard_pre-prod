@@ -197,7 +197,15 @@ export const SECTIONS_SITE: SectionSite[] = [
         type: "json",
         proprietaire: "client",
         defautRobot: "Aucune, tout va au secrétariat",
-        aide: "Un numéro dédié pour certains examens. Exemple : { \"MR\": [{ \"phone\": \"+33545356891\", \"label\": \"Centre IRM\" }] }",
+        aide: "Un numéro dédié pour certains examens. Exemple : { \"MR\": [{ \"phone\": \"+33545356891\", \"label\": \"Centre IRM\" }] }. Si ce numéro a ses propres horaires, ajoutez-les dans l'entrée : \"horaires\": { \"monday\": { \"enabled\": true, \"ranges\": [{ \"start\": \"08:30\", \"end\": \"12:00\" }] } }, un jour absent vaut fermé. Sans horaires, le robot prend ceux du centre.",
+      },
+      {
+        chemin: "redirectionSiFerme",
+        libelle: "Numéro dédié fermé",
+        type: "json",
+        proprietaire: "client",
+        defautRobot: "Annoncer la réouverture",
+        aide: "Par type d'examen, ce que fait le robot quand le numéro dédié est fermé : \"secretariat\" pour passer au secrétariat, \"annonce\" pour dire quand il rouvre sans transférer. Exemple : { \"MG\": \"secretariat\" }",
       },
       {
         chemin: "transferFallbacks",

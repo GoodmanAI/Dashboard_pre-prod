@@ -48,6 +48,10 @@ que le robot dérive lui-même). Même règle pour `statePerformed.motif`, `.que
 
 Contrat détaillé et liste des champs cibles : `contracts/shared/init-config.md`.
 
+Deux champs additifs le 27/09/2026 (LyraeTalk v2.6.0) : `horaires` dans une entrée de
+`examTypeRedirection` (forme `weeklyHours`, horaires propres à un numéro dédié) et
+`redirectionSiFerme` (`{ MG: "secretariat" | "annonce" }`). Un robot plus ancien les ignore.
+
 ⚠️ **`GET /api/configuration` : le champ `labelFr` de `examMappings` porte un CODE de
 type, jamais un libellé** (07/09/2026). C'est ce que LyraeTalk lit pour savoir de quel
 type une ligne parle, et ce dont il fera la clé de `site.typeExams` quand la
