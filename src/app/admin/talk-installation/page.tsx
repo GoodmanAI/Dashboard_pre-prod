@@ -28,6 +28,7 @@ import SectionHeader from "@/components/admin/SectionHeader";
 import type { Manque } from "@/lib/completude/types";
 import { STATUTS, type StatutCentre } from "@/lib/centreStatut";
 import { INK, INK_MUTED, BORDER, SURFACE_MUTED, OK, MANQUE } from "@/lib/jetons";
+import { RETENTION_MIN_MOIS, RETENTION_MAX_MOIS } from "@/lib/retentionAppels";
 
 /**
  * Installer un centre LyraeTalk, de bout en bout (lot I2).
@@ -189,6 +190,10 @@ export default function InstallationTalk() {
 
   const [nouveauCode, setNouveauCode] = useState("");
   const [nouveauNumero, setNouveauNumero] = useState("");
+  // Délai de conservation des appels : lu à part, `/api/talk-installation` ne le
+  // porte pas (il décrit l'installation, pas la politique de données).
+  const [retention, setRetention] = useState<number | null>(null);
+  const [saisieRetention, setSaisieRetention] = useState("");
 
   const recharger = useCallback(async (garder?: number) => {
     try {
@@ -221,6 +226,31 @@ export default function InstallationTalk() {
     setNouveauCode("");
     setNouveauNumero("");
   }, [centre]);
+
+  const centreId = centre?.userProductId ?? null;
+  useEffect(() => {
+    setRetention(null);
+    setSaisieRetention("");
+    if (centreId === null) return;
+    let annule = false;
+    fetch(`/api/retention-appels?userProductId=${centreId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (annule || typeof d?.mois !== "number") return;
+        setRetention(d.mois);
+        setSaisieRetention(String(d.mois));
+      })
+      .catch(() => {});
+    return () => {
+      annule = true;
+    };
+  }, [centreId]);
+
+  const moisSaisis = Number(saisieRetention);
+  const retentionValide =
+    Number.isInteger(moisSaisis) &&
+    moisSaisis >= RETENTION_MIN_MOIS &&
+    moisSaisis <= RETENTION_MAX_MOIS;
 
   async function appeler(url: string, methode: string, corps: unknown, succes: string) {
     setErreur(null);
@@ -255,6 +285,17 @@ export default function InstallationTalk() {
       setNouveauCode("");
       await recharger(centre.userProductId);
     }
+  }
+
+  async function enregistrerRetention() {
+    if (!centre || !retentionValide) return;
+    const ok = await appeler(
+      "/api/retention-appels",
+      "PUT",
+      { userProductId: centre.userProductId, mois: moisSaisis },
+      "Délai de conservation enregistré."
+    );
+    if (ok) setRetention(moisSaisis);
   }
 
   async function ajouterNumero() {
@@ -444,13 +485,52 @@ export default function InstallationTalk() {
               </Stack>
             </Bloc>
 
+            <Bloc
+              numero={3}
+              titre="Conservation des appels"
+              fait
+              manque=""
+            >
+              <Typography sx={{ fontSize: 12, color: INK_MUTED, mb: 1.5 }}>
+                Passé ce délai, la transcription, le nom et le numéro du patient sont effacés
+                chaque nuit, et l&apos;appel disparaît de la liste des appels. Ses
+                chiffres restent dans les statistiques. Le client ne voit pas ce réglage.
+              </Typography>
+              <Stack direction="row" spacing={2} alignItems="flex-start">
+                <TextField
+                  size="small"
+                  type="number"
+                  label="Durée en mois"
+                  value={saisieRetention}
+                  disabled={retention === null}
+                  onChange={(e) => setSaisieRetention(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void enregistrerRetention();
+                  }}
+                  error={saisieRetention !== "" && !retentionValide}
+                  helperText={`Entre ${RETENTION_MIN_MOIS} et ${RETENTION_MAX_MOIS} mois`}
+                  inputProps={{ min: RETENTION_MIN_MOIS, max: RETENTION_MAX_MOIS, step: 1 }}
+                  sx={{ width: 180 }}
+                />
+                <Button
+                  variant="contained"
+                  disableElevation
+                  disabled={occupe || !retentionValide || moisSaisis === retention}
+                  onClick={() => void enregistrerRetention()}
+                  sx={{ bgcolor: "var(--accent)", mt: 0.25 }}
+                >
+                  Enregistrer
+                </Button>
+              </Stack>
+            </Bloc>
+
             <Typography sx={{ fontSize: 12.5, color: INK_MUTED, mt: 3, mb: 1.5 }}>
               Ce qui suit appartient au client et se règle dans son espace. Affiché ici
               pour savoir où il en est.
             </Typography>
 
             <BlocRenvoi
-              numero={3}
+              numero={4}
               titre="Réglages du robot"
               fait={centre.aDesReglages}
               manque="Le robot tourne sur les valeurs par défaut."
@@ -459,7 +539,7 @@ export default function InstallationTalk() {
             />
 
             <BlocRenvoi
-              numero={4}
+              numero={5}
               titre="Mapping d'examens"
               fait={!chercher(centre, "talk.codes-examens")}
               manque={chercher(centre, "talk.codes-examens")?.manque ?? ""}
@@ -468,7 +548,7 @@ export default function InstallationTalk() {
             />
 
             <BlocRenvoi
-              numero={5}
+              numero={6}
               titre="Questions par examen"
               fait={!chercher(centre, "talk.questions-examens")}
               manque={chercher(centre, "talk.questions-examens")?.manque ?? ""}
@@ -476,7 +556,7 @@ export default function InstallationTalk() {
             />
 
             <BlocRenvoi
-              numero={6}
+              numero={7}
               titre="FAQ patient"
               fait={!chercher(centre, "talk.faq")}
               manque={chercher(centre, "talk.faq")?.manque ?? ""}

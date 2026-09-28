@@ -274,6 +274,10 @@ export default function CallListPage({ params }: CallListPageProps) {
 
   const [dateRangeDraft, setDateRangeDraft] = useState<DateRange>(dateRange);
 
+  // Délai de conservation du centre, renvoyé par la route : au-delà, les appels sont
+  // effacés et la liste s'arrête. Réglé par l'admin, affiché ici pour l'expliquer.
+  const [conservation, setConservation] = useState<{ mois: number; depuis: string } | null>(null);
+
   // Recherche par numéro — input vs query (debouncé)
   const [phoneInput, setPhoneInput] = useState("");
   const [phoneSearch, setPhoneSearch] = useState("");
@@ -388,10 +392,11 @@ export default function CallListPage({ params }: CallListPageProps) {
 
         if (!res.ok) throw new Error("Erreur lors du fetch des appels");
 
-        const { data, total } = await res.json();
+        const { data, total, conservation: delai } = await res.json();
 
         setCalls(data);
         setTotal(total);
+        setConservation(delai ?? null);
         const initialCheckbox: Record<number, boolean> = {};
         const initialFlagged: Record<number, boolean> = {};
 
@@ -757,6 +762,14 @@ export default function CallListPage({ params }: CallListPageProps) {
       )}
 
       {error && <Alert severity="error">{error}</Alert>}
+
+      {conservation &&
+        (phoneSearchActive || dateRange.from < new Date(conservation.depuis)) && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Les appels de plus de {conservation.mois} mois sont effacés. Leurs chiffres
+            restent dans Statistiques d&apos;appels.
+          </Alert>
+        )}
 
       {!loading && calls.length === 0 && (
         <Alert severity="info">Aucun appel trouvé.</Alert>

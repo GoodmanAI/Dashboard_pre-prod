@@ -15,6 +15,8 @@ export default function CallConversationPage({ params }: { params: { id: string;
   const [entites, setEntites] = useState<EntiteRobot[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 410 : appel effacé par la rétention. Ce n'est pas une panne, on ne l'affiche pas en rouge.
+  const [efface, setEfface] = useState(false);
 
 
   const userProductId = Number(params.id);
@@ -31,8 +33,14 @@ export default function CallConversationPage({ params }: { params: { id: string;
     setError(null);
 
     fetch(`/api/calls?userProductId=${userProductId}&call=${callId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Erreur lors du fetch de l'appel");
+      .then(async (res) => {
+        // 410 : l'appel a dépassé le délai de conservation du centre. La route dit
+        // pourquoi et où trouver ses chiffres ; on affiche son message tel quel.
+        if (!res.ok) {
+          setEfface(res.status === 410);
+          const corps = await res.json().catch(() => null);
+          throw new Error(corps?.error ?? "Impossible d'ouvrir cet appel. Rechargez la page.");
+        }
         return res.json();
       })
       .then((data: { steps?: Array<{ speaker?: string; text?: string }>; stats?: { entites?: EntiteRobot[] } }[]) => {
@@ -58,7 +66,7 @@ export default function CallConversationPage({ params }: { params: { id: string;
           </Box>
         )}
 
-        {error && <Alert severity="error">{error}</Alert>}
+        {error && <Alert severity={efface ? "info" : "error"}>{error}</Alert>}
 
         {!loading && !error && steps.length === 0 && (
           <Alert severity="info">Aucune conversation trouvée pour cet appel.</Alert>

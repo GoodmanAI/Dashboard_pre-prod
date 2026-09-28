@@ -118,6 +118,13 @@ model UserProduct {
   /// Sert de ETag HTTP + payload webhook Azure warm-up.
   moduleInfoVersion DateTime @default(now())
 
+  /// Délai de conservation des appels, en mois (1 à 24, CHECK en base). Passé ce
+  /// délai, le job `scripts/db-maintenance/anonymise_appels.sh` vide la
+  /// transcription et la donnée patient de `CallConversation`, et la liste des
+  /// appels ne les montre plus. Réglé par l'admin seul. Colonne posée par
+  /// prisma/migrations/manual/2026_09_28_retention_appels.sql.
+  retentionAppelsMois Int @default(3)
+
   explainDetails LyraeExplainDetails?
   talkDetails    LyraeTalkDetails?
 
@@ -340,11 +347,21 @@ model CallConversation {
   stats         Json     @default("{}")
   createdAt     DateTime @default(now())
 
+  /// Longueur de `steps` à l'écriture. Les écrans ne comptent que les appels de
+  /// plus d'un échange ; `steps` étant vidé à l'anonymisation, c'est cette colonne
+  /// qui garde l'information. NULL sur une ligne écrite avant la migration et pas
+  /// encore remplie : les lectures retombent alors sur la longueur de `steps`.
+  nbTours       Int?
+  /// Posé par le job d'anonymisation : `steps` vidé, `phoneNumber` et `entites`
+  /// retirés de `stats`. NULL = la ligne porte encore sa transcription.
+  anonymiseeLe  DateTime?
+
   userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
 
   // Poses par prisma/migrations/manual/2026_09_18_callconversation_index.sql (CONCURRENTLY,
   // donc hors migration Prisma). Un troisieme index, partiel sur `flagged`, ne s'exprime
-  // pas ici et ne vit que dans ce fichier.
+  // pas ici et ne vit que dans ce fichier. Idem pour l'index partiel du job
+  // d'anonymisation (2026_09_28_retention_appels.sql).
   @@index([userProductId, createdAt(sort: Desc)])
   @@index([createdAt])
 }

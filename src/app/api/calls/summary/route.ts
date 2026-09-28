@@ -84,6 +84,8 @@ export async function POST(req: NextRequest) {
         // `stats.entry_user_product_id`, qui est explicite.
         centerId: 0,
         steps: stepsTransformed as unknown as Prisma.InputJsonValue,
+        // Garde le nombre d'échanges quand la transcription sera effacée (rétention).
+        nbTours: stepsTransformed.length,
         stats: stats as unknown as Prisma.InputJsonValue,
       },
     });

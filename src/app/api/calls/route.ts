@@ -5,6 +5,7 @@ import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { indexerParType, diminutifDuType } from "@/lib/examTypes";
 import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
+import { debutConservation } from "@/lib/retentionAppels";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,16 @@ function canonicalPhoneFR(p: string | null | undefined): string {
  * se fait en SQL, puis la lecture ne sélectionne que les colonnes légères. `steps` vaut
  * `{}` par défaut et non un tableau, d'où le `CASE` (PostgreSQL ne garantit pas l'ordre
  * d'évaluation d'un `AND`, et `jsonb_array_length` échoue sur un objet).
+ *
+ * Le nombre d'échanges se lit dans `nbTours` depuis le 28/09/2026 : l'anonymisation
+ * (rétention) vide `steps`, et un appel anonymisé doit rester compté dans les
+ * statistiques. `steps` ne sert plus que de repli sur une ligne pas encore remplie.
  */
+function nbToursDe(ligne: any): number {
+  if (typeof ligne?.nbTours === "number") return ligne.nbTours;
+  return Array.isArray(ligne?.steps) ? ligne.steps.length : 0;
+}
+
 /**
  * `stats.internal` : les mesures que le robot pose sur lui-même (identification, STT,
  * performances d'API). Seul l'écran d'analyse interne les lit, et il a sa propre route.
@@ -66,9 +76,7 @@ async function lireAppels(where: any, sansTranscription: boolean): Promise<any[]
       where,
       orderBy: { createdAt: "desc" },
     });
-    return lignes
-      .filter((c: any) => Array.isArray(c.steps) && c.steps.length > 1)
-      .map(sansMesuresInternes);
+    return lignes.filter((c: any) => nbToursDe(c) > 1).map(sansMesuresInternes);
   }
 
   const depuis: Date = where.createdAt?.gte ?? new Date(0);
@@ -83,7 +91,10 @@ async function lireAppels(where: any, sansTranscription: boolean): Promise<any[]
     WHERE "userProductId" = ${where.userProductId}
       AND "createdAt" >= ${depuis.toISOString()}::timestamp
       AND "createdAt" <= ${jusqua.toISOString()}::timestamp
-      AND (CASE WHEN jsonb_typeof(steps::jsonb) = 'array' THEN jsonb_array_length(steps::jsonb) ELSE 0 END) > 1`;
+      AND COALESCE(
+            "nbTours",
+            CASE WHEN jsonb_typeof(steps::jsonb) = 'array' THEN jsonb_array_length(steps::jsonb) ELSE 0 END
+          ) > 1`;
   if (ids.length === 0) return [];
 
   // Par paquets : PostgreSQL plafonne le nombre de paramètres liés d'une requête.
@@ -269,6 +280,27 @@ export async function GET(request: NextRequest) {
     if (droitErr) return droitErr;
 
     // ==========================
+    // RÉTENTION (28/09/2026)
+    // ==========================
+    //
+    // Au-delà du délai du centre, un appel ne se montre plus : ni dans la liste, ni
+    // dans les incidents, ni en détail. La borne s'applique ici, à la lecture, même si
+    // le job de nuit (`scripts/db-maintenance/anonymise_appels.sh`) n'est pas encore
+    // passé ; `anonymiseeLe` couvre l'autre cas, un délai allongé après coup.
+    //
+    // Les statistiques (`champs=stats`) ne sont PAS bornées : elles ne lisent que
+    // `stats`, dont le job ne retire que `phoneNumber` et `entites`. C'est ce qui
+    // leur permet de couvrir une année quand la liste n'en montre que trois mois.
+    const { retentionAppelsMois } = await prisma.userProduct.findUniqueOrThrow({
+      where: { id: userProductId },
+      select: { retentionAppelsMois: true },
+    });
+    const borneConservation = debutConservation(retentionAppelsMois);
+    const messageEfface =
+      `Cet appel a plus de ${retentionAppelsMois} mois : sa conversation a été effacée. ` +
+      `Ses chiffres restent dans Statistiques d'appels.`;
+
+    // ==========================
     // CAS 1 : UN SEUL CALL
     // ==========================
     if (callIdParam) {
@@ -290,6 +322,10 @@ export async function GET(request: NextRequest) {
           { error: "Aucun appel trouvé." },
           { status: 404 }
         );
+      }
+
+      if (call.anonymiseeLe || call.createdAt < borneConservation) {
+        return NextResponse.json({ error: messageEfface }, { status: 410 });
       }
 
       return NextResponse.json([call], { status: 200 });
@@ -331,6 +367,18 @@ export async function GET(request: NextRequest) {
 
       whereClause.createdAt = dateFilter;
     }
+
+    // Borne de rétention, pour les seules lectures qui peuvent rendre une transcription.
+    const borner = (where: any) => {
+      if (sansTranscription) return;
+      where.anonymiseeLe = null;
+      const gte: Date | undefined = where.createdAt?.gte;
+      where.createdAt = {
+        ...(where.createdAt ?? {}),
+        gte: gte && gte > borneConservation ? gte : borneConservation,
+      };
+    };
+    borner(whereClause);
 
     // Filtre statut
     if (statusParam && statusParam !== "all") {
@@ -442,6 +490,7 @@ export async function GET(request: NextRequest) {
             lte: new Date(previousToParam!),
           },
         };
+        borner(previousWhere);
         // Reproduire les filtres post-fetch JS identiquement.
         let previousCalls: any[] = await lireAppels(previousWhere, sansTranscription);
         if (statusParam === "hung_up") {
@@ -498,6 +547,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Pour que la liste dise pourquoi elle s'arrête : au-delà, les appels sont effacés.
+    const conservation = { mois: retentionAppelsMois, depuis: borneConservation.toISOString() };
+
     const total = calls.length;
     const paginatedCalls = await avecTranscriptions(calls.slice(skip, skip + limit));
 
@@ -535,7 +587,8 @@ export async function GET(request: NextRequest) {
           data: examPaginatedCalls,
           total: scannersCalls.length,
           page,
-          limit
+          limit,
+          conservation,
         }
       );
     } else {
@@ -545,6 +598,7 @@ export async function GET(request: NextRequest) {
           total,
           page,
           limit,
+          conservation,
         },
         { status: 200 }
       );

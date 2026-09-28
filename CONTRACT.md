@@ -342,6 +342,16 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   d'analyse interne les lit, par sa propre route (`/api/admin/analytics-internal`, qui
   interroge la base directement). La **pagination** ne charge plus non plus les `steps`
   de toute la plage, seulement ceux des lignes de la page rendue.
+- **Rétention** (28/09/2026) : les lignes qui peuvent rendre une transcription (liste
+  paginée, `mode=all` sans `champs=stats`, `call=`) sont bornées au délai du centre
+  (`UserProduct.retentionAppelsMois`, 3 mois par défaut, réglé par l'admin seul via
+  `PUT /api/retention-appels`) et excluent les lignes anonymisées. Un `call=` hors délai
+  répond **410**. La réponse paginée porte `conservation: { mois, depuis }`.
+  **`champs=stats` n'est pas borné** : les statistiques couvrent tout l'historique. Le
+  job `scripts/db-maintenance/anonymise_appels.sh` vide `steps` et retire
+  `stats.phoneNumber` et `stats.entites` au-delà du délai ; le reste de `stats` (dont
+  `internal`) reste. Le filtre « plus d'un échange » se lit dans `nbTours`, plus dans
+  `steps`. Plan : `plans/2026-09-retention-des-appels.md` (workspace).
 - **Bornes de date en SQL brut** (23/09/2026) : la sélection des identifiants compare
   désormais `"createdAt"` à des chaînes ISO castées en `timestamp`, et non à des objets
   `Date`. La colonne est un `timestamp without time zone` qui porte de l'UTC, que
@@ -670,6 +680,9 @@ Deux états restent possibles, et le robot doit continuer à les traiter :
    handler vérifie que le `UserProduct` existe avant d'écrire et retombe sur le centre
    d'entrée sinon : un centre non encore créé dégrade l'attribution, il ne fait pas
    perdre l'appel. `centerId` reste à 0, il ne désigne ici aucun centre.
+   Depuis le 28/09/2026, `steps` et les clés `stats.phoneNumber` et `stats.entites` sont
+   **effacés** au-delà du délai de conservation du centre : une clé ajoutée à `stats` qui
+   porte une donnée patient doit rejoindre la liste du job `anonymise_appels.sh`.
    Voir `plans/2026-09-attribution-stats-multisite.md` dans le workspace.
 3. **Payloads** `POST /api/rdv/init`, `POST /api/prescriptions/init` (clés, format de date de naissance, enum de type d'examen).
 4. **Forme de `GET /api/prescriptions/pending`** : `{ pending, total }`.
