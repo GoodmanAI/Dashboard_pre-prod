@@ -55,6 +55,11 @@ export type ChampSite = {
   aide: string;
   /** Qui décide de cette valeur. Oriente l'écran, pas les droits. */
   proprietaire: "client" | "admin";
+  /**
+   * Un exemple à recopier, affiché sous l'aide quand le champ est ouvert. Pour
+   * un JSON, la forme attendue ; pour une phrase, où elle tombe dans l'appel.
+   */
+  exemple?: string;
   /** Bornes, pour un nombre. */
   min?: number;
   max?: number;
@@ -260,7 +265,24 @@ export const SECTIONS_SITE: SectionSite[] = [
         type: "json",
         proprietaire: "admin",
         defautRobot: "Aucun",
-        aide: "Une phrase d'avertissement quand le rendez-vous concerne certains praticiens. { \"enabled\": true, \"codesMedecins\": [\"BENATE\"], \"doctorName\": \"BENATTAR\", \"sentence\": \"special_medecin_warning\" }",
+        aide: "Une phrase dite au patient quand le créneau proposé est avec l'un de ces codes médecin (plage privée, avance de frais). Chaque règle a ses codes et sa phrase. « phraseSiMedecinDemande », facultative, remplace la phrase quand le patient a demandé ce médecin : le robot a déjà dit « avec le docteur X ». Écrivez une phrase qui tient seule et commence par « Il s'agit », pas par « Ce créneau » : quand le robot propose plusieurs créneaux, il la fait précéder de « Pour le deuxième créneau : ».",
+        exemple: `{
+  "regles": [
+    {
+      "codesMedecins": ["DUPONT", "MARTIN"],
+      "phrase": "Il s'agit d'une plage privée, qui nécessite une avance de frais."
+    },
+    {
+      "codesMedecins": ["BENATE"],
+      "phrase": "Il s'agit d'une consultation avec le docteur Benattar, sur une plage privée en secteur 1.",
+      "phraseSiMedecinDemande": "Il s'agit d'une plage privée en secteur 1."
+    }
+  ]
+}
+
+Ce que le patient entend :
+  Un créneau : « Le premier créneau disponible est mardi 7 octobre à 10 heures. Il s'agit d'une plage privée, qui nécessite une avance de frais. Est-ce qu'il vous convient ? »
+  Plusieurs : « Le premier créneau est lundi 6 octobre à 9 heures, le deuxième est mardi 7 octobre à 10 heures. Pour le deuxième créneau : il s'agit d'une plage privée, qui nécessite une avance de frais. Quel créneau choisissez-vous ? »`,
       },
     ],
   },
