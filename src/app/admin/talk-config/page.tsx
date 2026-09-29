@@ -239,6 +239,22 @@ export default function TalkConfigPage() {
               {champ.aide}
             </Typography>
 
+            {actif && champ.exemple && (
+              <Typography
+                component="pre"
+                sx={{
+                  fontSize: 11.5,
+                  color: INK_MUTED,
+                  fontFamily: "monospace",
+                  whiteSpace: "pre-wrap",
+                  m: 0,
+                  mb: 1,
+                }}
+              >
+                {champ.exemple}
+              </Typography>
+            )}
+
             {actif ? (
               champ.type === "booleen" ? (
                 <Switch
