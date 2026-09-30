@@ -22,7 +22,9 @@ const MAX_ITEMS = 1000;
  *
  * Aucune donnee patient : AI2Xplore n'a besoin que du numero et du centre.
  *
- * Reponse 200 : { count, items: [{ id, rdvId, externalCenterCode }] }
+ * Reponse 200 : { count, items: [{ id, rdvId, externalCenterCode, jourRdv }] }
+ * `jourRdv` : jour du RDV a Paris, 'AAAA-MM-JJ' (null si inconnu), compare par
+ * AI2Xplore au jour de Xplore pour reporter un RDV deplace (rdv-deplaces).
  */
 export async function GET(req: NextRequest) {
   const keyErr = requireApiKey(req, "APPOINTMENT_API_KEY");
@@ -37,8 +39,14 @@ export async function GET(req: NextRequest) {
   }
   if (codes.length === 0) return NextResponse.json({ count: 0, items: [] });
 
-  const res = await db.query<{ id: number; rdvId: string; externalCenterCode: string }>(
-    `SELECT "id", "rdvId", "externalCenterCode"
+  const res = await db.query<{
+    id: number;
+    rdvId: string;
+    externalCenterCode: string;
+    jourRdv: string | null;
+  }>(
+    `SELECT "id", "rdvId", "externalCenterCode",
+            to_char("appointmentDate" AT TIME ZONE 'Europe/Paris', 'YYYY-MM-DD') AS "jourRdv"
        FROM "PrescriptionUpload"
       WHERE "externalCenterCode" = ANY($1::text[])
         AND "status" = 'PENDING'
