@@ -163,9 +163,15 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
   );
 
   // ---- Timeline UI ---------------------------------------------------------
-  // thresholdHours = seuil actuellement applique (envoye au serveur)
-  // defaultHours   = alertAfterHours du centre (retourne par le serveur au 1er load)
+  // seuilChoisi    = fenetre choisie sur la page ; null = celle du parametrage du
+  //                  centre. Jamais conservee : en revenant sur la page, on repart
+  //                  du parametrage (le serveur l'applique quand on n'envoie rien).
+  //                  Avant le 30/09/2026, l'ecran envoyait toujours 48 h au premier
+  //                  chargement, et le parametrage du centre n'etait jamais applique.
+  // thresholdHours = seuil effectivement applique, tel que rendu par le serveur
+  // defaultHours   = alertAfterHours du centre (retourne par le serveur)
   // customInput    = valeur libre saisie par l'utilisateur (pour l'input "Autre")
+  const [seuilChoisi, setSeuilChoisi] = useState<number | null>(null);
   const [thresholdHours, setThresholdHours] = useState<number>(DEFAULT_ALERT_AFTER_HOURS);
   const [defaultHours, setDefaultHours] = useState<number>(DEFAULT_ALERT_AFTER_HOURS);
   const [customInput, setCustomInput] = useState<string>("");
@@ -179,14 +185,15 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
   const load = useCallback(
     async (hoursOverride?: number) => {
       if (!userProductId) return;
-      const hours = hoursOverride ?? thresholdHours;
+      const hours = hoursOverride ?? seuilChoisi;
       try {
         setLoading(true);
         setError(null);
         // Fetch en parallele : alertes pending + count rejected (pour le badge tab)
         const [alertsRes, countRes] = await Promise.all([
           fetch(
-            `/api/prescriptions/alerts?userProductId=${userProductId}&hoursThreshold=${hours}`,
+            `/api/prescriptions/alerts?userProductId=${userProductId}` +
+              (hours != null ? `&hoursThreshold=${hours}` : ""),
             { cache: "no-store" }
           ),
           fetch(`/api/prescriptions/alerts/count?userProductId=${userProductId}`, {
@@ -202,7 +209,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
         if (Number.isFinite(data?.defaultHours)) {
           setDefaultHours(data.defaultHours);
         }
-        if (Number.isFinite(data?.thresholdHours) && data.thresholdHours !== hours) {
+        if (Number.isFinite(data?.thresholdHours)) {
           setThresholdHours(data.thresholdHours);
         }
         // Count rejected pour le badge du tab (non-bloquant)
@@ -218,7 +225,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
         setLoading(false);
       }
     },
-    [userProductId, thresholdHours]
+    [userProductId, seuilChoisi]
   );
 
   useEffect(() => {
@@ -230,7 +237,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
     const interval = setInterval(() => load(), 5 * 60_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userProductId, thresholdHours]);
+  }, [userProductId, seuilChoisi]);
 
   // Chantier 2026-08-05 : fetch stats 30 derniers jours pour les KPI en tete
   // de page. On ne poll pas (les chiffres changent lentement, refresh au
@@ -295,17 +302,22 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
     };
   }, [userProductId, load]);
 
-  // Sync selectValue avec thresholdHours au premier load pour reflechir la config centre
+  // Le parametrage du centre figure toujours dans la liste, meme hors presets (2 h).
+  const choixHeures = useMemo(
+    () => Array.from(new Set([...PRESET_HOURS, defaultHours])).sort((a, b) => a - b),
+    [defaultHours]
+  );
+
+  // Sync selectValue avec le seuil applique (parametrage du centre au chargement)
   useEffect(() => {
-    // Si le defaultHours du serveur n'est pas dans les presets, ajuste la selection
     const val = String(thresholdHours);
-    if (PRESET_HOURS.includes(thresholdHours)) {
+    if (choixHeures.includes(thresholdHours)) {
       setSelectValue(val);
     } else {
       setSelectValue("custom");
       setCustomInput(val);
     }
-  }, [thresholdHours]);
+  }, [thresholdHours, choixHeures]);
 
   const handleSelectChange = useCallback((newVal: string) => {
     setSelectValue(newVal);
@@ -315,7 +327,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
     }
     const hours = Number.parseInt(newVal, 10);
     if (Number.isFinite(hours)) {
-      setThresholdHours(hours);
+      setSeuilChoisi(hours);
     }
   }, []);
 
@@ -333,7 +345,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
       });
       return;
     }
-    setThresholdHours(n);
+    setSeuilChoisi(n);
   }, [customInput]);
 
   const handleResolve = useCallback(
@@ -569,9 +581,9 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                 onChange={(e) => handleSelectChange(e.target.value as string)}
                 sx={{ minWidth: 140, bgcolor: "#FFF" }}
               >
-                {PRESET_HOURS.map((h) => (
+                {choixHeures.map((h) => (
                   <MenuItem key={h} value={String(h)}>
-                    {h}h{h === defaultHours ? " (defaut)" : ""}
+                    {h}h{h === defaultHours ? " (réglage du centre)" : ""}
                   </MenuItem>
                 ))}
                 <MenuItem value="custom">Autre…</MenuItem>
