@@ -168,14 +168,16 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
   //                  du parametrage (le serveur l'applique quand on n'envoie rien).
   //                  Avant le 30/09/2026, l'ecran envoyait toujours 48 h au premier
   //                  chargement, et le parametrage du centre n'etait jamais applique.
-  // thresholdHours = seuil effectivement applique, tel que rendu par le serveur
+  // thresholdHours = seuil effectivement applique, tel que rendu par le serveur ;
+  //                  null tant qu'il n'a pas repondu : on n'affiche aucun chiffre
+  //                  plutot qu'un 48 h qui se corrigerait une seconde plus tard.
   // defaultHours   = alertAfterHours du centre (retourne par le serveur)
   // customInput    = valeur libre saisie par l'utilisateur (pour l'input "Autre")
   const [seuilChoisi, setSeuilChoisi] = useState<number | null>(null);
-  const [thresholdHours, setThresholdHours] = useState<number>(DEFAULT_ALERT_AFTER_HOURS);
+  const [thresholdHours, setThresholdHours] = useState<number | null>(null);
   const [defaultHours, setDefaultHours] = useState<number>(DEFAULT_ALERT_AFTER_HOURS);
   const [customInput, setCustomInput] = useState<string>("");
-  const [selectValue, setSelectValue] = useState<string>(String(DEFAULT_ALERT_AFTER_HOURS));
+  const [selectValue, setSelectValue] = useState<string>("");
 
   // ---- Filtre type d'examen -----------------------------------------------
   // "all" = pas de filtre. Sinon la valeur brute d'examType (scanner, irm, etc.)
@@ -310,6 +312,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
 
   // Sync selectValue avec le seuil applique (parametrage du centre au chargement)
   useEffect(() => {
+    if (thresholdHours == null) return;
     const val = String(thresholdHours);
     if (choixHeures.includes(thresholdHours)) {
       setSelectValue(val);
@@ -405,7 +408,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
       <Box>
         <SectionHeader
           title="Ordonnances manquantes"
-          subtitle={`Les patients qui ont reçu le lien de dépôt il y a plus de ${thresholdHours} heures et n'ont rien envoyé, et les ordonnances refusées par votre logiciel de gestion.`}
+          subtitle={`Les patients qui ont reçu le lien de dépôt${thresholdHours != null ? ` il y a plus de ${thresholdHours} heures` : ""} et n'ont rien envoyé, et les ordonnances refusées par votre logiciel de gestion.`}
           actions={
             tab === "pending" ? (
               <Chip
@@ -682,7 +685,9 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               Aucune alerte en cours
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Aucun patient n&apos;a dépassé {thresholdHours} heures sans déposer son ordonnance.
+              {thresholdHours != null
+                ? `Aucun patient n'a dépassé ${thresholdHours} heures sans déposer son ordonnance.`
+                : "Aucun patient n'attend de déposer son ordonnance."}
             </Typography>
           </Card>
         ) : (
@@ -701,7 +706,8 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
 
             {orderedItems.map((item) => {
               // Critical = 2x le seuil configure (ex: 48h de seuil -> critical > 96h)
-              const critical = item.hoursSinceCreated > thresholdHours * 2;
+              const critical =
+                thresholdHours != null && item.hoursSinceCreated > thresholdHours * 2;
               const examLabel = item.examType
                 ? EXAM_LABELS[item.examType] ?? item.examType
                 : "Examen non précisé";
