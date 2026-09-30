@@ -71,9 +71,12 @@ irrécupérable retombe sur `fr`, comportement historique.
 
 **Pour AI2Xplore** — header `x-api-key: APPOINTMENT_API_KEY` :
 `POST /api/rdv/init`, `POST /api/rdv/ack`, `GET /api/rdv/pending-events`, `POST /api/rdv/reminder-sent`, `POST /api/prescriptions/init`, `GET /api/prescriptions/pending`, `GET /api/prescriptions/download/[id]`, `POST /api/prescriptions/ack/[id]`,
-`GET /api/prescriptions/alerts/open` et `POST /api/prescriptions/alerts/rdv-supprimes` (depuis le
-30/09/2026 : le cron des ordonnances lit les alertes ouvertes et classe celles dont le RDV a le
-statut `S` dans Xplore, annulé ou déplacé ; motif d'audit `auto:rdv_supprime`).
+`GET /api/prescriptions/alerts/open` (avec `jourRdv`, jour du RDV à Paris),
+`POST /api/prescriptions/alerts/rdv-supprimes` et `POST /api/prescriptions/alerts/rdv-deplaces`
+(depuis le 30/09/2026 : le cron des ordonnances lit les alertes ouvertes, classe celles dont le
+RDV a le statut `S` dans Xplore, annulé ou déplacé, motif d'audit `auto:rdv_supprime`, ou
+`0`/`X`/`1`+, patient accueilli, motif `auto:rdv_accueilli` ; et reporte la date, avec
+l'expiration du lien de dépôt, d'un RDV déplacé à un autre jour en gardant son numéro).
 
 **Pour LyraeKonnect** — header `x-api-key: KONNECT_API_KEY` :
 `GET /api/konnect-tenant-mapping/resolve?tenantId=<uuid>` → `{ userProductId }`,

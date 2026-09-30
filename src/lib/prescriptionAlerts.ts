@@ -95,14 +95,17 @@ export async function autoResolvePastAppointments(
 }
 
 /**
- * Cloture des alertes dont le RDV n'existe plus dans Xplore
- * ---------------------------------------------------------
- * Un RDV annule, ou deplace par le robot (editRDV recree le RDV puis annule
- * l'ancien), garde son alerte "ordonnance manquante" : la secretaire rappelait
- * un patient pour un RDV qui n'existe plus. Le Dashboard ne parle pas a Xplore ;
- * c'est AI2Xplore qui lit le statut des RDV (`GetStatutsExamens`, statut `S`)
- * et nous envoie les numeros supprimes. Voir
- * plans/2026-09-ordonnances-rdv-supprimes.md (workspace).
+ * Cloture des alertes d'apres le statut du RDV dans Xplore
+ * --------------------------------------------------------
+ * Le Dashboard ne parle pas a Xplore ; c'est AI2Xplore qui lit le statut des
+ * RDV (`GetStatutsExamens`) et nous envoie ceux dont l'alerte n'a plus d'objet.
+ * Deux motifs, journalises `auto:rdv_<motif>` :
+ *   - `supprime` (statut `S`) : RDV annule, ou deplace par le robot (editRDV
+ *     recree le RDV puis annule l'ancien). La secretaire rappelait un patient
+ *     pour un RDV qui n'existe plus.
+ *   - `accueilli` (statut `0`, `X`, `1`+) : le patient est venu, l'examen est
+ *     fait ; l'ordonnance a ete vue a l'accueil ou ne sert plus.
+ * Voir plans/2026-09-ordonnances-rdv-supprimes.md (workspace).
  *
  * Memes garde-fous que `autoResolvePastAppointments` : seules les lignes PENDING,
  * non resolues et non acquittees sont touchees, et `status` reste inchange.
@@ -111,8 +114,11 @@ export async function autoResolvePastAppointments(
  * @returns les lignes classees, avec le userProductId de leur centre pour
  *          prevenir les onglets ouverts.
  */
-export async function resolveDeletedAppointments(
-  items: { id: number; rdvId: string }[]
+export const MOTIFS_CLOTURE = ["supprime", "accueilli"] as const;
+export type MotifCloture = (typeof MOTIFS_CLOTURE)[number];
+
+export async function classerAlertesRdv(
+  items: { id: number; rdvId: string; motif: MotifCloture }[]
 ): Promise<{ id: number; userProductIds: number[] }[]> {
   if (items.length === 0) return [];
 
@@ -133,27 +139,107 @@ export async function resolveDeletedAppointments(
   if (upd.rows.length === 0) return [];
 
   const ids = upd.rows.map((r) => r.id);
+  const motifDe = new Map(items.map((i) => [i.id, i.motif]));
   try {
     await db.query(
       `
       INSERT INTO "PrescriptionAccessLog"
         ("uploadId", "action", "actorType", "success", "errorReason")
-      SELECT unnest($1::int[]), 'alert_resolved', 'cron', true, 'auto:rdv_supprime'
+      SELECT u, 'alert_resolved', 'cron', true, 'auto:rdv_' || m
+        FROM unnest($1::int[], $2::text[]) AS v(u, m)
       `,
-      [ids]
+      [ids, ids.map((id) => motifDe.get(id) ?? "supprime")]
     );
   } catch (err) {
-    console.error("[prescriptions/alerts] audit log rdv supprime failed:", err);
+    console.error("[prescriptions/alerts] audit log cloture rdv failed:", err);
   }
 
-  const codes = Array.from(new Set(upd.rows.map((r) => r.externalCenterCode)));
+  return avecCentres(upd.rows);
+}
+
+/**
+ * Report de la date d'un RDV deplace dans Xplore EN GARDANT SON NUMERO
+ * --------------------------------------------------------------------
+ * Le RDV existe toujours, l'alerte reste ouverte, mais la carte affichait
+ * l'ancien jour et le classement des RDV passes tombait au mauvais moment.
+ * AI2Xplore ne l'envoie que si le JOUR differe : l'heure de Xplore n'est pas
+ * toujours celle de l'examen (a Pontivy, 20 a 30 min plus tot selon le type,
+ * vraisemblablement l'heure de convocation), et comparer les heures ferait
+ * bouger toutes les cartes du centre.
+ *
+ * La date recue est l'heure LOCALE de Xplore ('AAAA-MM-JJ' + 'HH:MM'), castee
+ * en `timestamp` puis situee a Europe/Paris, jamais un objet Date (cf. le
+ * decalage de deux heures des bornes en SQL brut).
+ *
+ * `expiresAt` suit la meme regle qu'a l'init : min(date du RDV, creation + 30 j).
+ * Sans cela, un RDV repousse gardait un lien de depot qui expirait a l'ancienne
+ * date, et le patient ne pouvait plus deposer son ordonnance.
+ *
+ * Pas d'entree dans PrescriptionAccessLog : sa liste d'actions est fermee par
+ * une contrainte, et ce n'est pas un acces aux donnees du patient. La trace est
+ * dans le log du process (id, ancien et nouveau jour, sans donnee patient).
+ */
+export async function reporterDateRdv(
+  items: { id: number; rdvId: string; date: string; heure: string }[]
+): Promise<{ id: number; userProductIds: number[] }[]> {
+  if (items.length === 0) return [];
+
+  const upd = await db.query<{
+    id: number;
+    externalCenterCode: string;
+    avant: string | null;
+    apres: string;
+  }>(
+    `
+    WITH v AS (
+      SELECT * FROM unnest($1::int[], $2::text[], $3::text[]) AS v("id", "rdvId", "quand")
+    ), avant AS (
+      SELECT pu."id", pu."appointmentDate" AS "ancienne"
+        FROM "PrescriptionUpload" pu JOIN v ON v."id" = pu."id"
+    )
+    UPDATE "PrescriptionUpload" pu
+       SET "appointmentDate" = (v."quand"::timestamp AT TIME ZONE 'Europe/Paris'),
+           "expiresAt" = LEAST(
+             (v."quand"::timestamp AT TIME ZONE 'Europe/Paris'),
+             pu."createdAt" + INTERVAL '30 days'
+           )
+      FROM v, avant
+     WHERE pu."id" = v."id"
+       AND avant."id" = v."id"
+       AND pu."rdvId" = v."rdvId"
+       AND pu."status" = 'PENDING'
+       AND pu."alertResolvedAt" IS NULL
+       AND pu."ackedAt" IS NULL
+    RETURNING pu."id", pu."externalCenterCode",
+              to_char(avant."ancienne" AT TIME ZONE 'Europe/Paris', 'YYYY-MM-DD HH24:MI') AS "avant",
+              to_char(pu."appointmentDate" AT TIME ZONE 'Europe/Paris', 'YYYY-MM-DD HH24:MI') AS "apres"
+    `,
+    [
+      items.map((i) => i.id),
+      items.map((i) => i.rdvId),
+      items.map((i) => `${i.date} ${i.heure}`),
+    ]
+  );
+
+  for (const r of upd.rows) {
+    console.log(`[prescriptions/alerts] rdv deplace dans Xplore : upload ${r.id} ${r.avant} -> ${r.apres}`);
+  }
+  return avecCentres(upd.rows);
+}
+
+/** Le userProductId des centres des lignes touchees, pour prevenir les onglets. */
+async function avecCentres(
+  rows: { id: number; externalCenterCode: string }[]
+): Promise<{ id: number; userProductIds: number[] }[]> {
+  if (rows.length === 0) return [];
+  const codes = Array.from(new Set(rows.map((r) => r.externalCenterCode)));
   const map = await db.query<{ externalCenterCode: string; userProductId: number }>(
     `SELECT "externalCenterCode", "userProductId"
        FROM "ExternalCenterMapping"
       WHERE "externalCenterCode" = ANY($1::text[])`,
     [codes]
   );
-  return upd.rows.map((r) => ({
+  return rows.map((r) => ({
     id: r.id,
     userProductIds: map.rows
       .filter((m) => m.externalCenterCode === r.externalCenterCode)
