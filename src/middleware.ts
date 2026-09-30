@@ -54,6 +54,8 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // session, le middleware la refuse maintenant plus tôt. Aucun appelant par clé
   // ne peut régresser, puisqu'aucun ne passait le handler.
   /^\/api\/prescriptions\/(?:init|pending)$/,
+  // Alertes ouvertes et RDV supprimes dans Xplore : cron d'AI2Xplore, API key (handler).
+  /^\/api\/prescriptions\/alerts\/(?:open|rdv-supprimes)$/,
   /^\/api\/prescriptions\/(?:ack|download)\/[^/]+$/,
   /^\/api\/prescriptions\/[^/]+\/(?:status|upload)$/,
   // Suivi de dérive de déploiement (chantier 2026-08-10) :
