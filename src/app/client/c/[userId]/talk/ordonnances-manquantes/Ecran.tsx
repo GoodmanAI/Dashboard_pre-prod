@@ -395,8 +395,17 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
       examFilter === "all"
         ? items
         : items.filter((it) => it.examType === examFilter);
+    // Examen le plus proche en tete : les secretaires traitent d'abord les
+    // RDV imminents. Sans date d'examen, en fin de liste ; a date egale,
+    // le lien le plus ancien d'abord.
+    const dateExamen = (it: AlertItem) => {
+      const t = it.appointmentDate ? new Date(it.appointmentDate).getTime() : NaN;
+      return Number.isNaN(t) ? Number.POSITIVE_INFINITY : t;
+    };
     return [...filtered].sort(
-      (a, b) => b.hoursSinceCreated - a.hoursSinceCreated
+      (a, b) =>
+        dateExamen(a) - dateExamen(b) ||
+        b.hoursSinceCreated - a.hoursSinceCreated
     );
   }, [items, examFilter]);
 
