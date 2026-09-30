@@ -1,20 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiKey } from "@/lib/auth-helpers";
-import { resolveDeletedAppointments } from "@/lib/prescriptionAlerts";
+import {
+  classerAlertesRdv,
+  MOTIFS_CLOTURE,
+  type MotifCloture,
+} from "@/lib/prescriptionAlerts";
 
 const MAX_ITEMS = 500;
 
 /**
  * POST /api/prescriptions/alerts/rdv-supprimes
  *
- * AI2Xplore signale les alertes dont le RDV a le statut `S` (supprime) dans
- * Xplore : RDV annule, ou deplace par le robot (editRDV recree le RDV et
- * annule l'ancien). L'alerte est classee (`alertResolvedAt`), la ligne garde
- * son statut, l'audit porte `auto:rdv_supprime`. Voir `resolveDeletedAppointments`.
+ * AI2Xplore signale les alertes dont le RDV, dans Xplore, est supprime
+ * (statut `S` : annule, ou deplace par le robot, editRDV recreant le RDV et
+ * annulant l'ancien) ou deja accueilli (statut `0`, `X`, `1`+ : l'examen est
+ * fait). L'alerte est classee (`alertResolvedAt`), la ligne garde son statut,
+ * l'audit porte `auto:rdv_<motif>`. Voir `classerAlertesRdv`.
  *
  * Auth : header x-api-key (APPOINTMENT_API_KEY).
  *
- * Body : { items: [{ id: number, rdvId: string }] } (500 au plus)
+ * Body : { items: [{ id: number, rdvId: string, motif?: "supprime" | "accueilli" }] }
+ * (500 au plus). `motif` absent vaut `supprime` (premiere version du cron).
  *
  * Reponse 200 : { resolved: <nombre>, ids: [...] }. Une ligne deja traitee,
  * acquittee, ou dont le rdvId ne concorde pas n'est pas comptee : l'appel est
@@ -42,10 +48,17 @@ export async function POST(req: NextRequest) {
     );
   }
   const items = raw
-    .map((i: any) => ({ id: Number(i?.id), rdvId: String(i?.rdvId ?? "").trim() }))
-    .filter((i: { id: number; rdvId: string }) => Number.isInteger(i.id) && i.rdvId);
+    .map((i: any) => ({
+      id: Number(i?.id),
+      rdvId: String(i?.rdvId ?? "").trim(),
+      motif: (i?.motif ?? "supprime") as MotifCloture,
+    }))
+    .filter(
+      (i: { id: number; rdvId: string; motif: MotifCloture }) =>
+        Number.isInteger(i.id) && i.rdvId && MOTIFS_CLOTURE.includes(i.motif)
+    );
 
-  const resolved = await resolveDeletedAppointments(items);
+  const resolved = await classerAlertesRdv(items);
 
   const io: any = globalThis.io;
   if (io) {
