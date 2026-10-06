@@ -36,6 +36,8 @@
  *     détaillées disponibles.
  */
 
+import { CATEGORY_META, getTransferMeta, TransferCategory } from "@/lib/transferReasons";
+
 // ============================================================================
 // Constantes & Types
 // ============================================================================
@@ -175,7 +177,43 @@ export type RawFunnel = {
   outcome?: FunnelOutcome | string;
   furthest_stage?: string | null;
   drop_stage?: string | null;
+
+  /** Depuis v2.15.0 du bot : intentions comprises hors rendez-vous. */
+  routing_intents?: string[];
+  /** Depuis v2.15.0 du bot : étape manquée et motif brut, null si objectif atteint. */
+  stop?: {
+    stage?: string | null;
+    reason?: string | null;
+    end_reason?: string | null;
+    /** Faux : le patient n'a rien dit (raccroché pendant l'accueil). */
+    patient_spoke?: boolean;
+  } | null;
 };
+
+/**
+ * Pourquoi un appel s'arrête : la catégorie de son motif de transfert ; sinon qui a
+ * raccroché. Côté bot, `end_reason` vide = le patient a raccroché, `hangup` et
+ * `silence_hangup` = le robot a mis fin à l'appel.
+ */
+export type StopCause =
+  | TransferCategory
+  | "raccroche_accueil"
+  | "raccroche"
+  | "fin_par_le_robot"
+  | "sans_suite";
+
+export const STOP_CAUSE_LABELS: Record<StopCause, string> = {
+  ...(Object.fromEntries(
+    Object.entries(CATEGORY_META).map(([k, v]) => [k, v.label])
+  ) as Record<TransferCategory, string>),
+  raccroche_accueil: "Raccroché pendant l'accueil",
+  raccroche: "Le patient a raccroché",
+  fin_par_le_robot: "Le robot a mis fin à l'appel",
+  sans_suite: "Sans suite",
+};
+
+/** Décompte des causes d'arrêt à une étape. */
+export type StopCauseCounts = Partial<Record<StopCause, number>>;
 
 /** Sous-funnel agrégé pour un intent donné. */
 export type SubFunnelData = {
@@ -191,6 +229,11 @@ export type SubFunnelData = {
   stageCounts: Record<string, number>;
   /** % par étape, base = totalCalls du sous-funnel (0..100). */
   stagePercents: Record<string, number>;
+  /**
+   * Par étape : combien d'appels s'y arrêtent (première étape non atteinte) et
+   * pourquoi.
+   */
+  stopCauses: Record<string, StopCauseCounts>;
   /** Étape qui a chuté le plus fort (ou null si aucune fuite significative). */
   biggestDrop: {
     stage: string;
@@ -210,6 +253,10 @@ export type AggregatedFunnel = {
   intentCapturedCount: number;
   answeredPct: number;
   intentCapturedPct: number;
+  /** Appels dont l'intention comprise n'est pas un rendez-vous (résultats, administratif…). */
+  routingIntentCount: number;
+  /** Causes d'arrêt des appels sans intention captée. */
+  intentStopCauses: StopCauseCounts;
 
   /** Sous-funnel par intent — null si 0 appel de cet intent sur la période. */
   subFunnels: Partial<Record<IntentKey, SubFunnelData>>;
@@ -233,6 +280,65 @@ function extractFunnel(stats: unknown): RawFunnel | null {
   return f as RawFunnel;
 }
 
+// Intentions comprises qui ne sont pas un rendez-vous (bot : intentHistory.js).
+const ROUTING_INTENTS = new Set([
+  "redirection_secretariat",
+  "demarche_administrative",
+  "demande_resultats",
+  "incident",
+  "professionnel_sante",
+]);
+
+function aUneIntentionHorsRdv(f: RawFunnel, stats: any): boolean {
+  if (Array.isArray(f.routing_intents) && f.routing_intents.length > 0) return true;
+  const seq = stats?.intentSequence;
+  return Array.isArray(seq) && seq.some((i: unknown) => ROUTING_INTENTS.has(String(i)));
+}
+
+/*
+  Un examen refusé est un examen identifié. Le bot l'oubliait quand il refusait
+  l'examen dès le mot (type fermé, code non pratiqué : depuis le 02/10/2026), avant
+  l'étape de confirmation ; corrigé dans le bot en v2.15.0. Lu ici aussi pour que
+  les appels déjà enregistrés soient comptés juste.
+*/
+function examenRefuse(stats: any): boolean {
+  if (!stats) return false;
+  if (stats.exam_not_bookable === true) return true;
+  if (stats.exam_not_practiced_code || stats.exam_not_practiced_type) return true;
+  const reason = stats.transferReason;
+  return !!reason && getTransferMeta(reason).category === "examen_non_traitable";
+}
+
+/** Pourquoi l'appel s'est arrêté, d'après son motif de transfert et sa fin. */
+export function causeDArret(stats: any): StopCause {
+  const reason = stats?.transferReason || stats?.funnel?.stop?.reason || null;
+  const fin = stats?.end_reason || null;
+  if (reason) {
+    const cat = getTransferMeta(reason).category;
+    if (cat !== "non_transfert") return cat;
+  }
+  if (fin === "hangup" || fin === "silence_hangup") return "fin_par_le_robot";
+  if (fin === "error_logic") return "incomprehension_etape";
+  if (fin === "error_timeout") return "erreur_technique";
+  if (!fin) return stats?.funnel?.stop?.patient_spoke === false ? "raccroche_accueil" : "raccroche";
+  return "sans_suite";
+}
+
+function compter(c: StopCauseCounts, cause: StopCause) {
+  c[cause] = (c[cause] ?? 0) + 1;
+}
+
+/** Causes triées par nombre décroissant, avec leur libellé. */
+export function causesTriees(
+  c: StopCauseCounts | undefined
+): { cause: StopCause; label: string; count: number }[] {
+  if (!c) return [];
+  return (Object.entries(c) as [StopCause, number][])
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cause, count]) => ({ cause, label: STOP_CAUSE_LABELS[cause] ?? cause, count }));
+}
+
 /** Liste d'intents typés (intents[] > intent legacy > []). */
 function extractIntents(f: RawFunnel): IntentKey[] {
   const raw = Array.isArray(f.intents)
@@ -246,12 +352,23 @@ function extractIntents(f: RawFunnel): IntentKey[] {
 }
 
 /** Étapes communes (nouveau format prioritaire, sinon rétrocompat `stages`). */
-function extractCommonStages(f: RawFunnel): Record<CommonStage, boolean> {
+function extractCommonStages(f: RawFunnel, stats?: any): Record<CommonStage, boolean> {
   const src = f.common_stages ?? f.stages ?? {};
   return {
     answered: src.answered === true,
-    intent_captured: src.intent_captured === true,
+    // Une intention hors rendez-vous comprise compte (rattrapage des appels d'avant v2.15.0).
+    intent_captured: src.intent_captured === true || aUneIntentionHorsRdv(f, stats),
   };
+}
+
+/** Rattrapage : l'examen refusé est identifié (première étape de la prise de RDV). */
+function rattraperExamen(
+  intent: IntentKey,
+  stages: Record<string, boolean>,
+  stats: any
+): Record<string, boolean> {
+  if (intent !== "prise_rdv" || stages.exam_identified || !examenRefuse(stats)) return stages;
+  return { ...stages, exam_identified: true };
 }
 
 /**
@@ -311,12 +428,15 @@ export function computeFunnel(calls: unknown[]): AggregatedFunnel | null {
   let totalCalls = 0;
   let answeredCount = 0;
   let intentCapturedCount = 0;
+  let routingIntentCount = 0;
+  const intentStopCauses: StopCauseCounts = {};
 
   // Prépare un accumulateur par intent tracké.
   type Acc = {
     totalCalls: number;
     goalAchievedCount: number;
     stageCounts: Record<string, number>;
+    stopCauses: Record<string, StopCauseCounts>;
   };
   const accs: Partial<Record<IntentKey, Acc>> = {};
   for (const intent of TRACKED_INTENTS) {
@@ -326,17 +446,21 @@ export function computeFunnel(calls: unknown[]): AggregatedFunnel | null {
       stageCounts: Object.fromEntries(
         INTENT_STAGES[intent].map((s) => [s, 0])
       ),
+      stopCauses: {},
     };
   }
 
   for (const c of calls) {
-    const f = extractFunnel((c as any)?.stats);
+    const stats = (c as any)?.stats;
+    const f = extractFunnel(stats);
     if (!f) continue;
     totalCalls++;
 
-    const common = extractCommonStages(f);
+    const common = extractCommonStages(f, stats);
     if (common.answered) answeredCount++;
     if (common.intent_captured) intentCapturedCount++;
+    else compter(intentStopCauses, causeDArret(stats));
+    if (aUneIntentionHorsRdv(f, stats)) routingIntentCount++;
 
     const intents = extractIntents(f);
     for (const intent of intents) {
@@ -344,11 +468,16 @@ export function computeFunnel(calls: unknown[]): AggregatedFunnel | null {
       const acc = accs[intent];
       if (!acc) continue;
       acc.totalCalls++;
-      const stages = extractIntentStages(f, intent);
+      const stages = rattraperExamen(intent, extractIntentStages(f, intent), stats);
       for (const stage of INTENT_STAGES[intent]) {
         if (stages[stage] === true) acc.stageCounts[stage]++;
       }
       if (stages["goal_achieved"] === true) acc.goalAchievedCount++;
+      else {
+        // L'appel s'arrête à la première étape non atteinte de ce sous-funnel.
+        const arret = INTENT_STAGES[intent].find((s) => stages[s] !== true);
+        if (arret) compter((acc.stopCauses[arret] ??= {}), causeDArret(stats));
+      }
     }
   }
 
@@ -392,6 +521,7 @@ export function computeFunnel(calls: unknown[]): AggregatedFunnel | null {
           : 0,
       stageCounts: acc.stageCounts,
       stagePercents,
+      stopCauses: acc.stopCauses,
       biggestDrop,
     };
     totalGoalsAchieved += acc.goalAchievedCount;
@@ -403,6 +533,8 @@ export function computeFunnel(calls: unknown[]): AggregatedFunnel | null {
     intentCapturedCount,
     answeredPct: (answeredCount / totalCalls) * 100,
     intentCapturedPct: (intentCapturedCount / totalCalls) * 100,
+    routingIntentCount,
+    intentStopCauses,
     subFunnels,
     totalGoalsAchieved,
     // Conversion globale = goals aboutis / total appels (choix user Q3-b) :
