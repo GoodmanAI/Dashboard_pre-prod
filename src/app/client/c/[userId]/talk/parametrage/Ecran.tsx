@@ -61,6 +61,12 @@ import SmsBookingConfirmationCard from "./SmsBookingConfirmationCard";
 import PrescriptionConfigCard, {
   type PrescriptionConfigHandle,
 } from "./PrescriptionConfigCard";
+import PrioriteSalles from "@/components/mapping/PrioriteSalles";
+import {
+  clePaireRobotDepuisDashboard,
+  sallesDeLaPaire,
+  type SallesParType,
+} from "@/lib/sallesExamen";
 
 type ExamKey = "radiographie" | "irm" | "echographie" | "scanner" | "mammo";
 type VoiceKey = "femme" | "homme" | "neutre";
@@ -135,6 +141,12 @@ type TalkSettings = {
     menstruations: boolean;
     /** true par défaut = service actif. false = appels transférés sans passer par LyraeTalk. */
     serviceEnabled?: boolean;
+    /**
+     * Ordre des salles par paire de double examen, clé = clé robot (`RX+RX`,
+     * `MR+RX`…, celle de `getPairKey`). Rangé ici et pas dans `multiExamMapping` :
+     * les quatre écrivains de ce dernier n'y gardent que `{ enabled, mode }`.
+     */
+    prioriteSalles?: Record<string, string[]>;
   };
 };
 
@@ -450,6 +462,46 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   const [doubleExamsMapping, setDoubleExamsMapping] = useState<
     Record<string, { enabled: boolean; mode: "single" | "double" }>
   >({});
+
+  /**
+   * Les salles déclarées par Lyrae, en lecture seule. Elles disent quelles paires
+   * ont une priorité à régler : au moins deux salles dans leurs deux types.
+   */
+  const [sallesParType, setSallesParType] = useState<SallesParType>({});
+  useEffect(() => {
+    if (!userProductId) return;
+    (async () => {
+      try {
+        const r = await fetch(
+          `/api/configuration/salles?userProductId=${userProductId}`,
+        );
+        if (r.ok) setSallesParType((await r.json())?.sallesParType ?? {});
+      } catch {
+        // Sans les salles, la colonne de priorité ne s'affiche pas. Rien d'autre.
+      }
+    })();
+  }, [userProductId]);
+
+  /** Les salles de chaque paire, par clé du Dashboard (`radio_radio`…). */
+  const sallesParPaire = useMemo(() => {
+    const m: Record<string, { cle: string; salles: { poste: string; libelle: string }[] }> = {};
+    for (const exam of DOUBLE_EXAMS) {
+      const cle = clePaireRobotDepuisDashboard(exam.key);
+      if (cle) m[exam.key] = { cle, salles: sallesDeLaPaire(sallesParType, cle) };
+    }
+    return m;
+  }, [sallesParType]);
+  const prioriteVisible = Object.values(sallesParPaire).some(
+    (p) => p.salles.length >= 2,
+  );
+
+  const majPriorite = (cle: string, postes: string[]) =>
+    setSettings((s) => {
+      const priorite = { ...(s.options?.prioriteSalles ?? {}) };
+      if (postes.length > 0) priorite[cle] = postes;
+      else delete priorite[cle];
+      return { ...s, options: { ...s.options, prioriteSalles: priorite } };
+    });
 
   // Fetch dédié pour les doubles examens (endpoint séparé du reste).
   useEffect(() => {
@@ -1607,6 +1659,16 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                       <TableCell align="center" sx={{ width: 260 }}>
                         Dans votre logiciel
                       </TableCell>
+                      {prioriteVisible && (
+                        <TableCell sx={{ width: 280 }}>
+                          <Tooltip
+                            title="L'ordre dans lequel le robot cherche les créneaux. Il propose d'abord la première salle, puis la suivante quand le patient refuse ou qu'il n'y a plus rien."
+                            arrow
+                          >
+                            <span>Priorité des salles</span>
+                          </Tooltip>
+                        </TableCell>
+                      )}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -1716,6 +1778,37 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                               </Tooltip>
                             </ToggleButtonGroup>
                           </TableCell>
+                          {prioriteVisible && (
+                            <TableCell sx={{ verticalAlign: "top" }}>
+                              {enabled &&
+                              (sallesParPaire[exam.key]?.salles.length ?? 0) >= 2 ? (
+                                <PrioriteSalles
+                                  salles={sallesParPaire[exam.key].salles}
+                                  valeur={
+                                    settings.options?.prioriteSalles?.[
+                                      sallesParPaire[exam.key].cle
+                                    ] ?? []
+                                  }
+                                  onChange={(postes) =>
+                                    majPriorite(
+                                      sallesParPaire[exam.key].cle,
+                                      postes,
+                                    )
+                                  }
+                                  disabled={readOnly}
+                                />
+                              ) : (
+                                <Typography
+                                  variant="body2"
+                                  sx={{ color: "text.secondary", fontSize: 12 }}
+                                >
+                                  {enabled
+                                    ? "Moins de deux salles déclarées"
+                                    : ""}
+                                </Typography>
+                              )}
+                            </TableCell>
+                          )}
                         </TableRow>
                       );
                     })}
