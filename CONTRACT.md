@@ -52,6 +52,26 @@ Deux champs additifs le 27/09/2026 (LyraeTalk v2.6.0) : `horaires` dans une entr
 `examTypeRedirection` (forme `weeklyHours`, horaires propres à un numéro dédié) et
 `redirectionSiFerme` (`{ MG: "secretariat" | "annonce" }`). Un robot plus ancien les ignore.
 
+**Salles** (06/10/2026, additif, plan `plans/2026-10-filtrage-creneaux-par-salle.md`).
+Trois champs, qu'un robot plus ancien ignore :
+
+- `site.sallesParType` (admin, domaine `talk.site`) :
+  `{ "RX": [{ "poste": "CHKRX2", "libelle": "R2" }] }`. Clés = codes canoniques
+  `US`, `MG`, `RX`, `MR`, `CT` ; `poste` = `numeroPoste` d'Xplore **normalisé** (espaces
+  retirés, majuscules), unique par type ; `libelle` non vide, 40 caractères au plus.
+  Validé au `PUT /api/product-config` (400 avec un message qui dit quoi corriger), relu
+  sous forme normalisée par `GET /api/configuration`. Absent ou `{}` : aucun filtre.
+- `options.prioriteSalles` (centre, écran « Paramètres généraux », accordéon des doubles
+  examens) : `{ "RX+RX": ["CHKRX2", "CHKRX3"] }`. Clé = **clé robot de la paire**, celle
+  de `getPairKey` (`doubleBookingHelper.js`) : les deux codes triés par ordre
+  alphabétique (`MR+RX`, `CT+MG`, `MG+US`, `MG+USMAM`…), une des treize
+  (`CLES_PAIRES_ROBOT`, `src/lib/sallesExamen.ts`). Le robot garde son repli sur la clé
+  inversée. À la **lecture**, chaque liste est réduite aux salles encore déclarées pour
+  l'un des deux types de la paire (l'écho mammaire prend les salles `US`), une liste vidée
+  disparaît. À l'**écriture** (`POST /api/configuration`), un poste nouveau non déclaré
+  répond 400 ; un poste déjà enregistré et retiré depuis par l'admin est enlevé sans bruit.
+- `postes` sur chaque examen de `GET /api/configuration/get/mapping` (voir plus bas).
+
 ⚠️ **`GET /api/configuration` : le champ `labelFr` de `examMappings` porte un CODE de
 type, jamais un libellé** (07/09/2026). C'est ce que LyraeTalk lit pour savoir de quel
 type une ligne parle, et ce dont il fera la clé de `site.typeExams` quand la
@@ -675,6 +695,27 @@ Deux états restent possibles, et le robot doit continuer à les traiter :
   lecture en sens inverse : elle rend le **premier** examen trouvé pour un code RIS.
   L'ambiguïté est inhérente, le RIS ne rendant que `MAIN` ; aucune configuration ne peut
   lui faire rendre « main droite ».
+
+**`postes`, les salles d'un examen** (06/10/2026, additif). Chaque examen servi porte
+`postes: string[]`, dans les **trois** reconstructions (tableau, objet `{[code]: exam}`
+avec `codeExamen`, et lignes de complétion par la nomenclature, toujours `[]`). Valeur =
+`TalkSettings.exams[i].postes` **réduit à l'intersection** avec
+`site.sallesParType[type]` (type = `codeCanonique(typeExamen)`, `USMAM` lu comme `US`),
+dans l'ordre de la déclaration. `[]` = **aucun filtre**, toutes les salles. Une lecture
+en échec des salles rend `[]` partout (pas de 500 pendant un appel). Les deux formes de la
+réponse ne changent pas : LyraeTalk lit toujours `data[internal_code]`.
+
+Les salles déclarées ne sont **pas** dans cette réponse. L'écran les lit par
+`GET /api/configuration/salles?userProductId=NN` (session seule, lecture de « Mapping
+examens » ou de « Paramétrage », ownership), qui rend `{ sallesParType }` et rien d'autre
+de `talk.site`. Aucune clé d'API n'y entre.
+
+Écriture : `POST /api/configuration/mapping` normalise `postes` (majuscules, sans
+doublon) ; un poste non déclaré pour le type de l'examen répond **400** en nommant les
+examens, sauf s'il était déjà enregistré sur cet examen (salle retirée depuis par
+l'admin : il est enlevé sans bruit). Une ligne envoyée sans `postes` garde ceux qu'elle
+avait. Même clé en lecture et en écriture, contrairement à `horaire`, que `get/mapping`
+rend sous le nom `horaireMapping`.
 
 ## Invariants à ne pas casser
 

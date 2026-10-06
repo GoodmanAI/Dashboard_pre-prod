@@ -17,6 +17,7 @@ import {
   estObjetJson,
   type Domaine,
 } from "@/lib/productConfig";
+import { validerSallesParType } from "@/lib/sallesExamen";
 
 /**
  * Configuration générique d'un centre, par domaine (lot B).
@@ -228,6 +229,18 @@ export async function PUT(req: NextRequest) {
       { error: "`valeur` doit être un objet JSON (ni tableau, ni scalaire)." },
       { status: 400 }
     );
+  }
+
+  // `talk.site.sallesParType` est le seul champ de ce domaine que le Dashboard
+  // valide : un poste mal saisi vide les créneaux de l'examen sans aucune alerte
+  // (plan `2026-10-filtrage-creneaux-par-salle`). La valeur écrite est la version
+  // normalisée (postes en majuscules), celle que comparent le robot et les écrans.
+  if (domaine.cle === "talk.site" && valeur.sallesParType !== undefined) {
+    const salles = validerSallesParType(valeur.sallesParType);
+    if ("erreur" in salles) {
+      return NextResponse.json({ error: salles.erreur }, { status: 400 });
+    }
+    valeur.sallesParType = salles.valeur;
   }
 
   // `version + 1` calculé par la base : deux écritures concurrentes ne peuvent

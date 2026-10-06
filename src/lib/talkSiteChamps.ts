@@ -158,6 +158,24 @@ export const SECTIONS_SITE: SectionSite[] = [
         aide: "`info` est le code du site principal. Chaque type d'examen (US, RX, MG, CT, MR, OT…) liste les sites où chercher des créneaux, le premier étant le préférentiel. Un type absent n'est pas réservable. Exemple : { \"info\": \"A04\", \"US\": [\"A04\"], \"CT\": [\"A05\"] }",
       },
       {
+        // Chantier `plans/2026-10-filtrage-creneaux-par-salle.md`. L'admin déclare
+        // les salles ; le centre choisit ensuite, examen par examen, dans
+        // « Correspondance des examens ». Validé à l'écriture par
+        // `validerSallesParType` (`src/lib/sallesExamen.ts`).
+        chemin: "sallesParType",
+        libelle: "Salles par type d'examen",
+        type: "json",
+        proprietaire: "admin",
+        defautRobot: "Aucune salle déclarée, aucun filtre",
+        aide: "Les salles du centre, par type d'examen (US, MG, RX, MR, CT). `poste` est le numéro de poste du logiciel de gestion, tel qu'il revient dans les créneaux ; `libelle` est le nom que le centre emploie (40 caractères au plus). Un code faux vide les créneaux de l'examen sans aucune alerte : relevez-le dans les créneaux avant de le saisir.",
+        exemple: `{
+  "RX": [
+    { "poste": "CHKRX2", "libelle": "R2" },
+    { "poste": "CHKRX3", "libelle": "R3" }
+  ]
+}`,
+      },
+      {
         chemin: "siteCodeToName",
         libelle: "Nom prononcé de chaque site",
         type: "json",

@@ -9,6 +9,8 @@ import {
 } from "@/lib/auth-helpers";
 import { referentielEnBase } from "@/lib/referentielExamens";
 import { versionMapping, EN_TETE_VERSION_MAPPING } from "@/lib/versionMapping";
+import { postesValides, type SallesParType } from "@/lib/sallesExamen";
+import { sallesDuCentre } from "@/lib/sallesExamenLecture";
 
 type Exam = Record<string, any>;
 type ExamMap = Record<string, Exam>;
@@ -77,6 +79,20 @@ export async function GET(req: NextRequest) {
     console.log(settings);
     const examsMap: ExamMap = {};
 
+    // Les salles déclarées par l'admin (`talk.site.sallesParType`). Les `postes` de
+    // chaque examen sont réduits à celles de son type : une salle retirée de la
+    // déclaration ne filtre plus rien (plan `2026-10-filtrage-creneaux-par-salle`).
+    //
+    // Une lecture en échec rend `{}`, donc des `postes` vides : le robot cherche
+    // alors dans toutes les salles, comme avant le chantier. Mieux vaut un créneau
+    // dans une salle discutable que plus de mapping du tout pendant un appel.
+    let salles: SallesParType = {};
+    try {
+      salles = await sallesDuCentre(Number(userProductId));
+    } catch (e) {
+      console.error("[get/mapping] salles illisibles, aucun filtre :", e);
+    }
+
     if (settings && settings.exams) {
       const examsFromSettings =
         typeof settings.exams === "string"
@@ -104,6 +120,7 @@ export async function GET(req: NextRequest) {
               codeExamenClient: exam.codeExamenClient || "",
               horaireMapping: exam.horaire ?? null,
               codeExamenClientInject: exam.codeExamenClientInject ?? null,
+              postes: postesValides(exam.postes, salles, exam.typeExamen),
             };
           }
         });
@@ -124,6 +141,7 @@ export async function GET(req: NextRequest) {
               codeExamenClient: exam.codeExamenClient || "",
               horaireMapping: exam.horaire ?? null,
               codeExamenClientInject: exam.codeExamenClientInject ?? null,
+              postes: postesValides(exam.postes, salles, exam.typeExamen),
             };
           },
         );
@@ -224,6 +242,8 @@ export async function GET(req: NextRequest) {
           libelleClient: row.libelleClient || "",
           horaireMapping: null,
           codeExamenClientInject: null,
+          // Ligne venue de la nomenclature : jamais réglée par ce centre, aucun filtre.
+          postes: [],
         };
       }
     });
