@@ -96,6 +96,9 @@ export const TRANSFER_REASON_META: Record<string, TransferMeta> = {
   doctor: { label: "Médecin / professionnel de santé", category: "demande_patient" },
   emergency: { label: "Urgence médicale", category: "demande_patient" },
   human_requested: { label: "Demande d'un humain", category: "demande_patient" },
+  context_router_human: { label: "Demande d'un humain", category: "demande_patient" },
+  urgence_detected: { label: "Urgence médicale", category: "demande_patient" },
+  limite_actions_rdv: { label: "Trop de demandes dans un appel", category: "demande_patient" },
 
   // ===== examen_non_traitable =====
   exam_type: { label: "Examen non disponible (non mappé)", category: "examen_non_traitable" },
@@ -105,6 +108,7 @@ export const TRANSFER_REASON_META: Record<string, TransferMeta> = {
   doppler_off_catalog: { label: "Doppler hors catalogue", category: "examen_non_traitable" },
   doppler_disambiguation: { label: "Doppler : désambiguïsation échouée", category: "examen_non_traitable" },
   doppler_disambiguation_loop: { label: "Doppler : boucle de désambiguïsation", category: "examen_non_traitable" },
+  multi_exam_one_refused: { label: "Un des examens non pris en charge", category: "examen_non_traitable" },
   // Rétro-compat anciennes valeurs
   multi_exam_not_accepted: { label: "Examens multiples non gérés", category: "examen_non_traitable" },
   multi_examen_double_us: { label: "Double échographie non gérée", category: "examen_non_traitable" },
@@ -141,11 +145,20 @@ export const TRANSFER_REASON_META: Record<string, TransferMeta> = {
   multisite_preference: { label: "Préférence multi-site", category: "incomprehension_etape" },
   no_slot_modify_proposal: { label: "Échec proposition créneau (modif)", category: "incomprehension_etape" },
   too_many_errors: { label: "Trop d'erreurs (radiologue/examen dupliqué)", category: "incomprehension_etape" },
+  intent_unclear: { label: "Demande non comprise", category: "incomprehension_etape" },
+  exam_unclear: { label: "Examen non compris", category: "incomprehension_etape" },
+  slot_multi: { label: "Choix du créneau non compris", category: "incomprehension_etape" },
+  context_router_cancel: { label: "Correction non comprise", category: "incomprehension_etape" },
+  grossesse: { label: "Grossesse possible", category: "incomprehension_etape" },
+  ask_pregnancy: { label: "Question grossesse", category: "incomprehension_etape" },
+  allergy_unsure: { label: "Allergie incertaine", category: "incomprehension_etape" },
 
   // ===== pas_de_creneau =====
   no_patient_slot_find: { label: "Aucun créneau ne convient", category: "pas_de_creneau" },
   no_slots_modify: { label: "Pas de créneau (modification)", category: "pas_de_creneau" },
   full_planning_redirect: { label: "Planning complet", category: "pas_de_creneau" },
+  full_planning_end: { label: "Planning complet (fin d'appel)", category: "pas_de_creneau" },
+  no_double_slots: { label: "Pas de créneaux enchaînés", category: "pas_de_creneau" },
 
   // ===== erreur_technique =====
   error: { label: "Erreur technique API", category: "erreur_technique" },
@@ -155,6 +168,10 @@ export const TRANSFER_REASON_META: Record<string, TransferMeta> = {
   init_failed: { label: "Configuration indisponible", category: "erreur_technique" },
   service_disabled: { label: "Service désactivé (site)", category: "erreur_technique" },
   error_system: { label: "Erreur système", category: "erreur_technique" },
+  error_timeout: { label: "Service trop lent", category: "erreur_technique" },
+  error_intent: { label: "Erreur de compréhension (service)", category: "erreur_technique" },
+  error_no_slots: { label: "Créneaux indisponibles (service)", category: "erreur_technique" },
+  edit_rdv_failed: { label: "Échec de modification de RDV", category: "erreur_technique" },
   // Rétro-compat
   create_rdv_failed: { label: "Échec de création de RDV", category: "erreur_technique" },
 
@@ -196,6 +213,19 @@ export function isCounterTransfer(stats: any): boolean {
   if (!stats || stats.end_reason !== "transfer") return false;
   const meta = getTransferMeta(stats.transferReason);
   return meta.category !== "non_transfert";
+}
+
+/**
+ * Un appel arrêté par l'examen lui-même (type fermé au robot, examen non pratiqué,
+ * interventionnel, multiple…). Une seule règle pour l'écran client, la tuile admin
+ * « Non traités » et le filtre `status=not_performed` : avant le 06/10/2026, l'admin ne
+ * comptait que `exam_type` et le client toute la catégorie.
+ */
+export function estExamenNonPris(stats: any): boolean {
+  if (!stats) return false;
+  if (stats.exam_not_bookable === true) return true;
+  const reason = stats.transferReason;
+  return !!reason && getTransferMeta(reason).category === "examen_non_traitable";
 }
 
 /**

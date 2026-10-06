@@ -55,6 +55,7 @@ import DateRangePresets from "@/components/DateRangePresets";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import { startOfDay, endOfDay, differenceInCalendarDays } from "date-fns";
 import FunnelMiniChart from "@/components/admin/FunnelMiniChart";
+import { estExamenNonPris } from "@/lib/transferReasons";
 
 type TodayStats = {
   totalCalls: number;
@@ -124,8 +125,9 @@ function computeTodayStats(calls: any[]): TodayStats {
     return acc + (c?.stats?.error_logic && c.stats.error_logic > 0 ? 1 : 0);
   }, 0);
   const indice = total > 0 ? Math.floor((1 - errors / total) * 100) : 0;
+  // Meme regle que l'ecran client (estExamenNonPris), pas `exam_type` seul.
   const notPerformedExam = calls.reduce(
-    (acc, c) => acc + (c?.stats?.transferReason === "exam_type" ? 1 : 0),
+    (acc, c) => acc + (estExamenNonPris(c?.stats) ? 1 : 0),
     0
   );
   const planningFull = calls.reduce(
