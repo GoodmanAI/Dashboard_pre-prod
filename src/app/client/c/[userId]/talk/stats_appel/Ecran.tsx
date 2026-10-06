@@ -57,6 +57,7 @@ import {
   CATEGORY_ORDER,
   getTransferMeta,
   isCounterTransfer,
+  estExamenNonPris,
 } from "@/lib/transferReasons";
 import { getLanguageMeta, LANGUAGE_META, LanguageCode } from "@/lib/languages";
 import { construireExamLabelMap, listerTypesExamen } from "@/lib/examLabels";
@@ -858,12 +859,7 @@ export default function StatsAppelPage({ params }: any) {
   // (exam_type, exam_not_practiced, exam_interv, exam_mult, doppler_*, …),
   // pas seulement exam_type comme avant. Évite la sous-estimation.
   const notPerformed = useMemo(() => {
-    return calls.reduce((acc, c: any) => {
-      const reason = c?.stats?.transferReason;
-      if (!reason) return acc;
-      const meta = getTransferMeta(reason);
-      return acc + (meta.category === "examen_non_traitable" ? 1 : 0);
-    }, 0);
+    return calls.reduce((acc, c: any) => acc + (estExamenNonPris(c?.stats) ? 1 : 0), 0);
   }, [calls]);
 
   const radioInter = useMemo(() => {
@@ -921,11 +917,7 @@ export default function StatsAppelPage({ params }: any) {
         (acc, c: any) => acc + (Number(c?.stats?.rdv_modified ?? 0) || 0),
         0
       ),
-      notPerformed: p.reduce((acc, c: any) => {
-        const r = c?.stats?.transferReason;
-        if (!r) return acc;
-        return acc + (getTransferMeta(r).category === "examen_non_traitable" ? 1 : 0);
-      }, 0),
+      notPerformed: p.reduce((acc, c: any) => acc + (estExamenNonPris(c?.stats) ? 1 : 0), 0),
       radioInter: p.reduce(
         (acc, c: any) => acc + (c.stats?.transferReason === "exam_interv" ? 1 : 0),
         0

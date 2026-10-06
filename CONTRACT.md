@@ -342,6 +342,14 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   transcription). Pour les écrans qui ne lisent que `createdAt` et `stats` (statistiques
   d'appels, vue d'ensemble admin). Même droit que les lignes. Sans le paramètre, la
   réponse est inchangée.
+- **`status=not_performed`** (06/10/2026) : les appels arrêtés par l'examen, selon
+  `estExamenNonPris` (`src/lib/transferReasons.ts`) : catégorie `examen_non_traitable` ou
+  `stats.exam_not_bookable`. Avant, `transferReason === "exam_type"` seul : l'écran client,
+  la tuile admin « Non traités » et ce filtre comptaient trois choses différentes.
+- **`stats.funnel`** (06/10/2026) : `lib/callFunnel.ts` lit aussi `routing_intents` et
+  `stop` (v2.15.0 du robot) et rattrape les appels d'avant : un examen refusé
+  (`exam_not_bookable`, `exam_not_practiced_*`, motif `examen_non_traitable`) compte
+  « Examen identifié », une intention hors rendez-vous compte « Intention ».
 - **`stats.internal` ne part plus** (23/09/2026). Les mesures que le robot pose sur
   lui-même (identification, STT, performances d'API) sont retirées de toutes les lignes
   rendues par cette route : elles pesaient les deux tiers de la réponse, et seul l'écran
