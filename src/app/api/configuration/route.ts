@@ -18,6 +18,13 @@ import {
   PrescriptionEnabledExamTypes,
 } from "@/lib/prescriptionConfig";
 import { journaliserEcritureConfig } from "@/lib/auditConfig";
+import {
+  CODE_DOUBLE_EXAMEN,
+  lireSallesParType,
+  lirePrioriteSalles,
+  validerPrioriteSalles,
+} from "@/lib/sallesExamen";
+import { sallesDuCentre } from "@/lib/sallesExamenLecture";
 
 /**
  * GET /api/configuration?userProductId=XX
@@ -187,6 +194,12 @@ export async function GET(req: NextRequest) {
           site[cle] = secondaires;
           continue;
         }
+        if (cle === "sallesParType") {
+          // Relu sous sa forme normalisée : une valeur enregistrée avant la
+          // validation (ou à la main en base) ne doit pas descendre mal formée.
+          site[cle] = lireSallesParType(valeur);
+          continue;
+        }
         site[cle] = valeur;
       }
       if (Object.keys(site).length === 0) site = null;
@@ -227,14 +240,7 @@ export async function GET(req: NextRequest) {
 
     console.log(settings);
 
-    const doubleExamCodeMap: Record<string, string> = {
-      radio: "RX",
-      echographie: "US",
-      mammographie: "MG",
-      scanner: "CT",
-      irm: "MR",
-      echomammaire: "USMAM",
-    };
+    const doubleExamCodeMap: Record<string, string> = CODE_DOUBLE_EXAMEN;
 
     const allDoubleCombos: string[] = [
       "RX+RX",
@@ -312,6 +318,24 @@ export async function GET(req: NextRequest) {
 
     console.log(formattedMultiExam);
 
+    // `options.prioriteSalles` (plan `2026-10-filtrage-creneaux-par-salle`) : chaque
+    // liste est réduite aux salles encore déclarées pour sa paire. Une salle retirée
+    // par l'admin disparaît ainsi de la priorité au lieu de devenir un palier vide
+    // côté robot. Le reste d'`options` descend tel quel.
+    const optionsBrutes = estObjetJson(settings.options)
+      ? (settings.options as Record<string, unknown>)
+      : null;
+    const options =
+      optionsBrutes && optionsBrutes.prioriteSalles !== undefined
+        ? {
+            ...optionsBrutes,
+            prioriteSalles: lirePrioriteSalles(
+              optionsBrutes.prioriteSalles,
+              lireSallesParType(siteBrut?.sallesParType)
+            ),
+          }
+        : settings.options;
+
     // 4️⃣ Réponse finale
     return NextResponse.json(
       {
@@ -341,7 +365,7 @@ export async function GET(req: NextRequest) {
             : defaultTypes,
 
         doubleBookingConfig: formattedMultiExam,
-        options: settings.options,
+        options,
 
         // Stocké dans options.serviceEnabled, exposé à la racine pour que le
         // bot Lyrae le lise directement. Défaut = true (service actif).
@@ -442,6 +466,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // `options.prioriteSalles` : chaque poste doit être une salle déclarée pour l'un
+    // des deux types de la paire. Un poste déjà enregistré et retiré depuis par
+    // l'admin est enlevé sans bruit (voir `validerPrioriteSalles`).
+    let optionsEcrites = options;
+    if (options && options.prioriteSalles !== undefined) {
+      const actuelles = await prisma.talkSettings.findUnique({
+        where: { userProductId },
+        select: { options: true },
+      });
+      const priorite = validerPrioriteSalles(
+        options.prioriteSalles,
+        (actuelles?.options as any)?.prioriteSalles,
+        await sallesDuCentre(userProductId)
+      );
+      if ("erreur" in priorite) {
+        return NextResponse.json({ error: priorite.erreur }, { status: 400 });
+      }
+      optionsEcrites = { ...options, prioriteSalles: priorite.valeur };
+    }
+
     // ✅ Upsert TalkSettings
     console.log(`where: { userProductId: ${userProductId} },`);
     const settings = await prisma.talkSettings.upsert({
@@ -465,7 +509,7 @@ export async function POST(req: NextRequest) {
         centerPhone,
         centerWebsite,
         centerMail,
-        options
+        options: optionsEcrites,
       },
       create: {
         userProductId,
@@ -487,7 +531,7 @@ export async function POST(req: NextRequest) {
         centerPhone,
         centerWebsite,
         centerMail,
-        options
+        options: optionsEcrites,
       },
     });
 
