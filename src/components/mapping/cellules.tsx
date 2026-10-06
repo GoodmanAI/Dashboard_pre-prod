@@ -5,6 +5,8 @@ import {
   Autocomplete,
   Box,
   Checkbox,
+  MenuItem,
+  Select,
   Stack,
   TableCell,
   TextField,
@@ -358,6 +360,91 @@ export function CelluleInjection({
         </Box>
       )}
     </Stack>
+  );
+}
+
+/**
+ * Les salles où l'examen se fait, choisies parmi celles déclarées pour son type.
+ *
+ * Purement visuelle, comme les autres cellules : la liste des salles possibles est
+ * passée par l'appelant, qui sait d'où elle vient (`talk.site.sallesParType` chez
+ * LyraeTalk). Les salles s'affichent par leur nom, jamais par le code du poste : le
+ * centre dit « R2 », pas « CHKRX2 ».
+ *
+ * Rien de coché veut dire **toutes les salles**, c'est-à-dire aucun filtre, et la
+ * cellule le dit en toutes lettres plutôt que de rester vide. Sans salle déclarée
+ * pour le type, elle est grisée : il n'y a rien à choisir, et c'est à l'équipe Lyrae
+ * de les déclarer.
+ */
+export function CelluleSalles({
+  salles,
+  valeur,
+  onChange,
+  disabled,
+}: {
+  salles: readonly { poste: string; libelle: string }[];
+  valeur: readonly string[];
+  onChange: (postes: string[]) => void;
+  disabled?: boolean;
+}) {
+  const sansSalle = salles.length === 0;
+  const libelleDe = (poste: string) =>
+    salles.find((s) => s.poste === poste)?.libelle ?? poste;
+
+  const champ = (
+    <Select
+      multiple
+      displayEmpty
+      size="small"
+      fullWidth
+      value={[...valeur]}
+      disabled={disabled || sansSalle}
+      onChange={(e) => {
+        const v = e.target.value;
+        const choisis = typeof v === "string" ? v.split(",") : v;
+        // Rangées dans l'ordre de la déclaration, quel que soit l'ordre des clics :
+        // deux enregistrements du même choix doivent produire la même valeur.
+        onChange(salles.map((s) => s.poste).filter((p) => choisis.includes(p)));
+      }}
+      renderValue={(choisis) =>
+        choisis.length === 0 ? (
+          <Typography component="span" sx={{ fontSize: 13, color: P.inkMuted }}>
+            Toutes les salles
+          </Typography>
+        ) : (
+          choisis.map(libelleDe).join(", ")
+        )
+      }
+      sx={{
+        fontSize: 13,
+        bgcolor: disabled || sansSalle ? P.surfaceDisabled : P.surface,
+        "& fieldset": { borderColor: P.border },
+        "&:hover fieldset": { borderColor: "#B9C7CE" },
+        "&.Mui-focused fieldset": { borderColor: P.brand, borderWidth: 1.5 },
+        "& .MuiSelect-select": { py: 0.75, px: 1 },
+      }}
+    >
+      {salles.map((s) => (
+        <MenuItem key={s.poste} value={s.poste} sx={{ fontSize: 13, py: 0.25 }}>
+          <Checkbox
+            size="small"
+            checked={valeur.includes(s.poste)}
+            sx={{ p: 0.5, mr: 0.75, "&.Mui-checked": { color: P.brand } }}
+          />
+          {s.libelle}
+        </MenuItem>
+      ))}
+    </Select>
+  );
+
+  if (!sansSalle) return champ;
+  // Un élément désactivé ne déclenche pas l'info-bulle : l'enveloppe la porte.
+  return (
+    <Tooltip title="Aucune salle déclarée pour ce type. Demandez-les à Lyrae." arrow>
+      <Box component="span" sx={{ display: "block" }}>
+        {champ}
+      </Box>
+    </Tooltip>
   );
 }
 
