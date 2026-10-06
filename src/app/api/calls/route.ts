@@ -5,6 +5,7 @@ import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { indexerParType, diminutifDuType } from "@/lib/examTypes";
 import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
+import { estExamenNonPris } from "@/lib/transferReasons";
 
 export const dynamic = "force-dynamic";
 
@@ -351,7 +352,7 @@ export async function GET(request: NextRequest) {
       ) {
         // Filtrés en JS post-fetch (cf. plus bas) pour garantir une logique
         // strictement identique à la page Statistiques d'appels.
-        // — `not_performed`        → stats.transferReason === "exam_type"
+        // — `not_performed`        → estExamenNonPris(stats)
         // — `no_slot_api_retrieve` → stats.no_slot_api_retrieve truthy
       } else if (statusParam === "hung_up") {
         whereClause.AND.push({
@@ -413,7 +414,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (statusParam === "not_performed") {
-      calls = calls.filter((c: any) => c?.stats?.transferReason === "exam_type");
+      calls = calls.filter((c: any) => estExamenNonPris(c?.stats));
     }
 
     // Recherche numéro — match canonique (06... ↔ +336...)
@@ -460,7 +461,7 @@ export async function GET(request: NextRequest) {
         }
         if (statusParam === "not_performed") {
           previousCalls = previousCalls.filter(
-            (c: any) => c?.stats?.transferReason === "exam_type"
+            (c: any) => estExamenNonPris(c?.stats)
           );
         }
         if (phoneSearchActive) {

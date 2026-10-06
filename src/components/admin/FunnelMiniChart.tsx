@@ -17,8 +17,10 @@ import {
   INTENT_LABELS,
   IntentKey,
   STAGE_LABELS,
+  StopCauseCounts,
   SubFunnelData,
   TRACKED_INTENTS,
+  causesTriees,
   computeFunnel,
 } from "@/lib/callFunnel";
 
@@ -157,6 +159,12 @@ export default function FunnelMiniChart({ calls }: Props) {
               percent={percent}
               color={STAGE_COLOR}
               index={idx}
+              stopCauses={stage === "intent_captured" ? funnel.intentStopCauses : undefined}
+              note={
+                stage === "intent_captured" && funnel.routingIntentCount > 0
+                  ? `dont ${funnel.routingIntentCount} hors rendez-vous (résultats, administratif, secrétariat)`
+                  : undefined
+              }
             />
           );
         })}
@@ -308,6 +316,7 @@ function SubFunnelView({ sub }: { sub: SubFunnelData }) {
               prevLabel={
                 idx > 0 ? STAGE_LABELS[stages[idx - 1]] ?? stages[idx - 1] : ""
               }
+              stopCauses={sub.stopCauses[stage]}
             />
           );
         })}
@@ -372,6 +381,10 @@ function SubFunnelView({ sub }: { sub: SubFunnelData }) {
         >
           Fuite : {STAGE_LABELS[sub.biggestDrop.stage] ?? sub.biggestDrop.stage}{" "}
           (−{sub.biggestDrop.dropPct.toFixed(0)}%)
+          {(() => {
+            const principale = causesTriees(sub.stopCauses[sub.biggestDrop.stage])[0];
+            return principale ? `, surtout : ${principale.label} (${principale.count})` : null;
+          })()}
         </Typography>
       )}
     </Box>
@@ -393,6 +406,8 @@ function StageBar({
   dropPctFromPrev = 0,
   dropBadgePct,
   prevLabel = "",
+  stopCauses,
+  note,
 }: {
   label: string;
   count: number;
@@ -403,7 +418,13 @@ function StageBar({
   dropPctFromPrev?: number;
   dropBadgePct?: number;
   prevLabel?: string;
+  /** Appels qui n'atteignent pas cette étape, par cause. */
+  stopCauses?: StopCauseCounts;
+  /** Précision affichée sous le compte. */
+  note?: string;
 }) {
+  const causes = causesTriees(stopCauses);
+  const arretes = causes.reduce((n, c) => n + c.count, 0);
   const tooltip = (
     <Box sx={{ py: 0.25 }}>
       <Typography variant="caption" sx={{ display: "block", fontWeight: 700 }}>
@@ -419,6 +440,27 @@ function StageBar({
         >
           Chute de {dropPctFromPrev.toFixed(0)} pts depuis {prevLabel}
         </Typography>
+      )}
+      {note && (
+        <Typography variant="caption" sx={{ display: "block", opacity: 0.85 }}>
+          {note}
+        </Typography>
+      )}
+      {arretes > 0 && (
+        <Box sx={{ mt: 0.5 }}>
+          <Typography variant="caption" sx={{ display: "block", fontWeight: 700 }}>
+            {`${arretes} appel${arretes > 1 ? "s" : ""} s'arrête${arretes > 1 ? "nt" : ""} avant :`}
+          </Typography>
+          {causes.slice(0, 5).map((c) => (
+            <Typography
+              key={c.cause}
+              variant="caption"
+              sx={{ display: "block", opacity: 0.85, fontVariantNumeric: "tabular-nums" }}
+            >
+              {c.label} : {c.count}
+            </Typography>
+          ))}
+        </Box>
       )}
     </Box>
   );
