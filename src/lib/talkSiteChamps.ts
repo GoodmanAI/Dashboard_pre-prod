@@ -265,7 +265,7 @@ export const SECTIONS_SITE: SectionSite[] = [
         type: "json",
         proprietaire: "admin",
         defautRobot: "Aucun",
-        aide: "Une phrase dite au patient quand le créneau proposé est avec l'un de ces codes médecin (plage privée, avance de frais). Chaque règle a ses codes et sa phrase. « phraseSiMedecinDemande », facultative, remplace la phrase quand le patient a demandé ce médecin : le robot a déjà dit « avec le docteur X ». Écrivez une phrase qui tient seule et commence par « Il s'agit », pas par « Ce créneau » : quand le robot propose plusieurs créneaux, il la fait précéder de « Pour le deuxième créneau : ».",
+        aide: "Une phrase dite au patient quand le créneau proposé est avec l'un de ces codes médecin, ou porte une certaine valeur de dépassement d'honoraires (plage privée, avance de frais). Chaque règle a ses critères et sa phrase : « codesMedecins », « depComplHono » (la valeur que le logiciel du centre met sur le créneau, par exemple \"C\" ou \"D\" ; une liste est acceptée), ou les deux, et alors le créneau doit remplir les deux. Quand une règle « depComplHono » a été dite pour le créneau, le robot ne répète pas sa phrase générique de dépassement après la réservation. « phraseSiMedecinDemande », facultative, remplace la phrase quand le patient a demandé ce médecin : le robot a déjà dit « avec le docteur X ». Écrivez une phrase qui tient seule et commence par « Il s'agit », pas par « Ce créneau » : quand le robot propose plusieurs créneaux, il la fait précéder de « Pour le deuxième créneau : ».",
         exemple: `{
   "regles": [
     {
@@ -276,6 +276,10 @@ export const SECTIONS_SITE: SectionSite[] = [
       "codesMedecins": ["BENATE"],
       "phrase": "Il s'agit d'une consultation avec le docteur Benattar, sur une plage privée en secteur 1.",
       "phraseSiMedecinDemande": "Il s'agit d'une plage privée en secteur 1."
+    },
+    {
+      "depComplHono": ["C", "D"],
+      "phrase": "Il s'agit d'une plage avec dépassement d'honoraires."
     }
   ]
 }
