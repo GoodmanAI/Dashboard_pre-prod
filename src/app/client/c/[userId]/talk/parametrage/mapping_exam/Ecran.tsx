@@ -221,13 +221,29 @@ export default function MappingExam({ params }: TalkPageProps) {
    * Une lecture en échec laisse `{}` : la colonne se grise, rien d'autre ne bloque.
    */
   const [sallesParType, setSallesParType] = useState<SallesParType>({});
+  /**
+   * Les salles imposées (`options.exceptionsSalles`), réglées dans Paramètres
+   * généraux : par code NEURACORP, le poste imposé. Elles passent devant le choix
+   * de cet écran, qui les montre sans les modifier.
+   */
+  const [imposees, setImposees] = useState<Record<string, string>>({});
   useEffect(() => {
     (async () => {
       try {
         const r = await fetch(
           `/api/configuration/salles?userProductId=${userProductId}`,
         );
-        if (r.ok) setSallesParType((await r.json())?.sallesParType ?? {});
+        if (r.ok) {
+          const d = await r.json();
+          setSallesParType(d?.sallesParType ?? {});
+          const m: Record<string, string> = {};
+          for (const e of Array.isArray(d?.exceptionsSalles)
+            ? d.exceptionsSalles
+            : []) {
+            if (e?.codeExamen && e?.poste) m[e.codeExamen] = e.poste;
+          }
+          setImposees(m);
+        }
       } catch {
         // Colonne grisée, le reste de l'écran fonctionne.
       }
@@ -822,6 +838,7 @@ export default function MappingExam({ params }: TalkPageProps) {
                   onChange={handleChange}
                   typesClient={typesClient}
                   salles={sallesDuType(sallesParType, row.typeExamen)}
+                  imposee={imposees[row.codeExamen]}
                 />
               ))}
             </Stack>
@@ -881,6 +898,7 @@ export default function MappingExam({ params }: TalkPageProps) {
                       onChange={handleChange}
                       typesClient={typesClient}
                       salles={sallesDuType(sallesParType, row.typeExamen)}
+                      imposee={imposees[row.codeExamen]}
                     />
                   ))}
                 </TableBody>
@@ -1004,6 +1022,7 @@ function FicheExamen({
   onChange,
   typesClient,
   salles,
+  imposee,
 }: ExamRowProps) {
   const codeInjection = row.codeExamenClientInject ?? "";
   const { injecte, setOuvert } = useVoletInjection(codeInjection);
@@ -1068,6 +1087,7 @@ function FicheExamen({
         <CelluleSalles
           salles={salles}
           valeur={row.postes ?? []}
+          imposee={imposee}
           onChange={(v) => onChange(row.codeExamen, "postes", v)}
           disabled={inactif}
         />
@@ -1084,6 +1104,8 @@ interface ExamRowProps {
   typesClient: readonly string[];
   /** Les salles déclarées pour le type de cet examen. Vide : colonne grisée. */
   salles: readonly Salle[];
+  /** Le poste imposé à cet examen dans Paramètres généraux, s'il y en a un. */
+  imposee?: string;
 }
 
 /**
@@ -1105,6 +1127,7 @@ function ExamTableRow({
   onChange,
   typesClient,
   salles,
+  imposee,
 }: ExamRowProps) {
   const codeInjection = row.codeExamenClientInject ?? "";
   const { injecte, setOuvert } = useVoletInjection(codeInjection);
@@ -1195,6 +1218,7 @@ function ExamTableRow({
         <CelluleSalles
           salles={salles}
           valeur={row.postes ?? []}
+          imposee={imposee}
           onChange={(v) => onChange(row.codeExamen, "postes", v)}
           disabled={inactif}
         />

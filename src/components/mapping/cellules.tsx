@@ -375,18 +375,49 @@ export function CelluleInjection({
  * cellule le dit en toutes lettres plutôt que de rester vide. Sans salle déclarée
  * pour le type, elle est grisée : il n'y a rien à choisir, et c'est à l'équipe Lyrae
  * de les déclarer.
+ *
+ * `imposee` (07/10/2026) : la salle imposée à l'examen dans « Gestion des doubles
+ * examens ». Elle passe devant le choix fait ici : la cellule l'affiche, grisée, et
+ * dit où elle se règle. Les salles choisies ici restent enregistrées, inchangées.
  */
 export function CelluleSalles({
   salles,
   valeur,
   onChange,
   disabled,
+  imposee,
 }: {
   salles: readonly { poste: string; libelle: string }[];
   valeur: readonly string[];
   onChange: (postes: string[]) => void;
   disabled?: boolean;
+  imposee?: string;
 }) {
+  if (imposee) {
+    const libelle = salles.find((s) => s.poste === imposee)?.libelle ?? imposee;
+    return (
+      <Tooltip
+        title={`Cet examen se fait toujours en ${libelle}. Cela se change dans Paramètres généraux, Gestion des doubles examens.`}
+        arrow
+      >
+        <Box
+          component="span"
+          sx={{
+            display: "block",
+            border: `1px solid ${P.border}`,
+            borderRadius: 1,
+            bgcolor: P.surfaceDisabled,
+            color: P.inkMuted,
+            fontSize: 13,
+            px: 1,
+            py: 0.75,
+          }}
+        >
+          {libelle}, imposée
+        </Box>
+      </Tooltip>
+    );
+  }
   const sansSalle = salles.length === 0;
   const libelleDe = (poste: string) =>
     salles.find((s) => s.poste === poste)?.libelle ?? poste;

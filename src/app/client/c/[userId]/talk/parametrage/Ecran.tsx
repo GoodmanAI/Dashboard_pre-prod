@@ -62,9 +62,12 @@ import PrescriptionConfigCard, {
   type PrescriptionConfigHandle,
 } from "./PrescriptionConfigCard";
 import PrioriteSalles from "@/components/mapping/PrioriteSalles";
+import SallesImposees from "@/components/mapping/SallesImposees";
 import {
   clePaireRobotDepuisDashboard,
   sallesDeLaPaire,
+  type ExamenDuCentre,
+  type ExceptionSalle,
   type SallesParType,
 } from "@/lib/sallesExamen";
 
@@ -147,6 +150,11 @@ type TalkSettings = {
      * les quatre écrivains de ce dernier n'y gardent que `{ enabled, mode }`.
      */
     prioriteSalles?: Record<string, string[]>;
+    /**
+     * Salles imposées à un examen (07/10/2026) : `[{ codeExamen, poste }]`, forme
+     * arrêtée côté robot. Passent devant toutes les autres règles.
+     */
+    exceptionsSalles?: ExceptionSalle[];
   };
 };
 
@@ -468,6 +476,10 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
    * ont une priorité à régler : au moins deux salles dans leurs deux types.
    */
   const [sallesParType, setSallesParType] = useState<SallesParType>({});
+  /** Les examens à qui l'on peut imposer une salle : leur type a des salles. */
+  const [examensAvecSalles, setExamensAvecSalles] = useState<ExamenDuCentre[]>(
+    [],
+  );
   useEffect(() => {
     if (!userProductId) return;
     (async () => {
@@ -475,7 +487,11 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         const r = await fetch(
           `/api/configuration/salles?userProductId=${userProductId}`,
         );
-        if (r.ok) setSallesParType((await r.json())?.sallesParType ?? {});
+        if (r.ok) {
+          const d = await r.json();
+          setSallesParType(d?.sallesParType ?? {});
+          setExamensAvecSalles(Array.isArray(d?.examens) ? d.examens : []);
+        }
       } catch {
         // Sans les salles, la colonne de priorité ne s'affiche pas. Rien d'autre.
       }
@@ -1815,6 +1831,24 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                   </TableBody>
                 </Table>
               </TableContainer>
+
+              {(examensAvecSalles.length > 0 ||
+                (settings.options?.exceptionsSalles?.length ?? 0) > 0) && (
+                <Box sx={{ mt: 3 }}>
+                  <SallesImposees
+                    examens={examensAvecSalles}
+                    sallesParType={sallesParType}
+                    valeur={settings.options?.exceptionsSalles ?? []}
+                    onChange={(exceptionsSalles) =>
+                      setSettings((s) => ({
+                        ...s,
+                        options: { ...s.options, exceptionsSalles },
+                      }))
+                    }
+                    disabled={readOnly}
+                  />
+                </Box>
+              )}
             </AccordionDetails>
           )}
         </Accordion>

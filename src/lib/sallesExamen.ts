@@ -341,3 +341,157 @@ export function validerPrioriteSalles(
   }
   return { valeur: sortie };
 }
+
+// ── Les salles imposées (exceptions) ─────────────────────────────────────────
+
+/**
+ * Une salle imposée à un examen : `options.exceptionsSalles` (07/10/2026).
+ *
+ * Elle passe devant toutes les autres règles. Chez Pontivy, R5 ne sert qu'à la
+ * panoramique dentaire : la pano est toujours en R5, et demandée avec un autre
+ * examen elle fait l'objet d'un rendez-vous à part, quel que soit le mode de la
+ * paire, sans priorité de salle. Ce comportement est celui du ROBOT ; le Dashboard
+ * ne fait que stocker `{ codeExamen, poste }`, forme arrêtée côté LyraeTalk.
+ *
+ * `codeExamen` est le code NEURACORP, la clé de `TalkSettings.exams`.
+ */
+export type ExceptionSalle = { codeExamen: string; poste: string };
+
+/** Ce qu'il faut savoir d'un examen du centre pour valider une exception. */
+export type ExamenDuCentre = { codeExamen: string; typeExamen: string; libelle: string };
+
+/**
+ * Les examens enregistrés d'un centre (`TalkSettings.exams`), sous leurs deux formes
+ * historiques : tableau, ou objet indexé par code (lue aussi par `get/mapping`).
+ * Le libellé est celui de la correspondance : celui du centre s'il en a saisi un.
+ */
+export function examensDuCentre(exams: unknown): ExamenDuCentre[] {
+  const brut =
+    typeof exams === "string"
+      ? (() => {
+          try {
+            return JSON.parse(exams);
+          } catch {
+            return null;
+          }
+        })()
+      : exams;
+  const lignes: [string, any][] = Array.isArray(brut)
+    ? brut.map((e: any) => [e?.codeExamen, e])
+    : brut && typeof brut === "object"
+      ? Object.entries(brut as Record<string, any>)
+      : [];
+  const sortie: ExamenDuCentre[] = [];
+  const vus = new Set<string>();
+  for (const [code, e] of lignes) {
+    const codeExamen = typeof code === "string" ? code.trim() : "";
+    if (!codeExamen || vus.has(codeExamen)) continue;
+    vus.add(codeExamen);
+    const libelleClient = typeof e?.libelleClient === "string" ? e.libelleClient.trim() : "";
+    const libelle = typeof e?.libelle === "string" ? e.libelle.trim() : "";
+    sortie.push({
+      codeExamen,
+      typeExamen: typeof e?.typeExamen === "string" ? e.typeExamen : "",
+      libelle: libelleClient || libelle || codeExamen,
+    });
+  }
+  return sortie;
+}
+
+/** Une exception est-elle encore valable : examen connu, salle déclarée pour son type ? */
+function exceptionValable(
+  codeExamen: string,
+  poste: string,
+  examens: Map<string, ExamenDuCentre>,
+  salles: SallesParType
+): boolean {
+  const examen = examens.get(codeExamen);
+  if (!examen) return false;
+  return sallesDuType(salles, examen.typeExamen).some((s) => s.poste === poste);
+}
+
+function indexer(examens: readonly ExamenDuCentre[]): Map<string, ExamenDuCentre> {
+  return new Map(examens.map((e) => [e.codeExamen, e]));
+}
+
+/**
+ * Lecture de `options.exceptionsSalles` : ne garde que les exceptions dont l'examen
+ * existe encore et dont la salle est encore déclarée pour son type, une par examen
+ * (la première). Ce que lisent le robot et les écrans.
+ */
+export function lireExceptionsSalles(
+  brut: unknown,
+  examens: readonly ExamenDuCentre[],
+  salles: SallesParType
+): ExceptionSalle[] {
+  if (!Array.isArray(brut)) return [];
+  const index = indexer(examens);
+  const sortie: ExceptionSalle[] = [];
+  for (const e of brut) {
+    const codeExamen = typeof (e as any)?.codeExamen === "string" ? (e as any).codeExamen.trim() : "";
+    const poste = normaliserPoste((e as any)?.poste);
+    if (!codeExamen || !poste || sortie.some((x) => x.codeExamen === codeExamen)) continue;
+    if (exceptionValable(codeExamen, poste, index, salles)) sortie.push({ codeExamen, poste });
+  }
+  return sortie;
+}
+
+/**
+ * Validation à l'écriture de `options.exceptionsSalles`.
+ *
+ * Même tolérance que `validerPrioriteSalles` : une exception qui n'est plus valable
+ * (examen retiré, salle retirée par l'admin) mais était déjà enregistrée telle quelle
+ * est retirée sans bruit ; une exception nouvelle et invalide est refusée. Deux
+ * exceptions pour le même examen sont toujours refusées : il n'y a qu'une salle
+ * imposée par examen.
+ */
+export function validerExceptionsSalles(
+  brut: unknown,
+  ancienne: unknown,
+  examens: readonly ExamenDuCentre[],
+  salles: SallesParType
+): { valeur: ExceptionSalle[] } | { erreur: string } {
+  if (brut === null || brut === undefined) return { valeur: [] };
+  if (!Array.isArray(brut)) {
+    return { erreur: "Les salles imposées doivent être une liste, une ligne par examen." };
+  }
+  const index = indexer(examens);
+  const dejaLa = new Set(
+    Array.isArray(ancienne)
+      ? ancienne.map(
+          (e: any) =>
+            `${typeof e?.codeExamen === "string" ? e.codeExamen.trim() : ""}|${normaliserPoste(e?.poste)}`
+        )
+      : []
+  );
+  const sortie: ExceptionSalle[] = [];
+  const vus = new Set<string>();
+  for (let i = 0; i < brut.length; i++) {
+    const e = brut[i] as any;
+    const codeExamen = typeof e?.codeExamen === "string" ? e.codeExamen.trim() : "";
+    const poste = normaliserPoste(e?.poste);
+    if (!codeExamen || !poste) {
+      return {
+        erreur: `Salle imposée, ligne ${i + 1} : choisissez un examen et une salle, ou retirez la ligne.`,
+      };
+    }
+    const nom = index.get(codeExamen)?.libelle ?? codeExamen;
+    if (vus.has(codeExamen)) {
+      return {
+        erreur: `Salle imposée : « ${nom} » a deux lignes. Un examen n'a qu'une salle imposée, gardez-en une.`,
+      };
+    }
+    vus.add(codeExamen);
+    if (exceptionValable(codeExamen, poste, index, salles)) {
+      sortie.push({ codeExamen, poste });
+      continue;
+    }
+    if (dejaLa.has(`${codeExamen}|${poste}`)) continue;
+    return {
+      erreur: index.has(codeExamen)
+        ? `Salle imposée : ${poste} n'est pas une salle déclarée pour « ${nom} ». Choisissez une salle de la liste, ou demandez à Lyrae de la déclarer.`
+        : `Salle imposée : l'examen ${codeExamen} n'est pas dans la correspondance des examens du centre. Choisissez un examen de la liste.`,
+    };
+  }
+  return { valeur: sortie };
+}
