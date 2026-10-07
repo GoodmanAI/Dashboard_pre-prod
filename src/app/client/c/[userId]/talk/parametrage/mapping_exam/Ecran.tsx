@@ -59,6 +59,7 @@ import {
   CelluleCodeLibelle,
   CelluleExamen,
   CelluleInjection,
+  CelluleSalles,
   CelluleType,
   EnTeteMapping,
   OPTIONS_SEUIL,
@@ -77,6 +78,11 @@ import {
   DANGER,
   WARNING,
 } from "@/lib/jetons";
+import {
+  sallesDuType,
+  type Salle,
+  type SallesParType,
+} from "@/lib/sallesExamen";
 
 /**
  * Correspondance des examens (refonte design 2026-08-06).
@@ -107,7 +113,8 @@ import {
  * champ du code d'injection. Ici cette case n'est qu'un volet d'affichage : la
  * verite de LyraeTalk est la presence d'un code, il n'y a pas de booleen a stocker.
  *
- * Ce qui reste propre a cet ecran : la colonne « Creneau horaire ».
+ * Ce qui reste propre a cet ecran : la colonne « Creneau horaire », et depuis le
+ * 06/10/2026 la colonne « Salles » (plan `2026-10-filtrage-creneaux-par-salle`).
  *
  * Les cellules communes vivent dans `components/mapping/cellules.tsx`. La LIGNE,
  * elle, reste ici, et c'est delibere : une ligne partagee aurait du connaitre les
@@ -136,6 +143,11 @@ interface ExamRow {
   performed: boolean;
   codeExamenClientInject: string | null;
   horaire: HoraireConfig;
+  /**
+   * Les salles où se fait l'examen (`numeroPoste` d'Xplore). `[]` = toutes, aucun
+   * filtre. Même clé en lecture et en écriture : voir `horaire`, qui ne l'a pas.
+   */
+  postes: string[];
   [k: string]: any;
 }
 
@@ -202,6 +214,42 @@ export default function MappingExam({ params }: TalkPageProps) {
   const [codeRisFilter, setCodeRisFilter] = useState<CodeRisFilter>("all");
   const [page, setPage] = useState(0);
 
+  /**
+   * Les salles déclarées par Lyrae, en lecture seule (`/api/configuration/salles`).
+   * Le centre choisit parmi elles, examen par examen ; il ne les crée pas : le code
+   * d'un poste est technique, et un code faux vide les créneaux sans bruit.
+   * Une lecture en échec laisse `{}` : la colonne se grise, rien d'autre ne bloque.
+   */
+  const [sallesParType, setSallesParType] = useState<SallesParType>({});
+  /**
+   * Les salles imposées (`options.exceptionsSalles`), réglées dans Paramètres
+   * généraux : par code NEURACORP, le poste imposé. Elles passent devant le choix
+   * de cet écran, qui les montre sans les modifier.
+   */
+  const [imposees, setImposees] = useState<Record<string, string>>({});
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(
+          `/api/configuration/salles?userProductId=${userProductId}`,
+        );
+        if (r.ok) {
+          const d = await r.json();
+          setSallesParType(d?.sallesParType ?? {});
+          const m: Record<string, string> = {};
+          for (const e of Array.isArray(d?.exceptionsSalles)
+            ? d.exceptionsSalles
+            : []) {
+            if (e?.codeExamen && e?.poste) m[e.codeExamen] = e.poste;
+          }
+          setImposees(m);
+        }
+      } catch {
+        // Colonne grisée, le reste de l'écran fonctionne.
+      }
+    })();
+  }, [userProductId]);
+
   // ---- Fetch initial ----
   useEffect(() => {
     const fetchData = async () => {
@@ -221,6 +269,7 @@ export default function MappingExam({ params }: TalkPageProps) {
             typeExamenClient: row.typeExamenClient ?? "",
             performed: row.performed ?? true,
             codeExamenClientInject: row.codeExamenClientInject ?? null,
+            postes: Array.isArray(row.postes) ? row.postes : [],
             horaire: row.horaire ?? {
               enabled: false,
               position: "below",
@@ -788,12 +837,14 @@ export default function MappingExam({ params }: TalkPageProps) {
                   disabled={readOnly}
                   onChange={handleChange}
                   typesClient={typesClient}
+                  salles={sallesDuType(sallesParType, row.typeExamen)}
+                  imposee={imposees[row.codeExamen]}
                 />
               ))}
             </Stack>
           ) : (
             <TableContainer sx={{ maxHeight: "none" }}>
-              <Table stickyHeader size="small" sx={{ minWidth: 1180 }}>
+              <Table stickyHeader size="small" sx={{ minWidth: 1360 }}>
                 <TableHead>
                   <TableRow>
                     <EnTeteMapping
@@ -830,6 +881,12 @@ export default function MappingExam({ params }: TalkPageProps) {
                     >
                       Créneau horaire
                     </EnTeteMapping>
+                    <EnTeteMapping
+                      aide="Les salles où se fait cet examen. Le robot ne propose que leurs créneaux. Rien de choisi : toutes les salles."
+                      largeur={180}
+                    >
+                      Salles
+                    </EnTeteMapping>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -840,6 +897,8 @@ export default function MappingExam({ params }: TalkPageProps) {
                       disabled={readOnly}
                       onChange={handleChange}
                       typesClient={typesClient}
+                      salles={sallesDuType(sallesParType, row.typeExamen)}
+                      imposee={imposees[row.codeExamen]}
                     />
                   ))}
                 </TableBody>
@@ -957,7 +1016,14 @@ function motifNonInjectable(typeExamen: string): string | undefined {
  * dépliée : rien n'est retiré, rien n'est ajouté, et la bascule ne doit donc jamais
  * changer ce qu'on peut régler.
  */
-function FicheExamen({ row, disabled, onChange, typesClient }: ExamRowProps) {
+function FicheExamen({
+  row,
+  disabled,
+  onChange,
+  typesClient,
+  salles,
+  imposee,
+}: ExamRowProps) {
   const codeInjection = row.codeExamenClientInject ?? "";
   const { injecte, setOuvert } = useVoletInjection(codeInjection);
   const inactif = disabled || !row.performed;
@@ -1016,6 +1082,16 @@ function FicheExamen({ row, disabled, onChange, typesClient }: ExamRowProps) {
           onChange={(next) => onChange(row.codeExamen, "horaire", next)}
         />
       </RangeeChamp>
+
+      <RangeeChamp libelle="Salles">
+        <CelluleSalles
+          salles={salles}
+          valeur={row.postes ?? []}
+          imposee={imposee}
+          onChange={(v) => onChange(row.codeExamen, "postes", v)}
+          disabled={inactif}
+        />
+      </RangeeChamp>
     </CarteMapping>
   );
 }
@@ -1026,6 +1102,10 @@ interface ExamRowProps {
   onChange: (codeExamen: string, key: string, value: any) => void;
   /** Les types que ce client a déjà saisis, proposés dans la colonne « Type ». */
   typesClient: readonly string[];
+  /** Les salles déclarées pour le type de cet examen. Vide : colonne grisée. */
+  salles: readonly Salle[];
+  /** Le poste imposé à cet examen dans Paramètres généraux, s'il y en a un. */
+  imposee?: string;
 }
 
 /**
@@ -1041,7 +1121,14 @@ interface ExamRowProps {
  * elle, reste ici. Aucune règle de Konnect ne doit pouvoir descendre dans cet écran
  * par un composant partagé : c'est la leçon du 14/09/2026 sur le code RIS.
  */
-function ExamTableRow({ row, disabled, onChange, typesClient }: ExamRowProps) {
+function ExamTableRow({
+  row,
+  disabled,
+  onChange,
+  typesClient,
+  salles,
+  imposee,
+}: ExamRowProps) {
   const codeInjection = row.codeExamenClientInject ?? "";
   const { injecte, setOuvert } = useVoletInjection(codeInjection);
 
@@ -1123,6 +1210,17 @@ function ExamTableRow({ row, disabled, onChange, typesClient }: ExamRowProps) {
           horaire={row.horaire}
           disabled={inactif}
           onChange={(next) => onChange(row.codeExamen, "horaire", next)}
+        />
+      </TableCell>
+
+      {/* Salles, propre à LyraeTalk (plan 2026-10-filtrage-creneaux-par-salle) */}
+      <TableCell sx={{ verticalAlign: "top" }}>
+        <CelluleSalles
+          salles={salles}
+          valeur={row.postes ?? []}
+          imposee={imposee}
+          onChange={(v) => onChange(row.codeExamen, "postes", v)}
+          disabled={inactif}
         />
       </TableCell>
     </TableRow>

@@ -5,6 +5,8 @@ import { requirePagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { versionMapping } from "@/lib/versionMapping";
+import { normaliserPostesEcrits } from "@/lib/sallesExamen";
+import { sallesDuCentre } from "@/lib/sallesExamenLecture";
 
 /**
  * Mapping d'examens LyraeTalk d'un centre.
@@ -45,6 +47,16 @@ import { versionMapping } from "@/lib/versionMapping";
  * - **Pas une règle du tout** : plusieurs examens sur un même code RIS. Le modèle du
  *   RIS l'exige (`MAIN` sert à cinq examens chez Pontivy).
  */
+
+/**
+ * Levée dans la transaction quand un examen porte une salle non déclarée : la
+ * transaction est annulée, et la route répond 400 en nommant les examens.
+ */
+class PostesRefuses extends Error {
+  constructor(public readonly examens: string[]) {
+    super("postes refusés");
+  }
+}
 
 /** Ce que l'écran envoie. Les autres champs sont conservés sans être relus. */
 type LigneEnvoyee = {
@@ -190,6 +202,10 @@ export async function POST(req: NextRequest) {
     const versionAttendue = typeof body.version === "string" ? body.version : null;
     const upId = Number(userProductId);
 
+    // Les salles déclarées, pour valider les `postes` de chaque examen. Lues hors de
+    // la transaction : elles vivent dans `ProductConfig`, que celle-ci ne verrouille pas.
+    const salles = await sallesDuCentre(upId);
+
     const resultat = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT "id" FROM "TalkSettings" WHERE "userProductId" = ${upId} FOR UPDATE`;
       const existing = await tx.talkSettings.findUnique({ where: { userProductId: upId } });
@@ -221,6 +237,35 @@ export async function POST(req: NextRequest) {
         if (code && !parCode.has(code)) parCode.set(code, ancienne);
       }
 
+      /**
+       * LES SALLES D'UN EXAMEN (`postes`, plan `2026-10-filtrage-creneaux-par-salle`).
+       *
+       * Même clé en lecture (`get/mapping`) et en écriture, à dessein : `horaire`
+       * montre ce que coûte l'écart (la lecture rend `horaireMapping`, l'écran lit
+       * `horaire`). Chaque poste est normalisé, dédoublonné, et doit être déclaré pour
+       * le type de l'examen ; un poste déjà enregistré mais retiré depuis par l'admin
+       * part sans bruit (`normaliserPostesEcrits`). Une ligne sans `postes` garde ce
+       * qu'elle avait, comme tout champ absent de la fusion.
+       */
+      const postesRefuses: string[] = [];
+      for (const row of lignes) {
+        if (!("postes" in row)) continue;
+        const ancienne = parCode.get(row.codeExamen);
+        const r = normaliserPostesEcrits(
+          row.postes,
+          ancienne?.postes,
+          salles,
+          row.typeExamen ?? ancienne?.typeExamen
+        );
+        if ("inconnus" in r) {
+          const nom = texte(row.libelle) || row.codeExamen;
+          postesRefuses.push(`${nom} (${r.inconnus.join(", ")})`);
+        } else {
+          row.postes = r.postes;
+        }
+      }
+      if (postesRefuses.length > 0) throw new PostesRefuses(postesRefuses);
+
       const merged = lignes.map((row) => ({
         ...(parCode.get(row.codeExamen) ?? {}),
         ...row,
@@ -233,7 +278,24 @@ export async function POST(req: NextRequest) {
         create: { userProductId: upId, exams: merged },
       });
       return { conflit: false as const, settings };
+    }).catch((e) => {
+      if (e instanceof PostesRefuses) return { refus: e } as const;
+      throw e;
     });
+
+    if ("refus" in resultat) {
+      const n = resultat.refus.examens.length;
+      return NextResponse.json(
+        {
+          error: `${
+            n > 1 ? "Ces examens ont" : "Cet examen a"
+          } une salle qui n'est pas déclarée pour son type : ${resultat.refus.examens.join(
+            ", "
+          )}. Rien n'a été écrit. Rechargez la page pour voir les salles à jour, puis choisissez dans la liste.`,
+        },
+        { status: 400 }
+      );
+    }
 
     if (resultat.conflit) {
       auditLog("data", "talk-mapping-update", {

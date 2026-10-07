@@ -18,6 +18,16 @@ import {
   PrescriptionEnabledExamTypes,
 } from "@/lib/prescriptionConfig";
 import { journaliserEcritureConfig } from "@/lib/auditConfig";
+import {
+  CODE_DOUBLE_EXAMEN,
+  examensDuCentre,
+  lireExceptionsSalles,
+  lireSallesParType,
+  lirePrioriteSalles,
+  validerExceptionsSalles,
+  validerPrioriteSalles,
+} from "@/lib/sallesExamen";
+import { sallesDuCentre } from "@/lib/sallesExamenLecture";
 
 /**
  * GET /api/configuration?userProductId=XX
@@ -187,6 +197,12 @@ export async function GET(req: NextRequest) {
           site[cle] = secondaires;
           continue;
         }
+        if (cle === "sallesParType") {
+          // Relu sous sa forme normalisée : une valeur enregistrée avant la
+          // validation (ou à la main en base) ne doit pas descendre mal formée.
+          site[cle] = lireSallesParType(valeur);
+          continue;
+        }
         site[cle] = valeur;
       }
       if (Object.keys(site).length === 0) site = null;
@@ -227,14 +243,7 @@ export async function GET(req: NextRequest) {
 
     console.log(settings);
 
-    const doubleExamCodeMap: Record<string, string> = {
-      radio: "RX",
-      echographie: "US",
-      mammographie: "MG",
-      scanner: "CT",
-      irm: "MR",
-      echomammaire: "USMAM",
-    };
+    const doubleExamCodeMap: Record<string, string> = CODE_DOUBLE_EXAMEN;
 
     const allDoubleCombos: string[] = [
       "RX+RX",
@@ -312,6 +321,41 @@ export async function GET(req: NextRequest) {
 
     console.log(formattedMultiExam);
 
+    // `options.prioriteSalles` (plan `2026-10-filtrage-creneaux-par-salle`) : chaque
+    // liste est réduite aux salles encore déclarées pour sa paire. Une salle retirée
+    // par l'admin disparaît ainsi de la priorité au lieu de devenir un palier vide
+    // côté robot. Le reste d'`options` descend tel quel.
+    const optionsBrutes = estObjetJson(settings.options)
+      ? (settings.options as Record<string, unknown>)
+      : null;
+    //
+    // `options.exceptionsSalles` (07/10/2026), même principe : une salle imposée
+    // dont l'examen a quitté la correspondance, ou dont la salle n'est plus
+    // déclarée pour son type, ne descend plus.
+    const sallesDeclarees = lireSallesParType(siteBrut?.sallesParType);
+    let options: unknown = settings.options;
+    if (
+      optionsBrutes &&
+      (optionsBrutes.prioriteSalles !== undefined ||
+        optionsBrutes.exceptionsSalles !== undefined)
+    ) {
+      const nettoyees: Record<string, unknown> = { ...optionsBrutes };
+      if (optionsBrutes.prioriteSalles !== undefined) {
+        nettoyees.prioriteSalles = lirePrioriteSalles(
+          optionsBrutes.prioriteSalles,
+          sallesDeclarees
+        );
+      }
+      if (optionsBrutes.exceptionsSalles !== undefined) {
+        nettoyees.exceptionsSalles = lireExceptionsSalles(
+          optionsBrutes.exceptionsSalles,
+          examensDuCentre(settings.exams),
+          sallesDeclarees
+        );
+      }
+      options = nettoyees;
+    }
+
     // 4️⃣ Réponse finale
     return NextResponse.json(
       {
@@ -341,7 +385,7 @@ export async function GET(req: NextRequest) {
             : defaultTypes,
 
         doubleBookingConfig: formattedMultiExam,
-        options: settings.options,
+        options,
 
         // Stocké dans options.serviceEnabled, exposé à la racine pour que le
         // bot Lyrae le lise directement. Défaut = true (service actif).
@@ -442,6 +486,51 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // `options.prioriteSalles` : chaque poste doit être une salle déclarée pour l'un
+    // des deux types de la paire. Un poste déjà enregistré et retiré depuis par
+    // l'admin est enlevé sans bruit (voir `validerPrioriteSalles`).
+    //
+    // `options.exceptionsSalles` (07/10/2026) : l'examen doit être dans la
+    // correspondance du centre, et la salle déclarée pour son type ; une salle par
+    // examen. Même tolérance pour ce qui était déjà stocké et ne vaut plus.
+    let optionsEcrites = options;
+    if (
+      options &&
+      (options.prioriteSalles !== undefined || options.exceptionsSalles !== undefined)
+    ) {
+      const actuelles = await prisma.talkSettings.findUnique({
+        where: { userProductId },
+        select: { options: true, exams: true },
+      });
+      const salles = await sallesDuCentre(userProductId);
+      optionsEcrites = { ...options };
+
+      if (options.prioriteSalles !== undefined) {
+        const priorite = validerPrioriteSalles(
+          options.prioriteSalles,
+          (actuelles?.options as any)?.prioriteSalles,
+          salles
+        );
+        if ("erreur" in priorite) {
+          return NextResponse.json({ error: priorite.erreur }, { status: 400 });
+        }
+        optionsEcrites.prioriteSalles = priorite.valeur;
+      }
+
+      if (options.exceptionsSalles !== undefined) {
+        const exceptions = validerExceptionsSalles(
+          options.exceptionsSalles,
+          (actuelles?.options as any)?.exceptionsSalles,
+          examensDuCentre(actuelles?.exams ?? null),
+          salles
+        );
+        if ("erreur" in exceptions) {
+          return NextResponse.json({ error: exceptions.erreur }, { status: 400 });
+        }
+        optionsEcrites.exceptionsSalles = exceptions.valeur;
+      }
+    }
+
     // ✅ Upsert TalkSettings
     console.log(`where: { userProductId: ${userProductId} },`);
     const settings = await prisma.talkSettings.upsert({
@@ -465,7 +554,7 @@ export async function POST(req: NextRequest) {
         centerPhone,
         centerWebsite,
         centerMail,
-        options
+        options: optionsEcrites,
       },
       create: {
         userProductId,
@@ -487,7 +576,7 @@ export async function POST(req: NextRequest) {
         centerPhone,
         centerWebsite,
         centerMail,
-        options
+        options: optionsEcrites,
       },
     });
 
