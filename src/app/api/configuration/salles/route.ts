@@ -2,11 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 import { sallesDuCentre } from "@/lib/sallesExamenLecture";
+import {
+  examensDuCentre,
+  lireExceptionsSalles,
+  sallesDuType,
+} from "@/lib/sallesExamen";
 
 /**
  * GET /api/configuration/salles?userProductId=NN   (session uniquement)
- *   → 200 { sallesParType: { "RX": [{ "poste": "CHKRX2", "libelle": "R2" }] } }
+ *   → 200 {
+ *       sallesParType: { "RX": [{ "poste": "CHKRX2", "libelle": "R2" }] },
+ *       examens: [{ codeExamen, libelle, typeExamen }],   // ceux qui ont des salles
+ *       exceptionsSalles: [{ codeExamen, poste }]         // nettoyées, comme au GET
+ *     }
  *
  * Les salles déclarées par l'admin dans `talk.site.sallesParType`, EN LECTURE SEULE,
  * pour les deux écrans du centre qui choisissent parmi elles : « Correspondance des
@@ -19,6 +29,11 @@ import { sallesDuCentre } from "@/lib/sallesExamenLecture";
  * forme que lit LyraeTalk (`data[internal_code]`, ou un tableau d'examens) ; un
  * en-tête HTTP aurait porté du JSON hors du corps. Une petite route, qui ne rend que
  * ce champ, laisse les deux formes intactes.
+ *
+ * `examens` (07/10/2026) : les examens de la correspondance du centre dont le type a
+ * des salles déclarées, les seuls à qui l'on peut imposer une salle. Libellé = celui
+ * du centre s'il en a saisi un. `exceptionsSalles` : les salles imposées encore
+ * valables, pour que la colonne « Salles » de la correspondance les montre.
  *
  * Droit : lecture de l'un des deux écrans qui s'en servent.
  */
@@ -41,7 +56,21 @@ export async function GET(req: NextRequest) {
   if (droitErr) return droitErr;
 
   try {
-    return NextResponse.json({ sallesParType: await sallesDuCentre(userProductId) });
+    const sallesParType = await sallesDuCentre(userProductId);
+    const settings = await prisma.talkSettings.findUnique({
+      where: { userProductId },
+      select: { exams: true, options: true },
+    });
+    const tous = examensDuCentre(settings?.exams ?? null);
+    const examens = tous
+      .filter((e) => sallesDuType(sallesParType, e.typeExamen).length > 0)
+      .sort((a, b) => a.libelle.localeCompare(b.libelle, "fr"));
+    const exceptionsSalles = lireExceptionsSalles(
+      (settings?.options as any)?.exceptionsSalles,
+      tous,
+      sallesParType
+    );
+    return NextResponse.json({ sallesParType, examens, exceptionsSalles });
   } catch (e) {
     console.error("[configuration/salles] lecture impossible :", e);
     return NextResponse.json(

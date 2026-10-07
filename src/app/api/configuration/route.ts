@@ -20,8 +20,11 @@ import {
 import { journaliserEcritureConfig } from "@/lib/auditConfig";
 import {
   CODE_DOUBLE_EXAMEN,
+  examensDuCentre,
+  lireExceptionsSalles,
   lireSallesParType,
   lirePrioriteSalles,
+  validerExceptionsSalles,
   validerPrioriteSalles,
 } from "@/lib/sallesExamen";
 import { sallesDuCentre } from "@/lib/sallesExamenLecture";
@@ -325,16 +328,33 @@ export async function GET(req: NextRequest) {
     const optionsBrutes = estObjetJson(settings.options)
       ? (settings.options as Record<string, unknown>)
       : null;
-    const options =
-      optionsBrutes && optionsBrutes.prioriteSalles !== undefined
-        ? {
-            ...optionsBrutes,
-            prioriteSalles: lirePrioriteSalles(
-              optionsBrutes.prioriteSalles,
-              lireSallesParType(siteBrut?.sallesParType)
-            ),
-          }
-        : settings.options;
+    //
+    // `options.exceptionsSalles` (07/10/2026), même principe : une salle imposée
+    // dont l'examen a quitté la correspondance, ou dont la salle n'est plus
+    // déclarée pour son type, ne descend plus.
+    const sallesDeclarees = lireSallesParType(siteBrut?.sallesParType);
+    let options: unknown = settings.options;
+    if (
+      optionsBrutes &&
+      (optionsBrutes.prioriteSalles !== undefined ||
+        optionsBrutes.exceptionsSalles !== undefined)
+    ) {
+      const nettoyees: Record<string, unknown> = { ...optionsBrutes };
+      if (optionsBrutes.prioriteSalles !== undefined) {
+        nettoyees.prioriteSalles = lirePrioriteSalles(
+          optionsBrutes.prioriteSalles,
+          sallesDeclarees
+        );
+      }
+      if (optionsBrutes.exceptionsSalles !== undefined) {
+        nettoyees.exceptionsSalles = lireExceptionsSalles(
+          optionsBrutes.exceptionsSalles,
+          examensDuCentre(settings.exams),
+          sallesDeclarees
+        );
+      }
+      options = nettoyees;
+    }
 
     // 4️⃣ Réponse finale
     return NextResponse.json(
@@ -469,21 +489,46 @@ export async function POST(req: NextRequest) {
     // `options.prioriteSalles` : chaque poste doit être une salle déclarée pour l'un
     // des deux types de la paire. Un poste déjà enregistré et retiré depuis par
     // l'admin est enlevé sans bruit (voir `validerPrioriteSalles`).
+    //
+    // `options.exceptionsSalles` (07/10/2026) : l'examen doit être dans la
+    // correspondance du centre, et la salle déclarée pour son type ; une salle par
+    // examen. Même tolérance pour ce qui était déjà stocké et ne vaut plus.
     let optionsEcrites = options;
-    if (options && options.prioriteSalles !== undefined) {
+    if (
+      options &&
+      (options.prioriteSalles !== undefined || options.exceptionsSalles !== undefined)
+    ) {
       const actuelles = await prisma.talkSettings.findUnique({
         where: { userProductId },
-        select: { options: true },
+        select: { options: true, exams: true },
       });
-      const priorite = validerPrioriteSalles(
-        options.prioriteSalles,
-        (actuelles?.options as any)?.prioriteSalles,
-        await sallesDuCentre(userProductId)
-      );
-      if ("erreur" in priorite) {
-        return NextResponse.json({ error: priorite.erreur }, { status: 400 });
+      const salles = await sallesDuCentre(userProductId);
+      optionsEcrites = { ...options };
+
+      if (options.prioriteSalles !== undefined) {
+        const priorite = validerPrioriteSalles(
+          options.prioriteSalles,
+          (actuelles?.options as any)?.prioriteSalles,
+          salles
+        );
+        if ("erreur" in priorite) {
+          return NextResponse.json({ error: priorite.erreur }, { status: 400 });
+        }
+        optionsEcrites.prioriteSalles = priorite.valeur;
       }
-      optionsEcrites = { ...options, prioriteSalles: priorite.valeur };
+
+      if (options.exceptionsSalles !== undefined) {
+        const exceptions = validerExceptionsSalles(
+          options.exceptionsSalles,
+          (actuelles?.options as any)?.exceptionsSalles,
+          examensDuCentre(actuelles?.exams ?? null),
+          salles
+        );
+        if ("erreur" in exceptions) {
+          return NextResponse.json({ error: exceptions.erreur }, { status: 400 });
+        }
+        optionsEcrites.exceptionsSalles = exceptions.valeur;
+      }
     }
 
     // ✅ Upsert TalkSettings

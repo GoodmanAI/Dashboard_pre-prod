@@ -70,6 +70,17 @@ Trois champs, qu'un robot plus ancien ignore :
   l'un des deux types de la paire (l'écho mammaire prend les salles `US`), une liste vidée
   disparaît. À l'**écriture** (`POST /api/configuration`), un poste nouveau non déclaré
   répond 400 ; un poste déjà enregistré et retiré depuis par l'admin est enlevé sans bruit.
+- `options.exceptionsSalles` (centre, même écran, 07/10/2026) :
+  `[{ "codeExamen": "<code NEURACORP>", "poste": "CHKRX5" }]`, forme arrêtée côté robot,
+  qui le lit dans `data.options.exceptionsSalles`. Une salle imposée à un examen, devant
+  toutes les autres règles (Pontivy : la panoramique dentaire toujours en R5 ; demandée
+  avec un autre examen, deux rendez-vous quel que soit le mode de la paire, sans priorité
+  de salle ; ce comportement est celui du robot). Une seule par examen. À la **lecture**,
+  ne restent que les exceptions dont l'examen est dans `TalkSettings.exams` et dont le
+  poste est déclaré pour son type canonique (une par examen, la première). À
+  l'**écriture** (`POST /api/configuration`), examen absent, poste non déclaré ou deux
+  lignes pour un même examen répondent 400 ; une exception déjà stockée telle quelle et
+  devenue invalide est retirée sans bruit. Les `postes` de l'examen ne sont pas modifiés.
 - `postes` sur chaque examen de `GET /api/configuration/get/mapping` (voir plus bas).
 
 ⚠️ **`GET /api/configuration` : le champ `labelFr` de `examMappings` porte un CODE de
@@ -697,8 +708,11 @@ réponse ne changent pas : LyraeTalk lit toujours `data[internal_code]`.
 
 Les salles déclarées ne sont **pas** dans cette réponse. L'écran les lit par
 `GET /api/configuration/salles?userProductId=NN` (session seule, lecture de « Mapping
-examens » ou de « Paramétrage », ownership), qui rend `{ sallesParType }` et rien d'autre
-de `talk.site`. Aucune clé d'API n'y entre.
+examens » ou de « Paramétrage », ownership), qui rend `{ sallesParType, examens, exceptionsSalles }`
+et rien d'autre de `talk.site` : `examens` = les examens de la correspondance dont le
+type a des salles (`{ codeExamen, libelle, typeExamen }`, libellé du centre d'abord),
+`exceptionsSalles` = les salles imposées, nettoyées comme au `GET /api/configuration`.
+Aucune clé d'API n'y entre.
 
 Écriture : `POST /api/configuration/mapping` normalise `postes` (majuscules, sans
 doublon) ; un poste non déclaré pour le type de l'examen répond **400** en nommant les
