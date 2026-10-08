@@ -6,7 +6,10 @@ import {
   normalizeAlertAfterHours,
 } from "@/lib/prescriptionConfig";
 import { PAST_APPOINTMENT_SQL } from "@/lib/prescriptionAlerts";
-import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import {
+  requirePagePermission,
+  requireAnyPagePermission,
+} from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 
 /**
@@ -39,7 +42,10 @@ export async function GET(req: NextRequest) {
   const param = req.nextUrl.searchParams.get("userProductId");
   const userProductId = param ? parseInt(param, 10) : NaN;
   if (!Number.isFinite(userProductId)) {
-    return NextResponse.json({ error: "Missing userProductId" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing userProductId" },
+      { status: 400 }
+    );
   }
 
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
@@ -92,15 +98,17 @@ export async function GET(req: NextRequest) {
     [codes, thresholdHours]
   );
 
-  // Count uploads REJECTED non resolus (alertes "Xplore a refuse, a traiter
-  // manuellement", chantier prescriptions rejected 2026-08-04)
+  // Count documents REJECTED non resolus (alertes "Xplore a refuse, a traiter
+  // manuellement", chantier prescriptions rejected 2026-08-04). Par document
+  // depuis le 08/10/2026 : un RDV peut en porter plusieurs.
   const rejectedRes = await db.query<{ count: string }>(
     `
     SELECT COUNT(*)::text AS count
-      FROM "PrescriptionUpload"
-     WHERE "externalCenterCode" = ANY($1::text[])
-       AND "status" = 'REJECTED'
-       AND "manualResolvedAt" IS NULL
+      FROM "PrescriptionDocument" d
+      JOIN "PrescriptionUpload" pu ON pu."id" = d."uploadId"
+     WHERE pu."externalCenterCode" = ANY($1::text[])
+       AND d."status" = 'REJECTED'
+       AND d."manualResolvedAt" IS NULL
     `,
     [codes]
   );
@@ -111,8 +119,8 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     userProductId,
-    count,           // total (retrocompat : le hook usePrescriptionAlertsCount lit cette cle)
-    pendingCount,    // detail pour tooltip / breakdown UI
+    count, // total (retrocompat : le hook usePrescriptionAlertsCount lit cette cle)
+    pendingCount, // detail pour tooltip / breakdown UI
     rejectedCount,
     thresholdHours,
   });

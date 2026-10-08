@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { assertUserProductOwnership, requireAuth } from "@/lib/auth-helpers";
-import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import {
+  requirePagePermission,
+  requireAnyPagePermission,
+} from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 
 /**
@@ -34,8 +37,8 @@ export async function POST(
   const auth = await requireAuth();
   if (auth.error) return auth.error;
 
-  const uploadId = parseInt(params.id, 10);
-  if (!Number.isFinite(uploadId)) {
+  const documentId = parseInt(params.id, 10);
+  if (!Number.isFinite(documentId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
@@ -43,24 +46,27 @@ export async function POST(
   // pour le check d'ownership.
   const sel = await db.query<{
     id: number;
+    uploadId: number;
     status: string;
     manualResolvedAt: Date | null;
     externalCenterCode: string;
     userProductId: number | null;
   }>(
     `
-    SELECT pu."id",
-           pu."status",
-           pu."manualResolvedAt",
+    SELECT d."id",
+           d."uploadId",
+           d."status",
+           d."manualResolvedAt",
            pu."externalCenterCode",
            ecm."userProductId"
-      FROM "PrescriptionUpload" pu
+      FROM "PrescriptionDocument" d
+      JOIN "PrescriptionUpload" pu ON pu."id" = d."uploadId"
       LEFT JOIN "ExternalCenterMapping" ecm
              ON ecm."externalCenterCode" = pu."externalCenterCode"
-     WHERE pu."id" = $1
+     WHERE d."id" = $1
      LIMIT 1
     `,
-    [uploadId]
+    [documentId]
   );
 
   if (sel.rowCount === 0) {
@@ -75,7 +81,10 @@ export async function POST(
     );
   }
 
-  const ownErr = await assertUserProductOwnership(auth.session, record.userProductId);
+  const ownErr = await assertUserProductOwnership(
+    auth.session,
+    record.userProductId
+  );
   if (ownErr) return ownErr;
 
   const droitErr = await requirePagePermission(PAGES.ORDONNANCES, "write");
@@ -101,7 +110,7 @@ export async function POST(
   }
 
   const upd = await db.query<{ manualResolvedAt: Date }>(
-    `UPDATE "PrescriptionUpload"
+    `UPDATE "PrescriptionDocument"
         SET "manualResolvedAt" = NOW()
       WHERE "id" = $1
       RETURNING "manualResolvedAt"`,
@@ -113,9 +122,9 @@ export async function POST(
     const actorIp = extractClientIp(req);
     await db.query(
       `INSERT INTO "PrescriptionAccessLog"
-         ("uploadId", "action", "actorType", "actorIp", "success")
-       VALUES ($1, 'manual_resolved', 'session', $2::inet, true)`,
-      [record.id, actorIp]
+         ("uploadId", "documentId", "action", "actorType", "actorIp", "success")
+       VALUES ($1, $3, 'manual_resolved', 'session', $2::inet, true)`,
+      [record.uploadId, actorIp, record.id]
     );
   } catch (err) {
     console.error("[prescriptions/rejected/resolve] audit log failed:", err);

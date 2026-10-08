@@ -171,7 +171,8 @@ export async function classerAlertesRdv(
  * en `timestamp` puis situee a Europe/Paris, jamais un objet Date (cf. le
  * decalage de deux heures des bornes en SQL brut).
  *
- * `expiresAt` suit la meme regle qu'a l'init : min(date du RDV, creation + 30 j).
+ * `expiresAt` suit la meme regle qu'a l'init : l'heure du RDV (depuis le
+ * 08/10/2026, plus de plafond a 30 jours).
  * Sans cela, un RDV repousse gardait un lien de depot qui expirait a l'ancienne
  * date, et le patient ne pouvait plus deposer son ordonnance.
  *
@@ -199,10 +200,7 @@ export async function reporterDateRdv(
     )
     UPDATE "PrescriptionUpload" pu
        SET "appointmentDate" = (v."quand"::timestamp AT TIME ZONE 'Europe/Paris'),
-           "expiresAt" = LEAST(
-             (v."quand"::timestamp AT TIME ZONE 'Europe/Paris'),
-             pu."createdAt" + INTERVAL '30 days'
-           )
+           "expiresAt" = (v."quand"::timestamp AT TIME ZONE 'Europe/Paris')
       FROM v, avant
      WHERE pu."id" = v."id"
        AND avant."id" = v."id"
@@ -222,7 +220,9 @@ export async function reporterDateRdv(
   );
 
   for (const r of upd.rows) {
-    console.log(`[prescriptions/alerts] rdv deplace dans Xplore : upload ${r.id} ${r.avant} -> ${r.apres}`);
+    console.log(
+      `[prescriptions/alerts] rdv deplace dans Xplore : upload ${r.id} ${r.avant} -> ${r.apres}`
+    );
   }
   return avecCentres(upd.rows);
 }
@@ -233,7 +233,10 @@ async function avecCentres(
 ): Promise<{ id: number; userProductIds: number[] }[]> {
   if (rows.length === 0) return [];
   const codes = Array.from(new Set(rows.map((r) => r.externalCenterCode)));
-  const map = await db.query<{ externalCenterCode: string; userProductId: number }>(
+  const map = await db.query<{
+    externalCenterCode: string;
+    userProductId: number;
+  }>(
     `SELECT "externalCenterCode", "userProductId"
        FROM "ExternalCenterMapping"
       WHERE "externalCenterCode" = ANY($1::text[])`,
@@ -257,7 +260,14 @@ export async function centresDuFiltre(
 ): Promise<string[] | null> {
   const csv = (raw: string | null) =>
     raw
-      ? Array.from(new Set(raw.split(",").map((s) => s.trim()).filter(Boolean)))
+      ? Array.from(
+          new Set(
+            raw
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          )
+        )
       : [];
   const codes = csv(params.get("externalCenterCode"));
   const upids = csv(params.get("userProductId"))
@@ -278,6 +288,7 @@ export async function centresDuFiltre(
     resolus = res.rows.map((r) => r.externalCenterCode);
   }
   // Les deux filtres ensemble : intersection, comme /pending.
-  if (codes.length > 0 && resolus) return codes.filter((c) => resolus!.includes(c));
+  if (codes.length > 0 && resolus)
+    return codes.filter((c) => resolus!.includes(c));
   return resolus ?? codes;
 }

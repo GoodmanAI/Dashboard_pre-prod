@@ -541,7 +541,7 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 | Origine | Tables |
 |---|---|
 | Prisma (17) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `Call`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
-| SQL manuel (18) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `KonnectSites`, `KonnectDemandesRappel`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus`, `CentreStatut`, `ReferentielExamens` |
+| SQL manuel (19) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `KonnectSites`, `KonnectDemandesRappel`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionDocument`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus`, `CentreStatut`, `ReferentielExamens` |
 
 `CentreStatut` (07/09/2026) porte le statut de cycle de vie d'un centre :
 `integration`, `production` ou `arrete`, une ligne par `userProductId`, donc **par couple
@@ -825,7 +825,17 @@ rend sous le nom `horaireMapping`.
 7. **`Product.name`** — valeurs `LyraeTalk` et `LyraeKonnect`. Les renommer en base casse
    l'application sans erreur de compilation. Depuis le 13/08/2026 un seul fichier les
    connaît, `src/lib/produits.ts` : ne jamais comparer un nom de produit en dur ailleurs.
-8. **Le cycle de vie d'un `PrescriptionUpload` est à sens unique.** `POST /api/prescriptions/ack/[id]`
+8. **Un lien de dépôt porte jusqu'à 5 documents, et la file d'ordonnances porte l'id du DOCUMENT**
+   (depuis le 08/10/2026, `prisma/migrations/manual/2026_10_08_prescription_documents.sql`).
+   `PrescriptionUpload` est le lien (patient, code, alerte) ; chaque fichier est une ligne
+   `PrescriptionDocument`. `GET /api/prescriptions/pending`, `download/[id]`, `ack/[id]` et
+   `rejected/*` prennent l'id du document : **plusieurs items peuvent porter le même `rdvId`**,
+   et AI2Xplore dédoublonne sur cet id (`prescription_sync_log.dashboard_upload_id`). Les
+   documents repris ont l'id de leur lien ; les nouveaux partent de 1 000 000. Le lien reste
+   ouvert jusqu'à l'heure du RDV (`expiresAt`, plus de plafond à 30 jours), puis
+   `/d/[shortCode]` rend la page « lien invalide ou expiré ». Le lien ne passe plus en
+   `ACKED` ni `REJECTED` : son `ackedAt` prend l'heure du premier document acquitté.
+9. **Le cycle de vie d'un document (`PrescriptionDocument`) est à sens unique.** `POST /api/prescriptions/ack/[id]`
    avec `rejected: true` bascule le statut en `REJECTED` (depuis le 2026-08-04) ; à partir de là
    `GET /api/prescriptions/download/[id]` répond **409** — il ne sert que `UPLOADED` et `ACKED` — et
    l'ack nominal refuse tout statut ≠ `UPLOADED`. **AI2Xplore ne peut donc plus rejouer un dépôt

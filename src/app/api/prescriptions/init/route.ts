@@ -7,6 +7,7 @@ import {
   generateVerificationCode,
 } from "@/lib/appointmentToken";
 import { hashVerificationCode } from "@/lib/verificationCodeHash";
+import { computeExpiresAt } from "@/lib/prescriptionDocuments";
 import {
   normalizeAlertAfterHours,
   DEFAULT_ALERT_AFTER_HOURS,
@@ -14,10 +15,6 @@ import {
 
 /** Nb max de retries si un shortCode nouvellement genere collisionne. */
 const SHORT_CODE_MAX_RETRIES = 5;
-
-/** TTL max du lien depot ordonnance en jours. Patient peut uploader jusqu'au
- *  jour du RDV, borne a 30j (au cas ou l'appointmentDate est loin ou absent). */
-const PRESCRIPTION_LINK_TTL_DAYS = 30;
 
 /** 5 types canoniques d'examen. Toute autre valeur = null (retrocompat). */
 const ALLOWED_EXAM_TYPES = [
@@ -27,25 +24,6 @@ const ALLOWED_EXAM_TYPES = [
   "radiographie",
   "echographie",
 ];
-
-/**
- * Calcule l'expiresAt : min(appointmentDate, createdAt + 30j).
- * Si appointmentDate absent/invalide → createdAt + 30j.
- * Si appointmentDate est dans le passe (edge case si le RDV a deja eu lieu
- * quand LyraeTalk init) → on garde createdAt + 30j pour ne pas expirer
- * immediatement, mais c'est un cas anormal a signaler.
- */
-function computeExpiresAt(
-  now: Date,
-  appointmentDate: Date | null
-): Date {
-  const cap = new Date(now);
-  cap.setUTCDate(cap.getUTCDate() + PRESCRIPTION_LINK_TTL_DAYS);
-  if (!appointmentDate || appointmentDate.getTime() < now.getTime()) {
-    return cap;
-  }
-  return appointmentDate.getTime() < cap.getTime() ? appointmentDate : cap;
-}
 
 /**
  * Extrait la premiere IP de x-forwarded-for (peut contenir une chaine de
@@ -75,7 +53,7 @@ function extractClientIp(req: NextRequest): string | null {
  *     phone: string,
  *     firstname: string,
  *     lastname: string,
- *     appointmentDate: ISO string,          // requis, borne l'expiresAt
+ *     appointmentDate: ISO string,          // requis, fixe l'expiresAt (heure du RDV)
  *     externalCenterCode: string,
  *     examType: "scanner" | "irm" | "mammo" | "radiographie" | "echographie"
  *   }
@@ -143,7 +121,10 @@ export async function POST(req: NextRequest) {
   // n'est pas alignee avec le dashboard, soit un mapping s'est perdu).
   // On fail fast pour rendre le probleme visible plutot que de creer une
   // ligne "orpheline" qui ne matchera jamais aucune config.
-  if (typeof examTypeRaw !== "string" || !ALLOWED_EXAM_TYPES.includes(examTypeRaw)) {
+  if (
+    typeof examTypeRaw !== "string" ||
+    !ALLOWED_EXAM_TYPES.includes(examTypeRaw)
+  ) {
     return NextResponse.json(
       {
         error: "Invalid or missing examType",
@@ -154,8 +135,8 @@ export async function POST(req: NextRequest) {
   }
   const examType: string = examTypeRaw;
 
-  // appointmentDate obligatoire : sert au calcul d'expiresAt
-  // (min(appointmentDate, createdAt+30j)). LyraeTalk le connait toujours au
+  // appointmentDate obligatoire : le lien vit jusqu'a l'heure du RDV
+  // (computeExpiresAt). LyraeTalk le connait toujours au
   // moment du booking, pas de raison legitime qu'il soit absent.
   const appointmentDt =
     typeof appointmentDate === "string" ? new Date(appointmentDate) : null;
@@ -211,7 +192,9 @@ export async function POST(req: NextRequest) {
     process.env.PUBLIC_APP_URL?.replace(/\/$/, "") ??
     `${req.nextUrl.protocol}//${req.nextUrl.host}`;
   const buildUrl = (shortCode: string) =>
-    shortBase ? `${shortBase}/d/${shortCode}` : `${fallbackBase}/d/${shortCode}`;
+    shortBase
+      ? `${shortBase}/d/${shortCode}`
+      : `${fallbackBase}/d/${shortCode}`;
 
   const actorIp = extractClientIp(req);
 
@@ -381,7 +364,10 @@ export async function POST(req: NextRequest) {
       );
     } catch (err) {
       // On ne veut pas invalider l'init pour un compteur en echec
-      console.error("[prescriptions/init] PrescriptionStats upsert failed:", err);
+      console.error(
+        "[prescriptions/init] PrescriptionStats upsert failed:",
+        err
+      );
     }
   }
 
@@ -396,7 +382,10 @@ export async function POST(req: NextRequest) {
       [record.id, actorIp]
     );
   } catch (err) {
-    console.error("[prescriptions/init] PrescriptionAccessLog insert failed:", err);
+    console.error(
+      "[prescriptions/init] PrescriptionAccessLog insert failed:",
+      err
+    );
   }
 
   // On renvoie TOUJOURS le code en clair dans la reponse d'un /init reussi

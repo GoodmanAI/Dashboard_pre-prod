@@ -8,7 +8,9 @@ import { mimeTypeFromStoragePath } from "@/lib/prescriptionFileType";
 /**
  * GET /api/prescriptions/download/[id]
  *
- * Recupere le PDF ordonnance depuis le disque et le sert a AI2Xplore.
+ * Recupere un document d'ordonnance depuis le disque et le sert a AI2Xplore.
+ * `id` est l'id du DOCUMENT (PrescriptionDocument), tel que le donne
+ * /pending, depuis le 08/10/2026 (un lien peut porter jusqu'a 5 documents).
  * Auth : header x-api-key (APPOINTMENT_API_KEY).
  *
  * Chemin sous /download/[id] et non /[id]/download pour eviter le conflit
@@ -42,6 +44,7 @@ function extractClientIp(req: NextRequest): string | null {
 
 async function auditLog(params: {
   uploadId: number | null;
+  documentId?: number | null;
   actorIp: string | null;
   success: boolean;
   errorReason?: string | null;
@@ -50,10 +53,16 @@ async function auditLog(params: {
     await db.query(
       `
       INSERT INTO "PrescriptionAccessLog"
-        ("uploadId", "action", "actorType", "actorIp", "success", "errorReason")
-      VALUES ($1, 'download', 'bot', $2::inet, $3, $4)
+        ("uploadId", "documentId", "action", "actorType", "actorIp", "success", "errorReason")
+      VALUES ($1, $5, 'download', 'bot', $2::inet, $3, $4)
       `,
-      [params.uploadId, params.actorIp, params.success, params.errorReason ?? null]
+      [
+        params.uploadId,
+        params.actorIp,
+        params.success,
+        params.errorReason ?? null,
+        params.documentId ?? null,
+      ]
     );
   } catch (err) {
     console.error("[prescriptions/download] audit log failed:", err);
@@ -68,34 +77,41 @@ export async function GET(
   if (keyErr) return keyErr;
 
   const actorIp = extractClientIp(req);
-  const uploadId = parseInt(params.id, 10);
-  if (!Number.isFinite(uploadId)) {
+  const documentId = parseInt(params.id, 10);
+  if (!Number.isFinite(documentId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
   const sel = await db.query<{
     id: number;
+    uploadId: number;
     status: string;
     storagePath: string | null;
     fileSize: number | null;
     fileSha256: string | null;
   }>(
-    `SELECT "id", "status", "storagePath", "fileSize", "fileSha256"
-       FROM "PrescriptionUpload"
+    `SELECT "id", "uploadId", "status", "storagePath", "fileSize", "fileSha256"
+       FROM "PrescriptionDocument"
       WHERE "id" = $1
       LIMIT 1`,
-    [uploadId]
+    [documentId]
   );
 
   if (sel.rowCount === 0) {
-    await auditLog({ uploadId: null, actorIp, success: false, errorReason: "unknown id" });
+    await auditLog({
+      uploadId: null,
+      actorIp,
+      success: false,
+      errorReason: "unknown id",
+    });
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   const record = sel.rows[0];
 
   if (record.status !== "UPLOADED" && record.status !== "ACKED") {
     await auditLog({
-      uploadId: record.id,
+      uploadId: record.uploadId,
+      documentId: record.id,
       actorIp,
       success: false,
       errorReason: `status=${record.status}, no file to serve`,
@@ -108,12 +124,16 @@ export async function GET(
 
   if (!record.storagePath) {
     await auditLog({
-      uploadId: record.id,
+      uploadId: record.uploadId,
+      documentId: record.id,
       actorIp,
       success: false,
       errorReason: "storagePath is null",
     });
-    return NextResponse.json({ error: "Storage path missing" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Storage path missing" },
+      { status: 500 }
+    );
   }
 
   let buffer: Buffer;
@@ -122,7 +142,8 @@ export async function GET(
   } catch (err) {
     console.error("[prescriptions/download] readFile failed:", err);
     await auditLog({
-      uploadId: record.id,
+      uploadId: record.uploadId,
+      documentId: record.id,
       actorIp,
       success: false,
       errorReason: `readFile: ${(err as Error).message}`,
@@ -130,7 +151,12 @@ export async function GET(
     return NextResponse.json({ error: "File not accessible" }, { status: 500 });
   }
 
-  await auditLog({ uploadId: record.id, actorIp, success: true });
+  await auditLog({
+    uploadId: record.uploadId,
+    documentId: record.id,
+    actorIp,
+    success: true,
+  });
 
   // Content-Type + extension déduits du storagePath (PDF, JPG ou PNG).
   // AI2Xplore lit ce Content-Type pour router vers son handler Xplore approprié.

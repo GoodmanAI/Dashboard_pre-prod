@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { lienOuvert } from "@/lib/prescriptionDocuments";
 import PrescriptionUploadForm from "./PrescriptionUploadForm";
 
 /**
@@ -14,8 +15,11 @@ import PrescriptionUploadForm from "./PrescriptionUploadForm";
  *   - Cette route resout cote serveur `shortCode -> token`, puis passe le
  *     token au client component qui gere le formulaire d'upload + saisie
  *     du verificationCode.
- *   - Si le shortCode n'existe pas -> notFound() qui rend not-found.tsx
- *     (evite de reveler l'existence ou non d'un shortCode donne).
+ *   - Si le shortCode n'existe pas, ou si l'heure du RDV est passee ->
+ *     notFound() qui rend not-found.tsx (evite de reveler l'existence ou non
+ *     d'un shortCode donne). Un lien echu n'est plus consultable : le
+ *     patient peut y deposer plusieurs documents, en plusieurs fois, jusqu'a
+ *     l'heure du RDV, pas apres.
  *
  * Quirk Next.js 14 App Router : avec `dynamic = "force-dynamic"`, notFound()
  * rend correctement not-found.tsx (le body contient `digest:NEXT_NOT_FOUND`)
@@ -75,15 +79,25 @@ export default async function PrescriptionUploadByShortCodePage({
     notFound();
   }
 
-  const res = await db.query<{ token: string }>(
-    `SELECT "token" FROM "PrescriptionUpload"
+  const res = await db.query<{
+    token: string;
+    status: string;
+    expiresAt: Date;
+  }>(
+    `SELECT "token", "status", "expiresAt" FROM "PrescriptionUpload"
       WHERE "shortCode" = $1
       LIMIT 1`,
     [shortCode]
   );
-  if (res.rowCount === 0 || !res.rows[0]?.token) {
+  const lien = res.rows[0];
+  // LOCKED reste affiche (le formulaire explique le verrouillage) ; seul le
+  // lien echu disparait.
+  if (
+    !lien?.token ||
+    (lien.status !== "LOCKED" && !lienOuvert(lien.status, lien.expiresAt))
+  ) {
     notFound();
   }
 
-  return <PrescriptionUploadForm token={res.rows[0].token} />;
+  return <PrescriptionUploadForm token={lien.token} />;
 }
