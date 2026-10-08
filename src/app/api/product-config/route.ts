@@ -18,6 +18,7 @@ import {
   type Domaine,
 } from "@/lib/productConfig";
 import { validerSallesParType } from "@/lib/sallesExamen";
+import { validerTextes, centreEtAdresse } from "@/lib/talkTextes";
 
 /**
  * Configuration générique d'un centre, par domaine (lot B).
@@ -241,6 +242,29 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: salles.erreur }, { status: 400 });
     }
     valeur.sallesParType = salles.valeur;
+  }
+
+  // `talk.textes` : ce que le robot lira ou enverra tel quel au patient. Une
+  // variable mal tapée serait lue à voix haute ; un SMS trop long coûterait deux
+  // crédits sur le compte Brevo partagé. La longueur se mesure avec le vrai nom et
+  // la vraie adresse du centre, ceux que le robot mettra dans le SMS.
+  if (domaine.cle === "talk.textes") {
+    const fiche = await db.query<{
+      centerName: string | null;
+      address: string | null;
+      address2: string | null;
+    }>(
+      `SELECT "centerName", "address", "address2" FROM "TalkSettings"
+        WHERE "userProductId" = $1 LIMIT 1`,
+      [userProductId]
+    );
+    const { centre, adresse } = centreEtAdresse(fiche.rows[0] ?? {});
+    const textes = validerTextes(valeur, centre, adresse);
+    if ("erreur" in textes) {
+      return NextResponse.json({ error: textes.erreur }, { status: 400 });
+    }
+    for (const cle of Object.keys(valeur)) delete valeur[cle];
+    Object.assign(valeur, textes.valeur);
   }
 
   // `version + 1` calculé par la base : deux écritures concurrentes ne peuvent
