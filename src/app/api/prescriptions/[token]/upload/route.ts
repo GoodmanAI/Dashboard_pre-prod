@@ -8,6 +8,10 @@ import { verifyVerificationCode } from "@/lib/verificationCodeHash";
 import { scanBuffer } from "@/lib/clamavScan";
 import { checkRateLimit } from "@/lib/prescriptionRateLimit";
 import { detectFileType } from "@/lib/prescriptionFileType";
+import {
+  MAX_DOCUMENTS_PAR_LIEN,
+  lienOuvert,
+} from "@/lib/prescriptionDocuments";
 
 /**
  * Endpoint patient public (auth = shortCode dans l'URL + verificationCode
@@ -25,23 +29,27 @@ import { detectFileType } from "@/lib/prescriptionFileType";
  *
  * Chaine de validation (fail au 1er echec) :
  *   1. Token existe                    → 404 sinon
- *   2. Statut PENDING ou UPLOADED-non-acke → 409 sinon
- *   3. Pas expire                      → 409 sinon (status → EXPIRED)
- *   4. Code correct                    → 422 + attempts++ sinon (LOCKED a 3)
+ *   2. Lien ouvert (ni LOCKED, ni EXPIRED, RDV pas encore passe) → 409 sinon
+ *   3. Code correct                    → 422 + attempts++ sinon (LOCKED a 3)
+ *   4. Moins de 5 documents deja recus → 409 sinon
  *   5. Fichier present, taille bornee  → 400/413 sinon
  *   6. Magic bytes PDF/JPEG/PNG        → 415 sinon (message dedie HEIC/WebP)
  *   7. Antivirus ClamAV clean          → 422 sinon (log alerte)
  *
- * Si tout passe : ecrit sur disque, met a jour la ligne, log l'audit,
- * incremente le compteur PrescriptionStats.uploaded.
+ * Si tout passe : ecrit sur disque, AJOUTE une ligne PrescriptionDocument,
+ * passe le lien en UPLOADED au premier document, log l'audit, incremente
+ * PrescriptionStats.uploaded au premier document du lien.
  *
- * Re-upload : si status='UPLOADED' et pas encore ackedAt, on autorise le
- * remplacement. Ancien fichier disque supprime, nouveau ecrit avec nouveau
- * UUID. Une fois ackedAt IS NOT NULL, plus de re-upload possible (409).
+ * Plusieurs documents (depuis le 08/10/2026) : un envoi = un fichier = un
+ * document. Le lien en accepte MAX_DOCUMENTS_PAR_LIEN, en plusieurs fois,
+ * jusqu'a l'heure du RDV. Plus de remplacement : un document deja parti
+ * dans Xplore ne se retire pas d'ici. Le plafond est verifie sous verrou de
+ * la ligne du lien (deux envois simultanes ne font pas un sixieme).
  */
 
-const STORAGE_DIR = process.env.PRESCRIPTIONS_STORAGE_DIR ?? "/var/www/ordonnances";
-const MIN_FILE_SIZE = 100;              // < ca c'est pas un PDF utilisable
+const STORAGE_DIR =
+  process.env.PRESCRIPTIONS_STORAGE_DIR ?? "/var/www/ordonnances";
+const MIN_FILE_SIZE = 100; // < ca c'est pas un PDF utilisable
 // Cap fichier fixe a 8 MB (au lieu de 10 MB initialement) : contrainte Xplore
 // qui refuse toute ordonnance dont le base64 depasse 12 MB (le PDF binaire
 // est encode base64 dans le payload SendOrdonnance). 8 MB * 1.33 = 10.7 MB
@@ -67,6 +75,7 @@ function extractClientIp(req: NextRequest): string | null {
  */
 async function auditLog(params: {
   uploadId: number | null;
+  documentId?: number | null;
   action: string;
   actorIp: string | null;
   actorUserAgent: string | null;
@@ -77,9 +86,9 @@ async function auditLog(params: {
     await db.query(
       `
       INSERT INTO "PrescriptionAccessLog"
-        ("uploadId", "action", "actorType", "actorIp", "actorUserAgent",
-         "success", "errorReason")
-      VALUES ($1, $2, 'patient', $3::inet, $4, $5, $6)
+        ("uploadId", "documentId", "action", "actorType", "actorIp",
+         "actorUserAgent", "success", "errorReason")
+      VALUES ($1, $7, $2, 'patient', $3::inet, $4, $5, $6)
       `,
       [
         params.uploadId,
@@ -88,6 +97,7 @@ async function auditLog(params: {
         params.actorUserAgent,
         params.success,
         params.errorReason ?? null,
+        params.documentId ?? null,
       ]
     );
   } catch (err) {
@@ -124,13 +134,14 @@ export async function POST(
     verificationCodeHash: string;
     externalCenterCode: string;
     examType: string | null;
-    ackedAt: Date | null;
-    storagePath: string | null;
+    nbDocuments: number;
   }>(
-    `SELECT "id", "status", "attempts", "expiresAt", "verificationCodeHash",
-            "externalCenterCode", "examType", "ackedAt", "storagePath"
-       FROM "PrescriptionUpload"
-      WHERE "token" = $1
+    `SELECT pu."id", pu."status", pu."attempts", pu."expiresAt",
+            pu."verificationCodeHash", pu."externalCenterCode", pu."examType",
+            (SELECT COUNT(*)::int FROM "PrescriptionDocument" d
+              WHERE d."uploadId" = pu."id") AS "nbDocuments"
+       FROM "PrescriptionUpload" pu
+      WHERE pu."token" = $1
       LIMIT 1`,
     [params.token]
   );
@@ -148,52 +159,42 @@ export async function POST(
   }
   const record = sel.rows[0];
 
-  // ------ 2. Statut ------
-  // PENDING = premier upload. UPLOADED sans ackedAt = re-upload autorise.
-  // Tout autre statut (ACKED / EXPIRED / LOCKED) refuse.
-  const canUpload =
-    record.status === "PENDING" ||
-    (record.status === "UPLOADED" && record.ackedAt === null);
-  if (!canUpload) {
+  // ------ 2. Lien ouvert ------
+  // LOCKED (trois mauvais codes) et EXPIRED refusent. Un lien dont l'heure de
+  // RDV est passee bascule en EXPIRED ici. ACKED et REJECTED (anciennes
+  // lignes, un seul document) restent ouverts : le patient peut completer.
+  if (!lienOuvert(record.status, record.expiresAt)) {
+    const expire = record.status !== "LOCKED";
+    if (expire && record.status !== "EXPIRED") {
+      await db.query(
+        `UPDATE "PrescriptionUpload" SET "status" = 'EXPIRED' WHERE "id" = $1`,
+        [record.id]
+      );
+    }
     await auditLog({
       uploadId: record.id,
       action: "upload",
       actorIp,
       actorUserAgent,
       success: false,
-      errorReason: `status=${record.status}`,
+      errorReason: expire ? "expired" : `status=${record.status}`,
     });
-    const message =
-      record.status === "ACKED"
-        ? "Votre ordonnance a deja ete recuperee par le centre. Contactez-le pour toute modification."
-        : "Ce lien n'est plus utilisable.";
     return NextResponse.json(
-      { error: message, status: record.status },
+      expire
+        ? {
+            error:
+              "Ce lien a expiré : l'heure de votre rendez-vous est passée.",
+            status: "EXPIRED",
+          }
+        : {
+            error: "Ce lien est verrouillé. Contactez votre centre.",
+            status: "LOCKED",
+          },
       { status: 409 }
     );
   }
 
-  // ------ 3. Expiration ------
-  if (record.expiresAt < new Date()) {
-    await db.query(
-      `UPDATE "PrescriptionUpload" SET "status" = 'EXPIRED' WHERE "id" = $1`,
-      [record.id]
-    );
-    await auditLog({
-      uploadId: record.id,
-      action: "upload",
-      actorIp,
-      actorUserAgent,
-      success: false,
-      errorReason: "expired",
-    });
-    return NextResponse.json(
-      { error: "Ce lien a expire.", status: "EXPIRED" },
-      { status: 409 }
-    );
-  }
-
-  // ------ 4. Parse multipart form ------
+  // ------ 3. Parse multipart form ------
   let formData: FormData;
   try {
     formData = await req.formData();
@@ -213,7 +214,7 @@ export async function POST(
     );
   }
 
-  // ------ 5. Verification code ------
+  // ------ 4. Verification code ------
   const submittedCode = codeRaw.trim();
   const codeOk = verifyVerificationCode(
     submittedCode,
@@ -247,10 +248,18 @@ export async function POST(
     );
   }
 
+  // ------ 5. Plafond (lecture rapide, reverifie sous verrou a l'ecriture) ------
+  if (record.nbDocuments >= MAX_DOCUMENTS_PAR_LIEN) {
+    return plafondAtteint();
+  }
+
   // ------ 6. Validation fichier (taille + MIME + structure PDF) ------
   if (fileRaw.size < MIN_FILE_SIZE) {
     return NextResponse.json(
-      { error: "Fichier trop petit pour etre une ordonnance." },
+      {
+        error:
+          "Ce fichier est trop petit pour être une ordonnance. Choisissez-en un autre.",
+      },
       { status: 400 }
     );
   }
@@ -258,7 +267,7 @@ export async function POST(
     const maxMb = MAX_FILE_SIZE / 1024 / 1024;
     return NextResponse.json(
       {
-        error: `Fichier trop lourd, max ${maxMb} Mo. Reduisez la qualite de la photo ou scannez en noir & blanc.`,
+        error: `Fichier trop lourd (${maxMb} Mo au plus). Réduisez la qualité de la photo ou scannez en noir et blanc.`,
       },
       { status: 413 }
     );
@@ -269,7 +278,10 @@ export async function POST(
     buffer = Buffer.from(await fileRaw.arrayBuffer());
   } catch {
     return NextResponse.json(
-      { error: "Impossible de lire le fichier." },
+      {
+        error:
+          "Impossible de lire le fichier. Réessayez ou choisissez-en un autre.",
+      },
       { status: 400 }
     );
   }
@@ -302,7 +314,10 @@ export async function POST(
   if (!scanResult.ok) {
     // Erreur scanner (socket down, timeout, ...) : on n'ecrit pas le fichier
     // et on demande au patient de reessayer. Log l'incident pour investiguer.
-    console.error("[prescriptions/upload] clamav scan error:", scanResult.error);
+    console.error(
+      "[prescriptions/upload] clamav scan error:",
+      scanResult.error
+    );
     await auditLog({
       uploadId: record.id,
       action: "upload",
@@ -312,7 +327,10 @@ export async function POST(
       errorReason: `clamav error: ${scanResult.error}`,
     });
     return NextResponse.json(
-      { error: "Verification antivirus indisponible, reessayez dans un instant." },
+      {
+        error:
+          "La vérification du fichier est indisponible. Réessayez dans un instant.",
+      },
       { status: 503 }
     );
   }
@@ -330,26 +348,14 @@ export async function POST(
       errorReason: `infected: ${scanResult.virus}`,
     });
     return NextResponse.json(
-      { error: "Fichier rejete par la verification antivirus." },
+      {
+        error: "Ce fichier a été refusé par l'antivirus. Envoyez-en un autre.",
+      },
       { status: 422 }
     );
   }
 
   // ------ 8. Ecriture disque ------
-  // Si re-upload : supprimer d'abord l'ancien fichier
-  if (record.storagePath) {
-    try {
-      await unlink(record.storagePath);
-    } catch (err) {
-      // Non bloquant : on log mais on continue. Le vieux fichier restera
-      // orphelin sur disque, un cron de purge le nettoiera plus tard.
-      console.warn(
-        `[prescriptions/upload] failed to unlink previous file ${record.storagePath}:`,
-        err
-      );
-    }
-  }
-
   const uuid = randomUUID();
   const storagePath = path.join(STORAGE_DIR, `${uuid}.${validation.extension}`);
   const fileSha256 = createHash("sha256").update(buffer).digest("hex");
@@ -366,29 +372,72 @@ export async function POST(
       errorReason: "disk write failed",
     });
     return NextResponse.json(
-      { error: "Erreur de sauvegarde, reessayez dans un instant." },
+      { error: "L'enregistrement a échoué. Réessayez dans un instant." },
       { status: 500 }
     );
   }
 
-  // ------ 9. Update DB : status + meta fichier ------
-  await db.query(
-    `UPDATE "PrescriptionUpload"
-        SET "status"      = 'UPLOADED',
-            "uploadedAt"  = NOW(),
-            "fileSize"    = $2,
-            "fileSha256"  = $3,
-            "storagePath" = $4,
-            "attempts"    = 0
-      WHERE "id" = $1`,
-    [record.id, fileRaw.size, fileSha256, storagePath]
-  );
+  // ------ 9. Ajout du document, sous verrou du lien ------
+  // FOR UPDATE sur la ligne du lien : deux envois simultanes se suivent, et
+  // le second voit le document du premier dans le compte.
+  let documentId: number | null = null;
+  let nbDocuments = 0;
+  let premierDocument = false;
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const verrou = await client.query<{ status: string }>(
+      `SELECT "status" FROM "PrescriptionUpload" WHERE "id" = $1 FOR UPDATE`,
+      [record.id]
+    );
+    const compte = await client.query<{ n: number }>(
+      `SELECT COUNT(*)::int AS "n" FROM "PrescriptionDocument" WHERE "uploadId" = $1`,
+      [record.id]
+    );
+    const deja = compte.rows[0]?.n ?? 0;
+    if (deja < MAX_DOCUMENTS_PAR_LIEN) {
+      const ins = await client.query<{ id: number }>(
+        `INSERT INTO "PrescriptionDocument"
+           ("uploadId", "fileSize", "fileSha256", "storagePath")
+         VALUES ($1, $2, $3, $4)
+         RETURNING "id"`,
+        [record.id, fileRaw.size, fileSha256, storagePath]
+      );
+      documentId = ins.rows[0].id;
+      nbDocuments = deja + 1;
+      premierDocument = verrou.rows[0]?.status === "PENDING";
+      // Le lien passe en UPLOADED au premier document ; "uploadedAt" garde
+      // l'heure du premier envoi (sortie de l'alerte « ordonnance manquante »).
+      await client.query(
+        `UPDATE "PrescriptionUpload"
+            SET "status"     = CASE WHEN "status" = 'PENDING' THEN 'UPLOADED' ELSE "status" END,
+                "uploadedAt" = COALESCE("uploadedAt", NOW()),
+                "attempts"   = 0
+          WHERE "id" = $1`,
+        [record.id]
+      );
+    }
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("[prescriptions/upload] insert document failed:", err);
+    await unlink(storagePath).catch(() => {});
+    return NextResponse.json(
+      { error: "L'enregistrement a échoué. Réessayez dans un instant." },
+      { status: 500 }
+    );
+  } finally {
+    client.release();
+  }
 
-  // ------ 10. Compteur agregat (une seule fois par upload, pas sur re-upload) ------
-  // Un re-upload ne re-incremente pas : c'est toujours la meme ordonnance,
-  // meme si son contenu a change (patient corrige son scan).
-  const isFirstUpload = record.status === "PENDING";
-  if (isFirstUpload) {
+  if (documentId === null) {
+    // Plafond atteint entre la lecture et l'ecriture : le fichier ne sert pas.
+    await unlink(storagePath).catch(() => {});
+    return plafondAtteint();
+  }
+
+  // ------ 10. Compteur agregat (une fois par lien, au premier document) ------
+  if (premierDocument) {
     try {
       await db.query(
         `
@@ -408,28 +457,30 @@ export async function POST(
         [record.externalCenterCode, record.examType]
       );
     } catch (err) {
-      console.error("[prescriptions/upload] PrescriptionStats upsert failed:", err);
+      console.error(
+        "[prescriptions/upload] PrescriptionStats upsert failed:",
+        err
+      );
     }
   }
 
   // ------ 11. Audit log success ------
   await auditLog({
     uploadId: record.id,
+    documentId,
     action: "upload",
     actorIp,
     actorUserAgent,
     success: true,
-    errorReason: isFirstUpload ? null : "re-upload",
+    errorReason: premierDocument ? null : `document ${nbDocuments}`,
   });
 
   // ------ 12. Notification websocket au dashboard ------
-  // Un upload PENDING -> UPLOADED fait sortir la ligne du compteur d'alertes
-  // (badge navbar/header). On notifie tous les clients dashboard connectes
-  // pour un rafraichissement instantane, sans attendre le poll de fallback.
-  // Payload minimale : externalCenterCode pour permettre au client de filtrer
-  // (utile en multi-tenant, evite le refetch inutile pour des users d'autres
-  // centres).
-  if (isFirstUpload) {
+  // Le premier document fait sortir le lien du compteur d'alertes (badge
+  // navbar/header). On notifie tous les clients dashboard connectes pour un
+  // rafraichissement instantane, sans attendre le poll de fallback.
+  // Payload minimale : externalCenterCode pour permettre au client de filtrer.
+  if (premierDocument) {
     const io: any = globalThis.io;
     if (io) {
       io.emit("prescription-alerts-updated", {
@@ -441,10 +492,21 @@ export async function POST(
   return NextResponse.json(
     {
       status: "UPLOADED",
-      message: isFirstUpload
-        ? "Votre ordonnance a bien ete deposee. Elle sera transmise au centre."
-        : "Votre ordonnance a bien ete mise a jour.",
+      nbDocuments,
+      maxDocuments: MAX_DOCUMENTS_PAR_LIEN,
+      message: "Document envoyé. Il sera transmis au centre.",
     },
     { status: 200 }
+  );
+}
+
+function plafondAtteint() {
+  return NextResponse.json(
+    {
+      error: `Vous avez déjà envoyé ${MAX_DOCUMENTS_PAR_LIEN} documents, c'est le maximum. Pour en ajouter un, contactez votre centre.`,
+      status: "FULL",
+      nbDocuments: MAX_DOCUMENTS_PAR_LIEN,
+    },
+    { status: 409 }
   );
 }

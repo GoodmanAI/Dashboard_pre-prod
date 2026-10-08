@@ -4,6 +4,7 @@
  * Declenchee par notFound() dans [shortCode]/page.tsx quand :
  *   - Le shortCode est absent, trop court ou trop long
  *   - Le shortCode n'existe pas en base
+ *   - L'heure du RDV est passee (lien echu)
  *
  * IMPORTANT : server component pur (pas de "use client", pas de MUI). En
  * App Router, un not-found.tsx en client component peut faire renvoyer un
@@ -87,7 +88,7 @@ export default function PrescriptionNotFound() {
             margin: "0 0 12px",
           }}
         >
-          Lien invalide ou expire
+          Lien invalide ou expiré
         </h1>
 
         <p
@@ -99,9 +100,9 @@ export default function PrescriptionNotFound() {
             maxWidth: 380,
           }}
         >
-          Ce lien de depot d&apos;ordonnance n&apos;est pas valide, ou il a
-          expire. Verifiez le lien recu par SMS, ou contactez votre centre
-          d&apos;imagerie pour recevoir un nouveau lien.
+          Ce lien de dépôt d&apos;ordonnance n&apos;est pas valide, ou il a
+          expiré. Vérifiez le lien reçu par SMS, ou contactez votre centre
+          d&apos;imagerie.
         </p>
 
         <div
@@ -125,8 +126,9 @@ export default function PrescriptionNotFound() {
             Astuce
           </div>
           <div style={{ color: TEXT_MAIN, fontSize: 13, lineHeight: 1.5 }}>
-            Les liens de depot restent valides quelques jours seulement apres
-            votre prise de rendez-vous.
+            Le lien de dépôt reste valable jusqu&apos;à l&apos;heure de votre
+            rendez-vous. Après, apportez votre ordonnance le jour de
+            l&apos;examen.
           </div>
         </div>
       </div>

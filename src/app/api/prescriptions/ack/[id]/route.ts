@@ -5,10 +5,15 @@ import { requireApiKey } from "@/lib/auth-helpers";
 /**
  * POST /api/prescriptions/ack/[id]
  *
- * Appele par AI2Xplore une fois qu'il a recupere le PDF via /download ET
+ * Appele par AI2Xplore une fois qu'il a recupere le document via /download ET
  * l'a stocke avec succes dans le logiciel metier du centre (rattache au
- * bon RDV). Marque la ligne PrescriptionUpload comme ACKED et incremente
- * le compteur agregat.
+ * bon RDV). Marque le DOCUMENT (PrescriptionDocument) comme ACKED.
+ *
+ * `id` est l'id du document depuis le 08/10/2026 (un lien porte jusqu'a 5
+ * documents). Le lien (PrescriptionUpload) garde son statut ; son "ackedAt"
+ * prend l'heure du premier document acquitte, et PrescriptionStats.acked
+ * n'est incremente qu'a ce moment-la (une fois par RDV). Un rejet compte par
+ * document.
  *
  * Chemin sous /ack/[id] et non /[id]/ack pour eviter le conflit de slug
  * names Next.js avec /[token]/upload (patient).
@@ -61,8 +66,8 @@ export async function POST(
   if (keyErr) return keyErr;
 
   const actorIp = extractClientIp(req);
-  const uploadId = parseInt(params.id, 10);
-  if (!Number.isFinite(uploadId)) {
+  const documentId = parseInt(params.id, 10);
+  if (!Number.isFinite(documentId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
@@ -99,17 +104,21 @@ export async function POST(
 
   const sel = await db.query<{
     id: number;
+    uploadId: number;
     status: string;
     ackedAt: Date | null;
     rejectedAt: Date | null;
+    lienAckedAt: Date | null;
     externalCenterCode: string;
     examType: string | null;
   }>(
-    `SELECT "id", "status", "ackedAt", "rejectedAt", "externalCenterCode", "examType"
-       FROM "PrescriptionUpload"
-      WHERE "id" = $1
+    `SELECT d."id", d."uploadId", d."status", d."ackedAt", d."rejectedAt",
+            pu."ackedAt" AS "lienAckedAt", pu."externalCenterCode", pu."examType"
+       FROM "PrescriptionDocument" d
+       JOIN "PrescriptionUpload" pu ON pu."id" = d."uploadId"
+      WHERE d."id" = $1
       LIMIT 1`,
-    [uploadId]
+    [documentId]
   );
 
   if (sel.rowCount === 0) {
@@ -127,7 +136,7 @@ export async function POST(
 
     if (alreadyRejected) {
       await db.query(
-        `UPDATE "PrescriptionUpload"
+        `UPDATE "PrescriptionDocument"
             SET "rejectReason"    = COALESCE($2, "rejectReason"),
                 "rejectAttempts"  = COALESCE($3, "rejectAttempts"),
                 "rejectErrorType" = COALESCE($4, "rejectErrorType")
@@ -139,9 +148,9 @@ export async function POST(
       try {
         await db.query(
           `INSERT INTO "PrescriptionAccessLog"
-             ("uploadId", "action", "actorType", "actorIp", "success", "errorReason")
-           VALUES ($1, 'reject_failed', 'bot', $2::inet, false, $3)`,
-          [record.id, actorIp, reason ?? "rejected update"]
+             ("uploadId", "documentId", "action", "actorType", "actorIp", "success", "errorReason")
+           VALUES ($1, $4, 'reject_failed', 'bot', $2::inet, false, $3)`,
+          [record.uploadId, actorIp, reason ?? "rejected update", record.id]
         );
       } catch (err) {
         console.error("[prescriptions/ack] re-reject audit log failed:", err);
@@ -166,12 +175,20 @@ export async function POST(
       try {
         await db.query(
           `INSERT INTO "PrescriptionAccessLog"
-             ("uploadId", "action", "actorType", "actorIp", "success", "errorReason")
-           VALUES ($1, 'reject_failed', 'bot', $2::inet, false, $3)`,
-          [record.id, actorIp, `rejected apres ACKED: ${reason ?? "(no reason)"}`]
+             ("uploadId", "documentId", "action", "actorType", "actorIp", "success", "errorReason")
+           VALUES ($1, $4, 'reject_failed', 'bot', $2::inet, false, $3)`,
+          [
+            record.uploadId,
+            actorIp,
+            `rejected apres ACKED: ${reason ?? "(no reason)"}`,
+            record.id,
+          ]
         );
       } catch (err) {
-        console.error("[prescriptions/ack] reject after ACKED log failed:", err);
+        console.error(
+          "[prescriptions/ack] reject after ACKED log failed:",
+          err
+        );
       }
       return NextResponse.json(
         {
@@ -186,7 +203,7 @@ export async function POST(
 
     // Cas nominal : premiere reception d'un rejected → bascule status
     await db.query(
-      `UPDATE "PrescriptionUpload"
+      `UPDATE "PrescriptionDocument"
           SET "status"          = 'REJECTED',
               "rejectedAt"      = NOW(),
               "rejectReason"    = $2,
@@ -223,9 +240,9 @@ export async function POST(
     try {
       await db.query(
         `INSERT INTO "PrescriptionAccessLog"
-           ("uploadId", "action", "actorType", "actorIp", "success", "errorReason")
-         VALUES ($1, 'reject_failed', 'bot', $2::inet, false, $3)`,
-        [record.id, actorIp, reason ?? "rejected (no reason)"]
+           ("uploadId", "documentId", "action", "actorType", "actorIp", "success", "errorReason")
+         VALUES ($1, $4, 'reject_failed', 'bot', $2::inet, false, $3)`,
+        [record.uploadId, actorIp, reason ?? "rejected (no reason)", record.id]
       );
     } catch (err) {
       console.error("[prescriptions/ack] audit log rejection failed:", err);
@@ -263,7 +280,7 @@ export async function POST(
   }
 
   const upd = await db.query<{ ackedAt: Date; status: string }>(
-    `UPDATE "PrescriptionUpload"
+    `UPDATE "PrescriptionDocument"
         SET "status"  = 'ACKED',
             "ackedAt" = $2
       WHERE "id" = $1
@@ -271,10 +288,21 @@ export async function POST(
     [record.id, ackedAt]
   );
 
-  // Compteur agregat
+  // Le lien garde l'heure du premier document acquitte (compte d'alertes
+  // ouvertes, purge). Une ligne touchee = premier document du RDV.
+  const lien = await db.query(
+    `UPDATE "PrescriptionUpload"
+        SET "ackedAt" = $2
+      WHERE "id" = $1 AND "ackedAt" IS NULL`,
+    [record.uploadId, ackedAt]
+  );
+  const premierAck = (lien.rowCount ?? 0) > 0;
+
+  // Compteur agregat : une fois par RDV, au premier document acquitte
   try {
-    await db.query(
-      `
+    if (premierAck)
+      await db.query(
+        `
       INSERT INTO "PrescriptionStats"
         ("externalCenterCode", "examType", "day",
          "requested", "uploaded", "acked", "alerted", "updatedAt")
@@ -288,8 +316,8 @@ export async function POST(
         SET "acked"     = "PrescriptionStats"."acked" + 1,
             "updatedAt" = NOW()
       `,
-      [record.externalCenterCode, record.examType]
-    );
+        [record.externalCenterCode, record.examType]
+      );
   } catch (err) {
     console.error("[prescriptions/ack] stats upsert failed:", err);
   }
@@ -299,10 +327,10 @@ export async function POST(
     await db.query(
       `
       INSERT INTO "PrescriptionAccessLog"
-        ("uploadId", "action", "actorType", "actorIp", "success")
-      VALUES ($1, 'ack', 'bot', $2::inet, true)
+        ("uploadId", "documentId", "action", "actorType", "actorIp", "success")
+      VALUES ($1, $3, 'ack', 'bot', $2::inet, true)
       `,
-      [record.id, actorIp]
+      [record.uploadId, actorIp, record.id]
     );
   } catch (err) {
     console.error("[prescriptions/ack] audit log failed:", err);
