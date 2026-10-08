@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Box, CircularProgress, Alert } from "@mui/material";
 import Transcription from "@/components/transcription/Transcription";
+import PastilleMineur from "@/components/transcription/PastilleMineur";
 import type { EntiteRobot } from "@/lib/entitesTranscription";
 
 export default function CallConversationPage({ params }: { params: { id: string; callId: string } }) {
@@ -13,6 +14,7 @@ export default function CallConversationPage({ params }: { params: { id: string;
   // renvoient. Le composant les écarte à l'affichage.
   const [steps, setSteps] = useState<Array<{ speaker?: string; text?: string }>>([]);
   const [entites, setEntites] = useState<EntiteRobot[] | null>(null);
+  const [stats, setStats] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // 410 : appel effacé par la rétention. Ce n'est pas une panne, on ne l'affiche pas en rouge.
@@ -46,6 +48,7 @@ export default function CallConversationPage({ params }: { params: { id: string;
       .then((data: { steps?: Array<{ speaker?: string; text?: string }>; stats?: { entites?: EntiteRobot[] } }[]) => {
         setSteps(data[0]?.steps ?? []);
         setEntites(data[0]?.stats?.entites ?? null);
+        setStats(data[0]?.stats ?? null);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -70,6 +73,12 @@ export default function CallConversationPage({ params }: { params: { id: string;
 
         {!loading && !error && steps.length === 0 && (
           <Alert severity="info">Aucune conversation trouvée pour cet appel.</Alert>
+        )}
+
+        {!loading && !error && (
+          <Box sx={{ mb: 2, "&:empty": { display: "none" } }}>
+            <PastilleMineur stats={stats} />
+          </Box>
         )}
 
         {!loading && !error && steps.length > 0 && <Transcription steps={steps} entites={entites} />}
