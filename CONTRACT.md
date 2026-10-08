@@ -101,9 +101,18 @@ déjà :
   `{nom}`. Doit tenir en **un SMS de 160 caractères GSM-7** au rendu pire cas (nom et
   adresse de la fiche `TalkSettings`, « mercredi 22/07 à 11h30 », « mammographie », nom et
   prénom de 20 caractères).
+- `site.smsDepotGabarit` (lot 4, 08/10/2026) : gabarit du SMS de dépôt d'ordonnance, un
+  SMS par RDV concerné. Variables `{lien}` et `{code}` **obligatoires**, `{delai}`
+  (« 48h »), `{examen}`, `{date}`, `{heure}`, `{centre}`, `{prenom}`, `{nom}` (valeurs du
+  RDV concerné). Un SMS de 160 caractères GSM-7 au pire cas : lien de 51 caractères
+  (`https://depot-ordonnances.neuracorp.ai/d/` + 10), code de 6 chiffres, « 168h », et les
+  pires cas de la confirmation. Absent : `SMS.prescription_block` du robot.
+- `site.smsDepotAvantConfirmation` (lot 4) : `true` = le SMS de dépôt part avant la
+  confirmation. Seul `true` est stocké ; absent = après (défaut).
 
 Validation au `PUT /api/product-config` (`src/lib/talkTextes.ts`) : variable inconnue,
-accolade orpheline, code d'examen inconnu, texte trop long répondent 400 avec un message
+accolade orpheline, code d'examen inconnu, `{lien}` ou `{code}` absent du SMS de dépôt,
+ordre qui n'est pas un booléen, texte trop long répondent 400 avec un message
 qui dit quoi corriger. Un texte vide retire la clé (le robot reprend son texte standard).
 Le rendu, la liste des variables et la translittération GSM-7 sont **recopiés** côté
 LyraeTalk : les changer d'un côté, c'est les changer de l'autre.

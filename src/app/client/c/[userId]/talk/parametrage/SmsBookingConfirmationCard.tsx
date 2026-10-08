@@ -12,6 +12,7 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Divider,
   FormControlLabel,
   Stack,
   Switch,
@@ -32,6 +33,7 @@ import {
   rendreSms,
 } from "@/lib/talkTextes";
 import { enregistrerTextesTalk, useTextesTalk } from "./textesTalk";
+import SmsDepotOrdonnanceBloc, { BulleSms } from "./SmsDepotOrdonnanceBloc";
 
 /**
  * Section "Confirmation de RDV par SMS" (à ne pas confondre avec la carte
@@ -373,22 +375,9 @@ export default function SmsBookingConfirmationCard({
                         spacing={2}
                         alignItems={{ xs: "stretch", sm: "flex-start" }}
                       >
-                        <Box
-                          sx={{
-                            width: { xs: "100%", sm: 320 },
-                            flexShrink: 0,
-                            boxSizing: "border-box",
-                            p: 1.5,
-                            borderRadius: "16px 16px 16px 4px",
-                            bgcolor: "rgba(0,0,0,0.05)",
-                            whiteSpace: "pre-wrap",
-                            fontSize: 14,
-                            lineHeight: 1.5,
-                            minHeight: 48,
-                          }}
-                        >
-                          {apercu || "Corrigez les variables pour voir l'aperçu."}
-                        </Box>
+                        <BulleSms
+                          texte={apercu || "Corrigez les variables pour voir l'aperçu."}
+                        />
                         <Stack spacing={0.5} sx={{ minWidth: 0 }}>
                           <Typography
                             variant="body2"
@@ -398,7 +387,9 @@ export default function SmsBookingConfirmationCard({
                               color: longueurPire > MAX_SMS ? "error.main" : "text.primary",
                             }}
                           >
-                            {longueurPire} / {MAX_SMS} caractères
+                            {apercu
+                              ? `${longueurPire} / ${MAX_SMS} caractères`
+                              : "Longueur affichée une fois les variables corrigées"}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             Compté au plus long : nom et adresse de votre centre, nom et
@@ -428,11 +419,6 @@ export default function SmsBookingConfirmationCard({
                           court, pour rester sur un seul SMS.
                         </Alert>
                       )}
-                      <Typography variant="caption" color="text.secondary">
-                        Quand le dépôt d&apos;ordonnance est actif, le lien de dépôt part dans un
-                        second SMS, juste après celui-ci.
-                      </Typography>
-
                       {erreurTexte && <Alert severity="error">{erreurTexte}</Alert>}
 
                       <Stack direction="row" spacing={1.5} justifyContent="flex-end">
@@ -463,6 +449,21 @@ export default function SmsBookingConfirmationCard({
                           {enregistrementTexte ? "Enregistrement…" : "Enregistrer le texte"}
                         </Button>
                       </Stack>
+
+                      {/* Lot 4 : le SMS de dépôt et son ordre, seulement si le dépôt
+                          d'ordonnance est actif (même condition que le verrou). */}
+                      {prescriptionLocked && (
+                        <>
+                          <Divider />
+                          <SmsDepotOrdonnanceBloc
+                            userProductId={userProductId}
+                            textes={textes}
+                            readOnly={readOnly}
+                            centre={centre}
+                            apercuConfirmation={apercu}
+                          />
+                        </>
+                      )}
                     </>
                   )}
                 </Stack>

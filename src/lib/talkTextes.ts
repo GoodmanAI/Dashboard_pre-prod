@@ -9,6 +9,8 @@
  *     rdvInstructionSentence?: string,          // consigne dite après la réservation
  *     rdvInstructionParExamen?: { RX?, US?, MG?, CT?, MR? },  // codes robot
  *     smsConfirmationGabarit?: string,          // SMS de confirmation, un seul SMS
+ *     smsDepotGabarit?: string,                 // SMS de dépôt d'ordonnance (lot 4)
+ *     smsDepotAvantConfirmation?: true,         // dépôt envoyé avant la confirmation
  *   }
  *
  * Une seule implémentation pour l'écran (aperçu, compteur) et pour la route
@@ -22,6 +24,8 @@
 export const CLE_CONSIGNE = "rdvInstructionSentence";
 export const CLE_CONSIGNE_PAR_EXAMEN = "rdvInstructionParExamen";
 export const CLE_GABARIT_SMS = "smsConfirmationGabarit";
+export const CLE_GABARIT_DEPOT = "smsDepotGabarit";
+export const CLE_DEPOT_AVANT = "smsDepotAvantConfirmation";
 
 /** Codes robot (jamais les diminutifs), dans l'ordre de l'écran. */
 export const EXAMENS_CONSIGNE: {
@@ -69,6 +73,25 @@ export const VARIABLES_SMS: VariableTexte[] = [
   { nom: "nom", aide: "nom du patient" },
 ];
 
+/**
+ * SMS de dépôt d'ordonnance (lot 4). Un SMS par rendez-vous concerné : les
+ * variables d'examen, de date et d'heure sont celles de ce rendez-vous.
+ * `{lien}` et `{code}` sont obligatoires, sans eux le patient ne peut pas
+ * déposer son ordonnance.
+ */
+export const VARIABLES_DEPOT: VariableTexte[] = [
+  { nom: "lien", aide: "lien de dépôt (obligatoire)" },
+  { nom: "code", aide: "code à saisir sur la page de dépôt (obligatoire)" },
+  { nom: "delai", aide: "délai pour déposer : 48h" },
+  { nom: "examen", aide: "IRM, scanner, radio…" },
+  { nom: "date", aide: "lundi 21/07" },
+  { nom: "heure", aide: "11h30" },
+  { nom: "centre", aide: "nom du centre" },
+  { nom: "prenom", aide: "prénom du patient" },
+  { nom: "nom", aide: "nom du patient" },
+];
+const VARIABLES_DEPOT_OBLIGATOIRES = ["lien", "code"];
+
 export const MAX_CONSIGNE = 300;
 export const MAX_SMS = 160;
 
@@ -79,6 +102,10 @@ export const CONSIGNE_STANDARD =
 /** `SMS.confirmation_single` du robot, écrit avec les variables de l'écran. */
 export const SMS_STANDARD =
   "Bonjour,\n{rendez_vous}\n{centre}\n{adresse}\nPour toute modification, contactez votre centre";
+
+/** `SMS.prescription_block` du robot, écrit avec les variables de l'écran. */
+export const SMS_DEPOT_STANDARD =
+  "Ordonnance à déposer sous {delai}, sinon le RDV risque une annulation :\n{lien}\nCode : {code}";
 
 /** Début de l'annonce, fixe, pour l'aperçu de la phrase entière. */
 export const DEBUT_ANNONCE_EXEMPLE =
@@ -201,6 +228,88 @@ export function donneesExemple(
   return { rdvs, centre, adresse, prenom: "Claire", nom: "Martin" };
 }
 
+export type DonneesDepot = {
+  lien: string;
+  code: string;
+  /** Délai de dépôt, en heures (rendu « 48h »). */
+  delaiHeures: number;
+  rdv: RdvSms;
+  centre: string;
+  prenom: string;
+  nom: string;
+};
+
+/** Le SMS de dépôt tel que le patient le reçoit, même nettoyage que la confirmation. */
+export function rendreSmsDepot(gabarit: string, d: DonneesDepot): string {
+  const brut = remplacer(gabarit, {
+    lien: d.lien,
+    code: d.code,
+    delai: `${d.delaiHeures}h`,
+    examen: d.rdv.examen,
+    date: d.rdv.date,
+    heure: d.rdv.heure,
+    centre: d.centre,
+    prenom: d.prenom,
+    nom: d.nom,
+  });
+  const nettoye = brut
+    .split("\n")
+    .map((l) => l.replace(/[ \t]{2,}/g, " ").trim())
+    .filter((l) => l.length > 0)
+    .join("\n");
+  return versGsm7(nettoye);
+}
+
+/**
+ * Pire cas du SMS de dépôt : lien de 51 caractères (`https://depot-ordonnances.
+ * neuracorp.ai/d/` suivi de 10), code de 6 chiffres, délai d'une semaine, et les
+ * mêmes valeurs longues que la confirmation.
+ */
+export function donneesDepotPireCas(centre: string): DonneesDepot {
+  const pire = donneesPireCas(centre, "");
+  return {
+    lien: "https://depot-ordonnances.neuracorp.ai/d/" + "X".repeat(10),
+    code: "000000",
+    delaiHeures: 168,
+    rdv: pire.rdvs[0],
+    centre,
+    prenom: pire.prenom,
+    nom: pire.nom,
+  };
+}
+
+/** Un exemple réaliste pour l'aperçu. */
+export function donneesDepotExemple(centre: string): DonneesDepot {
+  const ex = donneesExemple(centre, "");
+  return {
+    lien: "https://depot-ordonnances.neuracorp.ai/d/a7K2mQ9xTb",
+    code: "482913",
+    delaiHeures: 48,
+    rdv: ex.rdvs[0],
+    centre,
+    prenom: ex.prenom,
+    nom: ex.nom,
+  };
+}
+
+/** Variables obligatoires absentes du gabarit de dépôt, ou message `null`. */
+export function erreurVariablesDepot(gabarit: string): string | null {
+  const g = erreurGabarit(gabarit, VARIABLES_DEPOT);
+  if (g) return g;
+  const presentes = new Set(
+    Array.from(gabarit.matchAll(/\{([^{}]*)\}/g)).map((m) => m[1]),
+  );
+  if (VARIABLES_DEPOT_OBLIGATOIRES.some((v) => !presentes.has(v))) {
+    return "Ajoutez {lien} et {code} : sans eux le patient ne peut pas déposer son ordonnance.";
+  }
+  return null;
+}
+
+/** Longueur du SMS de dépôt au pire cas, en septets GSM-7. */
+export function longueurDepotPireCas(gabarit: string, centre: string): number {
+  return longueurGsm7(rendreSmsDepot(gabarit, donneesDepotPireCas(centre)));
+}
+
 // ─── GSM-7 ───────────────────────────────────────────────────────────────────
 
 /** Jeu de base GSM 03.38 : un caractère = un septet. */
@@ -277,6 +386,8 @@ export type TextesTalk = {
   rdvInstructionSentence?: string;
   rdvInstructionParExamen?: Record<string, string>;
   smsConfirmationGabarit?: string;
+  smsDepotGabarit?: string;
+  smsDepotAvantConfirmation?: true;
 };
 
 function erreurConsigne(texte: string, ou: string): string | null {
@@ -370,6 +481,33 @@ export function validerTextes(
     if (l) return { erreur: l };
     sortie[CLE_GABARIT_SMS] = sms;
   }
+
+  const depot = texte(valeur[CLE_GABARIT_DEPOT]);
+  if (depot === undefined)
+    return { erreur: "Le texte du SMS de dépôt doit être un texte." };
+  if (depot === null) delete sortie[CLE_GABARIT_DEPOT];
+  else {
+    const g = erreurVariablesDepot(depot);
+    if (g) return { erreur: `SMS de dépôt : ${g}` };
+    const n = longueurDepotPireCas(depot, centre);
+    if (n > MAX_SMS) {
+      return {
+        erreur: `Le SMS de dépôt ne tient pas en un seul message : il peut atteindre ${n} caractères avec le lien, le code et le nom de votre centre, pour ${MAX_SMS} au plus. Retirez ${n - MAX_SMS} caractères.`,
+      };
+    }
+    sortie[CLE_GABARIT_DEPOT] = depot;
+  }
+
+  // Ordre des deux SMS. Seul `true` est stocké : absent veut dire « après »,
+  // le comportement par défaut du robot.
+  const avant = valeur[CLE_DEPOT_AVANT];
+  if (avant === undefined || avant === null || avant === false)
+    delete sortie[CLE_DEPOT_AVANT];
+  else if (avant === true) sortie[CLE_DEPOT_AVANT] = true;
+  else
+    return {
+      erreur: "L'ordre des SMS doit valoir vrai (dépôt avant) ou faux (dépôt après).",
+    };
 
   return { valeur: sortie };
 }
