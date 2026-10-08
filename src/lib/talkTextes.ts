@@ -92,7 +92,7 @@ export const VARIABLES_DEPOT: VariableTexte[] = [
 ];
 const VARIABLES_DEPOT_OBLIGATOIRES = ["lien", "code"];
 
-export const MAX_CONSIGNE = 300;
+export const MAX_CONSIGNE = 500;
 export const MAX_SMS = 160;
 
 /** Ce que le robot dit quand le centre n'a rien réglé (`Call.js`). */
