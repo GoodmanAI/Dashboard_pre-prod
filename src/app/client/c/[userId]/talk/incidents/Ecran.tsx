@@ -22,6 +22,7 @@ import { io } from "socket.io-client";
 import { useRouter } from "next/navigation";
 import { useTalkBasePath } from "@/utils/talkRoutes";
 import Transcription from "@/components/transcription/Transcription";
+import PastilleMineur from "@/components/transcription/PastilleMineur";
 import { apercuConversation } from "@/lib/entitesTranscription";
 import { exporterTranscriptionPdf, formatPhoneFR } from "@/lib/transcriptionPdf";
 
@@ -244,6 +245,8 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
                           {formatPhoneFR(call.stats?.phoneNumber)}
                         </Box>
 
+                        <PastilleMineur stats={call.stats} />
+
                         <Chip
                           size="small"
                           icon={<IconFlagFilled size={14} style={{ color: "white" }} />}
@@ -311,7 +314,10 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
             mb: 2,
           }}
         >
-          <Typography variant="h6">Conversation</Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="h6">Conversation</Typography>
+            <PastilleMineur stats={selectedCall?.stats} />
+          </Box>
 
           <Button
             size="small"
