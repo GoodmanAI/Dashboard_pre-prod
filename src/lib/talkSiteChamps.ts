@@ -72,22 +72,10 @@ export type SectionSite = {
 };
 
 export const SECTIONS_SITE: SectionSite[] = [
-  {
-    titre: "Ce que le robot dit au patient",
-    description:
-      "Des phrases lues à voix haute. Elles s'entendent, donc elles se relisent à voix haute.",
-    champs: [
-      {
-        chemin: "rdvInstructionSentence",
-        libelle: "Consigne de fin de rendez-vous",
-        type: "texte-long",
-        proprietaire: "client",
-        defautRobot:
-          "pensez bien à amener votre ordonnance ainsi que la carte vitale, la carte de mutuelle et une pièce d'identité, et si besoin vos justificatif ALD et arrêt de travail.",
-        aide: "Dite juste avant de raccrocher, après « c'est noté ». Commencez par un verbe, sans majuscule ni point final : la phrase est enchaînée à la précédente.",
-      },
-    ],
-  },
+  // « Ce que le robot dit au patient » (`rdvInstructionSentence`) est parti le
+  // 08/10/2026 dans le domaine `talk.textes`, que le client règle lui-même depuis
+  // son écran Paramétrage (`src/lib/talkTextes.ts`). `GET /api/configuration`
+  // ignore désormais cette clé si elle reste dans `talk.site`.
   {
     titre: "Transfert vers le secrétariat",
     description:

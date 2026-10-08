@@ -37,7 +37,8 @@ liste, envoyer `[]`.
 
 **Le bloc ne porte jamais ce que la racine sert déjà** (08/09/2026). LyraeTalk applique
 le bloc PUIS les champs racine : un champ présent des deux côtés serait écrasé en
-silence, et l'écran qui le saisit ne servirait à rien. Huit champs sont donc retirés du
+silence, et l'écran qui le saisit ne servirait à rien. Huit champs (neuf depuis le
+08/10/2026 : `rdvInstructionSentence` de `talk.site`, remplacé par `talk.textes`) sont donc retirés du
 bloc avant l'envoi, et celui qui gagne est toujours celui qu'un écran **client**
 alimente : `bookableExams` (← `examsAccepted`), `fullPlanningNotes`,
 `doubleBookingConfig`, `intro` (← `welcomeMsg`), `serviceEnabled`,
@@ -82,6 +83,30 @@ Trois champs, qu'un robot plus ancien ignore :
   lignes pour un même examen répondent 400 ; une exception déjà stockée telle quelle et
   devenue invalide est retirée sans bruit. Les `postes` de l'examen ne sont pas modifiés.
 - `postes` sur chaque examen de `GET /api/configuration/get/mapping` (voir plus bas).
+
+**Textes de confirmation réglés par le client** (08/10/2026, additif, plan
+`plans/2026-10-confirmation-personnalisable.md`). Domaine **`talk.textes`** de
+`ProductConfig`, droit `PARAMETRAGE` (et non admin), fusionné dans le **même bloc `site`**
+après `talk.site`. Trois clés, qu'un robot plus ancien ignore, sauf la première qu'il lit
+déjà :
+
+- `site.rdvInstructionSentence` : texte, 300 caractères au plus, dit après « Le jour de
+  l'examen » dans l'annonce qui suit la réservation. Variables `{examen}` (« l'IRM »),
+  `{centre}`. **N'est plus lu dans `talk.site`** : une valeur restée dans ce domaine est
+  retirée du bloc et journalisée dans les champs ignorés.
+- `site.rdvInstructionParExamen` : `{ RX?, US?, MG?, CT?, MR? }` (codes robot), chaque
+  valeur un texte de même règle. Remplace la consigne générale pour cet examen.
+- `site.smsConfirmationGabarit` : gabarit du SMS de confirmation. Variables
+  `{rendez_vous}`, `{examen}`, `{date}`, `{heure}`, `{centre}`, `{adresse}`, `{prenom}`,
+  `{nom}`. Doit tenir en **un SMS de 160 caractères GSM-7** au rendu pire cas (nom et
+  adresse de la fiche `TalkSettings`, « mercredi 22/07 à 11h30 », « mammographie », nom et
+  prénom de 20 caractères).
+
+Validation au `PUT /api/product-config` (`src/lib/talkTextes.ts`) : variable inconnue,
+accolade orpheline, code d'examen inconnu, texte trop long répondent 400 avec un message
+qui dit quoi corriger. Un texte vide retire la clé (le robot reprend son texte standard).
+Le rendu, la liste des variables et la translittération GSM-7 sont **recopiés** côté
+LyraeTalk : les changer d'un côté, c'est les changer de l'autre.
 
 ⚠️ **`GET /api/configuration` : le champ `labelFr` de `examMappings` porte un CODE de
 type, jamais un libellé** (07/09/2026). C'est ce que LyraeTalk lit pour savoir de quel

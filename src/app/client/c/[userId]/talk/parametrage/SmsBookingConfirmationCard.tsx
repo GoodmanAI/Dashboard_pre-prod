@@ -1,13 +1,15 @@
 "use client";
 
 import Retour from "@/components/shared/Retour";
-import { useCallback, useEffect, useRef, useState } from "react";
+import ChampAvecVariables from "@/components/shared/ChampAvecVariables";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
   Alert,
   Box,
+  Button,
   Chip,
   CircularProgress,
   FormControlLabel,
@@ -18,6 +20,18 @@ import {
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { io as ioClient, Socket } from "socket.io-client";
+import {
+  CLE_GABARIT_SMS,
+  MAX_SMS,
+  SMS_STANDARD,
+  VARIABLES_SMS,
+  donneesExemple,
+  donneesPireCas,
+  erreurGabarit,
+  longueurGsm7,
+  rendreSms,
+} from "@/lib/talkTextes";
+import { enregistrerTextesTalk, useTextesTalk } from "./textesTalk";
 
 /**
  * Section "Confirmation de RDV par SMS" (à ne pas confondre avec la carte
@@ -35,6 +49,13 @@ import { io as ioClient, Socket } from "socket.io-client";
  * dans ce SMS, donc désactiver = casser silencieusement le flow ordonnance).
  * Le composant fetch la config prescription pour connaître l'état, et le
  * backend renforce la même règle avec un 409 explicite.
+ *
+ * Texte du SMS (08/10/2026) : le client écrit son propre gabarit, avec des
+ * variables, dans le domaine `talk.textes` (`src/lib/talkTextes.ts`). Il doit
+ * tenir en un seul SMS de 160 caractères, mesuré avec le nom et l'adresse du
+ * centre. Le lien de dépôt d'ordonnance n'en fait plus partie : le robot
+ * l'envoie dans un SMS séparé. Plan :
+ * `lyrae/plans/2026-10-confirmation-personnalisable.md`.
  */
 
 const EXAM_LABELS: Record<string, string> = {
@@ -47,8 +68,15 @@ const EXAM_LABELS: Record<string, string> = {
 
 export default function SmsBookingConfirmationCard({
   userProductId,
+  readOnly = false,
+  centre = "",
+  adresse = "",
 }: {
   userProductId: number;
+  readOnly?: boolean;
+  /** Nom et adresse du centre tels qu'à l'écran, pour l'aperçu. */
+  centre?: string;
+  adresse?: string;
 }) {
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -192,7 +220,56 @@ export default function SmsBookingConfirmationCard({
     }
   }
 
-  const switchDisabled = saving || (prescriptionLocked && enabled);
+  const switchDisabled = readOnly || saving || (prescriptionLocked && enabled);
+
+  // ── Texte du SMS ───────────────────────────────────────────────────────────
+  const { valeur: textes, erreurChargement: erreurTextes } = useTextesTalk(userProductId);
+  const [gabarit, setGabarit] = useState("");
+  const [gabaritInitial, setGabaritInitial] = useState("");
+  const [enregistrementTexte, setEnregistrementTexte] = useState(false);
+  const [erreurTexte, setErreurTexte] = useState<string | null>(null);
+  const [texteEnregistreA, setTexteEnregistreA] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!textes) return;
+    const g = typeof textes[CLE_GABARIT_SMS] === "string" ? (textes[CLE_GABARIT_SMS] as string) : "";
+    setGabarit(g);
+    setGabaritInitial(g);
+  }, [textes]);
+
+  const centreAffiche = centre.trim() || "notre centre";
+  const gabaritEffectif = gabarit.trim() || SMS_STANDARD;
+  const erreurVariables = gabarit.trim() ? erreurGabarit(gabarit, VARIABLES_SMS) : null;
+  const { apercu, longueurPire, longueurDouble } = useMemo(() => {
+    if (erreurGabarit(gabaritEffectif, VARIABLES_SMS)) {
+      return { apercu: "", longueurPire: 0, longueurDouble: 0 };
+    }
+    return {
+      apercu: rendreSms(gabaritEffectif, donneesExemple(centreAffiche, adresse)),
+      longueurPire: longueurGsm7(rendreSms(gabaritEffectif, donneesPireCas(centreAffiche, adresse))),
+      longueurDouble: longueurGsm7(
+        rendreSms(gabaritEffectif, donneesExemple(centreAffiche, adresse, true))
+      ),
+    };
+  }, [gabaritEffectif, centreAffiche, adresse]);
+  const tropLong = Boolean(gabarit.trim()) && longueurPire > MAX_SMS;
+  const texteModifie = gabarit.trim() !== gabaritInitial.trim();
+
+  async function enregistrerTexte() {
+    setErreurTexte(null);
+    setEnregistrementTexte(true);
+    try {
+      const v = await enregistrerTextesTalk(userProductId, { [CLE_GABARIT_SMS]: gabarit.trim() });
+      const g = typeof v[CLE_GABARIT_SMS] === "string" ? (v[CLE_GABARIT_SMS] as string) : "";
+      setGabarit(g);
+      setGabaritInitial(g);
+      setTexteEnregistreA(Date.now());
+    } catch (err: any) {
+      setErreurTexte(err?.message ?? "L'enregistrement n'a pas abouti. Réessayez.");
+    } finally {
+      setEnregistrementTexte(false);
+    }
+  }
 
   const tooltipTitle = prescriptionLocked
     ? `Toujours actif : le dépôt d'ordonnance est en service pour ${prescriptionLabels}, et ce SMS porte le lien de dépôt. Désactivez d'abord le dépôt d'ordonnance.`
@@ -255,20 +332,153 @@ export default function SmsBookingConfirmationCard({
                           pour lui confirmer.
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Le SMS est envoyé immédiatement après la prise de RDV.
-                          Distinct des rappels no-show configurés ci-dessous.
+                          Le SMS part à la fin de l&apos;appel. Distinct des rappels
+                          no-show configurés ci-dessous.
                         </Typography>
                       </Stack>
                     }
                   />
                 </Box>
               </Tooltip>
+
+              {enabled && (
+                <Stack spacing={2} sx={{ pt: 1 }}>
+                  <Typography variant="subtitle1">Texte du SMS</Typography>
+                  {erreurTextes ? (
+                    <Alert severity="error">{erreurTextes}</Alert>
+                  ) : !textes ? (
+                    <Stack alignItems="center" sx={{ py: 1 }}>
+                      <CircularProgress size={20} sx={{ color: "var(--accent)" }} />
+                    </Stack>
+                  ) : (
+                    <>
+                      <ChampAvecVariables
+                        label="Message envoyé au patient"
+                        valeur={gabarit}
+                        onChange={setGabarit}
+                        variables={VARIABLES_SMS}
+                        placeholder={SMS_STANDARD}
+                        minRows={4}
+                        erreur={erreurVariables}
+                        aide={
+                          gabarit.trim()
+                            ? undefined
+                            : "Vide : le robot envoie le texte standard, affiché en gris."
+                        }
+                        desactive={readOnly}
+                      />
+
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={2}
+                        alignItems={{ xs: "stretch", sm: "flex-start" }}
+                      >
+                        <Box
+                          sx={{
+                            width: { xs: "100%", sm: 320 },
+                            flexShrink: 0,
+                            boxSizing: "border-box",
+                            p: 1.5,
+                            borderRadius: "16px 16px 16px 4px",
+                            bgcolor: "rgba(0,0,0,0.05)",
+                            whiteSpace: "pre-wrap",
+                            fontSize: 14,
+                            lineHeight: 1.5,
+                            minHeight: 48,
+                          }}
+                        >
+                          {apercu || "Corrigez les variables pour voir l'aperçu."}
+                        </Box>
+                        <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: 700,
+                              fontVariantNumeric: "tabular-nums",
+                              color: longueurPire > MAX_SMS ? "error.main" : "text.primary",
+                            }}
+                          >
+                            {longueurPire} / {MAX_SMS} caractères
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Compté au plus long : nom et adresse de votre centre, nom et
+                            prénom de vingt lettres. Les accents absents des SMS (ê, ç, î…)
+                            sont remplacés par la lettre simple.
+                          </Typography>
+                        </Stack>
+                      </Stack>
+
+                      {tropLong && (
+                        <Alert severity="error">
+                          Le SMS ne tient pas en un seul message. Retirez{" "}
+                          {longueurPire - MAX_SMS} caractères pour pouvoir l&apos;enregistrer.
+                        </Alert>
+                      )}
+                      {!gabarit.trim() && longueurPire > MAX_SMS && (
+                        <Alert severity="info">
+                          Avec le nom et l&apos;adresse de votre centre, le texte standard peut
+                          dépasser {MAX_SMS} caractères. Le robot retire alors l&apos;adresse
+                          pour rester sur un seul SMS.
+                        </Alert>
+                      )}
+                      {!tropLong && gabarit.trim() && longueurDouble > MAX_SMS && (
+                        <Alert severity="warning">
+                          Pour deux rendez-vous pris dans le même appel, ce texte dépasse{" "}
+                          {MAX_SMS} caractères. Le robot enverra alors un texte standard plus
+                          court, pour rester sur un seul SMS.
+                        </Alert>
+                      )}
+                      <Typography variant="caption" color="text.secondary">
+                        Quand le dépôt d&apos;ordonnance est actif, le lien de dépôt part dans un
+                        second SMS, juste après celui-ci.
+                      </Typography>
+
+                      {erreurTexte && <Alert severity="error">{erreurTexte}</Alert>}
+
+                      <Stack direction="row" spacing={1.5} justifyContent="flex-end">
+                        <Button
+                          variant="text"
+                          disabled={readOnly || enregistrementTexte || !gabarit.trim()}
+                          onClick={() => setGabarit("")}
+                          sx={{ color: "text.secondary" }}
+                        >
+                          Revenir au texte standard
+                        </Button>
+                        <Button
+                          variant="contained"
+                          disableElevation
+                          disabled={
+                            readOnly ||
+                            enregistrementTexte ||
+                            !texteModifie ||
+                            Boolean(erreurVariables) ||
+                            tropLong
+                          }
+                          onClick={() => void enregistrerTexte()}
+                          sx={{
+                            bgcolor: "var(--accent)",
+                            "&:hover": { bgcolor: "var(--accent-press)" },
+                          }}
+                        >
+                          {enregistrementTexte ? "Enregistrement…" : "Enregistrer le texte"}
+                        </Button>
+                      </Stack>
+                    </>
+                  )}
+                </Stack>
+              )}
             </>
           )}
 
           {error && <Alert severity="error">{error}</Alert>}
         </Stack>
 
+        <Retour
+          ouvert={texteEnregistreA !== null}
+          message={<>Texte du SMS enregistré.</>}
+          gravite={"success"}
+          onFermer={() => setTexteEnregistreA(null)}
+        />
         <Retour
           ouvert={savedAt !== null}
           message={<>Enregistré</>}
