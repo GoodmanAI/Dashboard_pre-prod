@@ -31,6 +31,7 @@ function extractClientIp(req: NextRequest): string | null {
 
 async function auditLog(params: {
   uploadId: number | null;
+  documentId?: number | null;
   actorIp: string | null;
   success: boolean;
   errorReason?: string | null;
@@ -38,9 +39,15 @@ async function auditLog(params: {
   try {
     await db.query(
       `INSERT INTO "PrescriptionAccessLog"
-         ("uploadId", "action", "actorType", "actorIp", "success", "errorReason")
-       VALUES ($1, 'download', 'session', $2::inet, $3, $4)`,
-      [params.uploadId, params.actorIp, params.success, params.errorReason ?? null]
+         ("uploadId", "documentId", "action", "actorType", "actorIp", "success", "errorReason")
+       VALUES ($1, $5, 'download', 'session', $2::inet, $3, $4)`,
+      [
+        params.uploadId,
+        params.actorIp,
+        params.success,
+        params.errorReason ?? null,
+        params.documentId ?? null,
+      ]
     );
   } catch (err) {
     console.error("[prescriptions/rejected/download] audit log failed:", err);
@@ -55,13 +62,14 @@ export async function GET(
   if (auth.error) return auth.error;
 
   const actorIp = extractClientIp(req);
-  const uploadId = parseInt(params.id, 10);
-  if (!Number.isFinite(uploadId)) {
+  const documentId = parseInt(params.id, 10);
+  if (!Number.isFinite(documentId)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
   const sel = await db.query<{
     id: number;
+    uploadId: number;
     status: string;
     storagePath: string | null;
     fileSize: number | null;
@@ -70,20 +78,26 @@ export async function GET(
     userProductId: number | null;
   }>(
     `
-    SELECT pu."id", pu."status", pu."storagePath",
-           pu."fileSize", pu."fileSha256", pu."externalCenterCode",
+    SELECT d."id", d."uploadId", d."status", d."storagePath",
+           d."fileSize", d."fileSha256", pu."externalCenterCode",
            ecm."userProductId"
-      FROM "PrescriptionUpload" pu
+      FROM "PrescriptionDocument" d
+      JOIN "PrescriptionUpload" pu ON pu."id" = d."uploadId"
       LEFT JOIN "ExternalCenterMapping" ecm
              ON ecm."externalCenterCode" = pu."externalCenterCode"
-     WHERE pu."id" = $1
+     WHERE d."id" = $1
      LIMIT 1
     `,
-    [uploadId]
+    [documentId]
   );
 
   if (sel.rowCount === 0) {
-    await auditLog({ uploadId: null, actorIp, success: false, errorReason: "unknown id" });
+    await auditLog({
+      uploadId: null,
+      actorIp,
+      success: false,
+      errorReason: "unknown id",
+    });
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   const record = sel.rows[0];
@@ -96,10 +110,14 @@ export async function GET(
   }
 
   // Ownership check via le centre resolu
-  const ownErr = await assertUserProductOwnership(auth.session, record.userProductId);
+  const ownErr = await assertUserProductOwnership(
+    auth.session,
+    record.userProductId
+  );
   if (ownErr) {
     await auditLog({
-      uploadId: record.id,
+      uploadId: record.uploadId,
+      documentId: record.id,
       actorIp,
       success: false,
       errorReason: "ownership refused",
@@ -114,7 +132,8 @@ export async function GET(
   const droitErr = await requirePagePermission(PAGES.ORDONNANCES, "read");
   if (droitErr) {
     await auditLog({
-      uploadId: record.id,
+      uploadId: record.uploadId,
+      documentId: record.id,
       actorIp,
       success: false,
       errorReason: "droit de page refuse",
@@ -124,7 +143,8 @@ export async function GET(
 
   if (record.status !== "REJECTED") {
     await auditLog({
-      uploadId: record.id,
+      uploadId: record.uploadId,
+      documentId: record.id,
       actorIp,
       success: false,
       errorReason: `status=${record.status}, session download refused`,
@@ -137,12 +157,16 @@ export async function GET(
 
   if (!record.storagePath) {
     await auditLog({
-      uploadId: record.id,
+      uploadId: record.uploadId,
+      documentId: record.id,
       actorIp,
       success: false,
       errorReason: "storagePath is null",
     });
-    return NextResponse.json({ error: "Storage path missing" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Storage path missing" },
+      { status: 500 }
+    );
   }
 
   let buffer: Buffer;
@@ -151,7 +175,8 @@ export async function GET(
   } catch (err) {
     console.error("[prescriptions/rejected/download] readFile failed:", err);
     await auditLog({
-      uploadId: record.id,
+      uploadId: record.uploadId,
+      documentId: record.id,
       actorIp,
       success: false,
       errorReason: `readFile: ${(err as Error).message}`,
@@ -159,7 +184,12 @@ export async function GET(
     return NextResponse.json({ error: "File not accessible" }, { status: 500 });
   }
 
-  await auditLog({ uploadId: record.id, actorIp, success: true });
+  await auditLog({
+    uploadId: record.uploadId,
+    documentId: record.id,
+    actorIp,
+    success: true,
+  });
 
   const mimeType = mimeTypeFromStoragePath(record.storagePath);
   const extension = path.extname(record.storagePath).replace(".", "") || "bin";
