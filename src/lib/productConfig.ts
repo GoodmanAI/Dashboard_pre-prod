@@ -92,6 +92,24 @@ export const DOMAINES: Record<string, Domaine> = {
     libelle: "Configuration du robot vocal par centre",
     page: "admin",
   },
+  /**
+   * Les textes de confirmation que le client règle lui-même (08/10/2026) : la
+   * consigne dite après la réservation, par examen ou non, et le gabarit du SMS
+   * de confirmation. Séparé de `talk.site` pour une seule raison, les droits :
+   * `talk.site` est réservé à l'administration, ces textes relèvent du droit
+   * Paramétrage du client. Les clés portent le nom de `call.site.*` et sont
+   * fusionnées dans le même bloc `site` par `GET /api/configuration`.
+   *
+   * Forme et validation : `src/lib/talkTextes.ts`. Plan :
+   * `lyrae/plans/2026-10-confirmation-personnalisable.md`.
+   */
+  "talk.textes": {
+    cle: "talk.textes",
+    produit: "talk",
+    cleApiEnv: "BOT_API_KEY",
+    libelle: "Textes de confirmation du robot vocal",
+    page: PAGES.PARAMETRAGE,
+  },
   "konnect.regles-etat": {
     cle: "konnect.regles-etat",
     produit: "konnect",
