@@ -208,6 +208,34 @@ export async function GET(req: NextRequest) {
       if (Object.keys(site).length === 0) site = null;
     }
 
+    // 2️⃣.e — Les textes de confirmation réglés par le client (`talk.textes`,
+    // 08/10/2026). Mêmes noms que `call.site.*`, fusionnés dans le même bloc :
+    // le robot n'a rien à traduire. `rdvInstructionSentence` a quitté `talk.site`
+    // pour ce domaine ; une valeur restée dans `talk.site` est ignorée, sinon le
+    // client réglerait une phrase que l'administration écraserait en silence.
+    const textesRes = await db.query<{ valeur: unknown }>(
+      `SELECT "valeur" FROM "ProductConfig"
+        WHERE "userProductId" = $1 AND "domaine" = 'talk.textes' LIMIT 1`,
+      [userProductId]
+    );
+    const textes =
+      (textesRes.rowCount ?? 0) > 0 && estObjetJson(textesRes.rows[0].valeur)
+        ? (textesRes.rows[0].valeur as Record<string, unknown>)
+        : null;
+    if (site && "rdvInstructionSentence" in site) {
+      delete site.rdvInstructionSentence;
+      ignores.push("rdvInstructionSentence (voir talk.textes)");
+    }
+    if (textes) {
+      for (const [cle, valeur] of Object.entries(textes)) {
+        if (valeur === null || valeur === undefined || valeur === "") continue;
+        if (estObjetJson(valeur) && Object.keys(valeur).length === 0) continue;
+        site = site ?? {};
+        site[cle] = valeur;
+      }
+    }
+    if (site && Object.keys(site).length === 0) site = null;
+
     if (ignores.length > 0) {
       console.log(
         `[configuration] upid=${userProductId} champs de talk.site ignorés car servis ailleurs :`,
