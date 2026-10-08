@@ -38,6 +38,7 @@ import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import DateRangePresets from "@/components/DateRangePresets";
 import { construireExamLabelMap, listerTypesExamen } from "@/lib/examLabels";
 import Transcription from "@/components/transcription/Transcription";
+import PastilleMineur from "@/components/transcription/PastilleMineur";
 import { apercuConversation } from "@/lib/entitesTranscription";
 import { exporterTranscriptionPdf, formatPhoneFR } from "@/lib/transcriptionPdf";
 
@@ -876,6 +877,8 @@ export default function CallListPage({ params }: CallListPageProps) {
                             {formatPhoneFR(call.stats.phoneNumber)}
                           </Box>
 
+                          <PastilleMineur stats={call.stats} />
+
                           {flaggedState[call.id] && (
                             <Chip
                               size="small"
@@ -994,7 +997,10 @@ export default function CallListPage({ params }: CallListPageProps) {
             mb: 2,
           }}
         >
-          <Typography variant="h6">Conversation</Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="h6">Conversation</Typography>
+            <PastilleMineur stats={selectedCall?.stats} />
+          </Box>
 
           <Button
             size="small"

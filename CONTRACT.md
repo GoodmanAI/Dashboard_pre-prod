@@ -787,6 +787,10 @@ rend sous le nom `horaireMapping`.
    **effacés** au-delà du délai de conservation du centre : une clé ajoutée à `stats` qui
    porte une donnée patient doit rejoindre la liste du job `anonymise_appels.sh`.
    Voir `plans/2026-09-attribution-stats-multisite.md` dans le workspace.
+   `stats.patient_mineur` (08/10/2026, LyraeTalk v2.25.0) : `true` affiche la pastille
+   « MINEUR » (`src/components/transcription/PastilleMineur.tsx`) ; `false`, `null` ou
+   absent n'affichent rien. Un booléen, jamais la date de naissance. Il n'identifie
+   personne une fois `steps` et `phoneNumber` effacés : il reste après l'anonymisation.
 3. **Payloads** `POST /api/rdv/init`, `POST /api/prescriptions/init` (clés, format de date de naissance, enum de type d'examen).
 4. **Forme de `GET /api/prescriptions/pending`** : `{ pending, total }`.
 5. **`ExternalCenterMapping.externalCenterCode`** = clé de jointure avec AI2Xplore.
