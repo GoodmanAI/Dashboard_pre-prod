@@ -8,8 +8,14 @@ const DEFAULT_LIMIT = 50;
 /**
  * GET /api/prescriptions/pending
  *
- * Queue FIFO des ordonnances uploadees en attente de recuperation par
- * AI2Xplore (statut UPLOADED, ackedAt IS NULL). Alignee sur le pattern
+ * Queue FIFO des documents d'ordonnance en attente de recuperation par
+ * AI2Xplore (PrescriptionDocument au statut UPLOADED, ackedAt IS NULL).
+ *
+ * Depuis le 08/10/2026, un item = un DOCUMENT, plus un lien : un patient peut
+ * envoyer jusqu'a 5 documents pour un meme RDV. `id` est l'id du document
+ * (celui que prennent /download/[id] et /ack/[id]) ; plusieurs items peuvent
+ * donc porter le meme rdvId. `uploadId` (additif) est l'id du lien. Les
+ * documents repris de l'ancien modele ont le meme id que leur lien. Alignee sur le pattern
  * de /api/rdv/pending-events pour que la meme VM AI2Xplore multi-tenant
  * consomme les 2 endpoints identiquement.
  *
@@ -33,7 +39,7 @@ const DEFAULT_LIMIT = 50;
  *          savoir s'il doit re-poller immediatement>,
  *   hasMore: <count < total>,
  *   items: [
- *     { id, rdvId, externalCenterCode, examType,
+ *     { id, uploadId, rdvId, externalCenterCode, examType,
  *       uploadedAt, fileSize, fileSha256 }
  *   ]
  * }
@@ -53,7 +59,10 @@ export async function GET(req: NextRequest) {
 
   const limitRaw = req.nextUrl.searchParams.get("limit");
   const limit = Math.min(
-    Math.max(parseInt(limitRaw ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT, 1),
+    Math.max(
+      parseInt(limitRaw ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT,
+      1
+    ),
     MAX_LIMIT
   );
 
@@ -76,7 +85,10 @@ export async function GET(req: NextRequest) {
     (!userProductIds || userProductIds.length === 0)
   ) {
     return NextResponse.json(
-      { error: "At least one of externalCenterCode or userProductId is required" },
+      {
+        error:
+          "At least one of externalCenterCode or userProductId is required",
+      },
       { status: 400 }
     );
   }
@@ -108,20 +120,19 @@ export async function GET(req: NextRequest) {
 
   // Construction dynamique du WHERE.
   const conditions: string[] = [
-    `"status" = 'UPLOADED'`,
-    `"ackedAt" IS NULL`,
-    `"uploadedAt" IS NOT NULL`,
+    `d."status" = 'UPLOADED'`,
+    `d."ackedAt" IS NULL`,
   ];
   const bindings: any[] = [];
   let idx = 1;
 
   if (externalCenterCodes && externalCenterCodes.length > 0) {
-    conditions.push(`"externalCenterCode" = ANY($${idx}::text[])`);
+    conditions.push(`pu."externalCenterCode" = ANY($${idx}::text[])`);
     bindings.push(externalCenterCodes);
     idx++;
   }
   if (resolvedCenterCodes && resolvedCenterCodes.length > 0) {
-    conditions.push(`"externalCenterCode" = ANY($${idx}::text[])`);
+    conditions.push(`pu."externalCenterCode" = ANY($${idx}::text[])`);
     bindings.push(resolvedCenterCodes);
     idx++;
   }
@@ -131,7 +142,8 @@ export async function GET(req: NextRequest) {
   // 1) Total en attente matching le filtre
   const totalRes = await db.query<{ count: string }>(
     `SELECT COUNT(*)::text AS "count"
-       FROM "PrescriptionUpload"
+       FROM "PrescriptionDocument" d
+       JOIN "PrescriptionUpload" pu ON pu."id" = d."uploadId"
       WHERE ${whereClause}`,
     bindings
   );
@@ -140,6 +152,7 @@ export async function GET(req: NextRequest) {
   // 2) Page d'items, FIFO stricte
   const itemsRes = await db.query<{
     id: number;
+    uploadId: number;
     rdvId: string;
     externalCenterCode: string;
     examType: string | null;
@@ -147,11 +160,12 @@ export async function GET(req: NextRequest) {
     fileSize: number;
     fileSha256: string;
   }>(
-    `SELECT "id", "rdvId", "externalCenterCode", "examType",
-            "uploadedAt", "fileSize", "fileSha256"
-       FROM "PrescriptionUpload"
+    `SELECT d."id", d."uploadId", pu."rdvId", pu."externalCenterCode", pu."examType",
+            d."uploadedAt", d."fileSize", d."fileSha256"
+       FROM "PrescriptionDocument" d
+       JOIN "PrescriptionUpload" pu ON pu."id" = d."uploadId"
       WHERE ${whereClause}
-      ORDER BY "uploadedAt" ASC, "id" ASC
+      ORDER BY d."uploadedAt" ASC, d."id" ASC
       LIMIT $${idx}`,
     [...bindings, limit]
   );
