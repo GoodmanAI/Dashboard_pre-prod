@@ -58,6 +58,7 @@ import { PAGES } from "@/lib/permissions";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import SmsConfirmationConfigCard from "./SmsConfirmationConfigCard";
 import SmsBookingConfirmationCard from "./SmsBookingConfirmationCard";
+import ConsigneApresReservationCard from "./ConsigneApresReservationCard";
 import PrescriptionConfigCard, {
   type PrescriptionConfigHandle,
 } from "./PrescriptionConfigCard";
@@ -1376,8 +1377,23 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           </AccordionDetails>
         </Accordion>
 
+        {/* Consigne dite après la réservation (domaine talk.textes) */}
+        <ConsigneApresReservationCard
+          userProductId={Number(params.id)}
+          readOnly={readOnly}
+          centre={settings.centerName ?? ""}
+        />
+
         {/* Confirmation de RDV par SMS (à la prise de RDV via bot) */}
-        <SmsBookingConfirmationCard userProductId={Number(params.id)} />
+        <SmsBookingConfirmationCard
+          userProductId={Number(params.id)}
+          readOnly={readOnly}
+          centre={settings.centerName ?? ""}
+          adresse={[settings.address, `${zipCode} ${city}`]
+            .map((x) => (x ?? "").trim())
+            .filter(Boolean)
+            .join(", ")}
+        />
 
         {/* Rappel de RDV par SMS (no-show) */}
         <SmsConfirmationConfigCard userProductId={Number(params.id)} />
