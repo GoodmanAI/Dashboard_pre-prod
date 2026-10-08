@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { assertUserProductOwnership, requireAuth } from "@/lib/auth-helpers";
-import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import {
+  requirePagePermission,
+  requireAnyPagePermission,
+} from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 
 /**
@@ -9,6 +12,10 @@ import { PAGES } from "@/lib/permissions";
  *
  * Liste les ordonnances REJETEES par Xplore (AI2Xplore a echoue apres N
  * tentatives, ordonnance a re-deposer manuellement par la secretaire).
+ *
+ * Un item = un DOCUMENT refuse (PrescriptionDocument), depuis le 08/10/2026 :
+ * un RDV peut en porter plusieurs. `id` est l'id du document, celui que
+ * prennent /rejected/[id]/download et /rejected/[id]/resolve.
  *
  * Filtre metier :
  *   - status = 'REJECTED'
@@ -39,7 +46,10 @@ export async function GET(req: NextRequest) {
   const param = req.nextUrl.searchParams.get("userProductId");
   const userProductId = param ? parseInt(param, 10) : NaN;
   if (!Number.isFinite(userProductId)) {
-    return NextResponse.json({ error: "Missing userProductId" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing userProductId" },
+      { status: 400 }
+    );
   }
 
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
@@ -75,16 +85,17 @@ export async function GET(req: NextRequest) {
     hoursSinceRejected: string;
   }>(
     `
-    SELECT "id", "rdvId", "phone", "firstname", "lastname",
-           "appointmentDate", "examType",
-           "rejectedAt", "rejectReason", "rejectAttempts", "rejectErrorType",
-           "fileSize",
-           EXTRACT(EPOCH FROM (NOW() - "rejectedAt")) / 3600 AS "hoursSinceRejected"
-      FROM "PrescriptionUpload"
-     WHERE "externalCenterCode" = ANY($1::text[])
-       AND "status" = 'REJECTED'
-       AND "manualResolvedAt" IS NULL
-     ORDER BY "rejectedAt" ASC
+    SELECT d."id", pu."rdvId", pu."phone", pu."firstname", pu."lastname",
+           pu."appointmentDate", pu."examType",
+           d."rejectedAt", d."rejectReason", d."rejectAttempts", d."rejectErrorType",
+           d."fileSize",
+           EXTRACT(EPOCH FROM (NOW() - d."rejectedAt")) / 3600 AS "hoursSinceRejected"
+      FROM "PrescriptionDocument" d
+      JOIN "PrescriptionUpload" pu ON pu."id" = d."uploadId"
+     WHERE pu."externalCenterCode" = ANY($1::text[])
+       AND d."status" = 'REJECTED'
+       AND d."manualResolvedAt" IS NULL
+     ORDER BY d."rejectedAt" ASC, d."id" ASC
      LIMIT 500
     `,
     [codes]
