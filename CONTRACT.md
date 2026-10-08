@@ -90,7 +90,7 @@ Trois champs, qu'un robot plus ancien ignore :
 après `talk.site`. Trois clés, qu'un robot plus ancien ignore, sauf la première qu'il lit
 déjà :
 
-- `site.rdvInstructionSentence` : texte, 300 caractères au plus, dit après « Le jour de
+- `site.rdvInstructionSentence` : texte, 500 caractères au plus (300 jusqu'au 08/10/2026), dit après « Le jour de
   l'examen » dans l'annonce qui suit la réservation. Variables `{examen}` (« l'IRM »),
   `{centre}`. **N'est plus lu dans `talk.site`** : une valeur restée dans ce domaine est
   retirée du bloc et journalisée dans les champs ignorés.
