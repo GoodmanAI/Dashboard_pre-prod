@@ -791,6 +791,8 @@ rend sous le nom `horaireMapping`.
    « MINEUR » (`src/components/transcription/PastilleMineur.tsx`) ; `false`, `null` ou
    absent n'affichent rien. Un booléen, jamais la date de naissance. Il n'identifie
    personne une fois `steps` et `phoneNumber` effacés : il reste après l'anonymisation.
+   `GET /api/calls?mineur=true` (09/10/2026) ne garde que ces appels-là (filtre « MINEUR »
+   de l'écran Appels).
 3. **Payloads** `POST /api/rdv/init`, `POST /api/prescriptions/init` (clés, format de date de naissance, enum de type d'examen).
 4. **Forme de `GET /api/prescriptions/pending`** : `{ pending, total }`.
 5. **`ExternalCenterMapping.externalCenterCode`** = clé de jointure avec AI2Xplore.
