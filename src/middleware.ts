@@ -54,6 +54,8 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // session, le middleware la refuse maintenant plus tôt. Aucun appelant par clé
   // ne peut régresser, puisqu'aucun ne passait le handler.
   /^\/api\/prescriptions\/(?:init|pending)$/,
+  // Ordonnance a envoyer par mail (patient sans mobile) : LyraeTalk, API key (handler).
+  /^\/api\/prescriptions\/par-mail\/init$/,
   // Alertes ouvertes, RDV supprimes ou deplaces dans Xplore : cron d'AI2Xplore, API key (handler).
   /^\/api\/prescriptions\/alerts\/(?:open|rdv-supprimes|rdv-deplaces)$/,
   /^\/api\/prescriptions\/(?:ack|download)\/[^/]+$/,
