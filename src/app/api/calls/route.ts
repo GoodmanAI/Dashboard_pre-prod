@@ -132,6 +132,9 @@ export async function GET(request: NextRequest) {
     const toParam = searchParams.get("to");
     const phoneParam = searchParams.get("phone");
     const flaggedParam = searchParams.get("flagged");
+    // `mineur=true` : les seuls appels dont `stats.patient_mineur` vaut `true` (pastille
+    // « MINEUR », LyraeTalk v2.25.0). `null` et les appels d'avant le 08/10/2026 sortent.
+    const mineurOnly = searchParams.get("mineur") === "true";
     // Optionnel : si fournis, retourne aussi les appels de la période précédente
     // dans le champ `previous` (pour calcul des deltas vs N-1 sur les stats).
     // Les autres filtres (status, examType, …) sont appliqués à l'identique.
@@ -415,6 +418,10 @@ export async function GET(request: NextRequest) {
 
     if (statusParam === "not_performed") {
       calls = calls.filter((c: any) => estExamenNonPris(c?.stats));
+    }
+
+    if (mineurOnly) {
+      calls = calls.filter((c: any) => c?.stats?.patient_mineur === true);
     }
 
     // Recherche numéro — match canonique (06... ↔ +336...)
