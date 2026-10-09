@@ -15,6 +15,15 @@
 **Pour LyraeTalk** — header `x-api-key: BOT_API_KEY` :
 `GET /api/configuration`, `GET /api/configuration/get/mapping`, `GET /api/configuration/get/mapping/getLibelle`, `GET /api/configuration/get/is_open`, `GET /api/sms-confirmation-config`, `POST /api/calls/summary`.
 
+**Pour LyraeTalk, ordonnances** — header `x-api-key: APPOINTMENT_API_KEY` :
+`POST /api/prescriptions/init` (lien de dépôt du SMS) et, depuis le 09/10/2026,
+`POST /api/prescriptions/par-mail/init` : le robot a dit au patient d'envoyer son
+ordonnance par mail (type soumis au dépôt, aucun lien parti faute de mobile ou de SMS de
+confirmation). Corps `{ rdvId, externalCenterCode, examType, appointmentDate, firstname,
+lastname, phone }`, idempotent sur `(rdvId, centre)`. Table manuelle `PrescriptionParMail`,
+onglet « À vérifier dans la boîte mail » de la page Ordonnances manquantes, purge 30 jours
+après le RDV.
+
 ⚠️ **`GET /api/configuration` renvoie un bloc `site`** (07/09/2026), miroir exact de
 l'objet `call.site` de LyraeTalk. Il porte la configuration qui vit encore dans le
 `getInitInfo.js` du robot et qui descend ici au fur et à mesure, lue dans le domaine

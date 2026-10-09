@@ -27,6 +27,7 @@ import {
   MoveToInbox,
   TaskAlt,
   ErrorOutline,
+  MailOutline,
 } from "@mui/icons-material";
 import { IconInfoCircle, IconAlertTriangle } from "@tabler/icons-react";
 import ExamTypeBadge, { toExamTypeCode } from "@/components/shared/ExamTypeBadge";
@@ -34,6 +35,7 @@ import { io as ioClient, Socket } from "socket.io-client";
 import SectionHeader from "@/components/admin/SectionHeader";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import RejectedPrescriptionsPanel from "@/components/prescriptions/RejectedPrescriptionsPanel";
+import ParMailPrescriptionsPanel, { type ParMailItem } from "@/components/prescriptions/ParMailPrescriptionsPanel";
 import {
   ALERT_AFTER_HOURS_MAX,
   ALERT_AFTER_HOURS_MIN,
@@ -144,8 +146,11 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [resolving, setResolving] = useState<Set<number>>(new Set());
   // Chantier prescriptions rejected 2026-08-04 : tab actif entre les 2 vues
-  const [tab, setTab] = useState<"pending" | "rejected">("pending");
+  const [tab, setTab] = useState<"pending" | "par-mail" | "rejected">("pending");
   const [rejectedCount, setRejectedCount] = useState<number>(0);
+  // Patients sans portable invites par le robot a envoyer l'ordonnance par mail
+  // (09/10/2026). Charges avec les alertes pour le compteur de l'onglet.
+  const [parMailItems, setParMailItems] = useState<ParMailItem[]>([]);
   // Nombre d'alertes classees automatiquement par le serveur au dernier load
   // (RDV anterieur a aujourd'hui). Affiche pour que la disparition des cartes
   // ne soit pas silencieuse.
@@ -192,13 +197,16 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
         setLoading(true);
         setError(null);
         // Fetch en parallele : alertes pending + count rejected (pour le badge tab)
-        const [alertsRes, countRes] = await Promise.all([
+        const [alertsRes, countRes, parMailRes] = await Promise.all([
           fetch(
             `/api/prescriptions/alerts?userProductId=${userProductId}` +
               (hours != null ? `&hoursThreshold=${hours}` : ""),
             { cache: "no-store" }
           ),
           fetch(`/api/prescriptions/alerts/count?userProductId=${userProductId}`, {
+            cache: "no-store",
+          }),
+          fetch(`/api/prescriptions/par-mail?userProductId=${userProductId}`, {
             cache: "no-store",
           }),
         ]);
@@ -213,6 +221,10 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
         }
         if (Number.isFinite(data?.thresholdHours)) {
           setThresholdHours(data.thresholdHours);
+        }
+        if (parMailRes.ok) {
+          const pm = await parMailRes.json();
+          setParMailItems(Array.isArray(pm?.items) ? pm.items : []);
         }
         // Count rejected pour le badge du tab (non-bloquant)
         if (countRes.ok) {
@@ -417,7 +429,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
       <Box>
         <SectionHeader
           title="Ordonnances manquantes"
-          subtitle={`Les patients qui ont reçu le lien de dépôt${thresholdHours != null ? ` il y a plus de ${thresholdHours} heures` : ""} et n'ont rien envoyé, et les ordonnances refusées par votre logiciel de gestion.`}
+          subtitle={`Les patients qui ont reçu le lien de dépôt${thresholdHours != null ? ` il y a plus de ${thresholdHours} heures` : ""} et n'ont rien envoyé, ceux sans portable qui envoient leur ordonnance par mail, et les ordonnances refusées par votre logiciel de gestion.`}
           actions={
             tab === "pending" ? (
               <Chip
@@ -426,6 +438,16 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                 sx={{
                   bgcolor: orderedItems.length > 0 ? "rgba(239,68,68,0.15)" : "rgba(var(--accent-rgb), 0.15)",
                   color: orderedItems.length > 0 ? "#b91c1c" : "var(--accent-deep)",
+                  fontWeight: 700,
+                }}
+              />
+            ) : tab === "par-mail" ? (
+              <Chip
+                size="small"
+                label={loading ? "chargement…" : `${parMailItems.length} à vérifier`}
+                sx={{
+                  bgcolor: parMailItems.length > 0 ? "rgba(59,130,246,0.15)" : "rgba(var(--accent-rgb), 0.15)",
+                  color: parMailItems.length > 0 ? "#1d4ed8" : "var(--accent-deep)",
                   fontWeight: 700,
                 }}
               />
@@ -555,6 +577,12 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               label={`En attente patient (${orderedItems.length})`}
             />
             <Tab
+              value="par-mail"
+              icon={<MailOutline sx={{ fontSize: 18 }} />}
+              iconPosition="start"
+              label={`À vérifier dans la boîte mail (${parMailItems.length})`}
+            />
+            <Tab
               value="rejected"
               icon={<IconAlertTriangle size={18} />}
               iconPosition="start"
@@ -562,6 +590,15 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
             />
           </Tabs>
         </Card>
+
+        {tab === "par-mail" && (
+          <ParMailPrescriptionsPanel
+            userProductId={userProductId}
+            items={parMailItems}
+            loading={loading}
+            onRangee={(id) => setParMailItems((prev) => prev.filter((i) => i.id !== id))}
+          />
+        )}
 
         {/* Contenu du tab REJECTED */}
         {tab === "rejected" && userProductId && (
