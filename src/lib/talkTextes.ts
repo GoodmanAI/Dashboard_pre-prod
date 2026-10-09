@@ -107,9 +107,12 @@ export const SMS_STANDARD =
 export const SMS_DEPOT_STANDARD =
   "Ordonnance à déposer sous {delai}, sinon le RDV risque une annulation :\n{lien}\nCode : {code}";
 
-/** Début de l'annonce, fixe, pour l'aperçu de la phrase entière. */
+/**
+ * Début de l'annonce, fixe, pour l'aperçu de la phrase entière. Depuis le 09/10/2026
+ * le robot n'ajoute plus « Le jour de l'examen » : la consigne ouvre sa phrase.
+ */
 export const DEBUT_ANNONCE_EXEMPLE =
-  "Parfait, je vous confirme que votre rendez-vous est bien enregistré mardi 14 octobre à 10 heures au nom de Martin. Le jour de l'examen, ";
+  "Parfait, je vous confirme que votre rendez-vous est bien enregistré mardi 14 octobre à 10 heures au nom de Martin. ";
 
 // ─── Gabarits ────────────────────────────────────────────────────────────────
 
@@ -147,14 +150,18 @@ function remplacer(texte: string, valeurs: Record<string, string>): string {
   );
 }
 
-/** Consigne orale rendue, telle que le robot la dira après « Le jour de l'examen ». */
+/**
+ * Consigne orale rendue, telle que le robot la dira après la date et le nom : une
+ * phrase à elle, la majuscule remise comme le fait `annonceDeLaConsigne` du robot.
+ */
 export function rendreConsigne(
   texte: string,
   valeurs: { examen: string; centre: string },
 ): string {
-  return remplacer(texte, valeurs)
+  const rendu = remplacer(texte, valeurs)
     .replace(/\s{2,}/g, " ")
     .trim();
+  return rendu ? rendu[0].toUpperCase() + rendu.slice(1) : rendu;
 }
 
 export type RdvSms = { examen: string; date: string; heure: string };
