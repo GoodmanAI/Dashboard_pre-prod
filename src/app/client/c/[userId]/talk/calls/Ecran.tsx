@@ -242,6 +242,7 @@ export default function CallListPage({ params }: CallListPageProps) {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("all");
   const [examTypeFilter, setExamTypeFilter] = useState("all");
+  const [mineurFilter, setMineurFilter] = useState(false);
   const [tab, setTab] = useState("all");
 
   const [selectedCall, setSelectedCall] = useState<any | null>(null);
@@ -287,10 +288,12 @@ export default function CallListPage({ params }: CallListPageProps) {
     const examTypeFromUrl: any = searchParams?.get("examType");
     const tabFromUrl: any = searchParams?.get("tab");
     const phoneFromUrl: any = searchParams?.get("phone");
+    const mineurFromUrl = searchParams?.get("mineur");
 
     if (!isNaN(pageFromUrl) && pageFromUrl > 0) setPage(pageFromUrl);
     if (statusFromUrl) setStatusFilter(statusFromUrl);
     if (examTypeFromUrl) setExamTypeFilter(examTypeFromUrl);
+    if (mineurFromUrl === "true") setMineurFilter(true);
     if (tabFromUrl) setTab(tabFromUrl);
     if (phoneFromUrl) {
       setPhoneInput(phoneFromUrl);
@@ -316,6 +319,7 @@ export default function CallListPage({ params }: CallListPageProps) {
       // Transition inactive → active : reset une fois
       setStatusFilter("all");
       setExamTypeFilter("all");
+      setMineurFilter(false);
       setTab("all");
       const today = new Date();
       setDateRange({
@@ -347,11 +351,12 @@ export default function CallListPage({ params }: CallListPageProps) {
     paramsUrl.set("status", statusFilter);
     paramsUrl.set("examType", examTypeFilter);
     paramsUrl.set("tab", tab);
+    if (mineurFilter) paramsUrl.set("mineur", "true");
     if (phoneSearchActive) paramsUrl.set("phone", phoneSearch);
 
     router.replace(`${basePath}/calls?${paramsUrl.toString()}`, { scroll: false });
 
-  }, [page, statusFilter, examTypeFilter, tab, phoneSearch]);
+  }, [page, statusFilter, examTypeFilter, mineurFilter, tab, phoneSearch]);
 
   // FETCH
   useEffect(() => {
@@ -384,6 +389,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
         if (tab === "scanners") params.append("examType", "scanner");
         if (phoneSearchActive) params.append("phone", phoneSearch);
+        if (mineurFilter) params.append("mineur", "true");
 
         const res = await fetch(`/api/calls?${params}`, { signal: controller.signal });
 
@@ -419,7 +425,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
     return () => controller.abort();
 
-  }, [userProductId, page, statusFilter, examTypeFilter, tab, dateRange, phoneSearch]);
+  }, [userProductId, page, statusFilter, examTypeFilter, mineurFilter, tab, dateRange, phoneSearch]);
 
   useEffect(() => {
     const init = async () => {
@@ -737,6 +743,25 @@ export default function CallListPage({ params }: CallListPageProps) {
             ))}
           </Select>
         </FormControl>
+
+        {/* Mêmes couleurs que la pastille des lignes : pleine quand le filtre est actif. */}
+        <Chip
+          label="MINEUR"
+          variant={mineurFilter ? "filled" : "outlined"}
+          aria-pressed={mineurFilter}
+          onClick={() => {
+            setMineurFilter((v) => !v);
+            setPage(1);
+          }}
+          sx={{
+            fontWeight: 700,
+            letterSpacing: 0.5,
+            borderColor: "#ea580c",
+            color: mineurFilter ? "#fff" : "#ea580c",
+            backgroundColor: mineurFilter ? "#ea580c" : "transparent",
+            "&&:hover": { backgroundColor: mineurFilter ? "#c2410c" : "rgba(234, 88, 12, 0.08)" },
+          }}
+        />
 
         {phoneSearchActive && (
           <Chip
