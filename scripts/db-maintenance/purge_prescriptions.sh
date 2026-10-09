@@ -16,6 +16,8 @@
 #     (defaut 90) : filet (PENDING jamais rempli, EXPIRED, LOCKED, document
 #     jamais acquitte), SAUF s'il porte un document REJECTED que la
 #     secretaire n'a pas encore traite.
+#   - Carte « ordonnance par mail » (PrescriptionParMail) : purge
+#     ACKED_RETENTION_DAYS jours apres le RDV.
 #
 # Sequence : une instruction par branche. Une CTE choisit les liens, une
 # autre supprime leurs documents, une troisieme les liens, et l'instruction
@@ -104,7 +106,17 @@ FINAL_PATHS=$(purge_liens "
 ")
 read -r UNLINK_FINAL_OK UNLINK_FINAL_FAIL <<< "$(unlink_chemins "$FINAL_PATHS")"
 
+# ----- Branche 3 : ordonnances a envoyer par mail, RDV passe depuis 30 j -----
+# Aucun fichier : la carte ne porte que le patient et le RDV (09/10/2026).
+PAR_MAIL_PURGED=$(psql "$DATABASE_URL" -tAc "
+  WITH d AS (
+    DELETE FROM \"PrescriptionParMail\"
+     WHERE \"appointmentDate\" < NOW() - INTERVAL '${ACKED_RETENTION_DAYS} days'
+    RETURNING 1
+  ) SELECT COUNT(*) FROM d;
+" 2>/dev/null || echo "n/a")
+
 REMAINING=$(psql "$DATABASE_URL" -tAc 'SELECT COUNT(*) FROM "PrescriptionUpload";')
 DISK_USAGE=$(df -h /var/www/ordonnances 2>/dev/null | tail -1 | awk '{print $3"/"$2" ("$5")"}' || echo "n/a")
 
-log "acked_unlinked_ok=${UNLINK_ACKED_OK} acked_unlink_failed=${UNLINK_ACKED_FAIL} final_unlinked_ok=${UNLINK_FINAL_OK} final_unlink_failed=${UNLINK_FINAL_FAIL} remaining=${REMAINING} disk=${DISK_USAGE}"
+log "acked_unlinked_ok=${UNLINK_ACKED_OK} acked_unlink_failed=${UNLINK_ACKED_FAIL} final_unlinked_ok=${UNLINK_FINAL_OK} final_unlink_failed=${UNLINK_FINAL_FAIL} par_mail_purged=${PAR_MAIL_PURGED} remaining=${REMAINING} disk=${DISK_USAGE}"
