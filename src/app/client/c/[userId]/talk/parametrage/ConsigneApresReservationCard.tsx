@@ -35,8 +35,8 @@ import { enregistrerTextesTalk, useTextesTalk } from "./textesTalk";
  * « Ce que le robot dit après la réservation » (08/10/2026).
  *
  * Le début de l'annonce est fixe (date, heure, nom du patient) ; le client règle
- * la suite, dite après « Le jour de l'examen » : arriver en avance, documents à
- * apporter. Une consigne générale, et au besoin une par type d'examen, qui la
+ * la phrase qui suit (sans « Le jour de l'examen » devant depuis le 09/10/2026) :
+ * arriver en avance, documents à apporter. Une consigne générale, et au besoin une par type d'examen, qui la
  * remplace pour cet examen. Domaine `talk.textes`, plan
  * `lyrae/plans/2026-10-confirmation-personnalisable.md`.
  *
@@ -171,10 +171,9 @@ export default function ConsigneApresReservationCard({
           <Stack spacing={2.5}>
             <Typography variant="body2" color="text.secondary">
               Une fois le rendez-vous pris, le robot confirme la date,
-              l&apos;heure et le nom du patient, puis dit « Le jour de
-              l&apos;examen » suivi de votre consigne. Écrivez la suite : venir
-              en avance, documents à apporter. Commencez par un verbe, sans
-              majuscule. Ce texte est dit aux patients qui parlent français.
+              l&apos;heure et le nom du patient, puis lit votre consigne :
+              venir en avance, documents à apporter. Écrivez une phrase
+              complète. Ce texte est dit aux patients qui parlent français.
             </Typography>
 
             <ChampAvecVariables
