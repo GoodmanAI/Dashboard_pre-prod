@@ -15,7 +15,8 @@ import { PAGES } from "@/lib/permissions";
  * Auth : session NextAuth + ownership + droit de lecture ORDONNANCES.
  *
  * Reponse 200 :
- *   { items: [{ id, examType, appointmentDate, firstname, lastname, phone, createdAt }] }
+ *   { items: [{ id, examType, appointmentDate, firstname, lastname, phone, createdAt,
+ *               ordonnance: boolean, documents: string[] }] }
  */
 export async function GET(req: NextRequest) {
   const auth = await requireAuth();
@@ -36,7 +37,8 @@ export async function GET(req: NextRequest) {
   const res = await db.query(
     `
     SELECT pm."id", pm."examType", pm."appointmentDate", pm."firstname",
-           pm."lastname", pm."phone", pm."createdAt"
+           pm."lastname", pm."phone", pm."createdAt",
+           pm."ordonnance", pm."documents"
       FROM "PrescriptionParMail" pm
       JOIN "ExternalCenterMapping" ecm ON ecm."externalCenterCode" = pm."externalCenterCode"
      WHERE ecm."userProductId" = $1

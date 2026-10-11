@@ -8,10 +8,8 @@ import { verifyVerificationCode } from "@/lib/verificationCodeHash";
 import { scanBuffer } from "@/lib/clamavScan";
 import { checkRateLimit } from "@/lib/prescriptionRateLimit";
 import { detectFileType } from "@/lib/prescriptionFileType";
-import {
-  MAX_DOCUMENTS_PAR_LIEN,
-  lienOuvert,
-} from "@/lib/prescriptionDocuments";
+import { lienOuvert } from "@/lib/prescriptionDocuments";
+import { MAX_DOCUMENTS_PAR_PIECE } from "@/lib/piecesAttendues";
 
 /**
  * Endpoint patient public (auth = shortCode dans l'URL + verificationCode
@@ -22,6 +20,9 @@ import {
  * Body attendu (multipart/form-data) :
  *   code: string    — 6 chiffres du SMS
  *   file: File      — ordonnance en PDF/JPG/PNG (100 B .. 8 MB)
+ *   pieceId?: string — la piece attendue a laquelle le fichier repond
+ *                      (absent : l'ordonnance, ou a defaut la premiere piece ;
+ *                      pages ouvertes avant le 11/10/2026)
  *
  * Formats acceptes (compatibles Xplore RIS/PACS) : PDF, JPEG, PNG.
  * HEIC (iPhone) et WebP (Android) rejetes avec message d'aide dedie
@@ -31,7 +32,7 @@ import {
  *   1. Token existe                    → 404 sinon
  *   2. Lien ouvert (ni LOCKED, ni EXPIRED, RDV pas encore passe) → 409 sinon
  *   3. Code correct                    → 422 + attempts++ sinon (LOCKED a 3)
- *   4. Moins de 5 documents deja recus → 409 sinon
+ *   4. Piece du lien, moins de 5 documents deja recus pour elle → 400/409 sinon
  *   5. Fichier present, taille bornee  → 400/413 sinon
  *   6. Magic bytes PDF/JPEG/PNG        → 415 sinon (message dedie HEIC/WebP)
  *   7. Antivirus ClamAV clean          → 422 sinon (log alerte)
@@ -41,8 +42,9 @@ import {
  * PrescriptionStats.uploaded au premier document du lien.
  *
  * Plusieurs documents (depuis le 08/10/2026) : un envoi = un fichier = un
- * document. Le lien en accepte MAX_DOCUMENTS_PAR_LIEN, en plusieurs fois,
- * jusqu'a l'heure du RDV. Plus de remplacement : un document deja parti
+ * document. Depuis le 11/10/2026 (documents demandes), le plafond vaut par
+ * piece attendue : MAX_DOCUMENTS_PAR_PIECE, en plusieurs fois, jusqu'a
+ * l'heure du RDV. Plus de remplacement : un document deja parti
  * dans Xplore ne se retire pas d'ici. Le plafond est verifie sous verrou de
  * la ligne du lien (deux envois simultanes ne font pas un sixieme).
  */
@@ -134,12 +136,9 @@ export async function POST(
     verificationCodeHash: string;
     externalCenterCode: string;
     examType: string | null;
-    nbDocuments: number;
   }>(
     `SELECT pu."id", pu."status", pu."attempts", pu."expiresAt",
-            pu."verificationCodeHash", pu."externalCenterCode", pu."examType",
-            (SELECT COUNT(*)::int FROM "PrescriptionDocument" d
-              WHERE d."uploadId" = pu."id") AS "nbDocuments"
+            pu."verificationCodeHash", pu."externalCenterCode", pu."examType"
        FROM "PrescriptionUpload" pu
       WHERE pu."token" = $1
       LIMIT 1`,
@@ -207,6 +206,7 @@ export async function POST(
 
   const codeRaw = formData.get("code");
   const fileRaw = formData.get("file");
+  const pieceIdRaw = formData.get("pieceId");
   if (typeof codeRaw !== "string" || !(fileRaw instanceof File)) {
     return NextResponse.json(
       { error: "Champs manquants : code et file requis" },
@@ -248,9 +248,36 @@ export async function POST(
     );
   }
 
-  // ------ 5. Plafond (lecture rapide, reverifie sous verrou a l'ecriture) ------
-  if (record.nbDocuments >= MAX_DOCUMENTS_PAR_LIEN) {
-    return plafondAtteint();
+  // ------ 5. Piece visee et plafond (lecture rapide, reverifie sous verrou) ------
+  const pieceIdDemande =
+    typeof pieceIdRaw === "string" && /^\d+$/.test(pieceIdRaw)
+      ? parseInt(pieceIdRaw, 10)
+      : null;
+  const pieceRes = await db.query<{
+    id: number;
+    piece: string;
+    libelle: string;
+    nbDocuments: number;
+  }>(
+    `SELECT p."id", p."piece", p."libelle",
+            (SELECT COUNT(*)::int FROM "PrescriptionDocument" d
+              WHERE d."pieceAttendueId" = p."id") AS "nbDocuments"
+       FROM "PieceAttendue" p
+      WHERE p."uploadId" = $1
+        AND ($2::int IS NULL OR p."id" = $2)
+      ORDER BY (p."piece" = 'ordonnance') DESC, p."ordre" ASC, p."id" ASC
+      LIMIT 1`,
+    [record.id, pieceIdDemande]
+  );
+  const piece = pieceRes.rows[0];
+  if (!piece) {
+    return NextResponse.json(
+      { error: "Ce document n'est pas demandé pour ce rendez-vous. Rechargez la page." },
+      { status: 400 }
+    );
+  }
+  if (piece.nbDocuments >= MAX_DOCUMENTS_PAR_PIECE) {
+    return plafondAtteint(piece.libelle);
   }
 
   // ------ 6. Validation fichier (taille + MIME + structure PDF) ------
@@ -258,7 +285,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          "Ce fichier est trop petit pour être une ordonnance. Choisissez-en un autre.",
+          "Ce fichier est trop petit pour être lisible. Choisissez-en un autre.",
       },
       { status: 400 }
     );
@@ -383,6 +410,8 @@ export async function POST(
   let documentId: number | null = null;
   let nbDocuments = 0;
   let premierDocument = false;
+  let premiereOrdonnance = false;
+  let pieceRecue = false;
   const client = await db.connect();
   try {
     await client.query("BEGIN");
@@ -391,21 +420,30 @@ export async function POST(
       [record.id]
     );
     const compte = await client.query<{ n: number }>(
-      `SELECT COUNT(*)::int AS "n" FROM "PrescriptionDocument" WHERE "uploadId" = $1`,
-      [record.id]
+      `SELECT COUNT(*)::int AS "n" FROM "PrescriptionDocument" WHERE "pieceAttendueId" = $1`,
+      [piece.id]
     );
     const deja = compte.rows[0]?.n ?? 0;
-    if (deja < MAX_DOCUMENTS_PAR_LIEN) {
+    if (deja < MAX_DOCUMENTS_PAR_PIECE) {
       const ins = await client.query<{ id: number }>(
         `INSERT INTO "PrescriptionDocument"
-           ("uploadId", "fileSize", "fileSha256", "storagePath")
-         VALUES ($1, $2, $3, $4)
+           ("uploadId", "fileSize", "fileSha256", "storagePath", "pieceAttendueId")
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING "id"`,
-        [record.id, fileRaw.size, fileSha256, storagePath]
+        [record.id, fileRaw.size, fileSha256, storagePath, piece.id]
       );
       documentId = ins.rows[0].id;
       nbDocuments = deja + 1;
       premierDocument = verrou.rows[0]?.status === "PENDING";
+      // La piece est recue a son premier document : elle sort de la liste
+      // de la secretaire (« Ordonnances » ou « Questionnaires et documents »).
+      const recue = await client.query(
+        `UPDATE "PieceAttendue" SET "recueAt" = NOW()
+          WHERE "id" = $1 AND "recueAt" IS NULL`,
+        [piece.id]
+      );
+      pieceRecue = (recue.rowCount ?? 0) > 0;
+      premiereOrdonnance = pieceRecue && piece.piece === "ordonnance";
       // Le lien passe en UPLOADED au premier document ; "uploadedAt" garde
       // l'heure du premier envoi (sortie de l'alerte « ordonnance manquante »).
       await client.query(
@@ -433,11 +471,11 @@ export async function POST(
   if (documentId === null) {
     // Plafond atteint entre la lecture et l'ecriture : le fichier ne sert pas.
     await unlink(storagePath).catch(() => {});
-    return plafondAtteint();
+    return plafondAtteint(piece.libelle);
   }
 
-  // ------ 10. Compteur agregat (une fois par lien, au premier document) ------
-  if (premierDocument) {
+  // ------ 10. Compteur agregat (une fois par lien, a la premiere ordonnance) ------
+  if (premiereOrdonnance) {
     try {
       await db.query(
         `
@@ -480,7 +518,7 @@ export async function POST(
   // navbar/header). On notifie tous les clients dashboard connectes pour un
   // rafraichissement instantane, sans attendre le poll de fallback.
   // Payload minimale : externalCenterCode pour permettre au client de filtrer.
-  if (premierDocument) {
+  if (premierDocument || pieceRecue) {
     const io: any = globalThis.io;
     if (io) {
       io.emit("prescription-alerts-updated", {
@@ -493,19 +531,20 @@ export async function POST(
     {
       status: "UPLOADED",
       nbDocuments,
-      maxDocuments: MAX_DOCUMENTS_PAR_LIEN,
+      maxDocuments: MAX_DOCUMENTS_PAR_PIECE,
+      pieceId: piece.id,
       message: "Document envoyé. Il sera transmis au centre.",
     },
     { status: 200 }
   );
 }
 
-function plafondAtteint() {
+function plafondAtteint(libelle: string) {
   return NextResponse.json(
     {
-      error: `Vous avez déjà envoyé ${MAX_DOCUMENTS_PAR_LIEN} documents, c'est le maximum. Pour en ajouter un, contactez votre centre.`,
+      error: `Vous avez déjà envoyé ${MAX_DOCUMENTS_PAR_PIECE} documents pour « ${libelle} », c'est le maximum. Pour en ajouter un, contactez votre centre.`,
       status: "FULL",
-      nbDocuments: MAX_DOCUMENTS_PAR_LIEN,
+      nbDocuments: MAX_DOCUMENTS_PAR_PIECE,
     },
     { status: 409 }
   );

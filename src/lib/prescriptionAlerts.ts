@@ -23,6 +23,7 @@
  */
 
 import { db } from "./db";
+import { pieceOuverteSql } from "./piecesAttendues";
 
 /**
  * Predicat SQL "le RDV est anterieur au jour courant".
@@ -58,16 +59,28 @@ export async function autoResolvePastAppointments(
 ): Promise<number> {
   if (codes.length === 0) return 0;
 
+  // Depuis le 11/10/2026, l'alerte vit sur les pieces attendues : on classe
+  // toutes les pieces ouvertes des liens dont le RDV est passe, puis le lien.
   const upd = await db.query<{ id: number }>(
     `
-    UPDATE "PrescriptionUpload"
-       SET "alertResolvedAt" = NOW()
-     WHERE "externalCenterCode" = ANY($1::text[])
-       AND "status" = 'PENDING'
-       AND "alertResolvedAt" IS NULL
-       AND "ackedAt" IS NULL
-       AND ${PAST_APPOINTMENT_SQL}
-    RETURNING "id"
+    WITH liens AS (
+      SELECT pu."id" FROM "PrescriptionUpload" pu
+       WHERE pu."externalCenterCode" = ANY($1::text[])
+         AND ${PAST_APPOINTMENT_SQL}
+         AND ${pieceOuverteSql(null)}
+    ), pieces AS (
+      UPDATE "PieceAttendue" p
+         SET "alertResolvedAt" = NOW()
+        FROM liens
+       WHERE p."uploadId" = liens."id"
+         AND p."recueAt" IS NULL
+         AND p."alertResolvedAt" IS NULL
+    )
+    UPDATE "PrescriptionUpload" pu
+       SET "alertResolvedAt" = COALESCE(pu."alertResolvedAt", NOW())
+      FROM liens
+     WHERE pu."id" = liens."id"
+    RETURNING pu."id"
     `,
     [codes]
   );
@@ -107,8 +120,8 @@ export async function autoResolvePastAppointments(
  *     fait ; l'ordonnance a ete vue a l'accueil ou ne sert plus.
  * Voir plans/2026-09-ordonnances-rdv-supprimes.md (workspace).
  *
- * Memes garde-fous que `autoResolvePastAppointments` : seules les lignes PENDING,
- * non resolues et non acquittees sont touchees, et `status` reste inchange.
+ * Memes garde-fous que `autoResolvePastAppointments` : seuls les liens qui ont
+ * encore une piece ouverte sont touches, et `status` reste inchange.
  * L'`id` ET le `rdvId` doivent concorder : un id errone ne classe rien.
  *
  * @returns les lignes classees, avec le userProductId de leur centre pour
@@ -122,16 +135,27 @@ export async function classerAlertesRdv(
 ): Promise<{ id: number; userProductIds: number[] }[]> {
   if (items.length === 0) return [];
 
+  // Par piece depuis le 11/10/2026 : toutes les pieces ouvertes du lien sont
+  // classees (ordonnance et documents), puis le lien.
   const upd = await db.query<{ id: number; externalCenterCode: string }>(
     `
+    WITH liens AS (
+      SELECT pu."id" FROM "PrescriptionUpload" pu
+        JOIN unnest($1::int[], $2::text[]) AS v("id", "rdvId")
+          ON pu."id" = v."id" AND pu."rdvId" = v."rdvId"
+       WHERE ${pieceOuverteSql(null)}
+    ), pieces AS (
+      UPDATE "PieceAttendue" p
+         SET "alertResolvedAt" = NOW()
+        FROM liens
+       WHERE p."uploadId" = liens."id"
+         AND p."recueAt" IS NULL
+         AND p."alertResolvedAt" IS NULL
+    )
     UPDATE "PrescriptionUpload" pu
-       SET "alertResolvedAt" = NOW()
-      FROM unnest($1::int[], $2::text[]) AS v("id", "rdvId")
-     WHERE pu."id" = v."id"
-       AND pu."rdvId" = v."rdvId"
-       AND pu."status" = 'PENDING'
-       AND pu."alertResolvedAt" IS NULL
-       AND pu."ackedAt" IS NULL
+       SET "alertResolvedAt" = COALESCE(pu."alertResolvedAt", NOW())
+      FROM liens
+     WHERE pu."id" = liens."id"
     RETURNING pu."id", pu."externalCenterCode"
     `,
     [items.map((i) => i.id), items.map((i) => i.rdvId)]
@@ -205,9 +229,7 @@ export async function reporterDateRdv(
      WHERE pu."id" = v."id"
        AND avant."id" = v."id"
        AND pu."rdvId" = v."rdvId"
-       AND pu."status" = 'PENDING'
-       AND pu."alertResolvedAt" IS NULL
-       AND pu."ackedAt" IS NULL
+       AND ${pieceOuverteSql(null)}
     RETURNING pu."id", pu."externalCenterCode",
               to_char(avant."ancienne" AT TIME ZONE 'Europe/Paris', 'YYYY-MM-DD HH24:MI') AS "avant",
               to_char(pu."appointmentDate" AT TIME ZONE 'Europe/Paris', 'YYYY-MM-DD HH24:MI') AS "apres"
