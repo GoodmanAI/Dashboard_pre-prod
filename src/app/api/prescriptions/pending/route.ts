@@ -40,8 +40,14 @@ const DEFAULT_LIMIT = 50;
  *   hasMore: <count < total>,
  *   items: [
  *     { id, uploadId, rdvId, externalCenterCode, examType,
- *       uploadedAt, fileSize, fileSha256 }
+ *       uploadedAt, fileSize, fileSha256,
+ *       piece: "ordonnance" | "document",   // depuis le 11/10/2026
+ *       libelle: string }                   // « Ordonnance », « Questionnaire IRM »...
  *   ]
+ *
+ * `piece` et `libelle` (additifs) disent a quelle piece attendue le document
+ * repond : AI2Xplore en fait le libelle de la piece jointe dans Xplore. Un
+ * document sans piece (aucun apres la reprise du 11/10) vaut « ordonnance ».
  * }
  *
  * Ordre : uploadedAt ASC, id ASC (FIFO stricte, stable). Garantit qu'aucun
@@ -159,11 +165,16 @@ export async function GET(req: NextRequest) {
     uploadedAt: Date;
     fileSize: number;
     fileSha256: string;
+    piece: string;
+    libelle: string;
   }>(
     `SELECT d."id", d."uploadId", pu."rdvId", pu."externalCenterCode", pu."examType",
-            d."uploadedAt", d."fileSize", d."fileSha256"
+            d."uploadedAt", d."fileSize", d."fileSha256",
+            COALESCE(p."piece", 'ordonnance') AS "piece",
+            COALESCE(p."libelle", 'Ordonnance') AS "libelle"
        FROM "PrescriptionDocument" d
        JOIN "PrescriptionUpload" pu ON pu."id" = d."uploadId"
+       LEFT JOIN "PieceAttendue" p ON p."id" = d."pieceAttendueId"
       WHERE ${whereClause}
       ORDER BY d."uploadedAt" ASC, d."id" ASC
       LIMIT $${idx}`,

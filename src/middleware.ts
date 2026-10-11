@@ -60,6 +60,8 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   /^\/api\/prescriptions\/alerts\/(?:open|rdv-supprimes|rdv-deplaces)$/,
   /^\/api\/prescriptions\/(?:ack|download)\/[^/]+$/,
   /^\/api\/prescriptions\/[^/]+\/(?:status|upload)$/,
+  // Modele vierge d'un document demande (questionnaire du centre) : public, protege par le token.
+  /^\/api\/prescriptions\/[^/]+\/modele\/\d+$/,
   // Suivi de dérive de déploiement (chantier 2026-08-10) :
   //  - POST : sonde deploy/deployment-probe.js des 3 VMs → API key (handler)
   //  - GET  : page /admin/deployments (session admin) OU daily-report (API key),
@@ -167,6 +169,7 @@ const DEPOT_ORDONNANCES_ALLOWED_PATTERNS: RegExp[] = [
   /^\/d\/[^/]+\/?$/,                              // /d/{shortCode} — page upload patient
   /^\/api\/prescriptions\/[^/]+\/status\/?$/,     // GET statut public (via token)
   /^\/api\/prescriptions\/[^/]+\/upload\/?$/,     // POST upload PDF (via token)
+  /^\/api\/prescriptions\/[^/]+\/modele\/\d+\/?$/, // GET modele d'un document demande (via token)
   // Assets statiques publics pour le rendu de la page upload.
   /^\/images\//,
   /^\/fonts\//,

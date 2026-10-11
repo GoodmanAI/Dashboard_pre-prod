@@ -23,15 +23,18 @@ import { PAGES } from "@/lib/permissions";
  * Auth : session NextAuth + ownership check sur userProductId (identique a
  * /api/prescriptions/alerts).
  *
- * Filtre metier (aligne sur la page ordonnances-manquantes) :
- *   - status = 'PENDING' (le patient n'a pas encore upload)
- *   - alertResolvedAt IS NULL (secretaire n'a pas encore traite)
- *   - createdAt < NOW() - INTERVAL 'alertAfterHours hours'
+ * Filtre metier (aligne sur la page ordonnances-manquantes, par piece depuis
+ * le 11/10/2026, plans/2026-10-documents-demandes.md) :
+ *   - lien ayant une piece ni recue ni classee, creee depuis plus de
+ *     'alertAfterHours hours', lien non echu
+ *   - une carte par lien et par section : un lien qui attend son ordonnance
+ *     ET un questionnaire compte deux fois (deux cartes, deux sections)
  *   - appointmentDate pas anterieure au jour courant (Europe/Paris) : ces
  *     alertes sont classees automatiquement, cf. src/lib/prescriptionAlerts.ts
  *   - centre resolu via ExternalCenterMapping (multi-centre supporte)
  *
- * Reponse 200 : { userProductId, count, thresholdHours }
+ * Reponse 200 : { userProductId, count, pendingCount, documentsCount,
+ *                rejectedCount, thresholdHours }
  *   thresholdHours = alertAfterHours du centre, utile pour afficher un tooltip
  *   "N patients depassent le delai de X heures" cote UI.
  */
@@ -85,18 +88,23 @@ export async function GET(req: NextRequest) {
   // automatiquement au chargement, le badge doit annoncer le meme chiffre sans
   // attendre qu'une secretaire ouvre la page. Cet endpoint ne fait que lire —
   // il est poll toutes les 60s depuis toutes les pages, on n'y ecrit pas.
-  const pendingRes = await db.query<{ count: string }>(
+  const piecesRes = await db.query<{ piece: string; count: string }>(
     `
-    SELECT COUNT(*)::text AS count
-      FROM "PrescriptionUpload"
-     WHERE "externalCenterCode" = ANY($1::text[])
-       AND "status" = 'PENDING'
-       AND "alertResolvedAt" IS NULL
-       AND "createdAt" < NOW() - ($2::int || ' hours')::interval
+    SELECT p."piece", COUNT(DISTINCT pu."id")::text AS count
+      FROM "PieceAttendue" p
+      JOIN "PrescriptionUpload" pu ON pu."id" = p."uploadId"
+     WHERE pu."externalCenterCode" = ANY($1::text[])
+       AND pu."status" <> 'EXPIRED'
+       AND p."recueAt" IS NULL
+       AND p."alertResolvedAt" IS NULL
+       AND p."createdAt" < NOW() - ($2::int || ' hours')::interval
        AND NOT ${PAST_APPOINTMENT_SQL}
+     GROUP BY p."piece"
     `,
     [codes, thresholdHours]
   );
+  const parSorte = (sorte: string) =>
+    Number(piecesRes.rows.find((r) => r.piece === sorte)?.count ?? 0);
 
   // Count documents REJECTED non resolus (alertes "Xplore a refuse, a traiter
   // manuellement", chantier prescriptions rejected 2026-08-04). Par document
@@ -113,14 +121,16 @@ export async function GET(req: NextRequest) {
     [codes]
   );
 
-  const pendingCount = Number(pendingRes.rows[0]?.count ?? 0);
+  const pendingCount = parSorte("ordonnance");
+  const documentsCount = parSorte("document");
   const rejectedCount = Number(rejectedRes.rows[0]?.count ?? 0);
-  const count = pendingCount + rejectedCount;
+  const count = pendingCount + documentsCount + rejectedCount;
 
   return NextResponse.json({
     userProductId,
     count, // total (retrocompat : le hook usePrescriptionAlertsCount lit cette cle)
-    pendingCount, // detail pour tooltip / breakdown UI
+    pendingCount, // detail pour tooltip / breakdown UI : ordonnances
+    documentsCount, // questionnaires et documents
     rejectedCount,
     thresholdHours,
   });

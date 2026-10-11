@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireApiKey } from "@/lib/auth-helpers";
+import { normalizePrescriptionEnabled } from "@/lib/prescriptionConfig";
+import { documentsApplicables } from "@/lib/piecesAttendues";
 
 const ALLOWED_EXAM_TYPES = [
   "scanner",
@@ -27,8 +29,16 @@ const ALLOWED_EXAM_TYPES = [
  *     externalCenterCode: string,
  *     examType: "scanner" | "irm" | "mammo" | "radiographie" | "echographie",
  *     appointmentDate: ISO string,
- *     firstname?: string, lastname?: string, phone?: string
+ *     firstname?: string, lastname?: string, phone?: string,
+ *     mineur?: boolean          // depuis le 11/10/2026 ; absent = appelant
+ *                               //  d'avant les documents demandes
  *   }
+ *
+ * Documents demandes (plans/2026-10-documents-demandes.md) : la carte dit ce
+ * que le secretariat doit recevoir (« ordonnance ») et renvoyer au patient
+ * (`documents`, libelles). Un appelant qui envoie `mineur` peut creer une
+ * carte pour un examen non soumis au depot, si un document y vaut ; rien a
+ * demander : 200 { id: null, created: false }.
  *
  * Idempotent sur (rdvId, centerId) : un second envoi met a jour la date et le
  * patient, sans ressortir une carte deja rangee.
@@ -66,9 +76,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const centerRes = await db.query<{ id: number }>(
+  const centerRes = await db.query<{ id: number; userProductId: number }>(
     `
-    SELECT up."userId" AS "id"
+    SELECT up."userId" AS "id", up."id" AS "userProductId"
       FROM "ExternalCenterMapping" m
       JOIN "UserProduct" up ON up."id" = m."userProductId"
      WHERE m."externalCenterCode" = $1
@@ -81,20 +91,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unknown externalCenterCode" }, { status: 404 });
   }
   const centerId = centerRes.rows[0].id;
+  const userProductId = centerRes.rows[0].userProductId;
+
+  const appelantAncien = !(body && typeof body === "object" && "mineur" in body);
+  const cfg = await db.query<{ enabledExamTypes: unknown }>(
+    `SELECT "enabledExamTypes" FROM "PrescriptionConfig" WHERE "userProductId" = $1`,
+    [userProductId]
+  );
+  const depotActif = normalizePrescriptionEnabled(cfg.rows[0]?.enabledExamTypes);
+  const ordonnance =
+    appelantAncien || depotActif[examType as keyof typeof depotActif] === true;
+  const documents = (
+    await documentsApplicables(userProductId, examType, body.mineur === true)
+  ).map((d) => d.libelle);
+  if (!ordonnance && documents.length === 0) {
+    return NextResponse.json({ id: null, created: false });
+  }
 
   const res = await db.query<{ id: number; created: boolean }>(
     `
     INSERT INTO "PrescriptionParMail"
       ("rdvId", "centerId", "externalCenterCode", "examType",
-       "appointmentDate", "firstname", "lastname", "phone")
-    VALUES ($1, $2, $3, $4, $5::timestamptz, $6, $7, $8)
+       "appointmentDate", "firstname", "lastname", "phone",
+       "ordonnance", "documents")
+    VALUES ($1, $2, $3, $4, $5::timestamptz, $6, $7, $8, $9, $10::jsonb)
     ON CONFLICT ("rdvId", "centerId") DO UPDATE
       SET "externalCenterCode" = EXCLUDED."externalCenterCode",
           "examType"           = EXCLUDED."examType",
           "appointmentDate"    = EXCLUDED."appointmentDate",
           "firstname"          = EXCLUDED."firstname",
           "lastname"           = EXCLUDED."lastname",
-          "phone"              = EXCLUDED."phone"
+          "phone"              = EXCLUDED."phone",
+          "ordonnance"         = EXCLUDED."ordonnance",
+          "documents"          = EXCLUDED."documents"
     RETURNING "id", (xmax = 0) AS "created"
     `,
     [
@@ -106,6 +135,8 @@ export async function POST(req: NextRequest) {
       texte(body.firstname),
       texte(body.lastname),
       texte(body.phone),
+      ordonnance,
+      JSON.stringify(documents),
     ]
   );
 
