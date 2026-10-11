@@ -11,22 +11,34 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { CloudUpload, InsertDriveFile, CheckCircle } from "@mui/icons-material";
+import {
+  CloudUpload,
+  InsertDriveFile,
+  CheckCircle,
+  FileDownload,
+} from "@mui/icons-material";
 
 /**
- * Formulaire d'upload d'ordonnance patient. Servi sur
+ * Formulaire de depot patient. Servi sur
  * depot-ordonnances.neuracorp.ai/d/[shortCode].
  *
  * Flow patient :
  *   1. Chargement de la page → fetch /api/prescriptions/[token]/status
- *      pour recuperer le libelle patient, la date de RDV et les documents
- *      deja envoyes
- *   2. Affichage du formulaire (code SMS + un ou plusieurs fichiers)
- *   3. Soumission → un POST /api/prescriptions/[token]/upload par fichier,
- *      l'un apres l'autre (nginx borne le corps a 10 Mo, et chaque fichier
- *      a sa propre erreur)
- *   4. Le formulaire reste ouvert : le patient peut ajouter un document plus
- *      tard avec le meme lien, jusqu'a 5 et jusqu'a l'heure du RDV
+ *      pour recuperer le libelle patient, la date de RDV et les pieces
+ *      attendues avec leurs documents deja envoyes
+ *   2. Le code SMS se saisit une fois, en haut ; chaque piece attendue a son
+ *      bloc (l'ordonnance, un questionnaire du centre...) avec son propre
+ *      choix de fichiers et son bouton d'envoi
+ *   3. Un document avec modele (questionnaire IRM du centre...) propose de le
+ *      telecharger, de le remplir, puis de le renvoyer dans son bloc
+ *   4. Soumission → un POST /api/prescriptions/[token]/upload par fichier,
+ *      l'un apres l'autre, avec le `pieceId` du bloc (nginx borne le corps a
+ *      10 Mo, et chaque fichier a sa propre erreur)
+ *   5. Les blocs restent ouverts : le patient peut ajouter un document plus
+ *      tard avec le meme lien, jusqu'a 5 par piece et jusqu'a l'heure du RDV
+ *
+ * Documents demandes depuis le 11/10/2026 : plans/2026-10-documents-demandes.md
+ * (workspace).
  *
  * Design cale sur AppointmentConfirmForm (meme charte teal, mobile-first,
  * carte centree). Objectif : le patient reconnait qu'il est bien sur un
@@ -35,6 +47,14 @@ import { CloudUpload, InsertDriveFile, CheckCircle } from "@mui/icons-material";
 
 type Status =
   "PENDING" | "UPLOADED" | "ACKED" | "REJECTED" | "EXPIRED" | "LOCKED";
+
+interface PieceInfo {
+  id: number | null;
+  piece: "ordonnance" | "document";
+  libelle: string;
+  avecModele: boolean;
+  documents: { uploadedAt: string }[];
+}
 
 interface UploadInfo {
   status: Status;
@@ -46,6 +66,7 @@ interface UploadInfo {
   attemptsLeft: number;
   documents: { uploadedAt: string }[];
   maxDocuments: number;
+  pieces?: PieceInfo[];
 }
 
 const EXAM_LABELS: Record<string, string> = {
@@ -67,6 +88,7 @@ const CARD_BG = "#FFFFFF";
 const PAGE_BG_TOP = "#F0F7F5";
 const PAGE_BG_BOTTOM = "#FAFCFB";
 const LIST_BG = "#F0F7F5";
+const BLOC_BORDER = "#DCEBE6";
 
 // Cap fichier fixe a 8 MB : contrainte Xplore (refuse tout base64 > 12 MB,
 // soit ~9 MB de fichier reel). 8 MB * 1.33 = 10.7 MB base64, sous les 12 MB
@@ -130,21 +152,27 @@ function verifierFichier(f: File): string | null {
   return `« ${f.name} » n'est pas dans un format accepté. Envoyez un PDF, un JPG ou un PNG.`;
 }
 
+/**
+ * Les pieces de la page. Une reponse sans `pieces` (serveur d'avant le
+ * 11/10/2026) se lit comme une seule piece « ordonnance ».
+ */
+function piecesDe(info: UploadInfo): PieceInfo[] {
+  if (info.pieces && info.pieces.length > 0) return info.pieces;
+  return [
+    {
+      id: null,
+      piece: "ordonnance",
+      libelle: "Ordonnance",
+      avecModele: false,
+      documents: info.documents,
+    },
+  ];
+}
+
 export default function PrescriptionUploadForm({ token }: { token: string }) {
   const [info, setInfo] = useState<UploadInfo | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-
   const [code, setCode] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [submitting, setSubmitting] = useState(false);
-  const [progress, setProgress] = useState<{
-    current: number;
-    total: number;
-  } | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [finalStatus, setFinalStatus] = useState<"EXPIRED" | "LOCKED" | null>(
     null
   );
@@ -179,138 +207,26 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
     };
   }, [token]);
 
-  const restants = info
-    ? Math.max(0, info.maxDocuments - info.documents.length)
-    : 0;
-
-  function resetInput() {
-    if (fileInputRef.current) fileInputRef.current.value = "";
+  /** Un document de plus dans une piece, apres un envoi reussi. */
+  function documentEnvoye(index: number) {
+    setInfo((prev) => {
+      if (!prev) return prev;
+      const maintenant = { uploadedAt: new Date().toISOString() };
+      const pieces = piecesDe(prev).map((p, i) =>
+        i === index ? { ...p, documents: [...p.documents, maintenant] } : p
+      );
+      return {
+        ...prev,
+        status: "UPLOADED",
+        attemptsLeft: 3,
+        documents: [...prev.documents, maintenant],
+        pieces,
+      };
+    });
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const choisis = Array.from(e.target.files ?? []);
-    resetInput();
-    setSubmitError(null);
-    setSuccessMessage(null);
-    if (choisis.length === 0) return;
-
-    for (const f of choisis) {
-      const erreur = verifierFichier(f);
-      if (erreur) {
-        setSubmitError(erreur);
-        return;
-      }
-    }
-    // Ajout a la selection en cours (le patient peut choisir en plusieurs fois)
-    const selection = [...files, ...choisis];
-    if (selection.length > restants) {
-      setSubmitError(
-        `Vous pouvez encore envoyer ${pluriel(restants, "document")}. Retirez-en ${
-          selection.length - restants
-        } de la liste.`
-      );
-    }
-    setFiles(selection);
-  }
-
-  function retirer(index: number) {
-    const selection = files.filter((_, i) => i !== index);
-    setFiles(selection);
-    if (selection.length <= restants) setSubmitError(null);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!info) return;
-    setSubmitError(null);
-    setSuccessMessage(null);
-
-    const trimmedCode = code.trim();
-    if (!/^\d{4,8}$/.test(trimmedCode)) {
-      setSubmitError(
-        "Le code contient 6 chiffres. Vous le trouvez dans le SMS."
-      );
-      return;
-    }
-    if (files.length === 0) {
-      setSubmitError("Choisissez au moins un document.");
-      return;
-    }
-    if (files.length > restants) {
-      setSubmitError(
-        `Vous pouvez encore envoyer ${pluriel(restants, "document")}.`
-      );
-      return;
-    }
-
-    setSubmitting(true);
-    let envoyes = 0;
-    try {
-      for (let i = 0; i < files.length; i++) {
-        setProgress({ current: i + 1, total: files.length });
-        const formData = new FormData();
-        formData.append("code", trimmedCode);
-        formData.append("file", files[i]);
-
-        const res = await fetch(`/api/prescriptions/${token}/upload`, {
-          method: "POST",
-          body: formData,
-        });
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          const prefixe =
-            files.length > 1 ? `« ${files[i].name} » n'a pas été envoyé. ` : "";
-          setSubmitError(
-            prefixe +
-              (data.error ??
-                `L'envoi a échoué (erreur ${res.status}). Réessayez.`)
-          );
-          if (data.status === "LOCKED" || data.status === "EXPIRED") {
-            setFinalStatus(data.status);
-          } else if (typeof data.attemptsLeft === "number") {
-            setInfo((prev) =>
-              prev ? { ...prev, attemptsLeft: data.attemptsLeft } : prev
-            );
-          }
-          break;
-        }
-
-        envoyes++;
-        setInfo((prev) =>
-          prev
-            ? {
-                ...prev,
-                status: "UPLOADED",
-                attemptsLeft: 3,
-                documents: [
-                  ...prev.documents,
-                  { uploadedAt: new Date().toISOString() },
-                ],
-              }
-            : prev
-        );
-      }
-    } catch (err) {
-      console.error(err);
-      setSubmitError(
-        "La connexion a été coupée. Vérifiez votre réseau et réessayez."
-      );
-    } finally {
-      // Les fichiers envoyes sortent de la selection, les autres restent
-      // pour un nouvel essai.
-      setFiles((prev) => prev.slice(envoyes));
-      setSubmitting(false);
-      setProgress(null);
-    }
-
-    if (envoyes > 0) {
-      setSuccessMessage(
-        envoyes > 1
-          ? `${envoyes} documents envoyés. Ils seront transmis au centre.`
-          : "Document envoyé. Il sera transmis au centre."
-      );
-    }
+  function codeRefuse(attemptsLeft: number) {
+    setInfo((prev) => (prev ? { ...prev, attemptsLeft } : prev));
   }
 
   // ------- RENDER STATES -------
@@ -320,7 +236,7 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
       <PageShell>
         <Alert severity="warning" sx={{ borderRadius: 2 }}>
           Ce lien a expiré : l&apos;heure de votre rendez-vous est passée.
-          Apportez votre ordonnance le jour de l&apos;examen, ou contactez votre
+          Apportez vos documents le jour de l&apos;examen, ou contactez votre
           centre.
         </Alert>
       </PageShell>
@@ -364,17 +280,23 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
   const examLabel = info.examType
     ? (EXAM_LABELS[info.examType] ?? info.examType)
     : "";
-  const complet = restants === 0;
+  const pieces = piecesDe(info);
+  const ordonnanceSeule = pieces.length === 1 && pieces[0].piece === "ordonnance";
+  const quoi = ordonnanceSeule
+    ? "l'ordonnance"
+    : pieces.length === 1
+      ? `le document « ${pieces[0].libelle} »`
+      : "les documents";
 
   return (
     <PageShell>
-      <Stack spacing={2}>
+      <Stack spacing={2.5}>
         <Box>
           <Typography variant="h6" sx={{ color: TEXT_MAIN, fontWeight: 700 }}>
             Bonjour {info.patientLabel}
           </Typography>
           <Typography variant="body2" sx={{ color: TEXT_MUTED, mt: 0.5 }}>
-            Déposez ici l&apos;ordonnance de votre rendez-vous
+            Déposez ici {quoi} de votre rendez-vous
             {examLabel ? ` (${examLabel})` : ""}
             {info.appointmentDate
               ? ` du ${formatFrDate(info.appointmentDate)}`
@@ -382,27 +304,274 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
             .
           </Typography>
           <Typography variant="body2" sx={{ color: TEXT_MUTED, mt: 1 }}>
-            Vous pouvez envoyer jusqu&apos;à {info.maxDocuments} documents (une
-            ordonnance de plusieurs pages, un courrier de votre médecin), en une
-            ou plusieurs fois, avec ce même lien, jusqu&apos;à l&apos;heure du
-            rendez-vous.
+            Vous pouvez envoyer jusqu&apos;à {info.maxDocuments} fichiers par
+            document (plusieurs pages, plusieurs photos), en une ou plusieurs
+            fois, avec ce même lien, jusqu&apos;à l&apos;heure du rendez-vous.
           </Typography>
         </Box>
 
-        {info.documents.length > 0 && (
+        <TextField
+          label="Code reçu par SMS ou par mail (6 chiffres)"
+          value={code}
+          onChange={(e) =>
+            setCode(e.target.value.replace(/\D/g, "").slice(0, 8))
+          }
+          inputProps={{
+            inputMode: "numeric",
+            autoComplete: "one-time-code",
+            pattern: "\\d{4,8}",
+            style: {
+              fontSize: "1.4rem",
+              letterSpacing: "0.4rem",
+              textAlign: "center",
+              fontFamily: "monospace",
+            },
+          }}
+          required
+          fullWidth
+        />
+
+        {info.attemptsLeft < 3 && info.attemptsLeft > 0 && (
+          <Alert severity="warning" sx={{ borderRadius: 2, py: 0.5 }}>
+            Il vous reste {pluriel(info.attemptsLeft, "essai")} avant que le
+            dépôt soit verrouillé.
+          </Alert>
+        )}
+
+        {pieces.map((p, i) => (
+          <BlocPiece
+            key={p.id ?? `piece-${i}`}
+            token={token}
+            piece={p}
+            code={code}
+            maxDocuments={info.maxDocuments}
+            seul={pieces.length === 1}
+            onEnvoye={() => documentEnvoye(i)}
+            onCodeRefuse={codeRefuse}
+            onFin={setFinalStatus}
+          />
+        ))}
+      </Stack>
+    </PageShell>
+  );
+}
+
+/**
+ * Un bloc par piece attendue : ce qu'on demande, le modele a telecharger s'il
+ * y en a un, les fichiers deja envoyes, le choix de fichiers et l'envoi.
+ */
+function BlocPiece({
+  token,
+  piece,
+  code,
+  maxDocuments,
+  seul,
+  onEnvoye,
+  onCodeRefuse,
+  onFin,
+}: {
+  token: string;
+  piece: PieceInfo;
+  code: string;
+  maxDocuments: number;
+  seul: boolean;
+  onEnvoye: () => void;
+  onCodeRefuse: (attemptsLeft: number) => void;
+  onFin: (s: "EXPIRED" | "LOCKED") => void;
+}) {
+  const [files, setFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const restants = Math.max(0, maxDocuments - piece.documents.length);
+  const complet = restants === 0;
+  const estOrdonnance = piece.piece === "ordonnance";
+
+  function resetInput() {
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const choisis = Array.from(e.target.files ?? []);
+    resetInput();
+    setSubmitError(null);
+    setSuccessMessage(null);
+    if (choisis.length === 0) return;
+
+    for (const f of choisis) {
+      const erreur = verifierFichier(f);
+      if (erreur) {
+        setSubmitError(erreur);
+        return;
+      }
+    }
+    // Ajout a la selection en cours (le patient peut choisir en plusieurs fois)
+    const selection = [...files, ...choisis];
+    if (selection.length > restants) {
+      setSubmitError(
+        `Vous pouvez encore envoyer ${pluriel(restants, "fichier")} ici. Retirez-en ${
+          selection.length - restants
+        } de la liste.`
+      );
+    }
+    setFiles(selection);
+  }
+
+  function retirer(index: number) {
+    const selection = files.filter((_, i) => i !== index);
+    setFiles(selection);
+    if (selection.length <= restants) setSubmitError(null);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitError(null);
+    setSuccessMessage(null);
+
+    const trimmedCode = code.trim();
+    if (!/^\d{4,8}$/.test(trimmedCode)) {
+      setSubmitError(
+        "Saisissez d'abord le code à 6 chiffres, en haut de la page. Vous le trouvez dans le SMS ou le mail."
+      );
+      return;
+    }
+    if (files.length === 0) {
+      setSubmitError("Choisissez au moins un fichier.");
+      return;
+    }
+    if (files.length > restants) {
+      setSubmitError(
+        `Vous pouvez encore envoyer ${pluriel(restants, "fichier")} ici.`
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    let envoyes = 0;
+    try {
+      for (let i = 0; i < files.length; i++) {
+        setProgress({ current: i + 1, total: files.length });
+        const formData = new FormData();
+        formData.append("code", trimmedCode);
+        formData.append("file", files[i]);
+        if (piece.id !== null) formData.append("pieceId", String(piece.id));
+
+        const res = await fetch(`/api/prescriptions/${token}/upload`, {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          const prefixe =
+            files.length > 1 ? `« ${files[i].name} » n'a pas été envoyé. ` : "";
+          setSubmitError(
+            prefixe +
+              (data.error ??
+                `L'envoi a échoué (erreur ${res.status}). Réessayez.`)
+          );
+          if (data.status === "LOCKED" || data.status === "EXPIRED") {
+            onFin(data.status);
+          } else if (typeof data.attemptsLeft === "number") {
+            onCodeRefuse(data.attemptsLeft);
+          }
+          break;
+        }
+
+        envoyes++;
+        onEnvoye();
+      }
+    } catch (err) {
+      console.error(err);
+      setSubmitError(
+        "La connexion a été coupée. Vérifiez votre réseau et réessayez."
+      );
+    } finally {
+      // Les fichiers envoyes sortent de la selection, les autres restent
+      // pour un nouvel essai.
+      setFiles((prev) => prev.slice(envoyes));
+      setSubmitting(false);
+      setProgress(null);
+    }
+
+    if (envoyes > 0) {
+      setSuccessMessage(
+        envoyes > 1
+          ? `${envoyes} fichiers envoyés. Ils seront transmis au centre.`
+          : "Fichier envoyé. Il sera transmis au centre."
+      );
+    }
+  }
+
+  return (
+    <Box
+      component="section"
+      sx={
+        seul
+          ? undefined
+          : { border: `1px solid ${BLOC_BORDER}`, borderRadius: 2, p: 2 }
+      }
+    >
+      <Stack spacing={1.5}>
+        {!seul && (
+          <Stack direction="row" spacing={1} alignItems="center">
+            {piece.documents.length > 0 && (
+              <CheckCircle sx={{ fontSize: 20, color: SUCCESS }} />
+            )}
+            <Typography
+              variant="subtitle1"
+              component="h2"
+              sx={{ color: TEXT_MAIN, fontWeight: 700 }}
+            >
+              {piece.libelle}
+            </Typography>
+          </Stack>
+        )}
+
+        {piece.avecModele && piece.id !== null && (
+          <Box>
+            <Typography variant="body2" sx={{ color: TEXT_MUTED }}>
+              Téléchargez le document de votre centre, remplissez-le, puis
+              renvoyez-le ici (en PDF, ou en photo de chaque page).
+            </Typography>
+            <Button
+              component="a"
+              href={`/api/prescriptions/${token}/modele/${piece.id}`}
+              variant="text"
+              startIcon={<FileDownload />}
+              sx={{ mt: 0.5, px: 0, color: BRAND_TEAL_DARK, fontWeight: 600 }}
+            >
+              Télécharger « {piece.libelle} »
+            </Button>
+          </Box>
+        )}
+
+        {!piece.avecModele && !estOrdonnance && (
+          <Typography variant="body2" sx={{ color: TEXT_MUTED }}>
+            Envoyez ce document en PDF, ou en photo de chaque page.
+          </Typography>
+        )}
+
+        {piece.documents.length > 0 && (
           <Box sx={{ bgcolor: LIST_BG, borderRadius: 2, px: 2, py: 1.5 }}>
             <Typography
               variant="body2"
               sx={{ color: TEXT_MAIN, fontWeight: 600, mb: 0.5 }}
             >
-              Déjà envoyés : {info.documents.length} sur {info.maxDocuments}
+              Déjà envoyés : {piece.documents.length} sur {maxDocuments}
             </Typography>
             <Stack
               component="ul"
               spacing={0.5}
               sx={{ m: 0, p: 0, listStyle: "none" }}
             >
-              {info.documents.map((d, i) => (
+              {piece.documents.map((d, i) => (
                 <Stack
                   component="li"
                   key={`${d.uploadedAt}-${i}`}
@@ -412,7 +581,7 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
                 >
                   <CheckCircle sx={{ fontSize: 18, color: SUCCESS }} />
                   <Typography variant="body2" sx={{ color: TEXT_MAIN }}>
-                    Document {i + 1}, envoyé {formatEnvoi(d.uploadedAt)}
+                    Fichier {i + 1}, envoyé {formatEnvoi(d.uploadedAt)}
                   </Typography>
                 </Stack>
               ))}
@@ -428,35 +597,12 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
 
         {complet ? (
           <Typography variant="body2" sx={{ color: TEXT_MUTED }}>
-            Vous avez envoyé {info.maxDocuments} documents, c&apos;est le
-            maximum. Pour en ajouter un, contactez votre centre. Vous pouvez
-            fermer cette page.
+            Vous avez envoyé {maxDocuments} fichiers ici, c&apos;est le
+            maximum. Pour en ajouter un, contactez votre centre.
           </Typography>
         ) : (
           <Box component="form" onSubmit={handleSubmit}>
-            <Stack spacing={2}>
-              <TextField
-                label="Code reçu par SMS (6 chiffres)"
-                value={code}
-                onChange={(e) =>
-                  setCode(e.target.value.replace(/\D/g, "").slice(0, 8))
-                }
-                inputProps={{
-                  inputMode: "numeric",
-                  autoComplete: "one-time-code",
-                  pattern: "\\d{4,8}",
-                  style: {
-                    fontSize: "1.4rem",
-                    letterSpacing: "0.4rem",
-                    textAlign: "center",
-                    fontFamily: "monospace",
-                  },
-                }}
-                disabled={submitting}
-                required
-                fullWidth
-              />
-
+            <Stack spacing={1.5}>
               <Box>
                 <Button
                   variant="outlined"
@@ -475,10 +621,10 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
                   }}
                 >
                   {files.length > 0
-                    ? "Ajouter un autre document"
-                    : info.documents.length > 0
-                      ? "Choisir un autre document (PDF, JPG, PNG)"
-                      : "Choisir vos documents (PDF, JPG, PNG)"}
+                    ? "Ajouter un autre fichier"
+                    : piece.documents.length > 0
+                      ? "Choisir un autre fichier (PDF, JPG, PNG)"
+                      : "Choisir vos fichiers (PDF, JPG, PNG)"}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -492,7 +638,7 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
                   variant="caption"
                   sx={{ color: TEXT_MUTED, display: "block", mt: 0.5 }}
                 >
-                  Encore {pluriel(restants, "document")} possible
+                  Encore {pluriel(restants, "fichier")} possible
                   {restants > 1 ? "s" : ""}, {MAX_FILE_SIZE_MB} Mo au plus
                   chacun.
                 </Typography>
@@ -517,13 +663,6 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
                 )}
               </Box>
 
-              {info.attemptsLeft < 3 && info.attemptsLeft > 0 && (
-                <Alert severity="warning" sx={{ borderRadius: 2, py: 0.5 }}>
-                  Il vous reste {pluriel(info.attemptsLeft, "essai")} avant que
-                  le dépôt soit verrouillé.
-                </Alert>
-              )}
-
               {submitError && (
                 <Alert severity="error" sx={{ borderRadius: 2 }}>
                   {submitError}
@@ -536,8 +675,7 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
                 disabled={
                   submitting ||
                   files.length === 0 ||
-                  files.length > restants ||
-                  code.length < 4
+                  files.length > restants
                 }
                 fullWidth
                 sx={{
@@ -555,16 +693,18 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
                       : "Envoi en cours…"}
                   </>
                 ) : files.length > 1 ? (
-                  `Envoyer les ${files.length} documents`
+                  `Envoyer les ${files.length} fichiers`
+                ) : seul ? (
+                  "Envoyer le fichier"
                 ) : (
-                  "Envoyer le document"
+                  `Envoyer « ${piece.libelle} »`
                 )}
               </Button>
             </Stack>
           </Box>
         )}
       </Stack>
-    </PageShell>
+    </Box>
   );
 }
 
