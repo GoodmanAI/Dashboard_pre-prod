@@ -24,6 +24,21 @@ lastname, phone }`, idempotent sur `(rdvId, centre)`. Table manuelle `Prescripti
 onglet « À vérifier dans la boîte mail » de la page Ordonnances manquantes, purge 30 jours
 après le RDV.
 
+**Documents demandés au patient** (11/10/2026, à déployer ; plan workspace
+`plans/2026-10-documents-demandes.md`, `DECISIONS.md` du 11/10/2026). Additif :
+
+- `POST /api/prescriptions/init` accepte `mineur` (booléen) et `ordonnanceRecue`, et répond
+  en plus `piecesAttendues: [{ piece: "ordonnance" | "document", libelle, avecModele }]`.
+  Le Dashboard calcule les pièces : l'ordonnance si le type est soumis au dépôt, chaque
+  `DocumentDemande` mis à disposition qui vaut pour ce type (et pour les mineurs, si le
+  patient l'est). Aucune pièce : `200 { piecesAttendues: [], url: null }`, aucun lien.
+  **Un appelant qui n'envoie pas `mineur` garde le comportement d'avant** : l'ordonnance
+  lui est toujours demandée.
+- `POST /api/prescriptions/par-mail/init` accepte `mineur` ; la carte porte `ordonnance`
+  et `documents` (libellés). Rien à demander : `{ id: null, created: false }`.
+- `GET /api/configuration` porte `documentsDemandes` :
+  `{ irm: { tous: ["Questionnaire IRM"], mineurs: [] }, ... }`, seuls les types concernés.
+
 ⚠️ **`GET /api/configuration` renvoie un bloc `site`** (07/09/2026), miroir exact de
 l'objet `call.site` de LyraeTalk. Il porte la configuration qui vit encore dans le
 `getInitInfo.js` du robot et qui descend ici au fur et à mesure, lue dans le domaine
@@ -145,12 +160,22 @@ irrécupérable retombe sur `fr`, comportement historique.
 
 **Pour AI2Xplore** — header `x-api-key: APPOINTMENT_API_KEY` :
 `POST /api/rdv/init`, `POST /api/rdv/ack`, `GET /api/rdv/pending-events`, `POST /api/rdv/reminder-sent`, `POST /api/prescriptions/init`, `GET /api/prescriptions/pending`, `GET /api/prescriptions/download/[id]`, `POST /api/prescriptions/ack/[id]`,
-`GET /api/prescriptions/alerts/open` (avec `jourRdv`, jour du RDV à Paris),
+`GET /api/prescriptions/alerts/open` (avec `jourRdv`, jour du RDV à Paris ; depuis le
+11/10/2026, un lien y figure tant qu'une de ses pièces attendues est ouverte, ordonnance ou
+document, et non plus seulement au statut `PENDING`),
 `POST /api/prescriptions/alerts/rdv-supprimes` et `POST /api/prescriptions/alerts/rdv-deplaces`
 (depuis le 30/09/2026 : le cron des ordonnances lit les alertes ouvertes, classe celles dont le
 RDV a le statut `S` dans Xplore, annulé ou déplacé, motif d'audit `auto:rdv_supprime`, ou
 `0`/`X`/`1`+, patient accueilli, motif `auto:rdv_accueilli` ; et reporte la date, avec
 l'expiration du lien de dépôt, d'un RDV déplacé à un autre jour en gardant son numéro).
+
+**Pour LyraeKonnect, lien des documents demandés** (11/10/2026, à livrer) — header
+`x-api-key: KONNECT_API_KEY` : `POST /api/prescriptions/init`, même corps que LyraeTalk,
+`ordonnanceRecue` imposé (Konnect recueille l'ordonnance pendant la réservation). Troisième
+flux montant (`DECISIONS.md` du workspace). Le centre se résout par `externalCenterCode`
+(`ExternalCenterMapping`, le code de site Xplore), pas par `tenantId` : les documents
+demandés et la page Ordonnances vivent sur le `userProductId` LyraeTalk du centre. Sans
+mapping : 404, la confirmation part sans lien.
 
 **Pour LyraeKonnect** — header `x-api-key: KONNECT_API_KEY` :
 `GET /api/konnect-tenant-mapping/resolve?tenantId=<uuid>` → `{ userProductId }`,
@@ -495,6 +520,10 @@ répond plus 404 à un centre jamais enregistré.
 
 ### Pages patient publiques
 `/c`, `/d`, `/confirm` — token 8 caractères + `verificationCode` haché bcrypt.
+Depuis le 11/10/2026, `/d` montre un bloc par pièce attendue ; ses routes publiques sont
+`GET /api/prescriptions/[token]/status` (avec `pieces`), `POST .../upload` (champ `pieceId`
+facultatif, absent = l'ordonnance) et `GET .../modele/[pieceId]` (modèle vierge d'un
+document demandé, jeton seul).
 Sous-domaines : `rdv.neuracorp.ai`, `depot-ordonnances.neuracorp.ai` (doivent pointer sur le même conteneur Next).
 
 **Ces trois pages doivent conserver leurs métadonnées** (`generateMetadata` / `metadata`
@@ -854,6 +883,12 @@ rend sous le nom `horaireMapping`.
    `GET /api/prescriptions/rejected/[id]/download` (session NextAuth, pas de clé API).
    Assouplir l'un des deux sans l'autre ne débloque rien : il faut les deux pour rendre le
    rattrapage automatique possible.
+
+   **Depuis le 11/10/2026, le plafond vaut par pièce attendue** (5 documents par pièce,
+   `PieceAttendue`), et chaque item de `GET /api/prescriptions/pending` porte en plus `piece`
+   et `libelle` (libellé de la pièce jointe dans Xplore). L'alerte de la secrétaire vit sur la
+   pièce (`PieceAttendue.recueAt`, `alertResolvedAt`) ; `PrescriptionUpload.status` garde son
+   sens et reste écrit comme avant.
 
    Le texte des erreurs de `POST /api/prescriptions/[token]/upload` n'est **pas** un contrat :
    il est lu par le patient sur la page de dépôt, aucune brique ne le compare. Reformulé le

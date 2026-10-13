@@ -208,6 +208,34 @@ export function requireApiKey(
 }
 
 /**
+ * Accepte l'une de plusieurs clés de service, et dit laquelle a été présentée :
+ * une même route servie à deux appelants (LyraeTalk et Konnect pour
+ * `/api/prescriptions/init`) adapte son comportement à l'appelant.
+ * Une variable absente de l'environnement est ignorée ; aucune présente : 500.
+ */
+export function requireOneOfApiKeys(
+  req: Request,
+  envVars: string[],
+  headerName: string = "x-api-key"
+): { envVar: string; error?: never } | { envVar?: never; error: NextResponse } {
+  const configurees = envVars.filter((v) => !!process.env[v]);
+  if (configurees.length === 0) {
+    console.error(`[auth] aucune de ${envVars.join(", ")} n'est configurée`);
+    return {
+      error: NextResponse.json({ error: "Service misconfigured" }, { status: 500 }),
+    };
+  }
+  const provided = req.headers.get(headerName);
+  const trouvee = provided
+    ? configurees.find((v) => process.env[v] === provided)
+    : undefined;
+  if (!trouvee) {
+    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+  return { envVar: trouvee };
+}
+
+/**
  * Auth mixte : accepte soit une API key de service (ex. bot Lyrae), soit une session utilisateur.
  *
  * - Si le header `x-api-key` est présent → valide contre `process.env[envVar]` :

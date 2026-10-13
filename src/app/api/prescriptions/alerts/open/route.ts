@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireApiKey } from "@/lib/auth-helpers";
 import { centresDuFiltre } from "@/lib/prescriptionAlerts";
+import { pieceOuverteSql } from "@/lib/piecesAttendues";
 
 const MAX_ITEMS = 1000;
 
@@ -21,6 +22,11 @@ const MAX_ITEMS = 1000;
  * dont le RDV a disparu ne doit jamais apparaitre, meme plus tard.
  *
  * Aucune donnee patient : AI2Xplore n'a besoin que du numero et du centre.
+ *
+ * Depuis le 11/10/2026 (documents demandes) : un lien est ouvert tant qu'une
+ * de ses pieces attendues (ordonnance ou document) n'est ni recue ni classee.
+ * Un questionnaire manquant est ainsi clos, lui aussi, quand son RDV
+ * disparait de Xplore, meme si l'ordonnance est deja arrivee.
  *
  * Reponse 200 : { count, items: [{ id, rdvId, externalCenterCode, jourRdv }] }
  * `jourRdv` : jour du RDV a Paris, 'AAAA-MM-JJ' (null si inconnu), compare par
@@ -45,14 +51,13 @@ export async function GET(req: NextRequest) {
     externalCenterCode: string;
     jourRdv: string | null;
   }>(
-    `SELECT "id", "rdvId", "externalCenterCode",
-            to_char("appointmentDate" AT TIME ZONE 'Europe/Paris', 'YYYY-MM-DD') AS "jourRdv"
-       FROM "PrescriptionUpload"
-      WHERE "externalCenterCode" = ANY($1::text[])
-        AND "status" = 'PENDING'
-        AND "alertResolvedAt" IS NULL
-        AND "ackedAt" IS NULL
-      ORDER BY "id" ASC
+    `SELECT pu."id", pu."rdvId", pu."externalCenterCode",
+            to_char(pu."appointmentDate" AT TIME ZONE 'Europe/Paris', 'YYYY-MM-DD') AS "jourRdv"
+       FROM "PrescriptionUpload" pu
+      WHERE pu."externalCenterCode" = ANY($1::text[])
+        AND pu."status" <> 'EXPIRED'
+        AND ${pieceOuverteSql(null)}
+      ORDER BY pu."id" ASC
       LIMIT $2`,
     [codes, MAX_ITEMS]
   );
