@@ -28,6 +28,7 @@ import {
   TaskAlt,
   ErrorOutline,
   MailOutline,
+  Assignment,
 } from "@mui/icons-material";
 import { IconInfoCircle, IconAlertTriangle } from "@tabler/icons-react";
 import ExamTypeBadge, { toExamTypeCode } from "@/components/shared/ExamTypeBadge";
@@ -54,6 +55,11 @@ import {
      - Valeur par defaut = alertAfterHours de la config centre
      - Le changement recharge la liste immediatement
      - Ne persiste pas cote serveur (juste un filtre UI)
+
+   Depuis le 11/10/2026 (documents demandes, plans/2026-10-documents-demandes.md
+   du workspace), deux listes d'attente : « Ordonnances en attente » et
+   « Questionnaires et documents ». Meme carte, meme delai, meme « Marquer
+   traite » ; l'alerte vit sur la piece attendue, pas sur le lien.
 
    Actions secretaire :
      - Cliquer sur le numero pour le copier
@@ -85,7 +91,11 @@ type AlertItem = {
   alertRaisedAt: string | null;
   hoursSinceCreated: number;
   hoursSinceAlert: number | null;
+  /** Libelles des pieces ouvertes de la section (« Questionnaire IRM »...). */
+  pieces?: string[];
 };
+
+type Onglet = "pending" | "documents" | "par-mail" | "rejected";
 
 /**
  * Split date + heure : la date est mise en valeur dans la card (typo forte)
@@ -142,11 +152,13 @@ interface Props {
 export default function OrdonnancesManquantesPage({ params }: Props) {
   const userProductId = Number(params.id);
   const [items, setItems] = useState<AlertItem[]>([]);
+  // Questionnaires et documents demandes non recus (11/10/2026).
+  const [docItems, setDocItems] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolving, setResolving] = useState<Set<number>>(new Set());
   // Chantier prescriptions rejected 2026-08-04 : tab actif entre les 2 vues
-  const [tab, setTab] = useState<"pending" | "par-mail" | "rejected">("pending");
+  const [tab, setTab] = useState<Onglet>("pending");
   const [rejectedCount, setRejectedCount] = useState<number>(0);
   // Patients sans portable invites par le robot a envoyer l'ordonnance par mail
   // (09/10/2026). Charges avec les alertes pour le compteur de l'onglet.
@@ -197,10 +209,14 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
         setLoading(true);
         setError(null);
         // Fetch en parallele : alertes pending + count rejected (pour le badge tab)
-        const [alertsRes, countRes, parMailRes] = await Promise.all([
+        const seuil = hours != null ? `&hoursThreshold=${hours}` : "";
+        const [alertsRes, docsRes, countRes, parMailRes] = await Promise.all([
           fetch(
-            `/api/prescriptions/alerts?userProductId=${userProductId}` +
-              (hours != null ? `&hoursThreshold=${hours}` : ""),
+            `/api/prescriptions/alerts?userProductId=${userProductId}${seuil}`,
+            { cache: "no-store" }
+          ),
+          fetch(
+            `/api/prescriptions/alerts?userProductId=${userProductId}${seuil}&section=documents`,
             { cache: "no-store" }
           ),
           fetch(`/api/prescriptions/alerts/count?userProductId=${userProductId}`, {
@@ -213,6 +229,10 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
         if (!alertsRes.ok) throw new Error(`HTTP ${alertsRes.status}`);
         const data = await alertsRes.json();
         setItems(Array.isArray(data.items) ? data.items : []);
+        if (docsRes.ok) {
+          const docs = await docsRes.json();
+          setDocItems(Array.isArray(docs?.items) ? docs.items : []);
+        }
         setAutoResolvedCount(
           Number.isFinite(data?.autoResolvedCount) ? data.autoResolvedCount : 0
         );
@@ -364,19 +384,23 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
   }, [customInput]);
 
   const handleResolve = useCallback(
-    async (id: number) => {
+    async (id: number, section: "ordonnances" | "documents") => {
       setResolving((prev) => new Set(prev).add(id));
       try {
         const res = await fetch(`/api/prescriptions/alerts/${id}/resolve`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userProductId }),
+          body: JSON.stringify({ userProductId, section }),
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           throw new Error(data.error || `HTTP ${res.status}`);
         }
-        setItems((prev) => prev.filter((i) => i.id !== id));
+        if (section === "documents") {
+          setDocItems((prev) => prev.filter((i) => i.id !== id));
+        } else {
+          setItems((prev) => prev.filter((i) => i.id !== id));
+        }
         setSnack({ open: true, msg: "Alerte marquée comme traitée", sev: "success" });
       } catch (err: any) {
         setSnack({ open: true, msg: err?.message || "L'alerte n'a pas été mise à jour. Réessayez dans un instant.", sev: "error" });
@@ -394,19 +418,24 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
   // Liste des types d'examens presents dans les items courants (source de
   // verite pour peupler le filtre — pas besoin d'aller chercher la config
   // centre, on ne montre que ce qui est reellement en attente).
+  // La liste de l'onglet ouvert : ordonnances, ou questionnaires et documents.
+  const enDocuments = tab === "documents";
+  const listeOnglet = enDocuments ? docItems : items;
+
   const availableExamTypes = useMemo(() => {
     const set = new Set<string>();
-    for (const it of items) {
+    for (const it of listeOnglet) {
       if (it.examType) set.add(it.examType);
     }
     return Array.from(set).sort();
-  }, [items]);
+  }, [listeOnglet]);
 
-  const orderedItems = useMemo(() => {
+  const ordonner = useCallback(
+    (liste: AlertItem[]) => {
     const filtered =
       examFilter === "all"
-        ? items
-        : items.filter((it) => it.examType === examFilter);
+        ? liste
+        : liste.filter((it) => it.examType === examFilter);
     // Examen le plus proche en tete : les secretaires traitent d'abord les
     // RDV imminents. Sans date d'examen, en fin de liste ; a date egale,
     // le lien le plus ancien d'abord.
@@ -419,7 +448,12 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
         dateExamen(a) - dateExamen(b) ||
         b.hoursSinceCreated - a.hoursSinceCreated
     );
-  }, [items, examFilter]);
+    },
+    [examFilter]
+  );
+  const orderedItems = useMemo(() => ordonner(items), [ordonner, items]);
+  const orderedDocItems = useMemo(() => ordonner(docItems), [ordonner, docItems]);
+  const listeAffichee = enDocuments ? orderedDocItems : orderedItems;
 
   return (
     <PageContainer
@@ -429,15 +463,15 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
       <Box>
         <SectionHeader
           title="Ordonnances manquantes"
-          subtitle={`Les patients qui ont reçu le lien de dépôt${thresholdHours != null ? ` il y a plus de ${thresholdHours} heures` : ""} et n'ont rien envoyé, ceux sans portable qui envoient leur ordonnance par mail, et les ordonnances refusées par votre logiciel de gestion.`}
+          subtitle={`Les patients qui ont reçu le lien de dépôt${thresholdHours != null ? ` il y a plus de ${thresholdHours} heures` : ""} et n'ont pas envoyé leur ordonnance ou leurs questionnaires, ceux sans portable qui les envoient par mail, et les documents refusés par votre logiciel de gestion.`}
           actions={
-            tab === "pending" ? (
+            tab === "pending" || tab === "documents" ? (
               <Chip
                 size="small"
-                label={loading ? "chargement…" : `${orderedItems.length} en attente`}
+                label={loading ? "chargement…" : `${listeAffichee.length} en attente`}
                 sx={{
-                  bgcolor: orderedItems.length > 0 ? "rgba(239,68,68,0.15)" : "rgba(var(--accent-rgb), 0.15)",
-                  color: orderedItems.length > 0 ? "#b91c1c" : "var(--accent-deep)",
+                  bgcolor: listeAffichee.length > 0 ? "rgba(239,68,68,0.15)" : "rgba(var(--accent-rgb), 0.15)",
+                  color: listeAffichee.length > 0 ? "#b91c1c" : "var(--accent-deep)",
                   fontWeight: 700,
                 }}
               />
@@ -562,7 +596,12 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
         <Card sx={{ mb: 2, borderRadius: 2 }}>
           <Tabs
             value={tab}
-            onChange={(_, v) => setTab(v)}
+            onChange={(_, v) => {
+              setTab(v);
+              setExamFilter("all");
+            }}
+            variant="scrollable"
+            scrollButtons="auto"
             sx={{
               px: 2,
               "& .MuiTab-root": { fontWeight: 600, minHeight: 48 },
@@ -574,7 +613,13 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               value="pending"
               icon={<WarningAmber sx={{ fontSize: 18 }} />}
               iconPosition="start"
-              label={`En attente patient (${orderedItems.length})`}
+              label={`Ordonnances en attente (${orderedItems.length})`}
+            />
+            <Tab
+              value="documents"
+              icon={<Assignment sx={{ fontSize: 18 }} />}
+              iconPosition="start"
+              label={`Questionnaires et documents (${orderedDocItems.length})`}
             />
             <Tab
               value="par-mail"
@@ -605,8 +650,8 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
           <RejectedPrescriptionsPanel userProductId={Number(userProductId)} />
         )}
 
-        {/* Contenu du tab PENDING (comportement historique de la page) */}
-        {tab === "pending" && (
+        {/* Contenu des tabs PENDING et DOCUMENTS : meme carte, liste differente */}
+        {(tab === "pending" || tab === "documents") && (
           <>
 
         {/* Barre de filtres : timeline + type d'examen */}
@@ -685,10 +730,10 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                 disabled={availableExamTypes.length === 0}
               >
                 <MenuItem value="all">
-                  Tous les examens ({items.length})
+                  Tous les examens ({listeOnglet.length})
                 </MenuItem>
                 {availableExamTypes.map((t) => {
-                  const count = items.filter((it) => it.examType === t).length;
+                  const count = listeOnglet.filter((it) => it.examType === t).length;
                   return (
                     <MenuItem key={t} value={t}>
                       {EXAM_LABELS[t] ?? t} ({count})
@@ -724,16 +769,20 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
           <Stack alignItems="center" sx={{ py: 6 }}>
             <CircularProgress sx={{ color: "var(--accent)" }} />
           </Stack>
-        ) : orderedItems.length === 0 ? (
+        ) : listeAffichee.length === 0 ? (
           <Card elevation={1} sx={{ p: 5, textAlign: "center" }}>
             <CheckCircle sx={{ fontSize: 56, color: "#22C55E", mb: 1.5 }} />
             <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
               Aucune alerte en cours
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {thresholdHours != null
-                ? `Aucun patient n'a dépassé ${thresholdHours} heures sans déposer son ordonnance.`
-                : "Aucun patient n'attend de déposer son ordonnance."}
+              {enDocuments
+                ? thresholdHours != null
+                  ? `Aucun patient n'a dépassé ${thresholdHours} heures sans renvoyer ses questionnaires ou documents.`
+                  : "Aucun patient n'attend de renvoyer un questionnaire ou un document."
+                : thresholdHours != null
+                  ? `Aucun patient n'a dépassé ${thresholdHours} heures sans déposer son ordonnance.`
+                  : "Aucun patient n'attend de déposer son ordonnance."}
             </Typography>
           </Card>
         ) : (
@@ -744,13 +793,15 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               sx={{ borderRadius: 2 }}
             >
               Cliquez sur le numéro pour le copier. Une fois le patient rappelé, cliquez
-              &laquo; Marquer traité &raquo; pour retirer la carte de la liste. Le rendez-vous reste
-              en attente d&apos;ordonnance tant que le patient n&apos;a pas déposé son document sur la
-              plateforme. Les rendez-vous déjà passés sont classés
+              &laquo; Marquer traité &raquo; pour retirer la carte de la liste.{" "}
+              {enDocuments
+                ? "Chaque carte dit quels questionnaires ou documents manquent. Le patient peut encore les déposer avec le lien reçu, jusqu'à l'heure du rendez-vous."
+                : "Le rendez-vous reste en attente d'ordonnance tant que le patient n'a pas déposé son document sur la plateforme."}{" "}
+              Les rendez-vous déjà passés sont classés
               automatiquement : inutile de rappeler, l&apos;examen a eu lieu.
             </Alert>
 
-            {orderedItems.map((item) => {
+            {listeAffichee.map((item) => {
               // Critical = 2x le seuil configure (ex: 48h de seuil -> critical > 96h)
               const critical =
                 thresholdHours != null && item.hoursSinceCreated > thresholdHours * 2;
@@ -857,8 +908,31 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                         )}
                       </Stack>
 
+                      {enDocuments && item.pieces && item.pieces.length > 0 && (
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          useFlexGap
+                          flexWrap="wrap"
+                          sx={{ mb: 1, mt: 1 }}
+                        >
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: "#1F3448" }}>
+                            Manque :
+                          </Typography>
+                          {item.pieces.map((libelle) => (
+                            <Chip
+                              key={libelle}
+                              size="small"
+                              icon={<Assignment sx={{ fontSize: 16 }} />}
+                              label={libelle}
+                              sx={{ bgcolor: "rgba(234,88,12,0.12)", color: "#9a3412", fontWeight: 600 }}
+                            />
+                          ))}
+                        </Stack>
+                      )}
+
                       <Typography variant="caption" color="text.secondary">
-                        Lien SMS envoyé {formatFrDateShort(item.createdAt)}
+                        Lien envoyé {formatFrDateShort(item.createdAt)}
                       </Typography>
                     </Box>
 
@@ -866,7 +940,9 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                       <Button
                         variant="contained"
                         disabled={resolving.has(item.id)}
-                        onClick={() => handleResolve(item.id)}
+                        onClick={() =>
+                          handleResolve(item.id, enDocuments ? "documents" : "ordonnances")
+                        }
                         sx={{
                           bgcolor: "var(--accent)",
                           "&:hover": { bgcolor: "var(--accent-press)" },
