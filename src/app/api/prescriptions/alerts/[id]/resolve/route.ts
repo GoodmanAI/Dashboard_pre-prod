@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { assertUserProductOwnership, requireAuth } from "@/lib/auth-helpers";
 import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
+import { sortieDeSection } from "@/lib/piecesAttendues";
 
 /**
  * POST /api/prescriptions/alerts/[id]/resolve
@@ -63,6 +64,13 @@ export async function POST(
   // peut ne pas avoir encore tourne (pas horaire), mais la secretaire voit
   // deja la ligne dans son UI (filtre base sur createdAt < threshold, pas
   // sur alertRaisedAt) et doit pouvoir la traiter immediatement.
+  // Depuis le 11/10/2026, l'alerte vit sur les pieces attendues : on classe
+  // les pieces ouvertes de la section de la carte (`section` du body,
+  // `ordonnances` par defaut). Le lien recoit aussi "alertResolvedAt" quand
+  // plus aucune de ses pieces n'est ouverte (lu par alerts/open d'AI2Xplore).
+  const section = sortieDeSection(
+    typeof body?.section === "string" ? body.section : null
+  );
   const check = await db.query<{ id: number }>(
     `
     SELECT pu."id"
@@ -70,11 +78,14 @@ export async function POST(
       JOIN "ExternalCenterMapping" ecm ON ecm."externalCenterCode" = pu."externalCenterCode"
      WHERE pu."id" = $1
        AND ecm."userProductId" = $2
-       AND pu."alertResolvedAt" IS NULL
-       AND pu."ackedAt" IS NULL
+       AND EXISTS (
+         SELECT 1 FROM "PieceAttendue" p
+          WHERE p."uploadId" = pu."id" AND p."piece" = $3
+            AND p."recueAt" IS NULL AND p."alertResolvedAt" IS NULL
+       )
      LIMIT 1
     `,
-    [uploadId, userProductId]
+    [uploadId, userProductId, section]
   );
   if (check.rowCount === 0) {
     return NextResponse.json(
@@ -84,10 +95,23 @@ export async function POST(
   }
 
   const upd = await db.query<{ alertResolvedAt: Date }>(
-    `UPDATE "PrescriptionUpload"
+    `UPDATE "PieceAttendue"
         SET "alertResolvedAt" = NOW()
-      WHERE "id" = $1
+      WHERE "uploadId" = $1 AND "piece" = $2
+        AND "recueAt" IS NULL AND "alertResolvedAt" IS NULL
       RETURNING "alertResolvedAt"`,
+    [uploadId, section]
+  );
+  await db.query(
+    `UPDATE "PrescriptionUpload" pu
+        SET "alertResolvedAt" = NOW()
+      WHERE pu."id" = $1
+        AND pu."alertResolvedAt" IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM "PieceAttendue" p
+           WHERE p."uploadId" = pu."id"
+             AND p."recueAt" IS NULL AND p."alertResolvedAt" IS NULL
+        )`,
     [uploadId]
   );
 

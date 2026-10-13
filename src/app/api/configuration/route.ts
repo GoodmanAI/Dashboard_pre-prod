@@ -16,7 +16,8 @@ import {
   DEFAULT_PRESCRIPTION_ENABLED,
   DEFAULT_ALERT_AFTER_HOURS,
   PrescriptionEnabledExamTypes,
-} from "@/lib/prescriptionConfig";
+} from "@/lib/prescriptionConfig";
+
 import { journaliserEcritureConfig } from "@/lib/auditConfig";
 import {
   CODE_DOUBLE_EXAMEN,
@@ -28,6 +29,7 @@ import {
   validerPrioriteSalles,
 } from "@/lib/sallesExamen";
 import { sallesDuCentre } from "@/lib/sallesExamenLecture";
+import { documentsParType } from "@/lib/piecesAttendues";
 
 /**
  * GET /api/configuration?userProductId=XX
@@ -103,6 +105,17 @@ export async function GET(req: NextRequest) {
       const row = prescCfgRes.rows[0];
       prescriptionByType = normalizePrescriptionEnabled(row.enabledExamTypes);
       prescriptionAlertAfterHours = normalizeAlertAfterHours(row.alertAfterHours);
+    }
+
+    // 2️⃣.c bis — Documents demandes au patient (questionnaires...), par type
+    // d'examen. Plan workspace plans/2026-10-documents-demandes.md. Une table
+    // absente (SQL du 11/10/2026 pas encore passe) ne doit pas casser l'init
+    // d'un appel : on renvoie un objet vide.
+    let documentsDemandes = {};
+    try {
+      documentsDemandes = await documentsParType(userProductId);
+    } catch (err) {
+      console.error("[configuration] documentsDemandes illisibles:", err);
     }
 
     // 2️⃣.d — Le bloc `site`, miroir de `call.site` côté LyraeTalk.
@@ -431,6 +444,13 @@ export async function GET(req: NextRequest) {
         // (utilisé par le bot pour personnaliser le SMS "à déposer sous Nh").
         prescriptionByType,
         prescriptionAlertAfterHours,
+
+        // Documents demandes au patient, par type d'examen :
+        // { irm: { tous: ["Questionnaire IRM"], mineurs: [] }, ... }. Seuls
+        // les types concernes y figurent. Le Dashboard calcule lui-meme les
+        // pieces a l'init ; ceci sert au robot a savoir s'il doit l'appeler
+        // hors ordonnance, et quoi dire sans portable ni mail.
+        documentsDemandes,
 
         // `null` quand le centre n'a rien de configuré ici : le robot garde
         // alors ses valeurs en dur, sans distinguer ce cas d'un objet vide.

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import {
-  MAX_DOCUMENTS_PAR_LIEN,
-  lienOuvert,
-} from "@/lib/prescriptionDocuments";
+import { lienOuvert } from "@/lib/prescriptionDocuments";
+import { MAX_DOCUMENTS_PAR_PIECE, piecesDuLien } from "@/lib/piecesAttendues";
 
 /**
  * Endpoint public consulte par la page /d/[shortCode] au premier chargement
@@ -24,11 +22,15 @@ import {
  *     patientLabel: "Jean D.",              // prenom + initiale nom
  *     appointmentDate: ISO | null,
  *     examType: "scanner" | ...             // sert au libelle UI
- *     canUpload: boolean,                   // lien ouvert et moins de 5 documents
+ *     canUpload: boolean,                   // une piece au moins accepte encore un document
  *     expiresAt: ISO,
  *     attemptsLeft: number,                 // sur 3 (pour affichage warning)
- *     documents: [{ uploadedAt: ISO }],     // deja envoyes, du plus ancien au plus recent
- *     maxDocuments: 5
+ *     documents: [{ uploadedAt: ISO }],     // tous les documents du lien
+ *     maxDocuments: 5,                      // par piece
+ *     pieces: [{                            // depuis le 11/10/2026
+ *       id, piece: "ordonnance" | "document", libelle, avecModele,
+ *       documents: [{ uploadedAt: ISO }], canUpload
+ *     }]
  *   }
  *   404 lien invalide, ou expire (heure du RDV passee) : un lien echu n'est
  *       plus consultable, et on ne distingue pas l'inconnu de l'echu.
@@ -73,12 +75,28 @@ export async function GET(
     return NextResponse.json({ error: "Lien invalide" }, { status: 404 });
   }
 
-  const docs = await db.query<{ uploadedAt: Date }>(
-    `SELECT "uploadedAt" FROM "PrescriptionDocument"
+  const docs = await db.query<{
+    uploadedAt: Date;
+    pieceAttendueId: number | null;
+  }>(
+    `SELECT "uploadedAt", "pieceAttendueId" FROM "PrescriptionDocument"
       WHERE "uploadId" = $1
       ORDER BY "uploadedAt" ASC, "id" ASC`,
     [record.id]
   );
+  const pieces = (await piecesDuLien(record.id)).map((p) => {
+    const recus = docs.rows
+      .filter((d) => d.pieceAttendueId === p.id)
+      .map((d) => ({ uploadedAt: d.uploadedAt }));
+    return {
+      id: p.id,
+      piece: p.piece,
+      libelle: p.libelle,
+      avecModele: p.avecModele,
+      documents: recus,
+      canUpload: recus.length < MAX_DOCUMENTS_PAR_PIECE,
+    };
+  });
 
   // Prenom + initiale nom (ex: "Jean D.") — reconnaissance sans leak
   const initial = record.lastname
@@ -95,10 +113,11 @@ export async function GET(
     patientLabel,
     appointmentDate: record.appointmentDate,
     examType: record.examType,
-    canUpload: docs.rows.length < MAX_DOCUMENTS_PAR_LIEN,
+    canUpload: pieces.some((p) => p.canUpload),
     expiresAt: record.expiresAt,
     attemptsLeft,
-    documents: docs.rows,
-    maxDocuments: MAX_DOCUMENTS_PAR_LIEN,
+    documents: docs.rows.map((d) => ({ uploadedAt: d.uploadedAt })),
+    maxDocuments: MAX_DOCUMENTS_PAR_PIECE,
+    pieces,
   });
 }

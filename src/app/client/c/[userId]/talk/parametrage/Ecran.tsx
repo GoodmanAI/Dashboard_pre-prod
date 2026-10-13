@@ -62,6 +62,9 @@ import ConsigneApresReservationCard from "./ConsigneApresReservationCard";
 import PrescriptionConfigCard, {
   type PrescriptionConfigHandle,
 } from "./PrescriptionConfigCard";
+import DocumentsDemandesCard, {
+  type DocumentsDemandesHandle,
+} from "@/components/prescriptions/DocumentsDemandesCard";
 import PrioriteSalles from "@/components/mapping/PrioriteSalles";
 import SallesImposees from "@/components/mapping/SallesImposees";
 import {
@@ -765,9 +768,14 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   const ordonnancesRef = useRef<PrescriptionConfigHandle>(null);
   const [ordonnancesModifiees, setOrdonnancesModifiees] = useState(false);
   const [ordonnancesEnCours, setOrdonnancesEnCours] = useState(false);
+  // Meme principe pour « Questionnaires et documents » (11/10/2026).
+  const documentsRef = useRef<DocumentsDemandesHandle>(null);
+  const [documentsModifies, setDocumentsModifies] = useState(false);
+  const estAdmin =
+    sessionData?.user?.role === "ADMIN" || sessionData?.user?.role === "SUPER_ADMIN";
 
   const { dialogue: dialogueSortie } = useUnsavedChangesGuard(
-    isDirty || ordonnancesModifiees,
+    isDirty || ordonnancesModifiees || documentsModifies,
     {
       message:
         "Les modifications du paramétrage que vous n'avez pas enregistrées seront perdues.",
@@ -778,6 +786,12 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
     if (ordonnancesModifiees) {
       setOrdonnancesEnCours(true);
       const ok = await ordonnancesRef.current?.enregistrer();
+      setOrdonnancesEnCours(false);
+      if (!ok) return;
+    }
+    if (documentsModifies) {
+      setOrdonnancesEnCours(true);
+      const ok = await documentsRef.current?.enregistrer();
       setOrdonnancesEnCours(false);
       if (!ok) return;
     }
@@ -1405,6 +1419,14 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           onDirtyChange={setOrdonnancesModifiees}
         />
 
+        {/* Questionnaires et documents demandes au patient, sur le meme lien */}
+        <DocumentsDemandesCard
+          ref={documentsRef}
+          userProductId={Number(params.id)}
+          admin={estAdmin}
+          onDirtyChange={setDocumentsModifies}
+        />
+
         {/* Options */}
         <Accordion>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -1923,7 +1945,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       </Box>
 
       <BarreEnregistrement
-        modifications={isDirty || ordonnancesModifiees}
+        modifications={isDirty || ordonnancesModifiees || documentsModifies}
         enregistrement={saving || ordonnancesEnCours}
         onEnregistrer={enregistrerTout}
         lectureSeule={readOnly}

@@ -46,6 +46,10 @@ export type ParMailItem = {
   lastname: string;
   phone: string;
   createdAt: string;
+  /** Depuis le 11/10/2026 : l'ordonnance est-elle attendue par mail ? */
+  ordonnance?: boolean;
+  /** Questionnaires et documents a renvoyer au patient (libelles). */
+  documents?: string[];
 };
 
 function formatFrDateOnly(iso: string): string {
@@ -145,9 +149,11 @@ export default function ParMailPrescriptionsPanel({
   return (
     <>
       <Alert severity="info" icon={<MailOutline />} sx={{ mb: 2, borderRadius: 2 }}>
-        Ces patients n&apos;ont pas de portable : ils n&apos;ont pas reçu le lien de dépôt. Le
-        robot leur a demandé d&apos;envoyer l&apos;ordonnance à l&apos;adresse mail de votre
-        centre. Vérifiez qu&apos;elle est bien arrivée, puis rangez la carte.
+        Ces patients n&apos;ont ni portable ni adresse mail : ils n&apos;ont pas reçu le lien de
+        dépôt. Le robot leur a demandé d&apos;envoyer l&apos;ordonnance à l&apos;adresse mail de
+        votre centre, et de vous demander les questionnaires de leur examen. Vérifiez que
+        l&apos;ordonnance est arrivée, envoyez-leur les questionnaires indiqués sur la carte,
+        puis rangez-la.
       </Alert>
 
       <Stack spacing={2}>
@@ -222,6 +228,29 @@ export default function ParMailPrescriptionsPanel({
                       >
                         {formatPhoneFr(it.phone)}
                       </Typography>
+                    </Stack>
+                  )}
+
+                  {it.documents && it.documents.length > 0 && (
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      useFlexGap
+                      flexWrap="wrap"
+                      alignItems="center"
+                      sx={{ mb: 1 }}
+                    >
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: "#1F3448" }}>
+                        {it.ordonnance === false ? "À lui envoyer :" : "Ordonnance attendue, et à lui envoyer :"}
+                      </Typography>
+                      {it.documents.map((libelle) => (
+                        <Chip
+                          key={libelle}
+                          size="small"
+                          label={libelle}
+                          sx={{ bgcolor: "rgba(59,130,246,0.12)", color: "#1d4ed8", fontWeight: 600 }}
+                        />
+                      ))}
                     </Stack>
                   )}
 

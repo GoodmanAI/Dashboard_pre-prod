@@ -8,11 +8,12 @@ import {
   normalizeAlertAfterHours,
 } from "@/lib/prescriptionConfig";
 import { autoResolvePastAppointments } from "@/lib/prescriptionAlerts";
+import { sortieDeSection } from "@/lib/piecesAttendues";
 import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 
 /**
- * GET /api/prescriptions/alerts?userProductId=X[&hoursThreshold=Y]
+ * GET /api/prescriptions/alerts?userProductId=X[&hoursThreshold=Y][&section=documents]
  *
  * Liste les ordonnances en attente d'upload depuis > Y heures pour un centre.
  * Alimente la page dashboard "Ordonnances manquantes" ou la secretaire voit
@@ -28,10 +29,17 @@ import { PAGES } from "@/lib/permissions";
  *     Si absent, on utilise `alertAfterHours` de PrescriptionConfig du centre
  *     (defaut 48h si aucune config).
  *
+ * Depuis le 11/10/2026 (documents demandes, plans/2026-10-documents-demandes.md),
+ * l'alerte vit sur la PIECE attendue ("PieceAttendue"), plus sur le lien.
+ * `section` choisit la liste : `ordonnances` (defaut) ou `documents`
+ * (« Questionnaires et documents »). Une carte = un lien qui a au moins une
+ * piece de la section encore ouverte.
+ *
  * Filtre metier :
- *   - status = 'PENDING' (le patient n'a rien upload)
- *   - alertResolvedAt IS NULL (secretaire n'a pas encore traite)
- *   - createdAt < NOW() - INTERVAL 'X hours' (X = hoursThreshold effectif)
+ *   - une piece de la section ni recue (recueAt) ni classee (alertResolvedAt)
+ *   - lien non echu (status <> 'EXPIRED') ; un lien verrouille (LOCKED,
+ *     trois mauvais codes) y figure : le patient ne peut plus deposer
+ *   - piece creee il y a plus de X heures (X = hoursThreshold effectif)
  *
  * Effet de bord assume : avant la lecture, les alertes dont le RDV est
  * anterieur au jour courant (Europe/Paris) sont marquees traitees
@@ -60,7 +68,8 @@ import { PAGES } from "@/lib/permissions";
  *       id, rdvId, phone, firstname, lastname,
  *       appointmentDate, examType, status,
  *       createdAt, alertRaisedAt,
- *       hoursSinceCreated, hoursSinceAlert
+ *       hoursSinceCreated, hoursSinceAlert,
+ *       pieces: string[]      // libelles des pieces ouvertes de la section
  *     }]
  *   }
  */
@@ -73,6 +82,8 @@ export async function GET(req: NextRequest) {
   if (!Number.isFinite(userProductId)) {
     return NextResponse.json({ error: "Missing userProductId" }, { status: 400 });
   }
+
+  const section = sortieDeSection(req.nextUrl.searchParams.get("section"));
 
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownErr) return ownErr;
@@ -156,26 +167,38 @@ export async function GET(req: NextRequest) {
     alertRaisedAt: Date | null;
     hoursSinceCreated: string;
     hoursSinceAlert: string | null;
+    pieces: string[];
   }>(
     `
-    SELECT "id", "rdvId", "phone", "firstname", "lastname",
-           "appointmentDate", "examType", "status",
-           "createdAt", "alertRaisedAt",
-           EXTRACT(EPOCH FROM (NOW() - "createdAt")) / 3600 AS "hoursSinceCreated",
+    WITH ouvertes AS (
+      SELECT p."uploadId",
+             MIN(p."createdAt") AS "depuis",
+             array_agg(p."libelle" ORDER BY p."ordre", p."id") AS "pieces"
+        FROM "PieceAttendue" p
+       WHERE p."piece" = $3
+         AND p."recueAt" IS NULL
+         AND p."alertResolvedAt" IS NULL
+       GROUP BY p."uploadId"
+    )
+    SELECT pu."id", pu."rdvId", pu."phone", pu."firstname", pu."lastname",
+           pu."appointmentDate", pu."examType", pu."status",
+           o."depuis" AS "createdAt", pu."alertRaisedAt",
+           EXTRACT(EPOCH FROM (NOW() - o."depuis")) / 3600 AS "hoursSinceCreated",
            CASE
-             WHEN "alertRaisedAt" IS NOT NULL
-             THEN EXTRACT(EPOCH FROM (NOW() - "alertRaisedAt")) / 3600
+             WHEN pu."alertRaisedAt" IS NOT NULL
+             THEN EXTRACT(EPOCH FROM (NOW() - pu."alertRaisedAt")) / 3600
              ELSE NULL
-           END AS "hoursSinceAlert"
-      FROM "PrescriptionUpload"
-     WHERE "externalCenterCode" = ANY($1::text[])
-       AND "status" = 'PENDING'
-       AND "alertResolvedAt" IS NULL
-       AND "createdAt" < NOW() - ($2::int || ' hours')::interval
-     ORDER BY "createdAt" ASC
+           END AS "hoursSinceAlert",
+           o."pieces"
+      FROM "PrescriptionUpload" pu
+      JOIN ouvertes o ON o."uploadId" = pu."id"
+     WHERE pu."externalCenterCode" = ANY($1::text[])
+       AND pu."status" <> 'EXPIRED'
+       AND o."depuis" < NOW() - ($2::int || ' hours')::interval
+     ORDER BY o."depuis" ASC
      LIMIT 500
     `,
-    [codes, thresholdHours]
+    [codes, thresholdHours, section]
   );
 
   const items = alertsRes.rows.map((r) => ({
@@ -189,6 +212,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     userProductId,
+    section: section === "document" ? "documents" : "ordonnances",
     thresholdHours,
     defaultHours,
     autoResolvedCount,
