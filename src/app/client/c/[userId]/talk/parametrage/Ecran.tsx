@@ -1077,6 +1077,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                 value={settings.centerMail}
                 onChange={(e) => update("centerMail", e.target.value)}
                 placeholder="contact@centre.fr"
+                helperText="Le robot la donne aux patients qui doivent envoyer une ordonnance par mail, pour tous vos sites qui n'ont pas leur propre adresse."
                 InputLabelProps={{ shrink: true }}
               />
 
