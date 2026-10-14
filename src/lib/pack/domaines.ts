@@ -248,7 +248,7 @@ const REGLAGES_CENTRE: Reglage[] = [
 ];
 
 const REGLAGES_SMS: Reglage[] = [
-  { libelle: "Envoyer le SMS de confirmation", aide: "Il porte aussi le lien de dépôt d'ordonnance.", champ: "sendConfirmationSms", type: "booleen" },
+  { libelle: "Envoyer le SMS de confirmation", aide: "Le SMS de dépôt d'ordonnance part même sans lui.", champ: "sendConfirmationSms", type: "booleen" },
   { libelle: "Rappel combien de jours avant", aide: "Nombre de jours.", champ: "reminderDays", type: "nombre" },
   { libelle: "Heure limite de réponse", aide: "Nombre d'heures avant le rendez-vous.", champ: "cutoffHours", type: "nombre" },
 ];
