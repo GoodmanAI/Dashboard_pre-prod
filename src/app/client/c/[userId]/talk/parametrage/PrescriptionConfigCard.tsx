@@ -23,7 +23,8 @@ import { PAGES } from "@/lib/permissions";
 /**
  * Bloc de configuration "Ordonnances" affiche dans la page /parametrage.
  * Le centre coche quels types d'examens necessitent une ordonnance patient
- * (le SMS de confirmation contiendra alors un lien depot-ordonnances) et
+ * (le robot envoie alors un SMS de depot, avec ou sans SMS de confirmation
+ * depuis le 14/10/2026) et
  * definit le delai apres lequel une alerte "ordonnance manquante" apparait
  * pour les secretaires (defaut 48h).
  *
@@ -154,28 +155,8 @@ const PrescriptionConfigCard = forwardRef<
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json().catch(() => ({} as any));
       setDirty(false);
-
-      // Le backend peut avoir auto-active la confirmation SMS pour les types
-      // qui n'avaient pas encore la SMS. On l'affiche dans le snack pour que
-      // la secretaire comprenne le lien de cause a effet (voir l'Alert info
-      // permanente en tete de la card).
-      const autoEnabled: string[] = Array.isArray(data?.smsAutoEnabledTypes)
-        ? data.smsAutoEnabledTypes
-        : [];
-      if (autoEnabled.length > 0) {
-        const labels = autoEnabled
-          .map((k) => EXAM_TYPES.find((e) => e.key === k)?.label ?? k)
-          .join(", ");
-        setSnack({
-          open: true,
-          msg: `Ordonnances enregistrées. La confirmation par SMS a été activée pour : ${labels}.`,
-          sev: "success",
-        });
-      } else {
-        setSnack({ open: true, msg: "Ordonnances enregistrées.", sev: "success" });
-      }
+      setSnack({ open: true, msg: "Ordonnances enregistrées.", sev: "success" });
       return true;
     } catch (err) {
       console.error("[PrescriptionConfigCard] save failed:", err);
@@ -223,20 +204,10 @@ const PrescriptionConfigCard = forwardRef<
         ) : (
           <Stack spacing={3}>
             <Alert severity="info" variant="outlined" sx={{ borderColor: "rgba(var(--accent-rgb), 0.4)" }}>
-              Cochez les types d&apos;examens pour lesquels le patient doit deposer une
-              ordonnance. LyraeTalk ajoutera alors un lien de depot dans le SMS de
-              confirmation de RDV. Le patient recoit un lien court + un code a 6 chiffres.
-            </Alert>
-
-            <Alert
-              severity="warning"
-              variant="outlined"
-              sx={{ borderColor: "rgba(234,88,12,0.4)" }}
-            >
-              <strong>Important :</strong> activer une ordonnance pour un type d&apos;examen
-              active automatiquement la confirmation SMS pour ce meme type. Le lien de
-              depot est inclus dans le SMS envoye au patient, sans SMS, le patient ne
-              peut pas deposer son ordonnance.
+              Cochez les types d&apos;examens pour lesquels le patient doit déposer une
+              ordonnance. Après l&apos;appel, le robot lui envoie un SMS avec un lien et un
+              code à 6 chiffres, que la confirmation par SMS soit activée ou non. Sans
+              portable connu, le lien part par mail.
             </Alert>
 
             <Box>
