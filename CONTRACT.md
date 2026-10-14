@@ -73,6 +73,14 @@ que le robot dérive lui-même). Même règle pour `statePerformed.motif`, `.que
 
 Contrat détaillé et liste des champs cibles : `contracts/shared/init-config.md`.
 
+**Confirmation et dépôt dissociés (14/10/2026, LyraeTalk v2.40.0, plan
+`plans/2026-10-confirmation-et-depot-dissocies.md`).** `sendConfirmationSms` ne règle
+plus que le SMS de confirmation ; le dépôt (`prescriptionByType`, `documentsDemandes`)
+part seul quand il est à `false`. `POST /api/sms-confirmation-config` ne répond plus
+409 `SMS_CONFIRM_REQUIRED_BY_PRESCRIPTION`, et `POST /api/prescriptions/config` n'écrit
+plus dans `SmsConfirmationConfig` (ni `sendConfirmationSms`, ni les types des relances
+no-show) et ne renvoie plus `smsAutoEnabledTypes`.
+
 Deux champs additifs le 27/09/2026 (LyraeTalk v2.6.0) : `horaires` dans une entrée de
 `examTypeRedirection` (forme `weeklyHours`, horaires propres à un numéro dédié) et
 `redirectionSiFerme` (`{ MG: "secretariat" | "annonce" }`). Un robot plus ancien les ignore.
