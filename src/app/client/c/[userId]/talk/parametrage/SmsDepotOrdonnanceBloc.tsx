@@ -32,7 +32,8 @@ import { enregistrerTextesTalk } from "./textesTalk";
  * Monté dans la carte « Confirmation de RDV par SMS », seulement quand le dépôt
  * d'ordonnance est actif pour le centre. Le client règle le texte (`{lien}` et
  * `{code}` obligatoires) et l'ordre des deux SMS. Domaine `talk.textes`, clés
- * `smsDepotGabarit` et `smsDepotAvantConfirmation`.
+ * `smsDepotGabarit` et `smsDepotAvantConfirmation`. Depuis le 14/10/2026 le SMS
+ * de dépôt part aussi sans la confirmation : l'ordre n'est alors pas proposé.
  */
 
 /** Une bulle de SMS, telle que le patient la voit sur son téléphone. */
@@ -82,6 +83,7 @@ export default function SmsDepotOrdonnanceBloc({
   readOnly,
   centre,
   apercuConfirmation,
+  avecConfirmation,
 }: {
   userProductId: number;
   /** Valeur courante de `talk.textes`, déjà chargée par la carte. */
@@ -90,6 +92,8 @@ export default function SmsDepotOrdonnanceBloc({
   centre: string;
   /** Le SMS de confirmation tel qu'il s'affiche dans l'aperçu de la carte. */
   apercuConfirmation: string;
+  /** Le SMS de confirmation est-il envoyé ? Sinon le dépôt part seul. */
+  avecConfirmation: boolean;
 }) {
   const [gabarit, setGabarit] = useState("");
   const [avant, setAvant] = useState(false);
@@ -179,29 +183,31 @@ export default function SmsDepotOrdonnanceBloc({
           SMS de dépôt d&apos;ordonnance
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Le dépôt d&apos;ordonnance est actif : le patient reçoit un second SMS
-          avec le lien et le code pour déposer son ordonnance, un par
-          rendez-vous concerné.
+          {avecConfirmation
+            ? "Le dépôt d'ordonnance est actif : le patient reçoit un second SMS avec le lien et le code pour déposer son ordonnance, un par rendez-vous concerné."
+            : "Le dépôt d'ordonnance est actif : le patient reçoit ce SMS seul, avec le lien et le code pour déposer son ordonnance, un par rendez-vous concerné."}
         </Typography>
       </Box>
 
-      <RadioGroup
-        value={avant ? "avant" : "apres"}
-        onChange={(e) => setAvant(e.target.value === "avant")}
-      >
-        <FormControlLabel
-          value="apres"
-          control={<Radio size="small" />}
-          label="Après le SMS de confirmation"
-          disabled={readOnly}
-        />
-        <FormControlLabel
-          value="avant"
-          control={<Radio size="small" />}
-          label="Avant le SMS de confirmation"
-          disabled={readOnly}
-        />
-      </RadioGroup>
+      {avecConfirmation && (
+        <RadioGroup
+          value={avant ? "avant" : "apres"}
+          onChange={(e) => setAvant(e.target.value === "avant")}
+        >
+          <FormControlLabel
+            value="apres"
+            control={<Radio size="small" />}
+            label="Après le SMS de confirmation"
+            disabled={readOnly}
+          />
+          <FormControlLabel
+            value="avant"
+            control={<Radio size="small" />}
+            label="Avant le SMS de confirmation"
+            disabled={readOnly}
+          />
+        </RadioGroup>
+      )}
 
       <ChampAvecVariables
         label="Message de dépôt envoyé au patient"
@@ -228,9 +234,11 @@ export default function SmsDepotOrdonnanceBloc({
           spacing={1.5}
           sx={{ width: { xs: "100%", sm: 320 }, flexShrink: 0 }}
         >
-          {avant
-            ? [bulleDepot, bulleConfirmation]
-            : [bulleConfirmation, bulleDepot]}
+          {!avecConfirmation
+            ? bulleDepot
+            : avant
+              ? [bulleDepot, bulleConfirmation]
+              : [bulleConfirmation, bulleDepot]}
         </Stack>
         <Stack spacing={0.5} sx={{ minWidth: 0 }}>
           <Typography

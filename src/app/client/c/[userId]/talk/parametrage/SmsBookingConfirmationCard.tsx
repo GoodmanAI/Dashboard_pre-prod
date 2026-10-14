@@ -8,7 +8,6 @@ import {
   AccordionDetails,
   AccordionSummary,
   Alert,
-  Box,
   Button,
   Chip,
   CircularProgress,
@@ -16,7 +15,6 @@ import {
   FormControlLabel,
   Stack,
   Switch,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -46,11 +44,10 @@ import SmsDepotOrdonnanceBloc, { BulleSms } from "./SmsDepotOrdonnanceBloc";
  *
  * Auto-save au toggle avec optimistic UI + rollback en cas d'échec.
  *
- * Dépendance métier : si au moins un type d'examen a une ordonnance activée,
- * le switch est **verrouillé sur ON** (le lien de dépôt patient est inclus
- * dans ce SMS, donc désactiver = casser silencieusement le flow ordonnance).
- * Le composant fetch la config prescription pour connaître l'état, et le
- * backend renforce la même règle avec un 409 explicite.
+ * Le dépôt d'ordonnance ne dépend plus de ce SMS (14/10/2026, plan
+ * `lyrae/plans/2026-10-confirmation-et-depot-dissocies.md`) : le robot envoie le
+ * SMS de dépôt seul quand la confirmation est coupée. Le composant lit la config
+ * prescription pour savoir s'il faut afficher le bloc du SMS de dépôt.
  *
  * Texte du SMS (08/10/2026) : le client écrit son propre gabarit, avec des
  * variables, dans le domaine `talk.textes` (`src/lib/talkTextes.ts`). Il doit
@@ -85,15 +82,15 @@ export default function SmsBookingConfirmationCard({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
-  // Liste des types d'examens avec ordonnance active (source: PrescriptionConfig)
-  // Utilisée pour verrouiller le switch et afficher l'explication contextuelle.
+  // Types d'examens avec ordonnance active (source: PrescriptionConfig) : ils
+  // décident de l'affichage du bloc du SMS de dépôt.
   const [prescriptionActiveTypes, setPrescriptionActiveTypes] = useState<string[]>(
     []
   );
 
   // Refetch de la seule config prescription (utilise apres event websocket
-  // "prescription-alerts-updated" pour re-synchroniser le lock du switch sans
-  // que l'user ait a rafraichir la page manuellement).
+  // "prescription-alerts-updated" pour afficher ou masquer le bloc du SMS de
+  // depot sans que l'user ait a rafraichir la page manuellement).
   const refetchPrescriptionState = useCallback(async () => {
     try {
       const res = await fetch(
@@ -146,10 +143,8 @@ export default function SmsBookingConfirmationCard({
     };
   }, [userProductId]);
 
-  // Websocket : refresh instantane du lock quand la config prescription
-  // change (meme event que le badge navbar/header). Sans ca, apres avoir
-  // decoche toutes les ordonnances, le user devait recharger la page pour
-  // que le switch se debloque.
+  // Websocket : refresh instantane quand la config prescription change (meme
+  // event que le badge navbar/header).
   const socketRef = useRef<Socket | null>(null);
   useEffect(() => {
     if (!userProductId) return;
@@ -178,7 +173,7 @@ export default function SmsBookingConfirmationCard({
     };
   }, [userProductId, refetchPrescriptionState]);
 
-  const prescriptionLocked = prescriptionActiveTypes.length > 0;
+  const depotActif = prescriptionActiveTypes.length > 0;
   const prescriptionLabels = prescriptionActiveTypes
     .map((k) => EXAM_LABELS[k] ?? k)
     .join(", ");
@@ -197,20 +192,7 @@ export default function SmsBookingConfirmationCard({
           sendConfirmationSms: value,
         }),
       });
-      if (!res.ok) {
-        // Cas particulier du 409 (blocage prescription) : message dedie et
-        // rollback local.
-        if (res.status === 409) {
-          const data = await res.json().catch(() => ({} as any));
-          setEnabled(prev);
-          setError(
-            data?.error ??
-              "Ce SMS ne peut pas être désactivé tant que le dépôt d'ordonnance est actif : il porte le lien de dépôt."
-          );
-          return;
-        }
-        throw new Error(`HTTP ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setEnabled(Boolean(data.sendConfirmationSms));
       setSavedAt(Date.now());
@@ -222,7 +204,7 @@ export default function SmsBookingConfirmationCard({
     }
   }
 
-  const switchDisabled = readOnly || saving || (prescriptionLocked && enabled);
+  const switchDisabled = readOnly || saving;
 
   // ── Texte du SMS ───────────────────────────────────────────────────────────
   const { valeur: textes, erreurChargement: erreurTextes } = useTextesTalk(userProductId);
@@ -273,10 +255,6 @@ export default function SmsBookingConfirmationCard({
     }
   }
 
-  const tooltipTitle = prescriptionLocked
-    ? `Toujours actif : le dépôt d'ordonnance est en service pour ${prescriptionLabels}, et ce SMS porte le lien de dépôt. Désactivez d'abord le dépôt d'ordonnance.`
-    : "";
-
   return (
     <Accordion>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -301,47 +279,34 @@ export default function SmsBookingConfirmationCard({
             </Stack>
           ) : (
             <>
-              {prescriptionLocked && (
-                <Alert
-                  severity="info"
-                  variant="outlined"
-                  sx={{ borderColor: "rgba(var(--accent-rgb), 0.4)" }}
-                >
-                  Ce réglage reste <strong>toujours actif</strong> car le dépôt
-                  d&apos;ordonnance est en service pour : <strong>{prescriptionLabels}</strong>.
-                  Ce SMS porte le lien de dépôt du patient. Pour pouvoir le
-                  désactiver, désactivez d&apos;abord le dépôt pour ces examens
-                  dans la carte &laquo; Dépôt d&apos;ordonnance patient &raquo;.
-                </Alert>
-              )}
-
-              <Tooltip title={tooltipTitle} placement="top" arrow>
-                {/* span wrapper pour permettre au Tooltip de s'afficher meme
-                    quand le control est disabled (MUI limitation connue) */}
-                <Box component="span" sx={{ display: "inline-block", width: "fit-content" }}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={enabled}
-                        disabled={switchDisabled}
-                        onChange={(e) => toggle(e.target.checked)}
-                      />
-                    }
-                    label={
-                      <Stack spacing={0.5}>
-                        <Typography variant="body1">
-                          Envoyer un SMS au patient quand il prend un RDV par le robot
-                          pour lui confirmer.
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Le SMS part à la fin de l&apos;appel. Distinct des rappels
-                          no-show configurés ci-dessous.
-                        </Typography>
-                      </Stack>
-                    }
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={enabled}
+                    disabled={switchDisabled}
+                    onChange={(e) => toggle(e.target.checked)}
                   />
-                </Box>
-              </Tooltip>
+                }
+                label={
+                  <Stack spacing={0.5}>
+                    <Typography variant="body1">
+                      Envoyer un SMS au patient quand il prend un RDV par le robot
+                      pour lui confirmer.
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {enabled
+                        ? "Le SMS part à la fin de l'appel. Distinct des rappels no-show configurés ci-dessous."
+                        : "Désactivé : le robot n'envoie aucune confirmation, ni SMS ni mail. Utile si votre centre confirme déjà ses rendez-vous."}
+                    </Typography>
+                    {!enabled && depotActif && (
+                      <Typography variant="caption" color="text.secondary">
+                        Le SMS de dépôt d&apos;ordonnance part quand même pour :{" "}
+                        {prescriptionLabels}.
+                      </Typography>
+                    )}
+                  </Stack>
+                }
+              />
 
               {enabled && (
                 <Stack spacing={2} sx={{ pt: 1 }}>
@@ -449,24 +414,25 @@ export default function SmsBookingConfirmationCard({
                           {enregistrementTexte ? "Enregistrement…" : "Enregistrer le texte"}
                         </Button>
                       </Stack>
-
-                      {/* Lot 4 : le SMS de dépôt et son ordre, seulement si le dépôt
-                          d'ordonnance est actif (même condition que le verrou). */}
-                      {prescriptionLocked && (
-                        <>
-                          <Divider />
-                          <SmsDepotOrdonnanceBloc
-                            userProductId={userProductId}
-                            textes={textes}
-                            readOnly={readOnly}
-                            centre={centre}
-                            apercuConfirmation={apercu}
-                          />
-                        </>
-                      )}
                     </>
                   )}
                 </Stack>
+              )}
+
+              {/* Lot 4 : le SMS de dépôt, dès que le dépôt d'ordonnance est actif,
+                  confirmation cochée ou non (14/10/2026). */}
+              {depotActif && textes && (
+                <>
+                  <Divider />
+                  <SmsDepotOrdonnanceBloc
+                    userProductId={userProductId}
+                    textes={textes}
+                    readOnly={readOnly}
+                    centre={centre}
+                    apercuConfirmation={apercu}
+                    avecConfirmation={enabled}
+                  />
+                </>
               )}
             </>
           )}
