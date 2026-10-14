@@ -174,6 +174,10 @@ export const TRANSFER_REASON_META: Record<string, TransferMeta> = {
   edit_rdv_failed: { label: "Échec de modification de RDV", category: "erreur_technique" },
   // Rétro-compat
   create_rdv_failed: { label: "Échec de création de RDV", category: "erreur_technique" },
+  // LyraeTalk v2.42.0 : lectures au RIS en échec, le patient est transféré en le sachant.
+  get_rdv_failed: { label: "Rendez-vous illisibles (RIS)", category: "erreur_technique" },
+  get_slots_failed: { label: "Planning illisible (RIS)", category: "erreur_technique" },
+  search_patient_failed: { label: "Dossier patient illisible (RIS)", category: "erreur_technique" },
 
   // ===== non_transfert (à EXCLURE du décompte transferts) =====
   end_conversation: { label: "Fin de conversation (raccrochage)", category: "non_transfert" },
