@@ -37,7 +37,18 @@ après le RDV.
 - `POST /api/prescriptions/par-mail/init` accepte `mineur` ; la carte porte `ordonnance`
   et `documents` (libellés). Rien à demander : `{ id: null, created: false }`.
 - `GET /api/configuration` porte `documentsDemandes` :
-  `{ irm: { tous: ["Questionnaire IRM"], mineurs: [] }, ... }`, seuls les types concernés.
+  `{ irm: { tous: ["Questionnaire IRM"], mineurs: [], grossesse: [] }, ... }`, seuls les
+  types concernés.
+
+**Attestation de non-grossesse** (15/10/2026, plan workspace
+`plans/2026-10-attestation-grossesse.md`, `DECISIONS.md` du 15/10/2026). Additif :
+
+- `POST /api/prescriptions/init` et `POST /api/prescriptions/par-mail/init` acceptent
+  `grossessePossible` (booléen, absent = `false`), calculé par LyraeTalk : 12 à 55 ans,
+  sexe F, ou sexe ou âge inconnu. Un `DocumentDemande` `grossesseSeulement` ne vaut que s'il
+  est vrai. Konnect ne l'envoie pas : il ne reçoit jamais ces documents.
+- `documentsDemandes` gagne la liste `grossesse`. `grossesseSeulement` et
+  `mineursSeulement` s'excluent (`api/documents-demandes` répond 400 aux deux).
 
 ⚠️ **`GET /api/configuration` renvoie un bloc `site`** (07/09/2026), miroir exact de
 l'objet `call.site` de LyraeTalk. Il porte la configuration qui vit encore dans le

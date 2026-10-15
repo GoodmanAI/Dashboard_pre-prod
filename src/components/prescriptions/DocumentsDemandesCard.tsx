@@ -21,6 +21,8 @@ import {
   Chip,
   CircularProgress,
   FormControlLabel,
+  Radio,
+  RadioGroup,
   Stack,
   Switch,
   TextField,
@@ -70,6 +72,7 @@ type DocumentVue = {
   libelle: string;
   typesExamen: ExamKey[];
   mineursSeulement: boolean;
+  grossesseSeulement: boolean;
   disponible: boolean;
   modele: { nom: string | null; octets: number; maj: string | null } | null;
   archive: boolean;
@@ -79,13 +82,25 @@ type Brouillon = {
   libelle: string;
   typesExamen: ExamKey[];
   mineursSeulement: boolean;
+  grossesseSeulement: boolean;
 };
 
 const BROUILLON_VIDE: Brouillon = {
   libelle: "",
   typesExamen: [],
   mineursSeulement: false,
+  grossesseSeulement: false,
 };
+
+// « Pour qui » : deux booleens en base, qui s'excluent
+// (plans/2026-10-attestation-grossesse.md).
+type PourQui = "tous" | "mineurs" | "grossesse";
+
+function pourQuiDe(b: Pick<Brouillon, "mineursSeulement" | "grossesseSeulement">): PourQui {
+  if (b.mineursSeulement) return "mineurs";
+  if (b.grossesseSeulement) return "grossesse";
+  return "tous";
+}
 
 export type DocumentsDemandesHandle = {
   /** Rend `false` si rien n'a été enregistré. */
@@ -326,8 +341,9 @@ const DocumentsDemandesCard = forwardRef<
               sx={{ borderColor: "rgba(var(--accent-rgb), 0.4)" }}
             >
               Ces documents sont demandés au patient sur le même lien que
-              l&apos;ordonnance, selon l&apos;examen (et l&apos;âge, pour un
-              questionnaire réservé aux mineurs). Le patient télécharge votre
+              l&apos;ordonnance, selon l&apos;examen (et selon l&apos;âge ou le
+              sexe, pour un document réservé aux mineurs ou aux femmes de 12 à
+              55 ans). Le patient télécharge votre
               modèle, le remplit et le renvoie. Il est rattaché au rendez-vous
               dans votre logiciel de gestion. Ceux qui ne l&apos;ont pas renvoyé
               apparaissent dans « Questionnaires et documents », sur la page des
@@ -382,6 +398,13 @@ const DocumentsDemandesCard = forwardRef<
                             <Chip
                               size="small"
                               label="Patients mineurs seulement"
+                              sx={{ bgcolor: "rgba(234,88,12,0.12)", color: "#9a3412" }}
+                            />
+                          )}
+                          {d.grossesseSeulement && (
+                            <Chip
+                              size="small"
+                              label="Femmes de 12 à 55 ans seulement"
                               sx={{ bgcolor: "rgba(234,88,12,0.12)", color: "#9a3412" }}
                             />
                           )}
@@ -449,6 +472,7 @@ const DocumentsDemandesCard = forwardRef<
                                     libelle: d.libelle,
                                     typesExamen: d.typesExamen,
                                     mineursSeulement: d.mineursSeulement,
+                                    grossesseSeulement: d.grossesseSeulement,
                                   },
                                 })
                               }
@@ -638,18 +662,44 @@ function FormulaireDocument({
           ))}
         </Stack>
       </Box>
-      <FormControlLabel
-        control={
-          <Checkbox
-            size="small"
-            checked={brouillon.mineursSeulement}
-            onChange={(e) =>
-              onChange({ ...brouillon, mineursSeulement: e.target.checked })
-            }
+      <Box>
+        <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+          Pour qui
+        </Typography>
+        <RadioGroup
+          value={pourQuiDe(brouillon)}
+          onChange={(e) => {
+            const v = e.target.value as PourQui;
+            onChange({
+              ...brouillon,
+              mineursSeulement: v === "mineurs",
+              grossesseSeulement: v === "grossesse",
+            });
+          }}
+        >
+          <FormControlLabel
+            value="tous"
+            control={<Radio size="small" />}
+            label="Tous les patients"
           />
-        }
-        label="Seulement pour un patient mineur"
-      />
+          <FormControlLabel
+            value="mineurs"
+            control={<Radio size="small" />}
+            label="Seulement pour un patient mineur"
+          />
+          <FormControlLabel
+            value="grossesse"
+            control={<Radio size="small" />}
+            label="Seulement pour une femme de 12 à 55 ans"
+          />
+        </RadioGroup>
+        {brouillon.grossesseSeulement && (
+          <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
+            Si le robot ne connaît pas le sexe ou l&apos;âge du patient, le
+            document part quand même.
+          </Typography>
+        )}
+      </Box>
       <Stack direction="row" spacing={1}>
         <Button
           variant="contained"
