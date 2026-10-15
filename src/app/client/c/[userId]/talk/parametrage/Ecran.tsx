@@ -59,7 +59,6 @@ import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import SmsConfirmationConfigCard from "./SmsConfirmationConfigCard";
 import SmsBookingConfirmationCard from "./SmsBookingConfirmationCard";
 import ConsigneApresReservationCard from "./ConsigneApresReservationCard";
-import HeureArriveeCard from "./HeureArriveeCard";
 import QuestionsExamenCard from "./QuestionsExamenCard";
 import PrescriptionConfigCard, {
   type PrescriptionConfigHandle,
@@ -506,10 +505,14 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
 
   /** Les salles de chaque paire, par clé du Dashboard (`radio_radio`…). */
   const sallesParPaire = useMemo(() => {
-    const m: Record<string, { cle: string; salles: { poste: string; libelle: string }[] }> = {};
+    const m: Record<
+      string,
+      { cle: string; salles: { poste: string; libelle: string }[] }
+    > = {};
     for (const exam of DOUBLE_EXAMS) {
       const cle = clePaireRobotDepuisDashboard(exam.key);
-      if (cle) m[exam.key] = { cle, salles: sallesDeLaPaire(sallesParType, cle) };
+      if (cle)
+        m[exam.key] = { cle, salles: sallesDeLaPaire(sallesParType, cle) };
     }
     return m;
   }, [sallesParType]);
@@ -774,7 +777,8 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   const documentsRef = useRef<DocumentsDemandesHandle>(null);
   const [documentsModifies, setDocumentsModifies] = useState(false);
   const estAdmin =
-    sessionData?.user?.role === "ADMIN" || sessionData?.user?.role === "SUPER_ADMIN";
+    sessionData?.user?.role === "ADMIN" ||
+    sessionData?.user?.role === "SUPER_ADMIN";
 
   const { dialogue: dialogueSortie } = useUnsavedChangesGuard(
     isDirty || ordonnancesModifiees || documentsModifies,
@@ -1401,12 +1405,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           centre={settings.centerName ?? ""}
         />
 
-        {/* Heure d'arrivée : minutes d'avance par examen (talk.textes, 15/10) */}
-        <HeureArriveeCard
-          userProductId={Number(params.id)}
-          readOnly={readOnly}
-        />
-
         {/* Questions avant l'IRM et le scanner (talk.textes, 15/10) */}
         <QuestionsExamenCard
           userProductId={Number(params.id)}
@@ -1850,7 +1848,8 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                           {prioriteVisible && (
                             <TableCell sx={{ verticalAlign: "top" }}>
                               {enabled &&
-                              (sallesParPaire[exam.key]?.salles.length ?? 0) >= 2 ? (
+                              (sallesParPaire[exam.key]?.salles.length ?? 0) >=
+                                2 ? (
                                 <PrioriteSalles
                                   salles={sallesParPaire[exam.key].salles}
                                   valeur={

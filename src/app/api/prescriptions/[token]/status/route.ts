@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { avanceDuCentre } from "@/lib/avanceArrivee";
 import { lienOuvert } from "@/lib/prescriptionDocuments";
 import { MAX_DOCUMENTS_PAR_PIECE, piecesDuLien } from "@/lib/piecesAttendues";
 
@@ -21,8 +20,7 @@ import { MAX_DOCUMENTS_PAR_PIECE, piecesDuLien } from "@/lib/piecesAttendues";
  *   200 {
  *     status: "PENDING" | "UPLOADED" | "ACKED" | "REJECTED" | "LOCKED",
  *     patientLabel: "Jean D.",              // prenom + initiale nom
- *     appointmentDate: ISO | null,          // heure d'arrivee : avancee selon le
- *                                           // centre (talk.textes, 15/10/2026)
+ *     appointmentDate: ISO | null,
  *     examType: "scanner" | ...             // sert au libelle UI
  *     canUpload: boolean,                   // une piece au moins accepte encore un document
  *     expiresAt: ISO,
@@ -44,25 +42,24 @@ const APPOINTMENT_MAX_ATTEMPTS = 3;
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { token: string } },
+  { params }: { params: { token: string } }
 ) {
   const sel = await db.query<{
     id: number;
     status: string;
     firstname: string;
     lastname: string;
-    externalCenterCode: string;
     examType: string | null;
     appointmentDate: Date | null;
     expiresAt: Date;
     attempts: number;
   }>(
-    `SELECT "id", "status", "firstname", "lastname", "externalCenterCode", "examType",
+    `SELECT "id", "status", "firstname", "lastname", "examType",
             "appointmentDate", "expiresAt", "attempts"
        FROM "PrescriptionUpload"
       WHERE "token" = $1
       LIMIT 1`,
-    [params.token],
+    [params.token]
   );
 
   if (sel.rowCount === 0) {
@@ -85,7 +82,7 @@ export async function GET(
     `SELECT "uploadedAt", "pieceAttendueId" FROM "PrescriptionDocument"
       WHERE "uploadId" = $1
       ORDER BY "uploadedAt" ASC, "id" ASC`,
-    [record.id],
+    [record.id]
   );
   const pieces = (await piecesDuLien(record.id)).map((p) => {
     const recus = docs.rows
@@ -109,23 +106,12 @@ export async function GET(
     ? `${record.firstname} ${initial}.`
     : record.firstname;
 
-  // Le patient lit l'heure a laquelle se presenter, comme dans son SMS ; l'heure
-  // reelle reste en base et fixe toujours l'expiration du lien.
-  const avance = await avanceDuCentre(
-    record.externalCenterCode,
-    record.examType,
-  );
-  const appointmentDate =
-    record.appointmentDate && avance
-      ? new Date(record.appointmentDate.getTime() - avance * 60_000)
-      : record.appointmentDate;
-
   const attemptsLeft = Math.max(0, APPOINTMENT_MAX_ATTEMPTS - record.attempts);
 
   return NextResponse.json({
     status: record.status,
     patientLabel,
-    appointmentDate,
+    appointmentDate: record.appointmentDate,
     examType: record.examType,
     canUpload: pieces.some((p) => p.canUpload),
     expiresAt: record.expiresAt,

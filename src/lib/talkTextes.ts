@@ -11,7 +11,6 @@
  *     smsConfirmationGabarit?: string,          // SMS de confirmation, un seul SMS
  *     smsDepotGabarit?: string,                 // SMS de dépôt d'ordonnance (lot 4)
  *     smsDepotAvantConfirmation?: true,         // dépôt envoyé avant la confirmation
- *     avanceParExamen?: { MR?: 30, … },         // minutes d'avance, heure d'arrivée (15/10)
  *     questionsExamen?: { MR?: {…}, CT?: {…} }, // questions IRM et scanner (15/10)
  *   }
  *
@@ -28,7 +27,6 @@ export const CLE_CONSIGNE_PAR_EXAMEN = "rdvInstructionParExamen";
 export const CLE_GABARIT_SMS = "smsConfirmationGabarit";
 export const CLE_GABARIT_DEPOT = "smsDepotGabarit";
 export const CLE_DEPOT_AVANT = "smsDepotAvantConfirmation";
-export const CLE_AVANCE = "avanceParExamen";
 export const CLE_QUESTIONS = "questionsExamen";
 
 /** Codes robot (jamais les diminutifs), dans l'ordre de l'écran. */
@@ -399,7 +397,6 @@ export type TextesTalk = {
   smsConfirmationGabarit?: string;
   smsDepotGabarit?: string;
   smsDepotAvantConfirmation?: true;
-  avanceParExamen?: Record<string, number>;
   questionsExamen?: Record<string, QuestionsExamen>;
 };
 
@@ -523,11 +520,6 @@ export function validerTextes(
         "L'ordre des SMS doit valoir vrai (dépôt avant) ou faux (dépôt après).",
     };
 
-  const avance = validerAvance(valeur[CLE_AVANCE]);
-  if ("erreur" in avance) return avance;
-  if (avance.valeur) sortie[CLE_AVANCE] = avance.valeur;
-  else delete sortie[CLE_AVANCE];
-
   const questions = validerQuestions(valeur[CLE_QUESTIONS]);
   if ("erreur" in questions) return questions;
   if (questions.valeur) sortie[CLE_QUESTIONS] = questions.valeur;
@@ -549,55 +541,6 @@ export function centreEtAdresse(fiche: {
       .filter(Boolean)
       .join(", "),
   };
-}
-
-// ─── Heure d'arrivée (15/10/2026) ────────────────────────────────────────────
-// Plan : `lyrae/plans/2026-10-avance-et-questions-par-centre.md`. Le robot avance
-// d'autant toute heure de créneau qu'il dit ou écrit au patient (IRM 30 : le
-// créneau de 13 h 00 est annoncé à 12 h 30). L'heure réservée dans Xplore ne bouge
-// pas. Type absent ou 0 : aucune avance.
-
-export const AVANCE_MAX = 120;
-export const AVANCE_PAS = 5;
-
-/** « 13h00 » avancé de `minutes` : « 12h30 ». Pour les aperçus. */
-export function heureAvancee(heure: string, minutes: number): string {
-  const m = /^(\d{1,2})h(\d{2})$/.exec(heure);
-  if (!m || !minutes) return heure;
-  const total = (Number(m[1]) * 60 + Number(m[2]) - minutes + 1440) % 1440;
-  return `${Math.floor(total / 60)}h${String(total % 60).padStart(2, "0")}`;
-}
-
-function validerAvance(
-  brut: unknown,
-): { valeur: Record<string, number> | null } | { erreur: string } {
-  if (brut === undefined || brut === null) return { valeur: null };
-  if (typeof brut !== "object" || Array.isArray(brut)) {
-    return { erreur: "Les heures d'arrivée sont mal formées." };
-  }
-  const propres: Record<string, number> = {};
-  for (const [code, v] of Object.entries(brut as Record<string, unknown>)) {
-    if (!CODES_EXAMEN.includes(code)) {
-      return {
-        erreur: `Le type d'examen ${code} n'existe pas. Types possibles : ${CODES_EXAMEN.join(", ")}.`,
-      };
-    }
-    if (v === null || v === undefined || v === "" || v === 0) continue;
-    const libelle = EXAMENS_CONSIGNE.find((x) => x.code === code)!.libelle;
-    if (
-      typeof v !== "number" ||
-      !Number.isInteger(v) ||
-      v < 0 ||
-      v > AVANCE_MAX ||
-      v % AVANCE_PAS !== 0
-    ) {
-      return {
-        erreur: `${libelle} : l'avance se règle de ${AVANCE_PAS} en ${AVANCE_PAS} minutes, entre 0 et ${AVANCE_MAX}.`,
-      };
-    }
-    propres[code] = v;
-  }
-  return { valeur: Object.keys(propres).length ? propres : null };
 }
 
 // ─── Questions avant l'IRM et le scanner (15/10/2026) ────────────────────────
@@ -734,24 +677,4 @@ function validerQuestions(
     if (Object.keys(r).length) propres[code] = r;
   }
   return { valeur: Object.keys(propres).length ? propres : null };
-}
-
-/** Le code robot d'une clé longue (`irm`, `scanner`…), celles des liens et des relances. */
-export const CODE_DE_LA_CLE: Record<string, string> = {
-  radiographie: "RX",
-  echographie: "US",
-  mammo: "MG",
-  scanner: "CT",
-  irm: "MR",
-};
-
-/** Minutes d'avance d'un type, en clé longue ou en code robot ; 0 si rien n'est réglé. */
-export function avanceDuType(
-  avance: unknown,
-  type: string | null | undefined,
-): number {
-  if (!type || !avance || typeof avance !== "object") return 0;
-  const code = CODE_DE_LA_CLE[type] ?? type;
-  const v = (avance as Record<string, unknown>)[code];
-  return typeof v === "number" && v > 0 ? v : 0;
 }
