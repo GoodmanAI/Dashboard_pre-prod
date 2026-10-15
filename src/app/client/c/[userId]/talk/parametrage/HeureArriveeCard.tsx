@@ -150,6 +150,15 @@ export default function HeureArriveeCard({
               confirme le rendez-vous, et dans les SMS. Le rendez-vous reste
               enregistré à l&apos;heure du créneau dans votre logiciel.
             </Typography>
+            <Alert
+              severity="info"
+              sx={{ "& .MuiAlert-message": { width: "100%" } }}
+            >
+              Mettez la même durée que la convocation réglée dans votre logiciel
+              de gestion. Pour un rendez-vous déjà pris (rappel, annulation,
+              modification), le robot lit l&apos;heure de convocation de votre
+              logiciel et n&apos;ajoute rien.
+            </Alert>
 
             <Box
               sx={{
