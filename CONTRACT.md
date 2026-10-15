@@ -141,6 +141,18 @@ déjà :
   pires cas de la confirmation. Absent : `SMS.prescription_block` du robot.
 - `site.smsDepotAvantConfirmation` (lot 4) : `true` = le SMS de dépôt part avant la
   confirmation. Seul `true` est stocké ; absent = après (défaut).
+- `site.avanceParExamen` (15/10/2026, plan `plans/2026-10-avance-et-questions-par-centre.md`) :
+  `{ RX?, US?, MG?, CT?, MR? }` (codes robot), entier de 5 à 120, multiple de 5. Minutes
+  retirées de l'heure du **créneau** quand le robot la donne au patient (oral, SMS de
+  confirmation et de dépôt, mail) : l'heure d'arrivée. Le RDV reste réservé à l'heure
+  réelle et le payload de `POST /api/prescriptions/init` porte l'heure réelle. Absent ou 0 :
+  aucune avance. Les heures lues dans Xplore (RDV existants, relances) n'y sont **pas**
+  soumises pour l'instant (double avance possible à Pontivy, étape 0 du plan).
+- `site.questionsExamen` (15/10/2026) : `{ MR?: Q, CT?: Q }`, avec
+  `Q = { injection?: false, siInjectionNonDemandee?: "avec", allergie?: false,
+  contreIndications?: false (MR seulement), grossesse?: false }`. Seul « pas posée »
+  (`false`) est stocké ; une clé absente = question posée, comme avant. `injection: false`
+  sans `siInjectionNonDemandee` = examen réservé sans injection.
 
 Validation au `PUT /api/product-config` (`src/lib/talkTextes.ts`) : variable inconnue,
 accolade orpheline, code d'examen inconnu, `{lien}` ou `{code}` absent du SMS de dépôt,
@@ -519,7 +531,9 @@ répond plus 404 à un centre jamais enregistré.
 ### Pages patient publiques
 `/c`, `/d`, `/confirm` — token 8 caractères + `verificationCode` haché bcrypt.
 Depuis le 11/10/2026, `/d` montre un bloc par pièce attendue ; ses routes publiques sont
-`GET /api/prescriptions/[token]/status` (avec `pieces`), `POST .../upload` (champ `pieceId`
+`GET /api/prescriptions/[token]/status` (avec `pieces` ; depuis le 15/10/2026,
+`appointmentDate` y est l'heure d'arrivée, avancée de `avanceParExamen` du centre ;
+`expiresAt` reste sur l'heure réelle), `POST .../upload` (champ `pieceId`
 facultatif, absent = l'ordonnance) et `GET .../modele/[pieceId]` (modèle vierge d'un
 document demandé, jeton seul).
 Sous-domaines : `rdv.neuracorp.ai`, `depot-ordonnances.neuracorp.ai` (doivent pointer sur le même conteneur Next).

@@ -59,6 +59,8 @@ import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import SmsConfirmationConfigCard from "./SmsConfirmationConfigCard";
 import SmsBookingConfirmationCard from "./SmsBookingConfirmationCard";
 import ConsigneApresReservationCard from "./ConsigneApresReservationCard";
+import HeureArriveeCard from "./HeureArriveeCard";
+import QuestionsExamenCard from "./QuestionsExamenCard";
 import PrescriptionConfigCard, {
   type PrescriptionConfigHandle,
 } from "./PrescriptionConfigCard";
@@ -1397,6 +1399,18 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           userProductId={Number(params.id)}
           readOnly={readOnly}
           centre={settings.centerName ?? ""}
+        />
+
+        {/* Heure d'arrivée : minutes d'avance par examen (talk.textes, 15/10) */}
+        <HeureArriveeCard
+          userProductId={Number(params.id)}
+          readOnly={readOnly}
+        />
+
+        {/* Questions avant l'IRM et le scanner (talk.textes, 15/10) */}
+        <QuestionsExamenCard
+          userProductId={Number(params.id)}
+          readOnly={readOnly}
         />
 
         {/* Confirmation de RDV par SMS (à la prise de RDV via bot) */}
