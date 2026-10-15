@@ -14,6 +14,7 @@ export interface DocumentDemandeVue {
   libelle: string;
   typesExamen: ExamTypeKey[];
   mineursSeulement: boolean;
+  grossesseSeulement: boolean;
   disponible: boolean;
   ordre: number;
   modele: { nom: string | null; octets: number; maj: string | null } | null;
@@ -32,6 +33,7 @@ export async function lireDocumentsDemandes(
     libelle: string;
     typesExamen: unknown;
     mineursSeulement: boolean;
+    grossesseSeulement: boolean;
     disponible: boolean;
     ordre: number;
     modeleNom: string | null;
@@ -40,7 +42,7 @@ export async function lireDocumentsDemandes(
     archivedAt: Date | null;
   }>(
     `SELECT "id", "userProductId", "libelle", "typesExamen", "mineursSeulement",
-            "disponible", "ordre", "modeleNom",
+            "grossesseSeulement", "disponible", "ordre", "modeleNom",
             octet_length("modeleContenu") AS "modeleOctets", "modeleMaj",
             "archivedAt"
        FROM "DocumentDemande"
@@ -55,6 +57,7 @@ export async function lireDocumentsDemandes(
     libelle: r.libelle,
     typesExamen: normaliserTypesExamen(r.typesExamen),
     mineursSeulement: r.mineursSeulement,
+    grossesseSeulement: r.grossesseSeulement,
     disponible: r.disponible,
     ordre: r.ordre,
     modele:
