@@ -11,6 +11,7 @@
  *     smsConfirmationGabarit?: string,          // SMS de confirmation, un seul SMS
  *     smsDepotGabarit?: string,                 // SMS de dépôt d'ordonnance (lot 4)
  *     smsDepotAvantConfirmation?: true,         // dépôt envoyé avant la confirmation
+ *     questionsExamen?: { MR?: {…}, CT?: {…} }, // questions IRM et scanner (15/10)
  *   }
  *
  * Une seule implémentation pour l'écran (aperçu, compteur) et pour la route
@@ -26,6 +27,7 @@ export const CLE_CONSIGNE_PAR_EXAMEN = "rdvInstructionParExamen";
 export const CLE_GABARIT_SMS = "smsConfirmationGabarit";
 export const CLE_GABARIT_DEPOT = "smsDepotGabarit";
 export const CLE_DEPOT_AVANT = "smsDepotAvantConfirmation";
+export const CLE_QUESTIONS = "questionsExamen";
 
 /** Codes robot (jamais les diminutifs), dans l'ordre de l'écran. */
 export const EXAMENS_CONSIGNE: {
@@ -395,6 +397,7 @@ export type TextesTalk = {
   smsConfirmationGabarit?: string;
   smsDepotGabarit?: string;
   smsDepotAvantConfirmation?: true;
+  questionsExamen?: Record<string, QuestionsExamen>;
 };
 
 function erreurConsigne(texte: string, ou: string): string | null {
@@ -513,8 +516,14 @@ export function validerTextes(
   else if (avant === true) sortie[CLE_DEPOT_AVANT] = true;
   else
     return {
-      erreur: "L'ordre des SMS doit valoir vrai (dépôt avant) ou faux (dépôt après).",
+      erreur:
+        "L'ordre des SMS doit valoir vrai (dépôt avant) ou faux (dépôt après).",
     };
+
+  const questions = validerQuestions(valeur[CLE_QUESTIONS]);
+  if ("erreur" in questions) return questions;
+  if (questions.valeur) sortie[CLE_QUESTIONS] = questions.valeur;
+  else delete sortie[CLE_QUESTIONS];
 
   return { valeur: sortie };
 }
@@ -532,4 +541,140 @@ export function centreEtAdresse(fiche: {
       .filter(Boolean)
       .join(", "),
   };
+}
+
+// ─── Questions avant l'IRM et le scanner (15/10/2026) ────────────────────────
+// Le robot pose ces questions dans cet ordre (`confirmExam.js`, `askAllergy.js`,
+// `askIrmContraindication.js`, `v2/grossesse.js`). Une case décochée : la question
+// n'est pas posée. Clé absente : la question est posée, comme avant le 15/10.
+
+export type QuestionsExamen = {
+  injection?: boolean;
+  /** Ce que le robot réserve quand il ne demande pas : « sans » par défaut. */
+  siInjectionNonDemandee?: "sans" | "avec";
+  allergie?: boolean;
+  contreIndications?: boolean;
+  grossesse?: boolean;
+};
+
+export type CleQuestion =
+  "injection" | "allergie" | "contreIndications" | "grossesse";
+
+export type QuestionArbre = {
+  cle: CleQuestion;
+  titre: string;
+  question: string;
+  siOui: string;
+  siNon: string;
+  /** La question n'existe que si l'examen est injecté. */
+  siInjecte?: true;
+};
+
+const INJECTION: QuestionArbre = {
+  cle: "injection",
+  titre: "Injection",
+  question: "« Votre examen est-il avec injection, oui ou non ? »",
+  siOui: "le robot réserve l'examen avec injection",
+  siNon: "le robot réserve l'examen sans injection",
+};
+const GROSSESSE: QuestionArbre = {
+  cle: "grossesse",
+  titre: "Grossesse",
+  question:
+    "« Est-ce que vous êtes enceinte ? » Posée aux femmes de 12 à 55 ans, juste avant le récapitulatif.",
+  siOui: "transfert au secrétariat, comme en cas de doute",
+  siNon: "le robot continue",
+};
+
+/** L'arbre de chaque type, dans l'ordre où le robot pose les questions. */
+export const ARBRE_QUESTIONS: {
+  code: "MR" | "CT";
+  libelle: string;
+  questions: QuestionArbre[];
+}[] = [
+  {
+    code: "MR",
+    libelle: "IRM",
+    questions: [
+      INJECTION,
+      {
+        cle: "allergie",
+        titre: "Allergie au produit de contraste",
+        question:
+          "« Avez-vous une allergie connue au produit de contraste utilisé pour les IRM ? »",
+        siOui: "transfert au secrétariat, comme en cas de doute",
+        siNon: "le robot continue",
+        siInjecte: true,
+      },
+      {
+        cle: "contreIndications",
+        titre: "Contre-indications",
+        question:
+          "« Avez-vous un pacemaker, une valve cardiaque, du matériel médical métallique, ou un éclat métallique dans les yeux ? »",
+        siOui: "transfert au secrétariat, comme en cas de doute",
+        siNon: "le robot continue",
+      },
+      GROSSESSE,
+    ],
+  },
+  {
+    code: "CT",
+    libelle: "Scanner",
+    questions: [
+      INJECTION,
+      {
+        cle: "allergie",
+        titre: "Allergie à l'iode",
+        question: "« Êtes-vous allergique au produit de contraste iodé ? »",
+        siOui: "transfert au secrétariat, comme en cas de doute",
+        siNon: "le robot continue",
+        siInjecte: true,
+      },
+      GROSSESSE,
+    ],
+  },
+];
+
+function validerQuestions(
+  brut: unknown,
+): { valeur: Record<string, QuestionsExamen> | null } | { erreur: string } {
+  if (brut === undefined || brut === null) return { valeur: null };
+  if (typeof brut !== "object" || Array.isArray(brut)) {
+    return { erreur: "Les questions par examen sont mal formées." };
+  }
+  const propres: Record<string, QuestionsExamen> = {};
+  for (const [code, v] of Object.entries(brut as Record<string, unknown>)) {
+    const arbre = ARBRE_QUESTIONS.find((a) => a.code === code);
+    if (!arbre) {
+      return {
+        erreur: `Les questions ne se règlent que pour l'IRM et le scanner (${code} reçu).`,
+      };
+    }
+    if (v === null || v === undefined) continue;
+    if (typeof v !== "object" || Array.isArray(v)) {
+      return { erreur: `Les questions ${arbre.libelle} sont mal formées.` };
+    }
+    const q = v as Record<string, unknown>;
+    const r: QuestionsExamen = {};
+    for (const { cle, titre } of arbre.questions) {
+      if (q[cle] === undefined || q[cle] === null) continue;
+      if (typeof q[cle] !== "boolean") {
+        return {
+          erreur: `${arbre.libelle} : la question « ${titre} » doit être cochée ou décochée.`,
+        };
+      }
+      // Seul « non posée » est stocké : posée est le comportement par défaut.
+      if (q[cle] === false) r[cle] = false;
+    }
+    const si = q.siInjectionNonDemandee;
+    if (si !== undefined && si !== null && si !== "sans" && si !== "avec") {
+      return {
+        erreur: `${arbre.libelle} : sans la question de l'injection, le robot réserve l'examen sans ou avec injection.`,
+      };
+    }
+    if (r.injection === false && si === "avec")
+      r.siInjectionNonDemandee = "avec";
+    if (Object.keys(r).length) propres[code] = r;
+  }
+  return { valeur: Object.keys(propres).length ? propres : null };
 }
