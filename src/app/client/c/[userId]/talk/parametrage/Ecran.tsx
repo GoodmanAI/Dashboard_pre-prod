@@ -505,14 +505,10 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
 
   /** Les salles de chaque paire, par clé du Dashboard (`radio_radio`…). */
   const sallesParPaire = useMemo(() => {
-    const m: Record<
-      string,
-      { cle: string; salles: { poste: string; libelle: string }[] }
-    > = {};
+    const m: Record<string, { cle: string; salles: { poste: string; libelle: string }[] }> = {};
     for (const exam of DOUBLE_EXAMS) {
       const cle = clePaireRobotDepuisDashboard(exam.key);
-      if (cle)
-        m[exam.key] = { cle, salles: sallesDeLaPaire(sallesParType, cle) };
+      if (cle) m[exam.key] = { cle, salles: sallesDeLaPaire(sallesParType, cle) };
     }
     return m;
   }, [sallesParType]);
@@ -777,8 +773,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   const documentsRef = useRef<DocumentsDemandesHandle>(null);
   const [documentsModifies, setDocumentsModifies] = useState(false);
   const estAdmin =
-    sessionData?.user?.role === "ADMIN" ||
-    sessionData?.user?.role === "SUPER_ADMIN";
+    sessionData?.user?.role === "ADMIN" || sessionData?.user?.role === "SUPER_ADMIN";
 
   const { dialogue: dialogueSortie } = useUnsavedChangesGuard(
     isDirty || ordonnancesModifiees || documentsModifies,
@@ -1848,8 +1843,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
                           {prioriteVisible && (
                             <TableCell sx={{ verticalAlign: "top" }}>
                               {enabled &&
-                              (sallesParPaire[exam.key]?.salles.length ?? 0) >=
-                                2 ? (
+                              (sallesParPaire[exam.key]?.salles.length ?? 0) >= 2 ? (
                                 <PrioriteSalles
                                   salles={sallesParPaire[exam.key].salles}
                                   valeur={
