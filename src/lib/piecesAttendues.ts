@@ -3,10 +3,12 @@
  * client demande au patient (questionnaire IRM, questionnaire mineur...).
  *
  * Le Dashboard calcule seul la liste a l'init, a partir du type d'examen et
- * du booleen `mineur` envoyes par LyraeTalk ou Konnect : un client qui met un
- * document a disposition n'oblige a rien redeployer cote robot.
- * Plan : plans/2026-10-documents-demandes.md (workspace), DECISIONS.md du
- * 11/10/2026.
+ * des booleens `mineur` et `grossessePossible` envoyes par LyraeTalk ou
+ * Konnect : un client qui met un document a disposition n'oblige a rien
+ * redeployer cote robot.
+ * Plans : plans/2026-10-documents-demandes.md et
+ * plans/2026-10-attestation-grossesse.md (workspace), DECISIONS.md des 11 et
+ * 15/10/2026.
  *
  * Tables manuelles "DocumentDemande" et "PieceAttendue"
  * (prisma/migrations/manual/2026_10_11_documents_demandes.sql).
@@ -53,22 +55,30 @@ export function normaliserTypesExamen(raw: unknown): ExamTypeKey[] {
 
 /**
  * Documents mis a disposition par le client qui valent pour cet examen et ce
- * patient. Un document « mineurs seulement » ne vaut que si `mineur` est vrai.
+ * patient. Un document « mineurs seulement » ne vaut que si `mineur` est vrai ;
+ * un document « grossesse possible seulement » (attestation de non-grossesse)
+ * ne vaut que si `grossessePossible` est vrai. Les deux s'excluent.
+ *
+ * `grossessePossible` est calcule par le canal (12 a 55 ans, sexe F, ou sexe
+ * ou age inconnu) : le Dashboard ne recoit ni l'age ni le sexe. Un appelant
+ * qui ne l'envoie pas (Konnect) ne recoit jamais ces documents.
  */
 export async function documentsApplicables(
   userProductId: number,
   examType: string,
-  mineur: boolean
+  mineur: boolean,
+  grossessePossible = false
 ): Promise<PieceACreer[]> {
   const res = await db.query<{
     id: number;
     libelle: string;
     typesExamen: unknown;
     mineursSeulement: boolean;
+    grossesseSeulement: boolean;
     avecModele: boolean;
     ordre: number;
   }>(
-    `SELECT "id", "libelle", "typesExamen", "mineursSeulement",
+    `SELECT "id", "libelle", "typesExamen", "mineursSeulement", "grossesseSeulement",
             ("modeleContenu" IS NOT NULL) AS "avecModele", "ordre"
        FROM "DocumentDemande"
       WHERE "userProductId" = $1
@@ -82,6 +92,7 @@ export async function documentsApplicables(
       (normaliserTypesExamen(d.typesExamen) as string[]).includes(examType)
     )
     .filter((d) => !d.mineursSeulement || mineur)
+    .filter((d) => !d.grossesseSeulement || grossessePossible)
     .map((d) => ({
       piece: "document" as const,
       documentDemandeId: d.id,
@@ -172,20 +183,24 @@ export function sortieDeSection(raw: string | null): SortePiece {
 /**
  * Pour le robot (`GET /api/configuration`, cle `documentsDemandes`) : par type
  * d'examen, les libelles des documents mis a disposition, pour tous les
- * patients (`tous`) ou pour les mineurs seulement (`mineurs`). Seuls les
+ * patients (`tous`), pour les mineurs seulement (`mineurs`) ou pour les
+ * patientes dont une grossesse est possible (`grossesse`). Seuls les
  * types qui ont un document y figurent ; aucun modele n'y descend.
  * Le robot s'en sert pour savoir s'il doit appeler /init hors ordonnance, et
  * quoi dire a un patient sans portable ni mail.
  */
+export type DocumentsDuType = { tous: string[]; mineurs: string[]; grossesse: string[] };
+
 export async function documentsParType(
   userProductId: number
-): Promise<Partial<Record<ExamTypeKey, { tous: string[]; mineurs: string[] }>>> {
+): Promise<Partial<Record<ExamTypeKey, DocumentsDuType>>> {
   const res = await db.query<{
     libelle: string;
     typesExamen: unknown;
     mineursSeulement: boolean;
+    grossesseSeulement: boolean;
   }>(
-    `SELECT "libelle", "typesExamen", "mineursSeulement"
+    `SELECT "libelle", "typesExamen", "mineursSeulement", "grossesseSeulement"
        FROM "DocumentDemande"
       WHERE "userProductId" = $1
         AND "disponible" = true
@@ -193,11 +208,16 @@ export async function documentsParType(
       ORDER BY "ordre" ASC, "id" ASC`,
     [userProductId]
   );
-  const out: Partial<Record<ExamTypeKey, { tous: string[]; mineurs: string[] }>> = {};
+  const out: Partial<Record<ExamTypeKey, DocumentsDuType>> = {};
   for (const d of res.rows) {
     for (const t of normaliserTypesExamen(d.typesExamen)) {
-      const entree = (out[t] ??= { tous: [], mineurs: [] });
-      (d.mineursSeulement ? entree.mineurs : entree.tous).push(d.libelle);
+      const entree = (out[t] ??= { tous: [], mineurs: [], grossesse: [] });
+      const liste = d.mineursSeulement
+        ? entree.mineurs
+        : d.grossesseSeulement
+          ? entree.grossesse
+          : entree.tous;
+      liste.push(d.libelle);
     }
   }
   return out;

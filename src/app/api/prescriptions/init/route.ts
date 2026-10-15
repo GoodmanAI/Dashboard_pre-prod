@@ -68,6 +68,9 @@ function extractClientIp(req: NextRequest): string | null {
  *     examType: "scanner" | "irm" | "mammo" | "radiographie" | "echographie",
  *     mineur?: boolean,                     // facultatif ; son absence = appelant
  *                                           //  d'avant les documents demandes
+ *     grossessePossible?: boolean,          // depuis le 15/10/2026, LyraeTalk :
+ *                                           //  12 a 55 ans, sexe F, ou sexe ou
+ *                                           //  age inconnu ; absent = false
  *     ordonnanceRecue?: boolean             // Konnect : toujours vrai, impose
  *   }
  *
@@ -75,7 +78,8 @@ function extractClientIp(req: NextRequest): string | null {
  * calcule seul. L'ordonnance si le type est soumis au depot
  * (PrescriptionConfig) et qu'elle n'est pas deja recue ; chaque document
  * demande mis a disposition qui vaut pour ce type (et pour les mineurs, si
- * le patient l'est). Aucune piece : 200 { piecesAttendues: [], url: null },
+ * le patient l'est ; pour une grossesse possible, si l'appelant le dit,
+ * plans/2026-10-attestation-grossesse.md). Aucune piece : 200 { piecesAttendues: [], url: null },
  * aucun lien cree.
  * Compatibilite : un LyraeTalk qui n'envoie pas `mineur` n'appelle /init que
  * pour un type soumis au depot ; l'ordonnance lui est toujours demandee,
@@ -131,6 +135,7 @@ export async function POST(req: NextRequest) {
     externalCenterCode,
     examType: examTypeRaw,
     mineur: mineurRaw,
+    grossessePossible: grossessePossibleRaw,
     ordonnanceRecue: ordonnanceRecueRaw,
   } = body ?? {};
   // Un appelant qui ne connait pas encore les documents demandes n'envoie
@@ -138,6 +143,7 @@ export async function POST(req: NextRequest) {
   const appelantAncien =
     !parKonnect && !(body && typeof body === "object" && "mineur" in body);
   const mineur = mineurRaw === true;
+  const grossessePossible = grossessePossibleRaw === true;
   const ordonnanceRecue = parKonnect || ordonnanceRecueRaw === true;
 
   if (
@@ -239,7 +245,7 @@ export async function POST(req: NextRequest) {
   ) {
     pieces.push(pieceOrdonnance());
   }
-  pieces.push(...(await documentsApplicables(userProductId, examType, mineur)));
+  pieces.push(...(await documentsApplicables(userProductId, examType, mineur, grossessePossible)));
   const enReponse = (
     liste: { piece: PieceRenvoyee["piece"]; libelle: string; avecModele: boolean }[]
   ): PieceRenvoyee[] =>

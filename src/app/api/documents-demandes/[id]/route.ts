@@ -16,7 +16,9 @@ import { libelleValide, proprietaireDocument } from "@/lib/documentsDemandesApi"
  *   - le CLIENT (proprietaire, droit d'ecriture du parametrage) ne change que
  *     `disponible`, l'interrupteur « Mis a disposition des patients » ;
  *   - l'ADMIN change aussi `libelle`, `typesExamen`, `mineursSeulement`,
- *     `ordre`, et archive (`archive: true`) ou restaure.
+ *     `grossesseSeulement`, `ordre`, et archive (`archive: true`) ou restaure.
+ *     Les deux criteres s'excluent : en allumer un eteint l'autre, envoyer les
+ *     deux a vrai repond 400.
  * Un champ d'admin envoye par un client : 403, rien n'est ecrit.
  *
  * Un document archive n'est plus demande aux nouveaux liens ; les liens deja
@@ -46,7 +48,14 @@ export async function PATCH(
 
   const estAdmin =
     auth.session.user.role === "ADMIN" || auth.session.user.role === "SUPER_ADMIN";
-  const champsAdmin = ["libelle", "typesExamen", "mineursSeulement", "ordre", "archive"];
+  const champsAdmin = [
+    "libelle",
+    "typesExamen",
+    "mineursSeulement",
+    "grossesseSeulement",
+    "ordre",
+    "archive",
+  ];
   if (!estAdmin && champsAdmin.some((c) => c in body)) {
     return NextResponse.json(
       { error: "Seule l'équipe Lyrae modifie ce document. Vous pouvez le mettre à disposition ou non." },
@@ -76,7 +85,23 @@ export async function PATCH(
     }
     poser("typesExamen", JSON.stringify(types), "::jsonb");
   }
+  if (body.mineursSeulement === true && body.grossesseSeulement === true) {
+    return NextResponse.json(
+      { error: "Un document vaut pour les mineurs ou pour les femmes de 12 à 55 ans, pas les deux. Créez deux documents." },
+      { status: 400 }
+    );
+  }
   if ("mineursSeulement" in body) poser("mineursSeulement", body.mineursSeulement === true);
+  if ("grossesseSeulement" in body) {
+    poser("grossesseSeulement", body.grossesseSeulement === true);
+  }
+  // En allumer un eteint l'autre, sauf s'il est envoye dans la meme requete.
+  if (body.mineursSeulement === true && !("grossesseSeulement" in body)) {
+    poser("grossesseSeulement", false);
+  }
+  if (body.grossesseSeulement === true && !("mineursSeulement" in body)) {
+    poser("mineursSeulement", false);
+  }
   if ("ordre" in body && Number.isInteger(body.ordre)) poser("ordre", body.ordre);
   if ("archive" in body) {
     sets.push(body.archive === true ? `"archivedAt" = NOW()` : `"archivedAt" = NULL`);
