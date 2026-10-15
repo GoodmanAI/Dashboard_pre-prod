@@ -19,6 +19,7 @@ import {
 } from "@/lib/productConfig";
 import { validerSallesParType } from "@/lib/sallesExamen";
 import { validerTextes, centreEtAdresse } from "@/lib/talkTextes";
+import { DOMAINE_PLAGES_PRIVEES, validerPlagesPrivees } from "@/lib/konnectPlagesPrivees";
 
 /**
  * Configuration générique d'un centre, par domaine (lot B).
@@ -265,6 +266,18 @@ export async function PUT(req: NextRequest) {
     }
     for (const cle of Object.keys(valeur)) delete valeur[cle];
     Object.assign(valeur, textes.valeur);
+  }
+
+  // `konnect.plages-privees` : des consignes lues telles quelles par le patient, et
+  // des codes médecin que Konnect compare tels quels à ceux des créneaux. La valeur
+  // écrite est la version normalisée (codes en majuscules, sans espace).
+  if (domaine.cle === DOMAINE_PLAGES_PRIVEES) {
+    const plages = validerPlagesPrivees(valeur);
+    if ("erreur" in plages) {
+      return NextResponse.json({ error: plages.erreur }, { status: 400 });
+    }
+    for (const cle of Object.keys(valeur)) delete valeur[cle];
+    Object.assign(valeur, plages.valeur);
   }
 
   // `version + 1` calculé par la base : deux écritures concurrentes ne peuvent

@@ -168,6 +168,16 @@ export const DOMAINES: Record<string, Domaine> = {
     libelle: "Consignes quand le planning est complet",
     page: PAGES.KONNECT_PARAMETRAGE,
   },
+  // 15/10/2026 : les créneaux que le centre signale comme plages privées (code
+  // médecin ou valeur de dépassement), avec la consigne lue par le patient. Forme et
+  // validation : `src/lib/konnectPlagesPrivees.ts`. Distinct de `talk.site`.
+  "konnect.plages-privees": {
+    cle: "konnect.plages-privees",
+    produit: "konnect",
+    cleApiEnv: "KONNECT_API_KEY",
+    libelle: "Plages privées signalées au patient",
+    page: PAGES.KONNECT_PARAMETRAGE,
+  },
   "konnect.paires-examens": {
     cle: "konnect.paires-examens",
     produit: "konnect",
