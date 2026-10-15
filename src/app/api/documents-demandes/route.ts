@@ -22,8 +22,9 @@ import { libelleValide, lireDocumentsDemandes } from "@/lib/documentsDemandesApi
  *
  * GET  ?userProductId=X[&archives=1] : session, proprietaire ou admin, droit
  *      de lecture du parametrage. Jamais le contenu du modele.
- * POST { userProductId, libelle, typesExamen, mineursSeulement } : ADMIN
- *      seulement. Le document nait « non disponible » : c'est le client qui
+ * POST { userProductId, libelle, typesExamen, mineursSeulement,
+ *        grossesseSeulement } : ADMIN seulement. Les deux criteres s'excluent
+ *      (plans/2026-10-attestation-grossesse.md). Le document nait « non disponible » : c'est le client qui
  *      le met a disposition.
  */
 export async function GET(req: NextRequest) {
@@ -69,13 +70,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const mineursSeulement = body?.mineursSeulement === true;
+  const grossesseSeulement = body?.grossesseSeulement === true;
+  if (mineursSeulement && grossesseSeulement) {
+    return NextResponse.json(
+      { error: "Un document vaut pour les mineurs ou pour les femmes de 12 à 55 ans, pas les deux. Créez deux documents." },
+      { status: 400 }
+    );
+  }
+
   const res = await db.query<{ id: number }>(
     `INSERT INTO "DocumentDemande"
-       ("userProductId", "libelle", "typesExamen", "mineursSeulement", "ordre")
-     VALUES ($1, $2, $3::jsonb, $4,
+       ("userProductId", "libelle", "typesExamen", "mineursSeulement", "grossesseSeulement", "ordre")
+     VALUES ($1, $2, $3::jsonb, $4, $5,
              (SELECT COALESCE(MAX("ordre"), 0) + 1 FROM "DocumentDemande" WHERE "userProductId" = $1))
      RETURNING "id"`,
-    [userProductId, libelle, JSON.stringify(typesExamen), body?.mineursSeulement === true]
+    [userProductId, libelle, JSON.stringify(typesExamen), mineursSeulement, grossesseSeulement]
   );
 
   auditLog("data", "document-demande-creation", {

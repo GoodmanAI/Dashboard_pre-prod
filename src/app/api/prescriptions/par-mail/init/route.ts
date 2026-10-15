@@ -32,6 +32,7 @@ const ALLOWED_EXAM_TYPES = [
  *     firstname?: string, lastname?: string, phone?: string,
  *     mineur?: boolean          // depuis le 11/10/2026 ; absent = appelant
  *                               //  d'avant les documents demandes
+ *     grossessePossible?: boolean // depuis le 15/10/2026 ; absent = false
  *   }
  *
  * Documents demandes (plans/2026-10-documents-demandes.md) : la carte dit ce
@@ -102,7 +103,12 @@ export async function POST(req: NextRequest) {
   const ordonnance =
     appelantAncien || depotActif[examType as keyof typeof depotActif] === true;
   const documents = (
-    await documentsApplicables(userProductId, examType, body.mineur === true)
+    await documentsApplicables(
+      userProductId,
+      examType,
+      body.mineur === true,
+      body.grossessePossible === true
+    )
   ).map((d) => d.libelle);
   if (!ordonnance && documents.length === 0) {
     return NextResponse.json({ id: null, created: false });
