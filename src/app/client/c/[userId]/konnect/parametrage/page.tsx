@@ -30,6 +30,7 @@ import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elem
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import IdentiteVisuelleKonnect from "@/components/konnect/IdentiteVisuelleKonnect";
 import PlanningCompletKonnect from "@/components/konnect/PlanningCompletKonnect";
+import PlagesPriveesKonnect from "@/components/konnect/PlagesPriveesKonnect";
 import SmsConfirmationConfigCard from "../../talk/parametrage/SmsConfirmationConfigCard";
 
 /**
@@ -352,12 +353,10 @@ export default function ParametrageKonnectPage() {
                 }
                 helperText="Affichées au patient pendant sa prise de rendez-vous : accès, stationnement, pièces à apporter."
               />
-              <Reglage
-                titre="Dépassement d'honoraires"
-                description="Signale au patient que le centre pratique un complément d'honoraires."
-                actif={config.depassement_honoraires}
-                onChange={(v) => maj("depassement_honoraires", v)}
-              />
+              {/* « Dépassement d'honoraires » (oui/non) retiré le 15/10/2026 : remplacé par la
+                section « Plages privées », par médecin ou par valeur de dépassement
+                (DECISIONS.md). Le champ continue de descendre à Konnect, inchangé, jusqu'à
+                ce que Konnect le retire de CHAMPS_PILOTES. */}
             </Stack>
           </AccordionDetails>
         </Accordion>
@@ -550,6 +549,16 @@ export default function ParametrageKonnectPage() {
           dans LyraeTalk, et inversement. Les rappels propres au portail, l'annulation
           directe et le SMS de secours ont été retirés de Konnect. */}
         {userProductId !== null && <SmsConfirmationConfigCard userProductId={userProductId} />}
+
+        {/* ---------------- Plages privées (15/10/2026) ---------------- */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6">Plages privées</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <PlagesPriveesKonnect userProductId={userProductId} lectureSeule={raisonLectureSeule} />
+          </AccordionDetails>
+        </Accordion>
 
         {/* ---------------- Planning complet (18/09/2026) ---------------- */}
         <Accordion>

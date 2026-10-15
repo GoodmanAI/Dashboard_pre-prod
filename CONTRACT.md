@@ -251,6 +251,17 @@ client Konnect seul, rattache le code site de `konnect.ris-identite` s'il est li
 { mode: "rappel"|"message", message } } }`. Konnect le lit quand aucun créneau n'est
 disponible et que la liste d'attente n'est pas proposée ; `rappel` est le défaut.
 
+**Domaine `konnect.plages-privees` (15/10/2026)**, lu par `KONNECT_API_KEY`, écrit depuis
+« Paramètres du portail », section « Plages privées » (droit Paramétrage) :
+`{ medecins: [{ code, consigne }], depassements: [{ valeur: "C"|"D"|"?", consigne }],
+priorite: "les_deux"|"medecin"|"depassement" }`. Validé par `src/lib/konnectPlagesPrivees.ts`
+(codes en majuscules sans espace, un code et une valeur une seule fois, consigne de 1 à 400
+caractères). Konnect désigne une plage privée quand un `codesMedecins` du créneau ou son
+`depComplHono` figure dans une ligne ; `?` ne correspond qu'à `?`. `priorite` est une
+énumération (`contracts/shared/enums.md`). Absent ou vide : aucune plage privée. Le champ
+`depassement_honoraires` de `konnect-configuration` n'a plus d'écran et sera retiré quand
+Konnect l'aura sorti de `CHAMPS_PILOTES` (plan `2026-10-konnect-plages-privees.md`).
+
 **Domaine `konnect.paires-examens`, clé `combinaisons` (17/09/2026).** À côté de `items`
 (réglages par paire, non appliqués par Konnect), la valeur porte
 `combinaisons: [{ modalite_a, modalite_b, ecart_max_minutes }]`. Modalités parmi `RX`,
