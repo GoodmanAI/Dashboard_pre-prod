@@ -141,6 +141,11 @@ déjà :
   pires cas de la confirmation. Absent : `SMS.prescription_block` du robot.
 - `site.smsDepotAvantConfirmation` (lot 4) : `true` = le SMS de dépôt part avant la
   confirmation. Seul `true` est stocké ; absent = après (défaut).
+- `site.questionsExamen` (15/10/2026) : `{ MR?: Q, CT?: Q }`, avec
+  `Q = { injection?: false, siInjectionNonDemandee?: "avec", allergie?: false,
+  contreIndications?: false (MR seulement), grossesse?: false }`. Seul « pas posée »
+  (`false`) est stocké ; une clé absente = question posée, comme avant. `injection: false`
+  sans `siInjectionNonDemandee` = examen réservé sans injection.
 
 Validation au `PUT /api/product-config` (`src/lib/talkTextes.ts`) : variable inconnue,
 accolade orpheline, code d'examen inconnu, `{lien}` ou `{code}` absent du SMS de dépôt,
@@ -539,6 +544,11 @@ répond plus 404 à un centre jamais enregistré.
 
 ### Pages patient publiques
 `/c`, `/d`, `/confirm` — token 8 caractères + `verificationCode` haché bcrypt.
+**Heure affichée (15/10/2026)** : `appointmentDate` d'un lien de dépôt ou d'une confirmation
+est l'**heure d'arrivée** du patient (heure de salle moins le `dureeAvant` que Xplore porte sur
+l'examen) : LyraeTalk l'envoie ainsi à `POST /api/prescriptions/init` depuis la v2.46.0, et
+AI2Xplore reporte `heurePrevue` de Xplore (même heure) pour un RDV déplacé ou une relance. Le
+Dashboard l'affiche telle quelle, il ne calcule aucune avance.
 Depuis le 11/10/2026, `/d` montre un bloc par pièce attendue ; ses routes publiques sont
 `GET /api/prescriptions/[token]/status` (avec `pieces`), `POST .../upload` (champ `pieceId`
 facultatif, absent = l'ordonnance) et `GET .../modele/[pieceId]` (modèle vierge d'un
