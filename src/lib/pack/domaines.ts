@@ -257,7 +257,6 @@ const REGLAGES_PORTAIL: Reglage[] = [
   { libelle: "Téléphone du secrétariat", aide: "Affiché au patient dont le rendez-vous est bloqué.", champ: "telephoneSecretariat", type: "texte" },
   { libelle: "Couleur principale", aide: "Code hexadécimal, par exemple #0F2A3F.", champ: "couleurPrincipale", type: "texte" },
   { libelle: "Couleur secondaire", aide: "Code hexadécimal.", champ: "couleurSecondaire", type: "texte" },
-  { libelle: "Dépassement d'honoraires", aide: "Ce que le patient lit avant de réserver.", champ: "depassementHonoraires", type: "texte" },
   { libelle: "Consignes générales", aide: "Affichées sur le portail.", champ: "consignesGenerales", type: "texte" },
   { libelle: "Envoyer les confirmations par mail", aide: "", champ: "envoiEmail", type: "booleen" },
   { libelle: "Envoyer les confirmations par SMS", aide: "", champ: "envoiSms", type: "booleen" },
