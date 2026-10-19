@@ -49,8 +49,10 @@ import { PAGES } from "@/lib/permissions";
  * 11/10/2026.
  *
  * Partage des droits :
- *  - le client ne fait que mettre a disposition, ou non, chaque document.
- *    Ses interrupteurs passent par la barre d'enregistrement de l'ecran,
+ *  - le client met a disposition, ou non, chaque document, et saisit son nom
+ *    dans Xplore (19/10/2026 : Xplore renomme tout libelle de piece jointe
+ *    absent de sa liste, plans/2026-10-libelle-xplore-des-documents.md).
+ *    Ces deux reglages passent par la barre d'enregistrement de l'ecran,
  *    comme les autres cartes (`enregistrer()`).
  *  - l'admin (equipe Lyrae), sur le meme ecran, ajoute un document, le
  *    modifie, depose son modele PDF et l'archive. Ces gestes-la partent
@@ -70,6 +72,7 @@ const EXAM_TYPES: { key: ExamKey; label: string }[] = [
 type DocumentVue = {
   id: number;
   libelle: string;
+  libelleXplore: string | null;
   typesExamen: ExamKey[];
   mineursSeulement: boolean;
   grossesseSeulement: boolean;
@@ -131,6 +134,8 @@ const DocumentsDemandesCard = forwardRef<
   const [docs, setDocs] = useState<DocumentVue[]>([]);
   // Interrupteurs modifies, en attente de la barre d'enregistrement.
   const [disponibles, setDisponibles] = useState<Record<number, boolean>>({});
+  // Noms dans Xplore modifies, meme barre d'enregistrement.
+  const [nomsXplore, setNomsXplore] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [occupe, setOccupe] = useState(false);
   const [ajout, setAjout] = useState<Brouillon | null>(null);
@@ -145,7 +150,8 @@ const DocumentsDemandesCard = forwardRef<
   const fichierRef = useRef<HTMLInputElement>(null);
   const [cibleModele, setCibleModele] = useState<number | null>(null);
 
-  const dirty = Object.keys(disponibles).length > 0;
+  const dirty =
+    Object.keys(disponibles).length > 0 || Object.keys(nomsXplore).length > 0;
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
@@ -181,14 +187,19 @@ const DocumentsDemandesCard = forwardRef<
   // ---- Client et admin : interrupteurs, via la barre d'enregistrement ----
 
   const enregistrer = useCallback(async (): Promise<boolean> => {
-    const ids = Object.keys(disponibles).map(Number);
+    const ids = Array.from(
+      new Set([...Object.keys(disponibles), ...Object.keys(nomsXplore)].map(Number))
+    );
     if (ids.length === 0) return true;
     try {
       for (const id of ids) {
+        const corps: { disponible?: boolean; libelleXplore?: string } = {};
+        if (id in disponibles) corps.disponible = disponibles[id];
+        if (id in nomsXplore) corps.libelleXplore = nomsXplore[id];
         const res = await fetch(`/api/documents-demandes/${id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ disponible: disponibles[id] }),
+          body: JSON.stringify(corps),
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
@@ -196,6 +207,7 @@ const DocumentsDemandesCard = forwardRef<
         }
       }
       setDisponibles({});
+      setNomsXplore({});
       await charger();
       return true;
     } catch (err: any) {
@@ -206,7 +218,7 @@ const DocumentsDemandesCard = forwardRef<
       );
       return false;
     }
-  }, [disponibles, charger]);
+  }, [disponibles, nomsXplore, charger]);
 
   useImperativeHandle(ref, () => ({ enregistrer }), [enregistrer]);
 
@@ -214,6 +226,15 @@ const DocumentsDemandesCard = forwardRef<
     setDisponibles((prev) => {
       const next = { ...prev };
       if (valeur === doc.disponible) delete next[doc.id];
+      else next[doc.id] = valeur;
+      return next;
+    });
+  }
+
+  function saisirNomXplore(doc: DocumentVue, valeur: string) {
+    setNomsXplore((prev) => {
+      const next = { ...prev };
+      if (valeur.trim() === (doc.libelleXplore ?? "")) delete next[doc.id];
       else next[doc.id] = valeur;
       return next;
     });
@@ -361,6 +382,9 @@ const DocumentsDemandesCard = forwardRef<
 
             {actifs.map((d) => {
               const dispo = d.id in disponibles ? disponibles[d.id] : d.disponible;
+              const nomXplore =
+                d.id in nomsXplore ? nomsXplore[d.id] : (d.libelleXplore ?? "");
+              const nomXploreManque = dispo && nomXplore.trim() === "";
               const enEdition = edition?.id === d.id;
               return (
                 <Card key={d.id} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
@@ -502,17 +526,40 @@ const DocumentsDemandesCard = forwardRef<
                         )}
                       </Box>
 
-                      <FormControlLabel
-                        sx={{ flexShrink: 0, mr: 0 }}
-                        control={
-                          <Switch
-                            checked={dispo}
-                            disabled={readOnly}
-                            onChange={(e) => basculer(d, e.target.checked)}
-                          />
-                        }
-                        label="Mis à disposition des patients"
-                      />
+                      <Stack
+                        spacing={1.5}
+                        sx={{ flexShrink: 0, width: { xs: "100%", md: 300 } }}
+                      >
+                        <FormControlLabel
+                          sx={{ mr: 0 }}
+                          control={
+                            <Switch
+                              checked={dispo}
+                              disabled={readOnly}
+                              onChange={(e) => basculer(d, e.target.checked)}
+                            />
+                          }
+                          label="Mis à disposition des patients"
+                        />
+                        <TextField
+                          size="small"
+                          label="Nom de la pièce jointe dans Xplore"
+                          placeholder={d.libelle}
+                          value={nomXplore}
+                          disabled={readOnly}
+                          onChange={(e) => saisirNomXplore(d, e.target.value)}
+                          inputProps={{ maxLength: 64 }}
+                          FormHelperTextProps={{
+                            sx: nomXploreManque ? { color: "warning.dark" } : undefined,
+                          }}
+                          helperText={
+                            nomXploreManque
+                              ? "À remplir : sans le nom exact de votre liste Xplore, le document est rangé sous un autre nom."
+                              : "Recopiez-le tel qu'il apparaît dans la liste des pièces jointes de Xplore."
+                          }
+                          fullWidth
+                        />
+                      </Stack>
                     </Stack>
                   )}
                 </Card>
