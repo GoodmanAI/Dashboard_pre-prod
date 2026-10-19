@@ -54,6 +54,19 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 
 # ------------------------------------------------------------
+# /etc/cron.d/dashboard-anonymise-appels   (A POSER, lot 4 du plan
+# plans/2026-09-retention-des-appels.md, apres la premiere passe manuelle)
+# ------------------------------------------------------------
+# Anonymisation quotidienne des appels plus vieux que le delai de leur
+# centre ("UserProduct"."retentionAppelsMois", 3 mois par defaut) : vide la
+# transcription, retire le numero et les entites de "stats". Irreversible.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+50 3 * * * root /var/www/Dashboard_pre-prod/scripts/db-maintenance/anonymise_appels.sh >> /var/log/dashboard-anonymise-appels.log 2>&1
+
+
+# ------------------------------------------------------------
 # /etc/cron.d/dashboard-deployment-probe
 # ------------------------------------------------------------
 # Sonde de derive de deploiement (chantier 2026-08-10). Compare HEAD a
@@ -79,7 +92,8 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # ------------------------------------------------------------
 # NOTES
 # ------------------------------------------------------------
-# - Les 5 scripts de scripts/db-maintenance/ sont TOUS planifies.
+# - Les 5 scripts de scripts/db-maintenance/ sont TOUS planifies, plus
+#   anonymise_appels.sh une fois pose (3h50, apres les autres purges).
 #
 # - Collision horaire : purge_prescriptions et purge_login_attempts
 #   demarrent tous deux a 3h15. Sans consequence a priori (tables
