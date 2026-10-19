@@ -42,12 +42,18 @@ const DEFAULT_LIMIT = 50;
  *     { id, uploadId, rdvId, externalCenterCode, examType,
  *       uploadedAt, fileSize, fileSha256,
  *       piece: "ordonnance" | "document",   // depuis le 11/10/2026
- *       libelle: string }                   // « Ordonnance », « Questionnaire IRM »...
+ *       libelle: string,                    // « Ordonnance », « Questionnaire IRM »...
+ *       libelleXplore: string | null }      // depuis le 19/10/2026
  *   ]
  *
  * `piece` et `libelle` (additifs) disent a quelle piece attendue le document
  * repond : AI2Xplore en fait le libelle de la piece jointe dans Xplore. Un
  * document sans piece (aucun apres la reprise du 11/10) vaut « ordonnance ».
+ * `libelleXplore` (additif, 19/10/2026) est le libelle de PJ saisi par le
+ * client, tel qu'il existe dans son Xplore : AI2Xplore le prefere a `libelle`,
+ * car Xplore renomme tout libelle absent de sa liste
+ * (plans/2026-10-libelle-xplore-des-documents.md). Lu sur le document du
+ * jour : une correction du client vaut aussi pour les documents en attente.
  * }
  *
  * Ordre : uploadedAt ASC, id ASC (FIFO stricte, stable). Garantit qu'aucun
@@ -167,14 +173,17 @@ export async function GET(req: NextRequest) {
     fileSha256: string;
     piece: string;
     libelle: string;
+    libelleXplore: string | null;
   }>(
     `SELECT d."id", d."uploadId", pu."rdvId", pu."externalCenterCode", pu."examType",
             d."uploadedAt", d."fileSize", d."fileSha256",
             COALESCE(p."piece", 'ordonnance') AS "piece",
-            COALESCE(p."libelle", 'Ordonnance') AS "libelle"
+            COALESCE(p."libelle", 'Ordonnance') AS "libelle",
+            dd."libelleXplore" AS "libelleXplore"
        FROM "PrescriptionDocument" d
        JOIN "PrescriptionUpload" pu ON pu."id" = d."uploadId"
        LEFT JOIN "PieceAttendue" p ON p."id" = d."pieceAttendueId"
+       LEFT JOIN "DocumentDemande" dd ON dd."id" = p."documentDemandeId"
       WHERE ${whereClause}
       ORDER BY d."uploadedAt" ASC, d."id" ASC
       LIMIT $${idx}`,
