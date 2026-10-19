@@ -7,14 +7,21 @@ import { requirePagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { normaliserTypesExamen } from "@/lib/piecesAttendues";
-import { libelleValide, proprietaireDocument } from "@/lib/documentsDemandesApi";
+import {
+  libelleValide,
+  libelleXploreValide,
+  proprietaireDocument,
+} from "@/lib/documentsDemandesApi";
 
 /**
  * PATCH /api/documents-demandes/[id]
  *
  * Partage des droits (DECISIONS.md du 11/10/2026) :
  *   - le CLIENT (proprietaire, droit d'ecriture du parametrage) ne change que
- *     `disponible`, l'interrupteur « Mis a disposition des patients » ;
+ *     `disponible`, l'interrupteur « Mis a disposition des patients », et
+ *     `libelleXplore`, le libelle de la piece jointe dans son Xplore (19/10/2026,
+ *     plans/2026-10-libelle-xplore-des-documents.md : Xplore renomme tout
+ *     libelle absent de sa liste) ; chaine vide ou null => non renseigne ;
  *   - l'ADMIN change aussi `libelle`, `typesExamen`, `mineursSeulement`,
  *     `grossesseSeulement`, `ordre`, et archive (`archive: true`) ou restaure.
  *     Les deux criteres s'excluent : en allumer un eteint l'autre, envoyer les
@@ -71,6 +78,16 @@ export async function PATCH(
   };
 
   if ("disponible" in body) poser("disponible", body.disponible === true);
+  if ("libelleXplore" in body) {
+    const libelleXplore = libelleXploreValide(body.libelleXplore);
+    if (libelleXplore === undefined) {
+      return NextResponse.json(
+        { error: "Le nom dans Xplore doit être un texte." },
+        { status: 400 }
+      );
+    }
+    poser("libelleXplore", libelleXplore);
+  }
   if ("libelle" in body) {
     const libelle = libelleValide(body.libelle);
     if (!libelle) {
