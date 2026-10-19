@@ -926,9 +926,17 @@ rend sous le nom `horaireMapping`.
 
    **Depuis le 11/10/2026, le plafond vaut par pièce attendue** (5 documents par pièce,
    `PieceAttendue`), et chaque item de `GET /api/prescriptions/pending` porte en plus `piece`
-   et `libelle` (libellé de la pièce jointe dans Xplore). L'alerte de la secrétaire vit sur la
+   et `libelle` (nom lu par le patient). L'alerte de la secrétaire vit sur la
    pièce (`PieceAttendue.recueAt`, `alertResolvedAt`) ; `PrescriptionUpload.status` garde son
    sens et reste écrit comme avant.
+
+   **Depuis le 19/10/2026, chaque item porte aussi `libelleXplore`** (`string | null`, additif) :
+   le libellé de pièce jointe que le client a saisi tel qu'il existe dans son Xplore
+   (`DocumentDemande."libelleXplore"`, SQL manuel `2026_10_19_documents_libelle_xplore.sql`),
+   lu sur le document du jour. AI2Xplore le préfère à `libelle` : Xplore renomme tout libellé
+   absent de sa liste de PJ (plan workspace `plans/2026-10-libelle-xplore-des-documents.md`).
+   `null` pour une ordonnance et pour un document non renseigné. Le client le règle par
+   `PATCH /api/documents-demandes/[id]`, comme `disponible`.
 
    Le texte des erreurs de `POST /api/prescriptions/[token]/upload` n'est **pas** un contrat :
    il est lu par le patient sur la page de dépôt, aucune brique ne le compare. Reformulé le
