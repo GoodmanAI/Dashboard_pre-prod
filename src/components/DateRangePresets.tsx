@@ -1,7 +1,7 @@
 "use client";
 
 import { Chip, Stack } from "@mui/material";
-import { endOfDay, startOfDay, startOfMonth, subDays } from "date-fns";
+import { endOfDay, startOfDay, startOfMonth, subDays, subMonths } from "date-fns";
 import type { DateRange } from "@/components/DateRangePicker";
 
 /**
@@ -13,9 +13,12 @@ import type { DateRange } from "@/components/DateRangePicker";
  *
  * Tous les presets retournent un range en `[startOfDay, endOfDay]` (cohérent avec
  * le DateRangePicker custom).
+ *
+ * `douzeMois` ajoute « 12 derniers mois », réservé aux écrans de statistiques : la liste
+ * des appels, elle, est bornée au délai de conservation du centre (rétention, 28/09/2026).
  */
 
-type PresetKey = "today" | "yesterday" | "7d" | "30d" | "month";
+type PresetKey = "today" | "yesterday" | "7d" | "30d" | "month" | "12m";
 
 const PRESETS: { key: PresetKey; label: string; compute: () => DateRange }[] = [
   {
@@ -60,6 +63,15 @@ const PRESETS: { key: PresetKey; label: string; compute: () => DateRange }[] = [
   },
 ];
 
+const PRESET_DOUZE_MOIS: { key: PresetKey; label: string; compute: () => DateRange } = {
+  key: "12m",
+  label: "12 derniers mois",
+  compute: () => {
+    const t = new Date();
+    return { from: startOfDay(subMonths(t, 12)), to: endOfDay(t) };
+  },
+};
+
 /**
  * Compare deux ranges à la minute près (assez stable pour matcher les presets).
  * Si du code externe modifie une heure (ex. `subDays` puis utilisation directe),
@@ -73,15 +85,18 @@ function rangesMatch(a: DateRange, b: DateRange): boolean {
 export default function DateRangePresets({
   range,
   onChange,
+  douzeMois = false,
 }: {
   range: DateRange;
   onChange: (r: DateRange) => void;
+  douzeMois?: boolean;
 }) {
-  const activeKey = PRESETS.find((p) => rangesMatch(p.compute(), range))?.key ?? null;
+  const presets = douzeMois ? [...PRESETS, PRESET_DOUZE_MOIS] : PRESETS;
+  const activeKey = presets.find((p) => rangesMatch(p.compute(), range))?.key ?? null;
 
   return (
     <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1, alignItems: "center" }}>
-      {PRESETS.map((p) => {
+      {presets.map((p) => {
         const isActive = activeKey === p.key;
         return (
           <Chip

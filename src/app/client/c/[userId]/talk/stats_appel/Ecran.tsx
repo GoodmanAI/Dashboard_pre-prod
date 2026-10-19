@@ -1586,7 +1586,7 @@ export default function StatsAppelPage({ params }: any) {
       {/* Barre d'outils : période et export */}
       <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-          <DateRangePresets range={dateRange} onChange={setDateRange} />
+          <DateRangePresets range={dateRange} onChange={setDateRange} douzeMois />
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Button
               variant="outlined"
