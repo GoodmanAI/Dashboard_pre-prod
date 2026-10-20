@@ -78,6 +78,8 @@ type DocumentVue = {
   grossesseSeulement: boolean;
   disponible: boolean;
   modele: { nom: string | null; octets: number; maj: string | null } | null;
+  /** Questionnaire en ligne : prepare sur le modele actuel, ou coupe (modele remplace). */
+  enLigne?: "actif" | "coupe" | null;
   archive: boolean;
 };
 
@@ -430,6 +432,20 @@ const DocumentsDemandesCard = forwardRef<
                               size="small"
                               label="Femmes de 12 à 55 ans seulement"
                               sx={{ bgcolor: "rgba(234,88,12,0.12)", color: "#9a3412" }}
+                            />
+                          )}
+                          {d.enLigne === "actif" && (
+                            <Chip
+                              size="small"
+                              label="Rempli en ligne par le patient"
+                              sx={{ bgcolor: "rgba(var(--accent-rgb), 0.15)", color: "var(--accent-deep)", fontWeight: 600 }}
+                            />
+                          )}
+                          {d.enLigne === "coupe" && admin && (
+                            <Chip
+                              size="small"
+                              label="Modèle remplacé : le remplissage en ligne est coupé"
+                              sx={{ bgcolor: "rgba(185,28,28,0.12)", color: "#991b1b", fontWeight: 600 }}
                             />
                           )}
                         </Stack>

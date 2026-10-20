@@ -29,6 +29,7 @@ import { MAX_DOCUMENTS_PAR_PIECE, piecesDuLien } from "@/lib/piecesAttendues";
  *     maxDocuments: 5,                      // par piece
  *     pieces: [{                            // depuis le 11/10/2026
  *       id, piece: "ordonnance" | "document", libelle, avecModele,
+ *       enLigne,                            // depuis le 20/10/2026 : questionnaire a remplir sur la page
  *       documents: [{ uploadedAt: ISO }], canUpload
  *     }]
  *   }
@@ -93,6 +94,7 @@ export async function GET(
       piece: p.piece,
       libelle: p.libelle,
       avecModele: p.avecModele,
+      enLigne: p.enLigne,
       documents: recus,
       canUpload: recus.length < MAX_DOCUMENTS_PAR_PIECE,
     };

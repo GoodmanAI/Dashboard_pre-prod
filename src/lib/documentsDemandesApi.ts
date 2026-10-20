@@ -5,7 +5,7 @@
  */
 
 import { db } from "@/lib/db";
-import { normaliserTypesExamen } from "@/lib/piecesAttendues";
+import { FORMULAIRE_VALABLE_SQL, normaliserTypesExamen } from "@/lib/piecesAttendues";
 import type { ExamTypeKey } from "@/lib/smsConfirmationConfig";
 
 export interface DocumentDemandeVue {
@@ -20,6 +20,12 @@ export interface DocumentDemandeVue {
   disponible: boolean;
   ordre: number;
   modele: { nom: string | null; octets: number; maj: string | null } | null;
+  /**
+   * Questionnaire en ligne (plans/2026-10-questionnaires-en-ligne.md) :
+   * `actif` s'il est prepare sur le modele actuel ; `coupe` s'il a ete prepare
+   * sur un modele remplace depuis (le patient retombe sur le telechargement).
+   */
+  enLigne: "actif" | "coupe" | null;
   archive: boolean;
 }
 
@@ -46,12 +52,16 @@ export async function lireDocumentsDemandes(
     modeleOctets: number | null;
     modeleMaj: Date | null;
     archivedAt: Date | null;
+    formulairePrepare: boolean;
+    formulaireValable: boolean;
   }>(
     `SELECT "id", "userProductId", "libelle", "libelleXplore", "typesExamen", "mineursSeulement",
             "grossesseSeulement", "disponible", "ordre", "modeleNom",
             octet_length("modeleContenu") AS "modeleOctets", "modeleMaj",
-            "archivedAt"
-       FROM "DocumentDemande"
+            "archivedAt",
+            ("formulaire" IS NOT NULL) AS "formulairePrepare",
+            ${FORMULAIRE_VALABLE_SQL} AS "formulaireValable"
+       FROM "DocumentDemande" dd
       WHERE "userProductId" = $1
         AND ($2::boolean OR "archivedAt" IS NULL)
       ORDER BY ("archivedAt" IS NOT NULL), "ordre" ASC, "id" ASC`,
@@ -75,6 +85,7 @@ export async function lireDocumentsDemandes(
             maj: r.modeleMaj ? r.modeleMaj.toISOString() : null,
           }
         : null,
+    enLigne: r.formulaireValable ? "actif" : r.formulairePrepare ? "coupe" : null,
     archive: r.archivedAt !== null,
   }));
 }

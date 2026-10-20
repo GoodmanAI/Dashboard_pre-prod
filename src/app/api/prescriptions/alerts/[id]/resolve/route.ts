@@ -81,7 +81,8 @@ export async function POST(
        AND EXISTS (
          SELECT 1 FROM "PieceAttendue" p
           WHERE p."uploadId" = pu."id" AND p."piece" = $3
-            AND p."recueAt" IS NULL AND p."alertResolvedAt" IS NULL
+            AND (p."recueAt" IS NULL OR p."alertesReponses" IS NOT NULL)
+            AND p."alertResolvedAt" IS NULL
        )
      LIMIT 1
     `,
@@ -94,11 +95,14 @@ export async function POST(
     );
   }
 
+  // Une piece recue dont une reponse etait a verifier (questionnaire en
+  // ligne, 20/10/2026) se classe avec la carte.
   const upd = await db.query<{ alertResolvedAt: Date }>(
     `UPDATE "PieceAttendue"
         SET "alertResolvedAt" = NOW()
       WHERE "uploadId" = $1 AND "piece" = $2
-        AND "recueAt" IS NULL AND "alertResolvedAt" IS NULL
+        AND ("recueAt" IS NULL OR "alertesReponses" IS NOT NULL)
+        AND "alertResolvedAt" IS NULL
       RETURNING "alertResolvedAt"`,
     [uploadId, section]
   );

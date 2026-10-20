@@ -564,6 +564,19 @@ Depuis le 11/10/2026, `/d` montre un bloc par pièce attendue ; ses routes publi
 `GET /api/prescriptions/[token]/status` (avec `pieces`), `POST .../upload` (champ `pieceId`
 facultatif, absent = l'ordonnance) et `GET .../modele/[pieceId]` (modèle vierge d'un
 document demandé, jeton seul).
+Depuis le 20/10/2026 (questionnaires remplis en ligne, plan workspace
+`plans/2026-10-questionnaires-en-ligne.md`), une pièce dont le document a un formulaire
+préparé (`DocumentDemande.formulaire`, valable tant que `formulaireEmpreinte` vaut le sha256
+du modèle) porte `enLigne: true` dans `status`, et trois routes publiques de plus :
+`POST .../formulaire/[pieceId]` (`{ code }`, questions et valeurs proposées, un mauvais code
+compte un essai), `GET .../formulaire/[pieceId]/fond/[page]` (rendu du modèle vierge, jeton
+seul) et `POST .../formulaire/[pieceId]/envoyer` (`{ code, reponses, signature }`). L'envoi
+écrit le PDF du centre rempli et le range comme un dépôt : **la file `pending` et AI2Xplore
+ne voient aucune différence**. Les réponses ne sont pas gardées ; seuls les libellés des
+réponses à vérifier vont dans `PieceAttendue.alertesReponses` (carte rouge de la section
+« Questionnaires et documents », `reponses` de `GET /api/prescriptions/alerts`,
+`reponsesCount` de `alerts/count`, session seule). Journal des accès : actions
+`formulaire` et `formulaire_envoi` (SQL `2026_10_20_questionnaires_en_ligne.sql`).
 Sous-domaines : `rdv.neuracorp.ai`, `depot-ordonnances.neuracorp.ai` (doivent pointer sur le même conteneur Next).
 
 **Ces trois pages doivent conserver leurs métadonnées** (`generateMetadata` / `metadata`
