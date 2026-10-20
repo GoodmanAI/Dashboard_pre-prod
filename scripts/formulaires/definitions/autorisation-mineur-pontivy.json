@@ -1,0 +1,55 @@
+{
+  "_document": "Autorisation d'un examen d'imagerie médicale pour un patient mineur, GH Centre Bretagne (Pontivy), IMAGERIE-DEMANDEDP-ENR-01993-V2.",
+  "_modele": "IMAGERIE_DEMANDEDP_ENR_01993_V2_Autorisation_examen_imagerie_mineur.pdf",
+  "version": 1,
+  "etapes": [
+    {
+      "titre": "Vous",
+      "aide": "Ce document est rempli par un parent ou par le représentant légal de l'enfant.",
+      "champs": ["signataire", "qualite"]
+    },
+    {
+      "titre": "Votre enfant",
+      "champs": ["enfant", "enfant_naissance"]
+    },
+    {
+      "titre": "Votre autorisation",
+      "aide": "Si besoin, un manipulateur en imagerie médicale vous donnera plus d'informations au début de l'examen.",
+      "champs": ["autorisation", "precisions"]
+    }
+  ],
+  "champs": [
+    { "id": "signataire", "type": "texte", "libelle": "Votre nom et votre prénom", "requis": true, "max": 80,
+      "place": { "page": 1, "x": 216, "y": 148.1, "taille": 10.5, "largeur": 222 } },
+    { "id": "qualite", "type": "choix", "libelle": "Vous êtes", "requis": true,
+      "options": [
+        { "valeur": "pere", "libelle": "Le père", "place": { "page": 1, "x": 158.2, "y": 189.0, "taille": 8 } },
+        { "valeur": "mere", "libelle": "La mère", "place": { "page": 1, "x": 158.2, "y": 204.1, "taille": 8 } },
+        { "valeur": "representant", "libelle": "Le représentant de l'autorité parentale", "place": { "page": 1, "x": 158.2, "y": 219.2, "taille": 8 } }
+      ] },
+    { "id": "enfant", "type": "texte", "libelle": "Nom et prénom de l'enfant", "requis": true, "prerempli": "nom_prenom", "max": 80,
+      "place": { "page": 1, "x": 216, "y": 260.7, "taille": 10.5, "largeur": 226 } },
+    { "id": "enfant_naissance", "type": "date", "libelle": "Date de naissance de l'enfant", "requis": true,
+      "place": { "page": 1, "x": 146, "y": 283.1, "taille": 10.5, "largeur": 88 } },
+    { "id": "autorisation", "type": "choix", "libelle": "Autorisez-vous l'examen ?", "requis": true,
+      "options": [
+        { "valeur": "donne", "libelle": "Oui, je donne l'autorisation de réaliser l'examen", "place": { "page": 1, "x": 158.2, "y": 310.6, "taille": 8 } },
+        { "valeur": "refuse", "libelle": "Non, je ne donne pas l'autorisation", "place": { "page": 1, "x": 158.2, "y": 382.7, "taille": 8 }, "alerte": "Autorisation de l'examen refusée par le parent" }
+      ] },
+    { "id": "precisions", "type": "choix", "libelle": "Vous autorisez l'examen", "aide": "Cochez ce que vous acceptez. Le centre vous dira si votre enfant en a besoin.", "multiple": true,
+      "si": { "champ": "autorisation", "valeurs": ["donne"] },
+      "options": [
+        { "valeur": "avec_contraste", "libelle": "Avec produit de contraste", "place": { "page": 1, "x": 196.9, "y": 326.3, "taille": 5.4 } },
+        { "valeur": "sans_contraste", "libelle": "Sans produit de contraste", "place": { "page": 1, "x": 196.9, "y": 340.4, "taille": 5.4 } },
+        { "valeur": "balisage", "libelle": "Avec balisage vaginal et anal (certaines IRM du bassin)", "place": { "page": 1, "x": 196.9, "y": 354.6, "taille": 5.4 } }
+      ] },
+    { "id": "fait_le", "type": "dateDuJour", "libelle": "Fait le",
+      "places": {
+        "jour": { "page": 1, "x": 140.3, "y": 671.1, "taille": 10.5 },
+        "mois": { "page": 1, "x": 162.7, "y": 671.1, "taille": 10.5 },
+        "annee": { "page": 1, "x": 186, "y": 671.1, "taille": 10.5 }
+      } },
+    { "id": "signature", "type": "signature", "libelle": "Signature",
+      "place": { "page": 1, "x": 92, "y": 682, "largeur": 170, "hauteur": 34 } }
+  ]
+}

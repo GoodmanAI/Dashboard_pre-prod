@@ -134,6 +134,18 @@ export async function ajouterPieces(
   }
 }
 
+/**
+ * Fragment SQL : le document `dd` a-t-il un questionnaire en ligne valable ?
+ * Prepare (« formulaire »), et prepare sur le modele actuellement en base :
+ * un modele remplace par l'admin coupe le formulaire tout seul.
+ * Plan : plans/2026-10-questionnaires-en-ligne.md (workspace).
+ */
+export const FORMULAIRE_VALABLE_SQL = `(
+  dd."formulaire" IS NOT NULL
+  AND dd."modeleContenu" IS NOT NULL
+  AND dd."formulaireEmpreinte" = encode(sha256(dd."modeleContenu"), 'hex')
+)`;
+
 /** Les pieces d'un lien, dans l'ordre d'affichage. */
 export async function piecesDuLien(uploadId: number): Promise<
   {
@@ -142,14 +154,19 @@ export async function piecesDuLien(uploadId: number): Promise<
     documentDemandeId: number | null;
     libelle: string;
     avecModele: boolean;
+    enLigne: boolean;
     recueAt: Date | null;
   }[]
 > {
   // `avecModele` se lit sur le document du jour, pas sur la piece : un modele
-  // depose ou retire apres l'envoi du lien vaut aussi pour lui.
+  // depose ou retire apres l'envoi du lien vaut aussi pour lui. Meme chose
+  // pour `enLigne` (questionnaire rempli en ligne, valable tant que le modele
+  // est celui sur lequel il a ete prepare ; voir formulairesPdf.ts).
   const res = await db.query(
     `SELECT p."id", p."piece", p."documentDemandeId", p."libelle",
-            (dd."modeleContenu" IS NOT NULL) AS "avecModele", p."recueAt"
+            (dd."modeleContenu" IS NOT NULL) AS "avecModele",
+            ${FORMULAIRE_VALABLE_SQL} AS "enLigne",
+            p."recueAt"
        FROM "PieceAttendue" p
        LEFT JOIN "DocumentDemande" dd ON dd."id" = p."documentDemandeId"
       WHERE p."uploadId" = $1
@@ -174,6 +191,18 @@ export function pieceOuverteSql(sorte: SortePiece | null): string {
        AND p."alertResolvedAt" IS NULL
   )`;
 }
+
+/**
+ * Fragment SQL : le lien `pu` a-t-il un questionnaire recu dont une reponse
+ * attend l'oeil du secretariat, pas encore classe ? (questionnaire en ligne,
+ * "alertesReponses", plans/2026-10-questionnaires-en-ligne.md)
+ */
+export const REPONSE_A_VERIFIER_SQL = `EXISTS (
+    SELECT 1 FROM "PieceAttendue" p
+     WHERE p."uploadId" = pu."id"
+       AND p."alertesReponses" IS NOT NULL
+       AND p."alertResolvedAt" IS NULL
+  )`;
 
 /** Section de l'ecran secretaire, depuis le parametre `section`. */
 export function sortieDeSection(raw: string | null): SortePiece {

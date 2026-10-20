@@ -16,7 +16,22 @@ import {
   InsertDriveFile,
   CheckCircle,
   FileDownload,
+  EditNote,
 } from "@mui/icons-material";
+import {
+  BLOC_BORDER,
+  BRAND_TEAL,
+  BRAND_TEAL_DARK,
+  BRAND_TEAL_SOFT,
+  CARD_BG,
+  LIST_BG,
+  PAGE_BG_BOTTOM,
+  PAGE_BG_TOP,
+  SUCCESS,
+  TEXT_MAIN,
+  TEXT_MUTED,
+} from "./charte";
+import QuestionnaireEnLigne from "./QuestionnaireEnLigne";
 
 /**
  * Formulaire de depot patient. Servi sur
@@ -30,7 +45,9 @@ import {
  *      bloc (l'ordonnance, un questionnaire du centre...) avec son propre
  *      choix de fichiers et son bouton d'envoi
  *   3. Un document avec modele (questionnaire IRM du centre...) propose de le
- *      telecharger, de le remplir, puis de le renvoyer dans son bloc
+ *      telecharger, de le remplir, puis de le renvoyer dans son bloc. S'il a
+ *      ete prepare (`enLigne`, depuis le 20/10/2026), il se remplit sur la
+ *      page (QuestionnaireEnLigne) ; le papier reste possible en second choix
  *   4. Soumission → un POST /api/prescriptions/[token]/upload par fichier,
  *      l'un apres l'autre, avec le `pieceId` du bloc (nginx borne le corps a
  *      10 Mo, et chaque fichier a sa propre erreur)
@@ -53,6 +70,8 @@ interface PieceInfo {
   piece: "ordonnance" | "document";
   libelle: string;
   avecModele: boolean;
+  /** Questionnaire a remplir sur la page (plans/2026-10-questionnaires-en-ligne.md). */
+  enLigne?: boolean;
   documents: { uploadedAt: string }[];
 }
 
@@ -77,18 +96,6 @@ const EXAM_LABELS: Record<string, string> = {
   echographie: "échographie",
 };
 
-// Palette brand (mirror de AppointmentConfirmForm pour coherence visuelle)
-const BRAND_TEAL = "var(--accent)";
-const BRAND_TEAL_DARK = "var(--accent-press)";
-const BRAND_TEAL_SOFT = "#E6F7F3";
-const SUCCESS = "#22C55E";
-const TEXT_MAIN = "#1F3448";
-const TEXT_MUTED = "#7A8FA6";
-const CARD_BG = "#FFFFFF";
-const PAGE_BG_TOP = "#F0F7F5";
-const PAGE_BG_BOTTOM = "#FAFCFB";
-const LIST_BG = "#F0F7F5";
-const BLOC_BORDER = "#DCEBE6";
 
 // Cap fichier fixe a 8 MB : contrainte Xplore (refuse tout base64 > 12 MB,
 // soit ~9 MB de fichier reel). 8 MB * 1.33 = 10.7 MB base64, sous les 12 MB
@@ -388,10 +395,27 @@ function BlocPiece({
   } | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [questionnaireOuvert, setQuestionnaireOuvert] = useState(false);
+  // Questionnaire en ligne : le depot d'un fichier (papier rempli a la main)
+  // ne s'affiche qu'a la demande, pour ne pas faire hesiter entre deux chemins.
+  const [papier, setPapier] = useState(false);
 
   const restants = Math.max(0, maxDocuments - piece.documents.length);
   const complet = restants === 0;
   const estOrdonnance = piece.piece === "ordonnance";
+  const enLigne = !!piece.enLigne && piece.id !== null;
+
+  function ouvrirQuestionnaire() {
+    setSubmitError(null);
+    setSuccessMessage(null);
+    if (!/^\d{4,8}$/.test(code.trim())) {
+      setSubmitError(
+        "Saisissez d'abord le code à 6 chiffres, en haut de la page. Vous le trouvez dans le SMS ou le mail."
+      );
+      return;
+    }
+    setQuestionnaireOuvert(true);
+  }
 
   function resetInput() {
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -534,7 +558,62 @@ function BlocPiece({
           </Stack>
         )}
 
-        {piece.avecModele && piece.id !== null && (
+        {enLigne && piece.id !== null && !complet && (
+          <Box>
+            <Typography variant="body2" sx={{ color: TEXT_MUTED }}>
+              {piece.documents.length > 0
+                ? "Vous avez déjà envoyé ce questionnaire. Si une réponse a changé, vous pouvez le remplir de nouveau."
+                : "Répondez aux questions ici, puis signez. Le document est envoyé au centre, rien à imprimer."}
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={ouvrirQuestionnaire}
+              startIcon={<EditNote />}
+              fullWidth
+              sx={{
+                mt: 1.5,
+                py: 1.5,
+                bgcolor: BRAND_TEAL,
+                "&:hover": { bgcolor: BRAND_TEAL_DARK },
+              }}
+            >
+              {piece.documents.length > 0 ? "Remplir de nouveau" : "Remplir en ligne"}
+            </Button>
+            {!papier && (
+              <Button
+                onClick={() => setPapier(true)}
+                sx={{ mt: 0.5, px: 0, color: BRAND_TEAL_DARK, fontWeight: 600 }}
+              >
+                Je préfère le remplir sur papier
+              </Button>
+            )}
+            <QuestionnaireEnLigne
+              token={token}
+              pieceId={piece.id}
+              code={code}
+              ouvert={questionnaireOuvert}
+              onFermer={() => setQuestionnaireOuvert(false)}
+              onEnvoye={() => {
+                setQuestionnaireOuvert(false);
+                onEnvoye();
+                setSuccessMessage("Questionnaire envoyé. Il sera transmis au centre.");
+              }}
+              onCodeRefuse={(n) => {
+                setQuestionnaireOuvert(false);
+                onCodeRefuse(n);
+                setSubmitError(
+                  "Le code n'est pas le bon. Vérifiez-le en haut de la page, puis réessayez."
+                );
+              }}
+              onFin={(st) => {
+                setQuestionnaireOuvert(false);
+                onFin(st);
+              }}
+            />
+          </Box>
+        )}
+
+        {piece.avecModele && piece.id !== null && (!enLigne || papier) && (
           <Box>
             <Typography variant="body2" sx={{ color: TEXT_MUTED }}>
               Téléchargez le document de votre centre, remplissez-le, puis
@@ -595,7 +674,13 @@ function BlocPiece({
           </Alert>
         )}
 
-        {complet ? (
+        {enLigne && !papier && !complet ? (
+          submitError && (
+            <Alert severity="error" sx={{ borderRadius: 2 }}>
+              {submitError}
+            </Alert>
+          )
+        ) : complet ? (
           <Typography variant="body2" sx={{ color: TEXT_MUTED }}>
             Vous avez envoyé {maxDocuments} fichiers ici, c&apos;est le
             maximum. Pour en ajouter un, contactez votre centre.
