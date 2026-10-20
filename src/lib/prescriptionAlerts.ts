@@ -23,7 +23,7 @@
  */
 
 import { db } from "./db";
-import { pieceOuverteSql } from "./piecesAttendues";
+import { pieceOuverteSql, REPONSE_A_VERIFIER_SQL } from "./piecesAttendues";
 
 /**
  * Predicat SQL "le RDV est anterieur au jour courant".
@@ -67,13 +67,13 @@ export async function autoResolvePastAppointments(
       SELECT pu."id" FROM "PrescriptionUpload" pu
        WHERE pu."externalCenterCode" = ANY($1::text[])
          AND ${PAST_APPOINTMENT_SQL}
-         AND ${pieceOuverteSql(null)}
+         AND (${pieceOuverteSql(null)} OR ${REPONSE_A_VERIFIER_SQL})
     ), pieces AS (
       UPDATE "PieceAttendue" p
          SET "alertResolvedAt" = NOW()
         FROM liens
        WHERE p."uploadId" = liens."id"
-         AND p."recueAt" IS NULL
+         AND (p."recueAt" IS NULL OR p."alertesReponses" IS NOT NULL)
          AND p."alertResolvedAt" IS NULL
     )
     UPDATE "PrescriptionUpload" pu

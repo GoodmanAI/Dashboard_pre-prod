@@ -41,6 +41,7 @@
     "next-auth": "^4.24.11",
     "nodemailer": "^9.0.3",
     "papaparse": "^5.5.3",
+    "pdf-lib": "1.17.1",
     "pg": "^8.21.0",
     "react": "18.2.0",
     "react-apexcharts": "1.4.1",
