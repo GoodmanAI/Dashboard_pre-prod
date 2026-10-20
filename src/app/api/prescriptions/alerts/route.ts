@@ -35,6 +35,12 @@ import { PAGES } from "@/lib/permissions";
  * (« Questionnaires et documents »). Une carte = un lien qui a au moins une
  * piece de la section encore ouverte.
  *
+ * Depuis le 20/10/2026 (questionnaires en ligne,
+ * plans/2026-10-questionnaires-en-ligne.md), la section `documents` montre
+ * aussi, sans attendre le seuil, les liens dont un questionnaire recu porte
+ * une reponse a verifier ("alertesReponses" de la piece, non classee) :
+ * `reponses` en donne les libelles (« Pacemaker ou défibrillateur : oui »).
+ *
  * Filtre metier :
  *   - une piece de la section ni recue (recueAt) ni classee (alertResolvedAt)
  *   - lien non echu (status <> 'EXPIRED') ; un lien verrouille (LOCKED,
@@ -70,6 +76,7 @@ import { PAGES } from "@/lib/permissions";
  *       createdAt, alertRaisedAt,
  *       hoursSinceCreated, hoursSinceAlert,
  *       pieces: string[]      // libelles des pieces ouvertes de la section
+ *       reponses: string[]    // section documents : reponses a verifier
  *     }]
  *   }
  */
@@ -168,6 +175,7 @@ export async function GET(req: NextRequest) {
     hoursSinceCreated: string;
     hoursSinceAlert: string | null;
     pieces: string[];
+    reponses: string[];
   }>(
     `
     WITH ouvertes AS (
@@ -179,23 +187,37 @@ export async function GET(req: NextRequest) {
          AND p."recueAt" IS NULL
          AND p."alertResolvedAt" IS NULL
        GROUP BY p."uploadId"
+    ), reponses AS (
+      SELECT p."uploadId",
+             MIN(p."recueAt") AS "recue",
+             array_agg(DISTINCT a.libelle) AS "reponses"
+        FROM "PieceAttendue" p
+        CROSS JOIN LATERAL jsonb_array_elements_text(p."alertesReponses") AS a(libelle)
+       WHERE $3 = 'document'
+         AND p."alertesReponses" IS NOT NULL
+         AND p."alertResolvedAt" IS NULL
+       GROUP BY p."uploadId"
     )
     SELECT pu."id", pu."rdvId", pu."phone", pu."firstname", pu."lastname",
            pu."appointmentDate", pu."examType", pu."status",
-           o."depuis" AS "createdAt", pu."alertRaisedAt",
-           EXTRACT(EPOCH FROM (NOW() - o."depuis")) / 3600 AS "hoursSinceCreated",
+           COALESCE(o."depuis", r."recue") AS "createdAt", pu."alertRaisedAt",
+           EXTRACT(EPOCH FROM (NOW() - COALESCE(o."depuis", r."recue"))) / 3600 AS "hoursSinceCreated",
            CASE
              WHEN pu."alertRaisedAt" IS NOT NULL
              THEN EXTRACT(EPOCH FROM (NOW() - pu."alertRaisedAt")) / 3600
              ELSE NULL
            END AS "hoursSinceAlert",
-           o."pieces"
+           COALESCE(o."pieces", '{}') AS "pieces",
+           COALESCE(r."reponses", '{}') AS "reponses"
       FROM "PrescriptionUpload" pu
-      JOIN ouvertes o ON o."uploadId" = pu."id"
+      LEFT JOIN ouvertes o
+        ON o."uploadId" = pu."id"
+       AND o."depuis" < NOW() - ($2::int || ' hours')::interval
+      LEFT JOIN reponses r ON r."uploadId" = pu."id"
      WHERE pu."externalCenterCode" = ANY($1::text[])
        AND pu."status" <> 'EXPIRED'
-       AND o."depuis" < NOW() - ($2::int || ' hours')::interval
-     ORDER BY o."depuis" ASC
+       AND (o."uploadId" IS NOT NULL OR r."uploadId" IS NOT NULL)
+     ORDER BY COALESCE(o."depuis", r."recue") ASC
      LIMIT 500
     `,
     [codes, thresholdHours, section]

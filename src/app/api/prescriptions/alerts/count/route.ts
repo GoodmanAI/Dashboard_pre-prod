@@ -6,6 +6,7 @@ import {
   normalizeAlertAfterHours,
 } from "@/lib/prescriptionConfig";
 import { PAST_APPOINTMENT_SQL } from "@/lib/prescriptionAlerts";
+import { REPONSE_A_VERIFIER_SQL } from "@/lib/piecesAttendues";
 import {
   requirePagePermission,
   requireAnyPagePermission,
@@ -121,16 +122,32 @@ export async function GET(req: NextRequest) {
     [codes]
   );
 
+  // Questionnaires recus dont une reponse est a verifier (questionnaire en
+  // ligne, 20/10/2026) : comptes sans seuil, des la reception.
+  const reponsesRes = await db.query<{ count: string }>(
+    `
+    SELECT COUNT(*)::text AS count
+      FROM "PrescriptionUpload" pu
+     WHERE pu."externalCenterCode" = ANY($1::text[])
+       AND pu."status" <> 'EXPIRED'
+       AND NOT ${PAST_APPOINTMENT_SQL}
+       AND ${REPONSE_A_VERIFIER_SQL}
+    `,
+    [codes]
+  );
+
   const pendingCount = parSorte("ordonnance");
   const documentsCount = parSorte("document");
+  const reponsesCount = Number(reponsesRes.rows[0]?.count ?? 0);
   const rejectedCount = Number(rejectedRes.rows[0]?.count ?? 0);
-  const count = pendingCount + documentsCount + rejectedCount;
+  const count = pendingCount + documentsCount + reponsesCount + rejectedCount;
 
   return NextResponse.json({
     userProductId,
     count, // total (retrocompat : le hook usePrescriptionAlertsCount lit cette cle)
     pendingCount, // detail pour tooltip / breakdown UI : ordonnances
     documentsCount, // questionnaires et documents
+    reponsesCount, // questionnaires recus avec une reponse a verifier
     rejectedCount,
     thresholdHours,
   });

@@ -93,6 +93,11 @@ type AlertItem = {
   hoursSinceAlert: number | null;
   /** Libelles des pieces ouvertes de la section (« Questionnaire IRM »...). */
   pieces?: string[];
+  /**
+   * Section documents : reponses d'un questionnaire rempli en ligne qui
+   * demandent l'oeil du secretariat (« Pacemaker ou défibrillateur : oui »).
+   */
+  reponses?: string[];
 };
 
 type Onglet = "pending" | "documents" | "par-mail" | "rejected";
@@ -443,8 +448,11 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
       const t = it.appointmentDate ? new Date(it.appointmentDate).getTime() : NaN;
       return Number.isNaN(t) ? Number.POSITIVE_INFINITY : t;
     };
+    // Une reponse a verifier (questionnaire en ligne) passe devant tout.
+    const aVerifier = (it: AlertItem) => ((it.reponses?.length ?? 0) > 0 ? 0 : 1);
     return [...filtered].sort(
       (a, b) =>
+        aVerifier(a) - aVerifier(b) ||
         dateExamen(a) - dateExamen(b) ||
         b.hoursSinceCreated - a.hoursSinceCreated
     );
@@ -795,16 +803,20 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
               Cliquez sur le numéro pour le copier. Une fois le patient rappelé, cliquez
               &laquo; Marquer traité &raquo; pour retirer la carte de la liste.{" "}
               {enDocuments
-                ? "Chaque carte dit quels questionnaires ou documents manquent. Le patient peut encore les déposer avec le lien reçu, jusqu'à l'heure du rendez-vous."
+                ? "Chaque carte dit quels questionnaires ou documents manquent. Le patient peut encore les déposer avec le lien reçu, jusqu'à l'heure du rendez-vous. Une carte rouge « À vérifier » signale une réponse du questionnaire rempli en ligne qui peut empêcher l'examen : rappelez le patient avant le rendez-vous."
                 : "Le rendez-vous reste en attente d'ordonnance tant que le patient n'a pas déposé son document sur la plateforme."}{" "}
               Les rendez-vous déjà passés sont classés
               automatiquement : inutile de rappeler, l&apos;examen a eu lieu.
             </Alert>
 
             {listeAffichee.map((item) => {
-              // Critical = 2x le seuil configure (ex: 48h de seuil -> critical > 96h)
+              // Critical = 2x le seuil configure (ex: 48h de seuil -> critical > 96h).
+              // Une reponse a verifier (questionnaire en ligne) est toujours critique.
+              const aVerifier = enDocuments && (item.reponses?.length ?? 0) > 0;
+              const manque = (item.pieces?.length ?? 0) > 0;
               const critical =
-                thresholdHours != null && item.hoursSinceCreated > thresholdHours * 2;
+                aVerifier ||
+                (thresholdHours != null && item.hoursSinceCreated > thresholdHours * 2);
               const examLabel = item.examType
                 ? EXAM_LABELS[item.examType] ?? item.examType
                 : "Examen non précisé";
@@ -839,7 +851,11 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                         </Typography>
                         <Chip
                           size="small"
-                          label={`${Math.round(item.hoursSinceCreated)} h sans dépôt`}
+                          label={
+                            aVerifier && !manque
+                              ? "Questionnaire reçu, à vérifier"
+                              : `${Math.round(item.hoursSinceCreated)} h sans dépôt`
+                          }
                           sx={{
                             bgcolor: critical ? "rgba(185,28,28,0.15)" : "rgba(234,88,12,0.15)",
                             color: critical ? "#b91c1c" : "#c2410c",
@@ -908,6 +924,34 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                         )}
                       </Stack>
 
+                      {aVerifier && (
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          useFlexGap
+                          flexWrap="wrap"
+                          sx={{ mb: 1, mt: 1 }}
+                        >
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: "#1F3448" }}>
+                            À vérifier :
+                          </Typography>
+                          {item.reponses!.map((libelle) => (
+                            <Chip
+                              key={libelle}
+                              size="small"
+                              icon={<WarningAmber sx={{ fontSize: 16 }} />}
+                              label={libelle}
+                              sx={{
+                                bgcolor: "rgba(185,28,28,0.12)",
+                                color: "#991b1b",
+                                fontWeight: 600,
+                                "& .MuiChip-icon": { color: "#b91c1c" },
+                              }}
+                            />
+                          ))}
+                        </Stack>
+                      )}
+
                       {enDocuments && item.pieces && item.pieces.length > 0 && (
                         <Stack
                           direction="row"
@@ -932,7 +976,9 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                       )}
 
                       <Typography variant="caption" color="text.secondary">
-                        Lien envoyé {formatFrDateShort(item.createdAt)}
+                        {aVerifier && !manque
+                          ? `Questionnaire reçu ${formatFrDateShort(item.createdAt)}, transmis à votre logiciel de gestion`
+                          : `Lien envoyé ${formatFrDateShort(item.createdAt)}`}
                       </Typography>
                     </Box>
 

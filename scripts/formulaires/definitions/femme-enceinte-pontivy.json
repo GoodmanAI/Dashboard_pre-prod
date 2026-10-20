@@ -1,0 +1,50 @@
+{
+  "_document": "Questionnaire femme enceinte avant examen en imagerie médicale, GH Centre Bretagne (Pontivy), IMAGERIE-DEMARCHEDP-ENR-03329-V1.",
+  "_modele": "IMAGERIE_DEMARCHEDP_ENR_03329_V1_Questionnaire_femme_enceinte_avant_examen_en_imagerie_medicale_1_1 (1).pdf",
+  "version": 1,
+  "etapes": [
+    {
+      "titre": "Votre identité",
+      "aide": "Ce questionnaire est rempli par la patiente elle-même, même si elle est mineure.",
+      "champs": ["nom_naissance", "nom_usage", "prenom", "naissance"]
+    },
+    {
+      "titre": "Grossesse",
+      "aide": "Votre examen utilise des rayons X. Le centre doit s'assurer que vous n'êtes pas enceinte.",
+      "champs": ["enceinte", "susceptible", "engagement"]
+    }
+  ],
+  "champs": [
+    { "id": "nom_naissance", "type": "texte", "libelle": "Nom de naissance", "requis": true, "prerempli": "nom", "max": 60,
+      "place": { "page": 1, "x": 160, "y": 284.9, "taille": 10, "largeur": 135 } },
+    { "id": "nom_usage", "type": "texte", "libelle": "Nom d'usage", "aide": "Seulement s'il est différent de votre nom de naissance.", "max": 60,
+      "place": { "page": 1, "x": 369, "y": 284.9, "taille": 10, "largeur": 152 } },
+    { "id": "prenom", "type": "texte", "libelle": "Prénom", "requis": true, "prerempli": "prenom", "max": 60,
+      "place": { "page": 1, "x": 117, "y": 309.5, "taille": 10, "largeur": 178 } },
+    { "id": "naissance", "type": "date", "libelle": "Date de naissance", "requis": true,
+      "places": {
+        "jour": { "page": 1, "x": 418, "y": 309.5, "taille": 10 },
+        "mois": { "page": 1, "x": 449, "y": 309.5, "taille": 10 },
+        "annee": { "page": 1, "x": 476, "y": 309.5, "taille": 10 }
+      } },
+    { "id": "enceinte", "type": "choix", "libelle": "Êtes-vous enceinte ?", "requis": true,
+      "options": [
+        { "valeur": "oui", "libelle": "Oui", "place": { "page": 1, "x": 285.0, "y": 329.3, "taille": 6.6 }, "alerte": "Enceinte : oui" },
+        { "valeur": "non", "libelle": "Non", "place": { "page": 1, "x": 355.8, "y": 329.3, "taille": 6.6 } },
+        { "valeur": "ne_sait_pas", "libelle": "Je ne sais pas", "place": { "page": 1, "x": 426.6, "y": 329.3, "taille": 6.6 }, "alerte": "Enceinte : ne sait pas" }
+      ] },
+    { "id": "susceptible", "type": "choix", "libelle": "Pourriez-vous être enceinte ?", "aide": "C'est le cas si vous avez vos règles et une activité sexuelle sans contraception, ou avec une contraception oubliée ou mal prise.", "requis": true,
+      "options": [
+        { "valeur": "oui", "libelle": "Oui", "place": { "page": 1, "x": 285.0, "y": 353.9, "taille": 6.6 }, "alerte": "Pourrait être enceinte : oui" },
+        { "valeur": "non", "libelle": "Non", "place": { "page": 1, "x": 355.8, "y": 353.9, "taille": 6.6 } },
+        { "valeur": "ne_sait_pas", "libelle": "Je ne sais pas", "place": { "page": 1, "x": 426.6, "y": 353.9, "taille": 6.6 }, "alerte": "Pourrait être enceinte : ne sait pas" }
+      ] },
+    { "id": "engagement", "type": "case", "libelle": "Je m'engage à prévenir le service d'imagerie médicale si je découvre une grossesse après l'examen.", "requis": true,
+      "aide": "Si vous êtes enceinte ou si vous avez un doute, faites une prise de sang (dosage des bêta HCG) et faites parvenir le résultat au centre au plus tard la veille de l'examen. Sans ce résultat, l'examen peut être annulé. Vous pouvez la faire au laboratoire du Groupe Hospitalier Centre Bretagne (niveau -1) ou dans le laboratoire de votre choix.",
+      "place": { "page": 1, "x": 72.5, "y": 534.8, "taille": 6.6 } },
+    { "id": "date_du_jour", "type": "dateDuJour", "libelle": "Date",
+      "place": { "page": 1, "x": 150, "y": 565.2, "taille": 11 } },
+    { "id": "signature", "type": "signature", "libelle": "Signature",
+      "place": { "page": 1, "x": 378, "y": 548, "largeur": 150, "hauteur": 40 } }
+  ]
+}
