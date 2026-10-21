@@ -99,6 +99,13 @@ export const TRANSFER_REASON_META: Record<string, TransferMeta> = {
   context_router_human: { label: "Demande d'un humain", category: "demande_patient" },
   urgence_detected: { label: "Urgence médicale", category: "demande_patient" },
   limite_actions_rdv: { label: "Trop de demandes dans un appel", category: "demande_patient" },
+  // Valeurs rangées en « Autre » jusqu'au 21/10/2026, faute de libellé.
+  confirmation_ecrite: { label: "Confirmation écrite demandée", category: "demande_patient" },
+  transport: { label: "Question sur le transport", category: "demande_patient" },
+  v2_abandon: { label: "Le patient abandonne sa demande", category: "demande_patient" },
+  radiologue_specific_required: { label: "Radiologue précis demandé", category: "demande_patient" },
+  // Robot V1 : la confirmation de rendez-vous passait au secrétariat.
+  rdv_confirmation: { label: "Confirmation de rendez-vous", category: "demande_patient" },
 
   // ===== examen_non_traitable =====
   exam_type: { label: "Examen non disponible (non mappé)", category: "examen_non_traitable" },
@@ -112,6 +119,10 @@ export const TRANSFER_REASON_META: Record<string, TransferMeta> = {
   // Rétro-compat anciennes valeurs
   multi_exam_not_accepted: { label: "Examens multiples non gérés", category: "examen_non_traitable" },
   multi_examen_double_us: { label: "Double échographie non gérée", category: "examen_non_traitable" },
+  // Le robot écrit `multi_examen_…` (validateMultiExams.js) : la clé `multi_exam_not_accepted`
+  // ci-dessus ne l'a jamais attrapé, 107 appels étaient rangés en « Autre » au 21/10/2026.
+  multi_examen_not_accepted: { label: "Plusieurs examens non acceptés ensemble", category: "examen_non_traitable" },
+  multi_examen_double_rx: { label: "Deux radios non acceptées ensemble", category: "examen_non_traitable" },
 
   // ===== patient_introuvable =====
   patient_not_found: { label: "Dossier patient introuvable", category: "patient_introuvable" },
@@ -119,6 +130,8 @@ export const TRANSFER_REASON_META: Record<string, TransferMeta> = {
   confirm_identity_rdv: { label: "Échec confirmation identité RDV", category: "patient_introuvable" },
   // Rétro-compat
   error_identification: { label: "Erreur d'identification", category: "patient_introuvable" },
+  rdv_introuvable: { label: "Rendez-vous introuvable", category: "patient_introuvable" },
+  no_rdv_new_patient: { label: "Aucun rendez-vous (nouveau patient)", category: "patient_introuvable" },
 
   // ===== incomprehension_etape =====
   error_logic: { label: "Trop d'erreurs (limite globale)", category: "incomprehension_etape" },
@@ -152,6 +165,8 @@ export const TRANSFER_REASON_META: Record<string, TransferMeta> = {
   grossesse: { label: "Grossesse possible", category: "incomprehension_etape" },
   ask_pregnancy: { label: "Question grossesse", category: "incomprehension_etape" },
   allergy_unsure: { label: "Allergie incertaine", category: "incomprehension_etape" },
+  rdv_date_ambigue: { label: "Date du rendez-vous pas claire", category: "incomprehension_etape" },
+  annulation_contestee: { label: "Annulation contestée par le patient", category: "incomprehension_etape" },
 
   // ===== pas_de_creneau =====
   no_patient_slot_find: { label: "Aucun créneau ne convient", category: "pas_de_creneau" },
@@ -178,6 +193,11 @@ export const TRANSFER_REASON_META: Record<string, TransferMeta> = {
   get_rdv_failed: { label: "Rendez-vous illisibles (RIS)", category: "erreur_technique" },
   get_slots_failed: { label: "Planning illisible (RIS)", category: "erreur_technique" },
   search_patient_failed: { label: "Dossier patient illisible (RIS)", category: "erreur_technique" },
+  // createRDV.js : le logiciel du centre refuse le rendez-vous pour un réglage à corriger.
+  config_avs_requis: { label: "Rendez-vous refusé : numéro AVS exigé", category: "erreur_technique" },
+  config_ipp_incompatible: { label: "Rendez-vous refusé : dossier patient incompatible", category: "erreur_technique" },
+  config_caracteristique_rdv: { label: "Rendez-vous refusé : réglage du rendez-vous manquant", category: "erreur_technique" },
+  config_external_user: { label: "Rendez-vous refusé : compte du robot non reconnu", category: "erreur_technique" },
 
   // ===== non_transfert (à EXCLURE du décompte transferts) =====
   end_conversation: { label: "Fin de conversation (raccrochage)", category: "non_transfert" },
@@ -195,7 +215,7 @@ export function getTransferMeta(reason: string | null | undefined): TransferMeta
   isKnown: boolean;
 } {
   if (!reason) {
-    return { label: "Sans raison", category: "autre", isKnown: false };
+    return { label: "Motif non enregistré", category: "autre", isKnown: false };
   }
   const known = TRANSFER_REASON_META[reason];
   if (known) return { ...known, isKnown: true };
