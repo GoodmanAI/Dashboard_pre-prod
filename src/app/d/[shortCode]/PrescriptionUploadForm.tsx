@@ -17,6 +17,7 @@ import {
   CheckCircle,
   FileDownload,
   EditNote,
+  InfoOutlined,
 } from "@mui/icons-material";
 import {
   BLOC_BORDER,
@@ -86,6 +87,8 @@ interface UploadInfo {
   documents: { uploadedAt: string }[];
   maxDocuments: number;
   pieces?: PieceInfo[];
+  /** Message du centre (parametrage, « Depot d'ordonnance patient »), en bas de page. */
+  messageCentre?: string | null;
 }
 
 const EXAM_LABELS: Record<string, string> = {
@@ -358,6 +361,26 @@ export default function PrescriptionUploadForm({ token }: { token: string }) {
             onFin={setFinalStatus}
           />
         ))}
+
+        {info.messageCentre && (
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1.25,
+              p: 2,
+              borderRadius: 2,
+              bgcolor: BRAND_TEAL_SOFT,
+            }}
+          >
+            <InfoOutlined sx={{ fontSize: 20, color: BRAND_TEAL_DARK, mt: "1px" }} />
+            <Typography
+              variant="body2"
+              sx={{ color: TEXT_MAIN, whiteSpace: "pre-line", lineHeight: 1.55 }}
+            >
+              {info.messageCentre}
+            </Typography>
+          </Box>
+        )}
       </Stack>
     </PageShell>
   );
