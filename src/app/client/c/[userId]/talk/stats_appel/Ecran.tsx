@@ -46,6 +46,7 @@ import {
   EventBusy as IconPlanningFull,
   Biotech as IconRadioInterv,
   TaskAlt as IconConfirmRDV,
+  Assignment as IconResultats,
 } from "@mui/icons-material";
 import { useCentre } from "@/app/context/CentreContext";
 import { subDays, startOfDay, endOfDay } from "date-fns";
@@ -58,6 +59,8 @@ import {
   getTransferMeta,
   isCounterTransfer,
   estExamenNonPris,
+  estUnTransfert,
+  estDemandeDeResultats,
 } from "@/lib/transferReasons";
 import { getLanguageMeta, LANGUAGE_META, LanguageCode } from "@/lib/languages";
 import { construireExamLabelMap, listerTypesExamen } from "@/lib/examLabels";
@@ -882,6 +885,16 @@ export default function StatsAppelPage({ params }: any) {
     }, 0);
   }, [calls]);
 
+  const nbTransferts = useMemo(
+    () => calls.reduce((acc, c: any) => acc + (isCounterTransfer(c?.stats) ? 1 : 0), 0),
+    [calls]
+  );
+  const nbResultats = useMemo(
+    () => calls.reduce((acc, c: any) => acc + (estDemandeDeResultats(c?.stats) ? 1 : 0), 0),
+    [calls]
+  );
+  const partResultats = nbTransferts > 0 ? Math.round((nbResultats / nbTransferts) * 100) : 0;
+
   /* ========== Enrichissement Annulation / Confirmation avec rappels SMS ==========
    * On additionne les compteurs bot LyraeTalk (calculés ci-dessus depuis
    * `calls`) et les compteurs no-show AI2Xplore (fetchés depuis /api/rdv/stats).
@@ -930,6 +943,7 @@ export default function StatsAppelPage({ params }: any) {
         (acc, c: any) => acc + (c?.stats?.rdv_status === "confirmed" ? 1 : 0),
         0
       ),
+      resultats: p.reduce((acc, c: any) => acc + (estDemandeDeResultats(c?.stats) ? 1 : 0), 0),
     };
   }, [previousCalls]);
 
@@ -946,6 +960,7 @@ export default function StatsAppelPage({ params }: any) {
       nbRDV: computeDelta(nbRDV, previousKpis.nbRDV, "higher_is_better"),
       nbUrgence: computeDelta(nbUrgence, previousKpis.nbUrgence, "neutral"),
       nbInfo: computeDelta(nbInfo, previousKpis.nbInfo, "neutral"),
+      resultats: computeDelta(nbResultats, previousKpis.resultats, "neutral"),
       heures: computeDelta(currentHeuresSec, previousKpis.heuresSec, "higher_is_better"),
       // Annulation & Confirmation : les tuiles affichent le TOTAL (bot + SMS
       // rappel), donc le delta doit comparer total ↔ total N-1 pour rester
@@ -972,6 +987,7 @@ export default function StatsAppelPage({ params }: any) {
     nbRDV,
     nbUrgence,
     nbInfo,
+    nbResultats,
     currentHeuresSec,
     totalAnnulation,
     prevSmsCancelled,
@@ -1079,6 +1095,8 @@ export default function StatsAppelPage({ params }: any) {
     rows.push(["Prises de RDV", nbRDV, formatDeltaForCsv(deltas?.nbRDV)]);
     rows.push(["Urgences détectées", nbUrgence, formatDeltaForCsv(deltas?.nbUrgence)]);
     rows.push(["Informations", nbInfo, formatDeltaForCsv(deltas?.nbInfo)]);
+    rows.push(["Demandes de résultats", nbResultats, formatDeltaForCsv(deltas?.resultats)]);
+    rows.push(["Demandes de résultats (part des transferts)", `${partResultats}%`]);
     rows.push(["Heures prises en charge", heuresPrisEnCharge, formatDeltaForCsv(deltas?.heures)]);
     rows.push(["Annulations (total)", totalAnnulation, formatDeltaForCsv(deltas?.annulation)]);
     rows.push(["Annulations (bot LyraeTalk)", annulation]);
@@ -1258,7 +1276,7 @@ export default function StatsAppelPage({ params }: any) {
 
   /* ========== Camembert transferts — par CATÉGORIE ==========
    * Comptage : on garde uniquement les "vrais" transferts vers secrétariat
-   * (end_reason === 'transfer' ET catégorie ≠ non_transfert). Source de vérité
+   * (estUnTransfert ET catégorie ≠ non_transfert). Source de vérité
    * dans `src/lib/transferReasons.ts`. */
   const transferData = useMemo(() => {
     const buckets: Record<TransferCategory, number> = {
@@ -1404,7 +1422,7 @@ export default function StatsAppelPage({ params }: any) {
       const k = dayKey(new Date(c.createdAt));
       if (map[k]) {
         map[k].total++;
-        if ((c as any)?.stats?.end_reason === "transfer") {
+        if (estUnTransfert((c as any)?.stats)) {
           map[k].redirect++;
         }
       }
@@ -1682,10 +1700,10 @@ export default function StatsAppelPage({ params }: any) {
         </Box>
       </Box>
 
-      {/* 5 tuiles */}
+      {/* 6 tuiles */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        {[0,1,2,3,4].map((i) => (
-          <Grid item xs={12} sm={6} md={2.4} key={i}>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <Grid item xs={12} sm={6} md={4} lg={2} key={i}>
             {loading ? (
               <StatTileSkeleton />
             ) : i === 0 ? (
@@ -1719,6 +1737,15 @@ export default function StatsAppelPage({ params }: any) {
                 icon={<IconInfo />}
                 delta={deltas?.nbInfo}
                 previousLabel={previousLabel}
+              />
+            ) : i === 4 ? (
+              <StatTile
+                title="Demandes de résultats"
+                value={nbResultats === 0 ? "-" : nbResultats}
+                icon={<IconResultats />}
+                delta={deltas?.resultats}
+                previousLabel={previousLabel}
+                subDetail={nbResultats > 0 ? `${partResultats} % des transferts` : undefined}
               />
             ) : (
               <StatTile

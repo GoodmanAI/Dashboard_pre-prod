@@ -852,7 +852,7 @@ export async function GET(req: NextRequest) {
 
   // ---------- Transferts vers secrétariat (par catégorie + top étapes) ----------
   // Source de vérité du mapping : src/lib/transferReasons.ts.
-  // On compte seulement les "vrais" transferts (end_reason === "transfer" ET
+  // On compte seulement les "vrais" transferts (estUnTransfert ET
   // catégorie ≠ non_transfert).
   const transferCategoryDistribution: Record<string, number> = {};
   /** Top étapes : étape ayant atteint la limite globale d'erreurs (error_logic_type)
@@ -902,7 +902,7 @@ export async function GET(req: NextRequest) {
       } else {
         // Sans étape précise : bucket dédié pour ne pas perdre l'info.
         const k = "error_logic";
-        const label = "Trop d'erreurs (étape non précisée)";
+        const label = "Trop d'incompréhensions (étape non précisée)";
         const existing = failedStepCounts.get(k);
         if (existing) existing.count++;
         else failedStepCounts.set(k, { step: k, label, count: 1 });
