@@ -57,6 +57,8 @@ const EMPTY_ENABLED: Enabled = {
 const DEFAULT_ALERT_HOURS = 48;
 const MIN_ALERT_HOURS = 1;
 const MAX_ALERT_HOURS = 720;
+// Même borne que la contrainte SQL `PrescriptionConfig_message_longueur`.
+const MAX_MESSAGE = 500;
 
 /** Ce que l'écran parent pilote depuis sa barre d'enregistrement. */
 export type PrescriptionConfigHandle = {
@@ -81,6 +83,7 @@ const PrescriptionConfigCard = forwardRef<
 
   const [enabledExamTypes, setEnabledExamTypes] = useState<Enabled>(EMPTY_ENABLED);
   const [alertAfterHours, setAlertAfterHours] = useState<string>(String(DEFAULT_ALERT_HOURS));
+  const [messagePatient, setMessagePatient] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -102,6 +105,7 @@ const PrescriptionConfigCard = forwardRef<
         if (!alive) return;
         setEnabledExamTypes(data.enabledExamTypes ?? EMPTY_ENABLED);
         setAlertAfterHours(String(data.alertAfterHours ?? DEFAULT_ALERT_HOURS));
+        setMessagePatient(data.messagePatient ?? "");
         setDirty(false);
       } catch (err) {
         console.error("[PrescriptionConfigCard] fetch failed:", err);
@@ -152,6 +156,7 @@ const PrescriptionConfigCard = forwardRef<
           userProductId,
           enabledExamTypes,
           alertAfterHours: hoursNum,
+          messagePatient,
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -169,7 +174,7 @@ const PrescriptionConfigCard = forwardRef<
     } finally {
       setSaving(false);
     }
-  }, [alertAfterHours, enabledExamTypes, userProductId]);
+  }, [alertAfterHours, enabledExamTypes, messagePatient, userProductId]);
 
   useImperativeHandle(ref, () => ({ enregistrer: handleSave }), [handleSave]);
 
@@ -253,6 +258,31 @@ const PrescriptionConfigCard = forwardRef<
                 disabled={readOnly}
                 sx={{ maxWidth: 180 }}
                 size="small"
+              />
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Message pour le patient sur la page de dépôt
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Affiché en bas de la page où le patient dépose son ordonnance et remplit ses
+                questionnaires. Par exemple, ce qu&apos;il doit apporter le jour du rendez-vous.
+                Laissez vide pour ne rien afficher.
+              </Typography>
+              <TextField
+                value={messagePatient}
+                onChange={(e) => {
+                  setMessagePatient(e.target.value.slice(0, MAX_MESSAGE));
+                  setDirty(true);
+                }}
+                disabled={readOnly}
+                multiline
+                minRows={3}
+                fullWidth
+                size="small"
+                placeholder="Le jour de votre rendez-vous, pensez à apporter votre pièce d'identité et votre carte vitale."
+                helperText={`${messagePatient.length} / ${MAX_MESSAGE} caractères`}
               />
             </Box>
           </Stack>

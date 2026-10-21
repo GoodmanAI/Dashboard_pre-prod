@@ -66,6 +66,22 @@ export function normalizeAlertAfterHours(raw: unknown): number {
   return i;
 }
 
+/** Longueur maximale du message du centre (contrainte SQL `PrescriptionConfig_message_longueur`). */
+export const MESSAGE_PATIENT_MAX = 500;
+
+/**
+ * Message du centre affiché en bas de la page de dépôt. Espaces de bord retirés,
+ * lignes vides en série réduites à une ; vide → null (rien d'affiché).
+ * Rend `undefined` si le texte dépasse la longueur permise.
+ */
+export function normalizeMessagePatient(raw: unknown): string | null | undefined {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw !== "string") return undefined;
+  const texte = raw.replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  if (!texte) return null;
+  return texte.length > MESSAGE_PATIENT_MAX ? undefined : texte;
+}
+
 /**
  * Une ordonnance est requise pour ce RDV si :
  *   - un examType est fourni ET

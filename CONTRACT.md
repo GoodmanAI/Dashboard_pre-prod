@@ -570,6 +570,12 @@ Depuis le 11/10/2026, `/d` montre un bloc par pièce attendue ; ses routes publi
 `GET /api/prescriptions/[token]/status` (avec `pieces`), `POST .../upload` (champ `pieceId`
 facultatif, absent = l'ordonnance) et `GET .../modele/[pieceId]` (modèle vierge d'un
 document demandé, jeton seul).
+Depuis le 21/10/2026 (demande de Pontivy), `GET .../status` renvoie aussi `messageCentre`
+(`PrescriptionConfig.messagePatient`, retrouvé par `externalCenterCode` →
+`ExternalCenterMapping`), affiché en bas de `/d`. `GET /api/prescriptions/config` renvoie
+`messagePatient` dans ses deux modes, LyraeTalk compris (ajout, ignoré par le robot) ; le
+`POST` l'accepte (500 caractères au plus, vide = null). SQL
+`2026_10_21_message_page_depot.sql`, à passer avant le code.
 Depuis le 20/10/2026 (questionnaires remplis en ligne, plan workspace
 `plans/2026-10-questionnaires-en-ligne.md`), une pièce dont le document a un formulaire
 préparé (`DocumentDemande.formulaire`, valable tant que `formulaireEmpreinte` vaut le sha256

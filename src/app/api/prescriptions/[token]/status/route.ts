@@ -27,6 +27,7 @@ import { MAX_DOCUMENTS_PAR_PIECE, piecesDuLien } from "@/lib/piecesAttendues";
  *     attemptsLeft: number,                 // sur 3 (pour affichage warning)
  *     documents: [{ uploadedAt: ISO }],     // tous les documents du lien
  *     maxDocuments: 5,                      // par piece
+ *     messageCentre: string | null,         // depuis le 21/10/2026, PrescriptionConfig.messagePatient
  *     pieces: [{                            // depuis le 11/10/2026
  *       id, piece: "ordonnance" | "document", libelle, avecModele,
  *       enLigne,                            // depuis le 20/10/2026 : questionnaire a remplir sur la page
@@ -54,11 +55,15 @@ export async function GET(
     appointmentDate: Date | null;
     expiresAt: Date;
     attempts: number;
+    messageCentre: string | null;
   }>(
-    `SELECT "id", "status", "firstname", "lastname", "examType",
-            "appointmentDate", "expiresAt", "attempts"
-       FROM "PrescriptionUpload"
-      WHERE "token" = $1
+    `SELECT pu."id", pu."status", pu."firstname", pu."lastname", pu."examType",
+            pu."appointmentDate", pu."expiresAt", pu."attempts",
+            pc."messagePatient" AS "messageCentre"
+       FROM "PrescriptionUpload" pu
+       LEFT JOIN "ExternalCenterMapping" m ON m."externalCenterCode" = pu."externalCenterCode"
+       LEFT JOIN "PrescriptionConfig" pc ON pc."userProductId" = m."userProductId"
+      WHERE pu."token" = $1
       LIMIT 1`,
     [params.token]
   );
@@ -115,6 +120,7 @@ export async function GET(
     patientLabel,
     appointmentDate: record.appointmentDate,
     examType: record.examType,
+    messageCentre: record.messageCentre ?? null,
     canUpload: pieces.some((p) => p.canUpload),
     expiresAt: record.expiresAt,
     attemptsLeft,
