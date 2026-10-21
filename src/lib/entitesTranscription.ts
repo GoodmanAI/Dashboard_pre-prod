@@ -78,19 +78,48 @@ export type TourAnalyse = {
 
 const RE_TOUR = /^(Lyrae|Patient|WaitSound):\s*([\s\S]*?)\s*(?:\/(\d{2}:\d{2}:\d{2}))?\s*$/;
 
+/** `+33650373113` ou `0650373113` → `06 50 37 31 13` ; un numéro partiel est groupé par deux. */
+function numeroLisible(brut: string): string {
+  const chiffres = brut.replace(/[^\d+]/g, "").replace(/^\+33/, "0");
+  if (!/^\d+$/.test(chiffres)) return brut;
+  return chiffres.replace(/(\d{2})(?=\d)/g, "$1 ");
+}
+
+/**
+ * Ce que LyraeTalk écrit dans une phrase pour la synthèse vocale, et qu'un client ne doit
+ * pas lire : `spell_DUPRAT` (nom épelé), `phone_+33612345678` (numéro dit chiffre par
+ * chiffre), `email_contact@centre.fr` (adresse ralentie), `mail_MEN.mp3` (adresse
+ * enregistrée), et ` | ` entre deux morceaux d'une même réponse. Les marqueurs sont ceux
+ * de `tts.service.js` ; la base garde le texte brut.
+ */
+export function texteLisible(texte: string): string {
+  return texte
+    .replace(/\bspell_(\S+)/g, "$1")
+    .replace(/\bphone_(\+?[\d ]+\d)/g, (_, n: string) => numeroLisible(n))
+    .replace(/\bemail_(\S+)/g, "$1")
+    .replace(/\be?mail_\S*\.mp3\b/gi, "(adresse mail du centre)")
+    .replace(/\S+\.mp3\b/gi, "(message enregistré)")
+    .replace(/\s+\|\s+/g, " ")
+    .replace(/[ \t]{2,}/g, " ");
+}
+
 export function lireTour(
   brut: { speaker?: string; text?: string } | string,
   index: number
 ): { index: number; locuteur: Locuteur; heure: string | null; texte: string } {
   const ligne = typeof brut === "string" ? brut : String(brut?.text ?? "");
   const m = RE_TOUR.exec(ligne);
-  if (m) return { index, locuteur: m[1] as Locuteur, texte: m[2], heure: m[3] ?? null };
+  if (m) {
+    const locuteur = m[1] as Locuteur;
+    return { index, locuteur, texte: locuteur === "Lyrae" ? texteLisible(m[2]) : m[2], heure: m[3] ?? null };
+  }
   // Ancien format sans préfixe : on garde le locuteur calculé à l'écriture.
   const speaker = typeof brut === "string" ? undefined : brut?.speaker;
+  const texte = ligne.replace(/\s*\/\d{2}:\d{2}:\d{2}\s*$/, "");
   return {
     index,
     locuteur: speaker === "Lyrae" ? "Lyrae" : "Patient",
-    texte: ligne.replace(/\s*\/\d{2}:\d{2}:\d{2}\s*$/, ""),
+    texte: speaker === "Lyrae" ? texteLisible(texte) : texte,
     heure: /\/(\d{2}:\d{2}:\d{2})\s*$/.exec(ligne)?.[1] ?? null,
   };
 }
