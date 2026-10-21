@@ -11,6 +11,8 @@ import {
   DEFAULT_ALERT_AFTER_HOURS,
   normalizePrescriptionEnabled,
   normalizeAlertAfterHours,
+  normalizeMessagePatient,
+  MESSAGE_PATIENT_MAX,
   PrescriptionEnabledExamTypes,
 } from "@/lib/prescriptionConfig";
 
@@ -31,7 +33,8 @@ import {
  *       radiographie: boolean, irm: boolean, echographie: boolean,
  *       scanner: boolean, mammo: boolean
  *     },
- *     alertAfterHours: number
+ *     alertAfterHours: number,
+ *     messagePatient: string | null   // depuis le 21/10/2026, bas de la page de depot
  *   }
  *
  * Si aucune config n'existe encore pour ce userProductId (row absent) :
@@ -80,8 +83,9 @@ export async function GET(req: NextRequest) {
   const res = await db.query<{
     enabledExamTypes: unknown;
     alertAfterHours: number;
+    messagePatient: string | null;
   }>(
-    `SELECT "enabledExamTypes", "alertAfterHours"
+    `SELECT "enabledExamTypes", "alertAfterHours", "messagePatient"
        FROM "PrescriptionConfig"
       WHERE "userProductId" = $1
       LIMIT 1`,
@@ -90,17 +94,20 @@ export async function GET(req: NextRequest) {
 
   let enabledExamTypes: PrescriptionEnabledExamTypes = DEFAULT_PRESCRIPTION_ENABLED;
   let alertAfterHours: number = DEFAULT_ALERT_AFTER_HOURS;
+  let messagePatient: string | null = null;
 
   if ((res.rowCount ?? 0) > 0) {
     const row = res.rows[0];
     enabledExamTypes = normalizePrescriptionEnabled(row.enabledExamTypes);
     alertAfterHours = normalizeAlertAfterHours(row.alertAfterHours);
+    messagePatient = row.messagePatient ?? null;
   }
 
   return NextResponse.json({
     userProductId,
     enabledExamTypes,
     alertAfterHours,
+    messagePatient,
   });
 }
 
@@ -114,6 +121,7 @@ export async function GET(req: NextRequest) {
  * Body : { userProductId: number } + au moins un des champs :
  *   - enabledExamTypes: Record<ExamTypeKey, boolean>
  *   - alertAfterHours:  number (1..720)
+ *   - messagePatient:   string | null (500 caracteres au plus, vide = rien d'affiche)
  *
  * Les champs absents ne sont pas modifies (merge avec l'etat courant).
  * Renvoie l'etat final normalise.
@@ -142,8 +150,9 @@ export async function POST(req: NextRequest) {
 
   const hasEnabled = body && "enabledExamTypes" in body;
   const hasAlert = body && "alertAfterHours" in body;
+  const hasMessage = body && "messagePatient" in body;
 
-  if (!hasEnabled && !hasAlert) {
+  if (!hasEnabled && !hasAlert && !hasMessage) {
     return NextResponse.json(
       { error: "Body must contain at least one field to update" },
       { status: 400 }
@@ -156,11 +165,23 @@ export async function POST(req: NextRequest) {
   );
   if (ownErr) return ownErr;
 
+  let messageSaisi: string | null | undefined;
+  if (hasMessage) {
+    messageSaisi = normalizeMessagePatient(body.messagePatient);
+    if (messageSaisi === undefined) {
+      return NextResponse.json(
+        { error: `Le message pour le patient dépasse ${MESSAGE_PATIENT_MAX} caractères.` },
+        { status: 400 }
+      );
+    }
+  }
+
   const current = await db.query<{
     enabledExamTypes: unknown;
     alertAfterHours: number | null;
+    messagePatient: string | null;
   }>(
-    `SELECT "enabledExamTypes", "alertAfterHours"
+    `SELECT "enabledExamTypes", "alertAfterHours", "messagePatient"
        FROM "PrescriptionConfig"
       WHERE "userProductId" = $1
       LIMIT 1`,
@@ -180,17 +201,22 @@ export async function POST(req: NextRequest) {
     ? normalizeAlertAfterHours(currentRow.alertAfterHours)
     : DEFAULT_ALERT_AFTER_HOURS;
 
+  const nextMessage: string | null = hasMessage
+    ? (messageSaisi ?? null)
+    : (currentRow?.messagePatient ?? null);
+
   await db.query(
     `
     INSERT INTO "PrescriptionConfig"
-      ("userProductId", "enabledExamTypes", "alertAfterHours", "updatedAt")
-    VALUES ($1, $2::jsonb, $3, NOW())
+      ("userProductId", "enabledExamTypes", "alertAfterHours", "messagePatient", "updatedAt")
+    VALUES ($1, $2::jsonb, $3, $4, NOW())
     ON CONFLICT ("userProductId") DO UPDATE SET
       "enabledExamTypes" = EXCLUDED."enabledExamTypes",
       "alertAfterHours"  = EXCLUDED."alertAfterHours",
+      "messagePatient"   = EXCLUDED."messagePatient",
       "updatedAt"        = NOW()
     `,
-    [userProductId, JSON.stringify(nextEnabled), nextAlert]
+    [userProductId, JSON.stringify(nextEnabled), nextAlert, nextMessage]
   );
 
   // Activer une ordonnance ne touche plus a SmsConfirmationConfig depuis le
@@ -211,5 +237,6 @@ export async function POST(req: NextRequest) {
     userProductId,
     enabledExamTypes: nextEnabled,
     alertAfterHours: nextAlert,
+    messagePatient: nextMessage,
   });
 }
