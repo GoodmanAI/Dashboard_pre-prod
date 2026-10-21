@@ -902,7 +902,7 @@ export async function GET(req: NextRequest) {
       } else {
         // Sans étape précise : bucket dédié pour ne pas perdre l'info.
         const k = "error_logic";
-        const label = "Trop d'erreurs (étape non précisée)";
+        const label = "Trop d'incompréhensions (étape non précisée)";
         const existing = failedStepCounts.get(k);
         if (existing) existing.count++;
         else failedStepCounts.set(k, { step: k, label, count: 1 });
