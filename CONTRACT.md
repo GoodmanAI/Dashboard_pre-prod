@@ -480,6 +480,12 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   `estExamenNonPris` (`src/lib/transferReasons.ts`) : catégorie `examen_non_traitable` ou
   `stats.exam_not_bookable`. Avant, `transferReason === "exam_type"` seul : l'écran client,
   la tuile admin « Non traités » et ce filtre comptaient trois choses différentes.
+- **`status=transfer:all` et `status=hung_up`** (21/10/2026) : un transfert, c'est
+  `end_reason` à `transfer` **ou** `end_bridge_not_responsed` (le robot a transféré, le
+  secrétariat n'a pas décroché), selon `estUnTransfert` (`src/lib/transferReasons.ts`).
+  Avant, ces appels (environ 15 % des transferts) comptaient comme des raccrochés, ici et
+  dans les écrans. La tuile « Demandes de résultats » (écran client, cartes de la vue
+  d'ensemble admin) compte `estDemandeDeResultats` : un transfert de motif `result`.
 - **`stats.funnel`** (06/10/2026) : `lib/callFunnel.ts` lit aussi `routing_intents` et
   `stop` (v2.15.0 du robot) et rattrape les appels d'avant : un examen refusé
   (`exam_not_bookable`, `exam_not_practiced_*`, motif `examen_non_traitable`) compte

@@ -6,7 +6,7 @@ import { indexerParType, diminutifDuType } from "@/lib/examTypes";
 import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 import { debutConservation } from "@/lib/retentionAppels";
-import { estExamenNonPris } from "@/lib/transferReasons";
+import { estExamenNonPris, FINS_DE_TRANSFERT_LISTE } from "@/lib/transferReasons";
 
 export const dynamic = "force-dynamic";
 
@@ -390,7 +390,9 @@ export async function GET(request: NextRequest) {
         const reason = statusParam.slice("transfer:".length);
         if (reason === "all") {
           whereClause.AND.push({
-            stats: { path: ["end_reason"], equals: "transfer" },
+            OR: FINS_DE_TRANSFERT_LISTE.map((fin) => ({
+              stats: { path: ["end_reason"], equals: fin },
+            })),
           });
         } else {
           whereClause.AND.push({
@@ -411,11 +413,11 @@ export async function GET(request: NextRequest) {
             { stats: { path: ["rdv_booked"], equals: 0 } },
             { stats: { path: ["rdv_canceled"], equals: 0 } },
             { stats: { path: ["rdv_modified"], equals: 0 } },
-            {
+            ...FINS_DE_TRANSFERT_LISTE.map((fin) => ({
               NOT: {
-                stats: { path: ["end_reason"], equals: "transfer" },
+                stats: { path: ["end_reason"], equals: fin },
               },
-            },
+            })),
           ],
         });
       } else if (statusParam === "rescheduled") {

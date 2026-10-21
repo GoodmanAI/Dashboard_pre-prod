@@ -9,6 +9,8 @@
  * Vue ordonnée du plus tardif (RDV presque pris) au plus précoce dans le flow.
  */
 
+import { estUnTransfert } from "@/lib/transferReasons";
+
 export type HangupContextKey =
   | "no_matching_slot"
   | "renounced_validation"
@@ -164,7 +166,7 @@ export const UNKNOWN_HANGUP_CONTEXT: HangupContextMeta = {
  */
 export function isHangup(stats: any): boolean {
   if (!stats) return false;
-  if (stats.end_reason === "transfer") return false;
+  if (estUnTransfert(stats)) return false;
   return (
     stats.rdv_booked === 0 &&
     stats.rdv_canceled === 0 &&
