@@ -60,7 +60,12 @@ const call_status: any = {
 };
 
 import { pink } from "@mui/material/colors";
-import { getTransferMeta, CATEGORY_META } from "@/lib/transferReasons";
+import {
+  getTransferMeta,
+  CATEGORY_META,
+  estUnTransfert,
+  estSansReponseDuSecretariat,
+} from "@/lib/transferReasons";
 import { getLanguageMeta, isNonDefaultLanguage } from "@/lib/languages";
 import { getHangupContext } from "@/lib/hangupContext";
 
@@ -127,7 +132,7 @@ function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
     });
   }
 
-  if (stats.end_reason === "transfer") {
+  if (estUnTransfert(stats)) {
     // Cas déjà chippés explicitement plus haut (chip dédié visuel) → on évite
     // la duplication avec le chip générique "Redirection …".
     const alreadyChipped =
@@ -141,13 +146,16 @@ function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
         textColor: catMeta.textColor,
       });
     }
+    if (estSansReponseDuSecretariat(stats)) {
+      chips.push({ label: "Secrétariat sans réponse", variant: "outlined" });
+    }
   }
 
   if (
     stats.rdv_booked === 0 &&
     stats.rdv_canceled === 0 &&
     stats.rdv_modified === 0 &&
-    stats.end_reason !== "transfer"
+    !estUnTransfert(stats)
   ) {
     chips.push({
       label: "Raccroché",
