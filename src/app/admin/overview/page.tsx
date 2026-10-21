@@ -38,6 +38,7 @@ import {
   IconCalendarCheck,
   IconGauge,
   IconAlertTriangle,
+  IconReportMedical,
 } from "@tabler/icons-react";
 import {
   ResponsiveContainer,
@@ -55,7 +56,7 @@ import DateRangePresets from "@/components/DateRangePresets";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import { startOfDay, endOfDay, differenceInCalendarDays } from "date-fns";
 import FunnelMiniChart from "@/components/admin/FunnelMiniChart";
-import { estExamenNonPris } from "@/lib/transferReasons";
+import { estExamenNonPris, isCounterTransfer, estDemandeDeResultats } from "@/lib/transferReasons";
 
 type TodayStats = {
   totalCalls: number;
@@ -63,6 +64,8 @@ type TodayStats = {
   indice: number;
   notPerformedExam: number; // transferReason === "exam_type"
   planningFull: number;     // stats.no_slot_api_retrieve truthy
+  transferts: number;       // isCounterTransfer
+  resultats: number;        // estDemandeDeResultats
 };
 
 type CentreFetchState = {
@@ -134,12 +137,16 @@ function computeTodayStats(calls: any[]): TodayStats {
     (acc, c) => acc + (c?.stats?.no_slot_api_retrieve ? 1 : 0),
     0
   );
+  const transferts = calls.reduce((acc, c) => acc + (isCounterTransfer(c?.stats) ? 1 : 0), 0);
+  const resultats = calls.reduce((acc, c) => acc + (estDemandeDeResultats(c?.stats) ? 1 : 0), 0);
   return {
     totalCalls: total,
     nbRDV,
     indice,
     notPerformedExam,
     planningFull,
+    transferts,
+    resultats,
   };
 }
 
@@ -318,7 +325,7 @@ function CentreTodayCard({
 
       {loading && !stats ? (
         <Stack spacing={1.5}>
-          {[0, 1, 2, 3].map((i) => (
+          {[0, 1, 2, 3, 4].map((i) => (
             <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 0.75 }}>
               <Skeleton variant="rounded" width={36} height={36} />
               <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -373,6 +380,17 @@ function CentreTodayCard({
             value={stats.notPerformedExam + stats.planningFull}
             breakdown={`(${stats.notPerformedExam} + ${stats.planningFull})`}
             icon={<IconAlertTriangle size={18} />}
+          />
+          <StatRow
+            label="Demandes de résultats"
+            subLabel="transférées au secrétariat"
+            value={stats.resultats}
+            breakdown={
+              stats.resultats > 0
+                ?`${Math.round((stats.resultats / stats.transferts) * 100)} % des transferts`
+                : undefined
+            }
+            icon={<IconReportMedical size={18} />}
           />
         </Stack>
       ) : null}

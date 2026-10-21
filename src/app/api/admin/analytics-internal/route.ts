@@ -852,7 +852,7 @@ export async function GET(req: NextRequest) {
 
   // ---------- Transferts vers secrétariat (par catégorie + top étapes) ----------
   // Source de vérité du mapping : src/lib/transferReasons.ts.
-  // On compte seulement les "vrais" transferts (end_reason === "transfer" ET
+  // On compte seulement les "vrais" transferts (estUnTransfert ET
   // catégorie ≠ non_transfert).
   const transferCategoryDistribution: Record<string, number> = {};
   /** Top étapes : étape ayant atteint la limite globale d'erreurs (error_logic_type)

@@ -209,14 +209,44 @@ export function getTransferMeta(reason: string | null | undefined): TransferMeta
 }
 
 /**
+ * Les fins d'appel où le robot a passé la main au secrétariat. LyraeTalk écrit
+ * `end_bridge_not_responsed` quand le secrétariat n'a pas décroché
+ * (`giveUpTransfer`, voip.service.js) : c'est un transfert quand même. Avant le
+ * 21/10/2026 ces appels (environ 15 % des transferts) étaient comptés comme des
+ * raccrochés.
+ */
+const FINS_DE_TRANSFERT = new Set(["transfer", "end_bridge_not_responsed"]);
+export const FINS_DE_TRANSFERT_LISTE = Array.from(FINS_DE_TRANSFERT);
+
+/** Le robot a-t-il transféré l'appel, que le secrétariat ait décroché ou non ? */
+export function estUnTransfert(stats: any): boolean {
+  return !!stats && FINS_DE_TRANSFERT.has(stats.end_reason);
+}
+
+/** Transféré, mais le secrétariat n'a pas décroché. */
+export function estSansReponseDuSecretariat(stats: any): boolean {
+  return !!stats && stats.end_reason === "end_bridge_not_responsed";
+}
+
+/**
  * Détermine si un appel doit être compté comme un "vrai" transfert vers
- * secrétariat. Règle : end_reason === 'transfer' ET le transferReason n'est
- * pas dans la catégorie `non_transfert`.
+ * secrétariat. Règle : `estUnTransfert` ET le transferReason n'est pas dans la
+ * catégorie `non_transfert`.
  */
 export function isCounterTransfer(stats: any): boolean {
-  if (!stats || stats.end_reason !== "transfer") return false;
+  if (!estUnTransfert(stats)) return false;
   const meta = getTransferMeta(stats.transferReason);
   return meta.category !== "non_transfert";
+}
+
+/**
+ * Un patient qui appelait pour ses résultats ou son compte rendu, passé au
+ * secrétariat. LyraeTalk pose `result` par l'intention `demande_resultats`
+ * (getIntent.js), depuis une question d'examen (v2/intention.js) et par
+ * expression à tout moment (v2/demandesHorsRdv.js).
+ */
+export function estDemandeDeResultats(stats: any): boolean {
+  return isCounterTransfer(stats) && stats.transferReason === "result";
 }
 
 /**
