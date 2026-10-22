@@ -13,7 +13,6 @@ npm run lint
 npx prisma migrate dev --name <slug>   # crée une migration Prisma
 npx prisma generate                    # après toute édition de schema.prisma
 npm run seed           # prisma/seed.ts — admin + ~30 comptes clients
-npm run seed-calls / seed-demo-calls / seed-data   # jeux de données de démo
 node scripts/create-super-admin.js
 ```
 
