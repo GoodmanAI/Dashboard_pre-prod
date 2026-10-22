@@ -643,7 +643,7 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 
 | Origine | Tables |
 |---|---|
-| Prisma (17) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `Call`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
+| Prisma (16) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
 | SQL manuel (19) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `KonnectSites`, `KonnectDemandesRappel`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionDocument`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus`, `CentreStatut`, `ReferentielExamens` |
 
 `CentreStatut` (07/09/2026) porte le statut de cycle de vie d'un centre :
@@ -992,7 +992,7 @@ rend sous le nom `horaireMapping`.
 - `.env.example` incomplet : 15 variables listées, 26+ attendues **[?] Q15**.
 - ~~Whitelist `/api/heartbeat/*` sans endpoint correspondant **[?] Q4**.~~ **Résolu le 2026-08-10** : la whitelist avait en fait déjà été retirée de `src/middleware.ts` — aucune occurrence de `heartbeat` dans `src/`. Le seul émetteur restant, AI2Xplore, a été coupé de son côté. Q4 close.
 - Deux clients Prisma, deux mailers, deux seeds admin **[?] Q16**.
-- `Call` et `CallConversation` coexistent **[?] Q13**.
+- ~~`Call` et `CallConversation` coexistent **[?] Q13**.~~ **Résolu le 22/10/2026** : modèle `Call`, enums `CallIntent` et `CallStatus` et scripts `seed_calls.ts`, `seed_demo_calls.ts` retirés ; table supprimée par `2026_10_22_retrait_table_call.sql` (à passer après le déploiement). Les appels sont dans `CallConversation`. Q13 close.
 - ~~`LyraeExplain` : produit archivé, code encore présent **[?] Q14**.~~ **Résolu le 24/08/2026** :
   écran, route `update-metrics-explain` et seed supprimés ; plus aucune référence applicative.
   La ligne `Product`, les `UserProduct` (4 centres) et la table `LyraeExplainDetails` restent

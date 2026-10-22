@@ -10,9 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "ts-node prisma/seed.ts",
-    "seed-calls": "ts-node prisma/seed_calls.ts",
-    "seed-demo-calls": "ts-node prisma/seed_demo_calls.ts"
+    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.29.1",
