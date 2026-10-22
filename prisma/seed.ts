@@ -29,7 +29,6 @@ function randomDate(start: Date, end: Date): Date {
   return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()))
 }
 const ticketStatuses: TicketStatus[] = ['PENDING', 'IN_PROGRESS', 'CLOSED']
-const callIntents: string[]           = ['info', 'support', 'sales']
 
 async function main(): Promise<void> {
   // 1. Super-admin
@@ -133,26 +132,6 @@ async function main(): Promise<void> {
           message:     `Message seed ${randomUUID()}`,
           status:      ticketStatuses[Math.floor(Math.random() * ticketStatuses.length)],
           createdAt:   randomDate(new Date(2025, 0, 1), new Date())
-        }
-      })
-    }
-  }
-
-  // 7. Appels aléatoires (10 par centre)
-  for (const centre of centreUsers) {
-    for (let j = 0; j < 10; j++) {
-      await prisma.call.create({
-        data: {
-          userId:      centre.id,
-          createdById: centre.id,
-          caller:      `+33${Math.floor(600000000 + Math.random() * 400000000)}`,
-          called:      `+33${Math.floor(600000000 + Math.random() * 400000000)}`,
-          intent:      callIntents[Math.floor(Math.random() * callIntents.length)],
-          firstname:   `Prenom${j + 1}`,
-          lastname:    `Nom${j + 1}`,
-          birthdate:   randomDate(new Date(1950, 0, 1), new Date(2000, 0, 1)),
-          createdAt:   randomDate(new Date(2025, 0, 1), new Date()),
-          steps:       ['step1', 'step2', 'step3']
         }
       })
     }
