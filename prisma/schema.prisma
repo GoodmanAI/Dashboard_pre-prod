@@ -25,20 +25,6 @@ enum TicketStatus {
   CLOSED
 }
 
-enum CallIntent {
-  RDV
-  INFO
-  URGENCE
-  ANNULATION
-  CONSULTATION
-}
-
-enum CallStatus {
-  COMPLETED
-  ABANDONED
-  TRANSFERRED
-}
-
 model User {
   id          Int         @id @default(autoincrement())
   name        String?
@@ -81,11 +67,9 @@ model User {
   tickets         Ticket[]         @relation("TicketForUser")
   notifications   Notification[]
   FileSubmission  FileSubmission[]
-  calls           Call[]           @relation("CallForUser")
   createdTickets  Ticket[]         @relation("TicketCreatedBy")
   assignedTickets Ticket[]         @relation("TicketAssignedTo")
   ticketMessages  TicketMessage[]  @relation("TicketMessageAuthor")
-  createdCalls    Call[]           @relation("CallCreatedBy")
 
   // 👇 this must match the name in ReceivedCalls.center
   receivedCallsAsCenter ReceivedCalls[] @relation("ReceivedCallsCenter")
@@ -238,30 +222,6 @@ model Notification {
 
   ticket Ticket? @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Call {
-  id          Int  @id @default(autoincrement())
-  userId      Int
-  createdById Int?
-
-  caller String
-  called String
-
-  intent String? // ex: "prise de rdv" | "info" | "urgence" | "annulation" | "consultation"
-
-  intentCode  CallIntent?
-  status      CallStatus  @default(COMPLETED)
-  durationSec Int         @default(0)
-
-  firstname String?
-  lastname  String?
-  birthdate DateTime?
-  createdAt DateTime  @default(now())
-  steps     Json      @default("[]")
-
-  user      User  @relation("CallForUser", fields: [userId], references: [id], onDelete: Cascade)
-  createdBy User? @relation("CallCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 }
 
 model TalkSettings {
