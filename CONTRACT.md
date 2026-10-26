@@ -50,6 +50,16 @@ après le RDV.
 - `documentsDemandes` gagne la liste `grossesse`. `grossesseSeulement` et
   `mineursSeulement` s'excluent (`api/documents-demandes` répond 400 aux deux).
 
+**Questionnaires du centre dans Konnect** (26/10/2026, plan workspace
+`plans/2026-10-konnect-questionnaires-centre.md`, `DECISIONS.md` du 26/10/2026). Additif :
+
+- `DocumentDemande.disponibleKonnect` (SQL `2026_10_26_documents_konnect.sql`, repris de
+  `disponible`) : interrupteur du client pour Konnect. `disponible` reste celui de LyraeTalk.
+- `POST /api/prescriptions/init` avec `KONNECT_API_KEY` lit `disponibleKonnect`, et accepte
+  `documentsRecus: number[]` (ids de `DocumentDemande` déjà remplis dans le parcours de
+  Konnect et envoyés par lui dans Xplore) : aucune pièce n'est créée pour eux. Ignoré avec
+  `APPOINTMENT_API_KEY`. LyraeTalk et `GET /api/configuration` ne changent pas.
+
 ⚠️ **`GET /api/configuration` renvoie un bloc `site`** (07/09/2026), miroir exact de
 l'objet `call.site` de LyraeTalk. Il porte la configuration qui vit encore dans le
 `getInitInfo.js` du robot et qui descend ici au fur et à mesure, lue dans le domaine

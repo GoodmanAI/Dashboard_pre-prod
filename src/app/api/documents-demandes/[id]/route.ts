@@ -18,7 +18,9 @@ import {
  *
  * Partage des droits (DECISIONS.md du 11/10/2026) :
  *   - le CLIENT (proprietaire, droit d'ecriture du parametrage) ne change que
- *     `disponible`, l'interrupteur « Mis a disposition des patients », et
+ *     `disponible`, l'interrupteur « Mis a disposition des patients » de
+ *     LyraeTalk, `disponibleKonnect`, le meme pour Konnect (26/10/2026,
+ *     plans/2026-10-konnect-questionnaires-centre.md), et
  *     `libelleXplore`, le libelle de la piece jointe dans son Xplore (19/10/2026,
  *     plans/2026-10-libelle-xplore-des-documents.md : Xplore renomme tout
  *     libelle absent de sa liste) ; chaine vide ou null => non renseigne ;
@@ -78,6 +80,9 @@ export async function PATCH(
   };
 
   if ("disponible" in body) poser("disponible", body.disponible === true);
+  if ("disponibleKonnect" in body) {
+    poser("disponibleKonnect", body.disponibleKonnect === true);
+  }
   if ("libelleXplore" in body) {
     const libelleXplore = libelleXploreValide(body.libelleXplore);
     if (libelleXplore === undefined) {

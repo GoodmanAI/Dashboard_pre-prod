@@ -28,6 +28,14 @@ export type SortePiece = "ordonnance" | "document";
 
 export const LIBELLE_ORDONNANCE = "Ordonnance";
 
+/** Canal qui demande les pieces : chacun a son interrupteur par document. */
+export type Canal = "talk" | "konnect";
+
+/** Colonne de l'interrupteur du canal ; interpolee depuis une constante. */
+export function colonneDisponible(canal: Canal): string {
+  return canal === "konnect" ? `"disponibleKonnect"` : `"disponible"`;
+}
+
 /** Une piece a demander, avant insertion. */
 export interface PieceACreer {
   piece: SortePiece;
@@ -61,13 +69,20 @@ export function normaliserTypesExamen(raw: unknown): ExamTypeKey[] {
  *
  * `grossessePossible` est calcule par le canal (12 a 55 ans, sexe F, ou sexe
  * ou age inconnu) : le Dashboard ne recoit ni l'age ni le sexe. Un appelant
- * qui ne l'envoie pas (Konnect) ne recoit jamais ces documents.
+ * qui ne l'envoie pas ne recoit jamais ces documents.
+ *
+ * Chaque canal a son interrupteur : `disponible` pour LyraeTalk,
+ * `disponibleKonnect` pour Konnect (plans/2026-10-konnect-questionnaires-centre.md).
+ * `exclus` : documents deja remplis et envoyes par le canal lui-meme (Konnect
+ * les fait remplir dans son parcours) ; aucune piece n'est creee pour eux.
  */
 export async function documentsApplicables(
   userProductId: number,
   examType: string,
   mineur: boolean,
-  grossessePossible = false
+  grossessePossible = false,
+  canal: Canal = "talk",
+  exclus: readonly number[] = []
 ): Promise<PieceACreer[]> {
   const res = await db.query<{
     id: number;
@@ -82,12 +97,13 @@ export async function documentsApplicables(
             ("modeleContenu" IS NOT NULL) AS "avecModele", "ordre"
        FROM "DocumentDemande"
       WHERE "userProductId" = $1
-        AND "disponible" = true
+        AND ${colonneDisponible(canal)} = true
         AND "archivedAt" IS NULL
       ORDER BY "ordre" ASC, "id" ASC`,
     [userProductId]
   );
   return res.rows
+    .filter((d) => !exclus.includes(d.id))
     .filter((d) =>
       (normaliserTypesExamen(d.typesExamen) as string[]).includes(examType)
     )

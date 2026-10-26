@@ -71,8 +71,15 @@ function extractClientIp(req: NextRequest): string | null {
  *     grossessePossible?: boolean,          // depuis le 15/10/2026, LyraeTalk :
  *                                           //  12 a 55 ans, sexe F, ou sexe ou
  *                                           //  age inconnu ; absent = false
- *     ordonnanceRecue?: boolean             // Konnect : toujours vrai, impose
+ *     ordonnanceRecue?: boolean,            // Konnect : toujours vrai, impose
+ *     documentsRecus?: number[]             // Konnect seul (26/10/2026) : ids des
+ *                                           //  DocumentDemande remplis dans son
+ *                                           //  parcours et deja envoyes dans
+ *                                           //  Xplore ; aucune piece pour eux
  *   }
+ *
+ * Avec la cle Konnect, les documents sont ceux que le client a mis a
+ * disposition de Konnect (`disponibleKonnect`), pas de LyraeTalk.
  *
  * Pieces attendues (plans/2026-10-documents-demandes.md) : le Dashboard les
  * calcule seul. L'ordonnance si le type est soumis au depot
@@ -137,7 +144,14 @@ export async function POST(req: NextRequest) {
     mineur: mineurRaw,
     grossessePossible: grossessePossibleRaw,
     ordonnanceRecue: ordonnanceRecueRaw,
+    documentsRecus: documentsRecusRaw,
   } = body ?? {};
+  // Konnect : questionnaires deja remplis dans son parcours et envoyes par lui
+  // dans Xplore (ids de DocumentDemande) ; on ne les redemande pas.
+  const documentsRecus: number[] =
+    parKonnect && Array.isArray(documentsRecusRaw)
+      ? documentsRecusRaw.filter((v: unknown): v is number => Number.isInteger(v))
+      : [];
   // Un appelant qui ne connait pas encore les documents demandes n'envoie
   // pas `mineur` : on garde pour lui le comportement d'avant.
   const appelantAncien =
@@ -245,7 +259,16 @@ export async function POST(req: NextRequest) {
   ) {
     pieces.push(pieceOrdonnance());
   }
-  pieces.push(...(await documentsApplicables(userProductId, examType, mineur, grossessePossible)));
+  pieces.push(
+    ...(await documentsApplicables(
+      userProductId,
+      examType,
+      mineur,
+      grossessePossible,
+      parKonnect ? "konnect" : "talk",
+      documentsRecus
+    ))
+  );
   const enReponse = (
     liste: { piece: PieceRenvoyee["piece"]; libelle: string; avecModele: boolean }[]
   ): PieceRenvoyee[] =>
