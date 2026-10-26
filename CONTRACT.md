@@ -56,9 +56,13 @@ après le RDV.
 - `DocumentDemande.disponibleKonnect` (SQL `2026_10_26_documents_konnect.sql`, repris de
   `disponible`) : interrupteur du client pour Konnect. `disponible` reste celui de LyraeTalk.
 - `POST /api/prescriptions/init` avec `KONNECT_API_KEY` lit `disponibleKonnect`, et accepte
-  `documentsRecus: number[]` (ids de `DocumentDemande` déjà remplis dans le parcours de
-  Konnect et envoyés par lui dans Xplore) : aucune pièce n'est créée pour eux. Ignoré avec
-  `APPOINTMENT_API_KEY`. LyraeTalk et `GET /api/configuration` ne changent pas.
+  `documentsRecus: (number | { id, alertes: string[] })[]` (`DocumentDemande` déjà remplis
+  dans le parcours de Konnect et envoyés par lui dans Xplore) : jamais redemandés. Ceux qui
+  portent une alerte deviennent des pièces **reçues** avec `alertesReponses` (« Réponses à
+  vérifier » de la secrétaire), sur un lien créé pour eux s'il le faut, passé en `UPLOADED`
+  quand tout y est reçu. Ignoré avec `APPOINTMENT_API_KEY`.
+- `piecesAttendues[]` gagne `recue` (booléen). Un lien dont toutes les pièces sont reçues
+  n'est pas à envoyer au patient. LyraeTalk et `GET /api/configuration` ne changent pas.
 
 ⚠️ **`GET /api/configuration` renvoie un bloc `site`** (07/09/2026), miroir exact de
 l'objet `call.site` de LyraeTalk. Il porte la configuration qui vit encore dans le

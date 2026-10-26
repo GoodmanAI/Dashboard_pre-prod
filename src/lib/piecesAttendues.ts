@@ -50,6 +50,8 @@ export interface PieceRenvoyee {
   piece: SortePiece;
   libelle: string;
   avecModele: boolean;
+  /** Deja recue (questionnaire rempli dans Konnect). */
+  recue: boolean;
 }
 
 /** Ne garde que les cles d'examen canoniques, sans doublon. */
@@ -146,6 +148,74 @@ export async function ajouterPieces(
        VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT ("uploadId", "piece", COALESCE("documentDemandeId", 0)) DO NOTHING`,
       [uploadId, p.piece, p.documentDemandeId, p.libelle, p.avecModele, p.ordre]
+    );
+  }
+}
+
+/** Questionnaire rempli dans le parcours de Konnect, envoye par lui dans Xplore. */
+export interface DocumentRecu {
+  id: number;
+  /** Libelles des reponses a alerte (« Pacemaker ou defibrillateur : oui »). */
+  alertes: string[];
+}
+
+/**
+ * `documentsRecus` de l'init (Konnect) : un id seul, ou `{ id, alertes }`.
+ * Tout le reste est ignore. Un libelle d'alerte est borne comme sur la page.
+ */
+export function lireDocumentsRecus(raw: unknown): DocumentRecu[] {
+  if (!Array.isArray(raw)) return [];
+  const out: DocumentRecu[] = [];
+  for (const v of raw) {
+    const objet = v && typeof v === "object" ? (v as { id?: unknown; alertes?: unknown }) : null;
+    const id = typeof v === "number" ? v : objet?.id;
+    if (typeof id !== "number" || !Number.isInteger(id) || out.some((d) => d.id === id)) {
+      continue;
+    }
+    const brutes = objet?.alertes;
+    const alertes = Array.isArray(brutes)
+      ? brutes
+          .filter((a): a is string => typeof a === "string" && a.trim().length > 0)
+          .map((a) => a.trim().slice(0, 160))
+          .slice(0, 30)
+      : [];
+    out.push({ id, alertes });
+  }
+  return out;
+}
+
+/**
+ * Pose sur le lien, deja recues, les pieces des questionnaires remplis dans
+ * Konnect qui portent une alerte : la secretaire les voit dans « Reponses a
+ * verifier », comme un questionnaire rempli sur la page de depot. Aucun
+ * document n'y est range (le PDF est deja dans Xplore), donc rien ne part par
+ * `pending`. Un questionnaire sans alerte ne laisse aucune piece. Seuls les
+ * documents du client sont acceptes.
+ */
+export async function ajouterPiecesRecues(
+  uploadId: number,
+  userProductId: number,
+  recus: DocumentRecu[]
+): Promise<void> {
+  const avecAlertes = recus.filter((d) => d.alertes.length > 0);
+  if (avecAlertes.length === 0) return;
+  const docs = await db.query<{ id: number; libelle: string; ordre: number }>(
+    `SELECT "id", "libelle", "ordre" FROM "DocumentDemande"
+      WHERE "userProductId" = $1 AND "id" = ANY($2::int[])`,
+    [userProductId, avecAlertes.map((d) => d.id)]
+  );
+  for (const doc of docs.rows) {
+    const alertes = avecAlertes.find((d) => d.id === doc.id)!.alertes;
+    await db.query(
+      `INSERT INTO "PieceAttendue"
+         ("uploadId", "piece", "documentDemandeId", "libelle", "avecModele", "ordre",
+          "recueAt", "alertesReponses")
+       VALUES ($1, 'document', $2, $3, true, $4, NOW(), $5::jsonb)
+       ON CONFLICT ("uploadId", "piece", COALESCE("documentDemandeId", 0)) DO UPDATE
+         SET "recueAt" = COALESCE("PieceAttendue"."recueAt", NOW()),
+             "alertesReponses" = EXCLUDED."alertesReponses",
+             "alertResolvedAt" = NULL`,
+      [uploadId, doc.id, doc.libelle, doc.ordre + 1, JSON.stringify(alertes)]
     );
   }
 }

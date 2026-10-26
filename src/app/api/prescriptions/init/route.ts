@@ -15,7 +15,9 @@ import {
 } from "@/lib/prescriptionConfig";
 import {
   ajouterPieces,
+  ajouterPiecesRecues,
   documentsApplicables,
+  lireDocumentsRecus,
   pieceOrdonnance,
   piecesDuLien,
   type PieceACreer,
@@ -72,10 +74,15 @@ function extractClientIp(req: NextRequest): string | null {
  *                                           //  12 a 55 ans, sexe F, ou sexe ou
  *                                           //  age inconnu ; absent = false
  *     ordonnanceRecue?: boolean,            // Konnect : toujours vrai, impose
- *     documentsRecus?: number[]             // Konnect seul (26/10/2026) : ids des
+ *     documentsRecus?: (number | { id: number, alertes: string[] })[]
+ *                                           // Konnect seul (26/10/2026) :
  *                                           //  DocumentDemande remplis dans son
  *                                           //  parcours et deja envoyes dans
- *                                           //  Xplore ; aucune piece pour eux
+ *                                           //  Xplore. Jamais redemandes ; ceux
+ *                                           //  qui portent une alerte deviennent
+ *                                           //  des pieces recues (« Reponses a
+ *                                           //  verifier »), un lien est cree
+ *                                           //  pour eux s'il le faut
  *   }
  *
  * Avec la cle Konnect, les documents sont ceux que le client a mis a
@@ -115,7 +122,10 @@ function extractClientIp(req: NextRequest): string | null {
  *                                            //  ("a deposer sous Nh")
  *     alreadyInitialized: boolean,           // true = re-init d'un PENDING
  *     piecesAttendues: [{ piece: "ordonnance" | "document",
- *                         libelle, avecModele }]
+ *                         libelle, avecModele, recue }]
+ *                                            // recue : deja la ; un lien dont
+ *                                            //  toutes les pieces sont recues
+ *                                            //  n'est pas a envoyer au patient
  *   }
  */
 export async function POST(req: NextRequest) {
@@ -148,10 +158,8 @@ export async function POST(req: NextRequest) {
   } = body ?? {};
   // Konnect : questionnaires deja remplis dans son parcours et envoyes par lui
   // dans Xplore (ids de DocumentDemande) ; on ne les redemande pas.
-  const documentsRecus: number[] =
-    parKonnect && Array.isArray(documentsRecusRaw)
-      ? documentsRecusRaw.filter((v: unknown): v is number => Number.isInteger(v))
-      : [];
+  const documentsRecus = parKonnect ? lireDocumentsRecus(documentsRecusRaw) : [];
+  const recusAvecAlertes = documentsRecus.some((d) => d.alertes.length > 0);
   // Un appelant qui ne connait pas encore les documents demandes n'envoie
   // pas `mineur` : on garde pour lui le comportement d'avant.
   const appelantAncien =
@@ -266,16 +274,22 @@ export async function POST(req: NextRequest) {
       mineur,
       grossessePossible,
       parKonnect ? "konnect" : "talk",
-      documentsRecus
+      documentsRecus.map((d) => d.id)
     ))
   );
   const enReponse = (
-    liste: { piece: PieceRenvoyee["piece"]; libelle: string; avecModele: boolean }[]
+    liste: {
+      piece: PieceRenvoyee["piece"];
+      libelle: string;
+      avecModele: boolean;
+      recueAt: Date | null;
+    }[]
   ): PieceRenvoyee[] =>
     liste.map((p) => ({
       piece: p.piece,
       libelle: p.libelle,
       avecModele: p.avecModele,
+      recue: p.recueAt !== null,
     }));
 
   // URL de base : sous-domaine dedie prefere, sinon fallback dashboard
@@ -305,7 +319,9 @@ export async function POST(req: NextRequest) {
     [rdvId, centerId]
   );
 
-  if ((existingRes.rowCount ?? 0) === 0 && pieces.length === 0) {
+  // Un questionnaire rempli dans Konnect avec une alerte demande un lien a lui
+  // seul : c'est la que la secretaire le voit.
+  if ((existingRes.rowCount ?? 0) === 0 && pieces.length === 0 && !recusAvecAlertes) {
     // Rien a demander : aucun lien, l'appelant n'envoie rien.
     return NextResponse.json(
       {
@@ -322,6 +338,7 @@ export async function POST(req: NextRequest) {
     const existing = existingRes.rows[0];
     if (existing.status !== "PENDING") {
       await ajouterPieces(existing.id, pieces);
+      await ajouterPiecesRecues(existing.id, userProductId, documentsRecus);
       return NextResponse.json(
         {
           id: existing.id,
@@ -449,7 +466,20 @@ export async function POST(req: NextRequest) {
   const isFirstInit = record.wasInserted;
 
   await ajouterPieces(record.id, pieces);
+  await ajouterPiecesRecues(record.id, userProductId, documentsRecus);
   const piecesDuRdv = await piecesDuLien(record.id);
+  // Tout est deja la (questionnaires remplis dans Konnect, avec alerte) : le
+  // lien sort de PENDING comme apres un depot, sinon le cron des alertes le
+  // prendrait pour une ordonnance manquante.
+  if (piecesDuRdv.length > 0 && piecesDuRdv.every((p) => p.recueAt !== null)) {
+    await db.query(
+      `UPDATE "PrescriptionUpload"
+          SET "status"     = CASE WHEN "status" = 'PENDING' THEN 'UPLOADED' ELSE "status" END,
+              "uploadedAt" = COALESCE("uploadedAt", NOW())
+        WHERE "id" = $1`,
+      [record.id]
+    );
+  }
 
   // PrescriptionStats.requested++ uniquement au premier init (pas de double
   // comptage sur re-inits d'un meme RDV).
