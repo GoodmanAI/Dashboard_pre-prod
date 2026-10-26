@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { assertUserProductOwnership, requireAuth } from "@/lib/auth-helpers";
-import { requirePagePermission } from "@/lib/authGuards";
+import { requireAnyPagePermission, requirePagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { normaliserTypesExamen } from "@/lib/piecesAttendues";
@@ -30,6 +30,10 @@ import {
  *     deux a vrai repond 400.
  * Un champ d'admin envoye par un client : 403, rien n'est ecrit.
  *
+ * Droit d'ecriture : `disponible` et les champs d'admin demandent le
+ * parametrage de LyraeTalk ; `disponibleKonnect`, celui de Konnect ;
+ * `libelleXplore`, l'un ou l'autre.
+ *
  * Un document archive n'est plus demande aux nouveaux liens ; les liens deja
  * envoyes gardent leur piece (et son libelle fige).
  */
@@ -47,12 +51,24 @@ export async function PATCH(
   }
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownErr) return ownErr;
-  const droitErr = await requirePagePermission(PAGES.PARAMETRAGE, "write");
-  if (droitErr) return droitErr;
-
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const champsKonnect = new Set(["disponibleKonnect", "libelleXplore"]);
+  const pages = Object.keys(body).every((c) => champsKonnect.has(c))
+    ? "disponibleKonnect" in body
+      ? [PAGES.KONNECT_PARAMETRAGE]
+      : [PAGES.PARAMETRAGE, PAGES.KONNECT_PARAMETRAGE]
+    : null;
+  const droitErr = pages
+    ? await requireAnyPagePermission(pages, "write")
+    : await requirePagePermission(PAGES.PARAMETRAGE, "write");
+  if (droitErr) return droitErr;
+  if ("disponibleKonnect" in body && Object.keys(body).some((c) => !champsKonnect.has(c))) {
+    const konnectErr = await requirePagePermission(PAGES.KONNECT_PARAMETRAGE, "write");
+    if (konnectErr) return konnectErr;
   }
 
   const estAdmin =
