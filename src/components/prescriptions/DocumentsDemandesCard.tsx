@@ -48,6 +48,13 @@ import { PAGES } from "@/lib/permissions";
  * Plan workspace plans/2026-10-documents-demandes.md, DECISIONS.md du
  * 11/10/2026.
  *
+ * Deux canaux, une carte (26/10/2026,
+ * plans/2026-10-konnect-questionnaires-centre.md) : dans le parametrage de
+ * LyraeTalk, l'interrupteur est `disponible` (lien de depot envoye par le
+ * robot) ; dans celui de Konnect (`canal="konnect"`), `disponibleKonnect`
+ * (lien de depot de la confirmation de Konnect, sans ordonnance). Les
+ * documents, eux, sont les memes.
+ *
  * Partage des droits :
  *  - le client met a disposition, ou non, chaque document, et saisit son nom
  *    dans Xplore (19/10/2026 : Xplore renomme tout libelle de piece jointe
@@ -77,6 +84,7 @@ type DocumentVue = {
   mineursSeulement: boolean;
   grossesseSeulement: boolean;
   disponible: boolean;
+  disponibleKonnect: boolean;
   modele: { nom: string | null; octets: number; maj: string | null } | null;
   /** Questionnaire en ligne : prepare sur le modele actuel, ou coupe (modele remplace). */
   enLigne?: "actif" | "coupe" | null;
@@ -116,6 +124,13 @@ function libelleTypes(types: ExamKey[]): string[] {
   return EXAM_TYPES.filter((t) => types.includes(t.key)).map((t) => t.label);
 }
 
+type Canal = "talk" | "konnect";
+
+/** L'interrupteur du canal sur un document. */
+function dispoDuCanal(d: DocumentVue, canal: Canal): boolean {
+  return canal === "konnect" ? d.disponibleKonnect : d.disponible;
+}
+
 function tailleLisible(octets: number): string {
   return octets >= 1024 * 1024
     ? `${(octets / 1024 / 1024).toFixed(1)} Mo`
@@ -128,9 +143,17 @@ const DocumentsDemandesCard = forwardRef<
     userProductId: number;
     admin: boolean;
     onDirtyChange?: (dirty: boolean) => void;
+    /** `konnect` : la carte du parametrage de Konnect. LyraeTalk par defaut. */
+    canal?: Canal;
   }
->(function DocumentsDemandesCard({ userProductId, admin, onDirtyChange }, ref) {
-  const { peutEcrire } = useDroitPage(PAGES.PARAMETRAGE);
+>(function DocumentsDemandesCard(
+  { userProductId, admin, onDirtyChange, canal = "talk" },
+  ref
+) {
+  const konnect = canal === "konnect";
+  const { peutEcrire } = useDroitPage(
+    konnect ? PAGES.KONNECT_PARAMETRAGE : PAGES.PARAMETRAGE
+  );
   const readOnly = !peutEcrire;
 
   const [docs, setDocs] = useState<DocumentVue[]>([]);
@@ -195,8 +218,15 @@ const DocumentsDemandesCard = forwardRef<
     if (ids.length === 0) return true;
     try {
       for (const id of ids) {
-        const corps: { disponible?: boolean; libelleXplore?: string } = {};
-        if (id in disponibles) corps.disponible = disponibles[id];
+        const corps: {
+          disponible?: boolean;
+          disponibleKonnect?: boolean;
+          libelleXplore?: string;
+        } = {};
+        if (id in disponibles) {
+          if (konnect) corps.disponibleKonnect = disponibles[id];
+          else corps.disponible = disponibles[id];
+        }
         if (id in nomsXplore) corps.libelleXplore = nomsXplore[id];
         const res = await fetch(`/api/documents-demandes/${id}`, {
           method: "PATCH",
@@ -220,14 +250,14 @@ const DocumentsDemandesCard = forwardRef<
       );
       return false;
     }
-  }, [disponibles, nomsXplore, charger]);
+  }, [disponibles, nomsXplore, charger, konnect]);
 
   useImperativeHandle(ref, () => ({ enregistrer }), [enregistrer]);
 
   function basculer(doc: DocumentVue, valeur: boolean) {
     setDisponibles((prev) => {
       const next = { ...prev };
-      if (valeur === doc.disponible) delete next[doc.id];
+      if (valeur === dispoDuCanal(doc, canal)) delete next[doc.id];
       else next[doc.id] = valeur;
       return next;
     });
@@ -317,14 +347,16 @@ const DocumentsDemandesCard = forwardRef<
   const actifs = docs.filter((d) => !d.archive);
   const archives = docs.filter((d) => d.archive);
   const nbDisponibles = actifs.filter((d) =>
-    d.id in disponibles ? disponibles[d.id] : d.disponible
+    d.id in disponibles ? disponibles[d.id] : dispoDuCanal(d, canal)
   ).length;
 
   return (
     <Accordion>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Stack direction="row" alignItems="center" spacing={1.5}>
-          <Typography variant="h6">Questionnaires et documents</Typography>
+          <Typography variant="h6">
+            {konnect ? "Questionnaires du centre" : "Questionnaires et documents"}
+          </Typography>
           <Chip
             size="small"
             label={
@@ -363,14 +395,32 @@ const DocumentsDemandesCard = forwardRef<
               variant="outlined"
               sx={{ borderColor: "rgba(var(--accent-rgb), 0.4)" }}
             >
-              Ces documents sont demandés au patient sur le même lien que
-              l&apos;ordonnance, selon l&apos;examen (et selon l&apos;âge ou le
-              sexe, pour un document réservé aux mineurs ou aux femmes de 12 à
-              55 ans). Le patient télécharge votre
-              modèle, le remplit et le renvoie. Il est rattaché au rendez-vous
-              dans votre logiciel de gestion. Ceux qui ne l&apos;ont pas renvoyé
-              apparaissent dans « Questionnaires et documents », sur la page des
-              ordonnances.
+              {konnect ? (
+                <>
+                  Ces documents sont demandés au patient du portail selon son
+                  examen (et selon l&apos;âge ou le sexe, pour un document
+                  réservé aux mineurs ou aux femmes de 12 à 55 ans), après sa
+                  réservation, par le lien de dépôt de sa confirmation : par
+                  e-mail avec son code s&apos;il en a donné un, sinon par SMS.
+                  L&apos;ordonnance ne lui est pas redemandée : le portail
+                  l&apos;a déjà envoyée. Le patient remplit le questionnaire en
+                  ligne, ou télécharge votre modèle et le renvoie. Il est
+                  rattaché au rendez-vous dans votre logiciel de gestion. Ceux
+                  qui ne l&apos;ont pas renvoyé apparaissent dans
+                  « Questionnaires et documents », sur la page des ordonnances.
+                </>
+              ) : (
+                <>
+                  Ces documents sont demandés au patient sur le même lien que
+                  l&apos;ordonnance, selon l&apos;examen (et selon l&apos;âge ou
+                  le sexe, pour un document réservé aux mineurs ou aux femmes de
+                  12 à 55 ans). Le patient télécharge votre modèle, le remplit et
+                  le renvoie. Il est rattaché au rendez-vous dans votre logiciel
+                  de gestion. Ceux qui ne l&apos;ont pas renvoyé apparaissent
+                  dans « Questionnaires et documents », sur la page des
+                  ordonnances.
+                </>
+              )}
             </Alert>
 
             {actifs.length === 0 && !admin && (
@@ -383,7 +433,8 @@ const DocumentsDemandesCard = forwardRef<
             )}
 
             {actifs.map((d) => {
-              const dispo = d.id in disponibles ? disponibles[d.id] : d.disponible;
+              const dispo =
+                d.id in disponibles ? disponibles[d.id] : dispoDuCanal(d, canal);
               const nomXplore =
                 d.id in nomsXplore ? nomsXplore[d.id] : (d.libelleXplore ?? "");
               const nomXploreManque = dispo && nomXplore.trim() === "";
@@ -555,7 +606,11 @@ const DocumentsDemandesCard = forwardRef<
                               onChange={(e) => basculer(d, e.target.checked)}
                             />
                           }
-                          label="Mis à disposition des patients"
+                          label={
+                            konnect
+                              ? "Demandé aux patients du portail"
+                              : "Mis à disposition des patients"
+                          }
                         />
                         <TextField
                           size="small"
@@ -758,8 +813,8 @@ function FormulaireDocument({
         </RadioGroup>
         {brouillon.grossesseSeulement && (
           <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
-            Si le robot ne connaît pas le sexe ou l&apos;âge du patient, le
-            document part quand même.
+            Si le sexe ou l&apos;âge du patient n&apos;est pas connu, le
+            document lui est demandé quand même.
           </Typography>
         )}
       </Box>

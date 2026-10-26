@@ -55,6 +55,9 @@ export const PAGES = {
   KONNECT_STATS: "konnect_stats",
   // 18/09/2026 : les statistiques des relances no-show, partagées avec LyraeTalk.
   KONNECT_RELANCES: "konnect_relances",
+  // 26/10/2026 : les questionnaires du centre que les patients du portail n'ont pas
+  // remplis par le lien de leur confirmation (le pendant d'ORDONNANCES).
+  KONNECT_QUESTIONNAIRES: "konnect_questionnaires",
 
   // --- Transverse ---
   TICKETS: "tickets",
@@ -105,6 +108,7 @@ export const PAGE_GROUPS: { titre: string; pages: PageKey[] }[] = [
       PAGES.KONNECT_MOTS,
       PAGES.KONNECT_REGLES_CLINIQUES,
       PAGES.KONNECT_DEMANDES_RAPPEL,
+      PAGES.KONNECT_QUESTIONNAIRES,
       PAGES.KONNECT_STATS,
       PAGES.KONNECT_RELANCES,
     ],
@@ -144,6 +148,7 @@ export const PAGE_LABELS: Record<PageKey, string> = {
   [PAGES.KONNECT_DEMANDES_RAPPEL]: "Demandes de rappel",
   [PAGES.KONNECT_STATS]: "Statistiques Konnect",
   [PAGES.KONNECT_RELANCES]: "Relances no-show",
+  [PAGES.KONNECT_QUESTIONNAIRES]: "Questionnaires des patients",
 
   [PAGES.TICKETS]: "Support (tickets)",
 };

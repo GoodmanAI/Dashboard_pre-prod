@@ -7,7 +7,7 @@ import {
   requireAdmin,
   requireAuth,
 } from "@/lib/auth-helpers";
-import { requirePagePermission } from "@/lib/authGuards";
+import { requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { normaliserTypesExamen } from "@/lib/piecesAttendues";
@@ -21,7 +21,8 @@ import { libelleValide, lireDocumentsDemandes } from "@/lib/documentsDemandesApi
  * plans/2026-10-documents-demandes.md, DECISIONS.md du 11/10/2026.
  *
  * GET  ?userProductId=X[&archives=1] : session, proprietaire ou admin, droit
- *      de lecture du parametrage. Jamais le contenu du modele.
+ *      de lecture du parametrage de LyraeTalk ou de Konnect (la carte vit dans
+ *      les deux, 26/10/2026). Jamais le contenu du modele.
  * POST { userProductId, libelle, typesExamen, mineursSeulement,
  *        grossesseSeulement } : ADMIN seulement. Les deux criteres s'excluent
  *      (plans/2026-10-attestation-grossesse.md). Le document nait « non disponible » : c'est le client qui
@@ -35,7 +36,10 @@ export async function GET(req: NextRequest) {
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownErr) return ownErr;
 
-  const droitErr = await requirePagePermission(PAGES.PARAMETRAGE, "read");
+  const droitErr = await requireAnyPagePermission(
+    [PAGES.PARAMETRAGE, PAGES.KONNECT_PARAMETRAGE],
+    "read"
+  );
   if (droitErr) return droitErr;
 
   const archives = req.nextUrl.searchParams.get("archives") === "1";

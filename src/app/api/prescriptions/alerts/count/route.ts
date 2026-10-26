@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { assertUserProductOwnership, requireAuth } from "@/lib/auth-helpers";
-import {
-  DEFAULT_ALERT_AFTER_HOURS,
-  normalizeAlertAfterHours,
-} from "@/lib/prescriptionConfig";
+import { canalDuParametre, delaiDuCanal } from "@/lib/prescriptionConfig";
 import { PAST_APPOINTMENT_SQL } from "@/lib/prescriptionAlerts";
 import { REPONSE_A_VERIFIER_SQL } from "@/lib/piecesAttendues";
 import {
@@ -14,7 +11,12 @@ import {
 import { PAGES } from "@/lib/permissions";
 
 /**
- * GET /api/prescriptions/alerts/count?userProductId=X
+ * GET /api/prescriptions/alerts/count?userProductId=X[&canal=konnect]
+ *
+ * `canal` (26/10/2026) : le badge de LyraeTalk (defaut) ou celui de la section
+ * Konnect, qui ne compte que les questionnaires de ses liens, avec son delai
+ * (`alertAfterHoursKonnect`). Les documents refuses par Xplore restent comptes
+ * cote LyraeTalk, quel que soit le canal du lien.
  *
  * Endpoint leger pour le badge de la navbar : renvoie uniquement le nombre
  * d'ordonnances pending qui depassent le delai `alertAfterHours` configure
@@ -55,21 +57,22 @@ export async function GET(req: NextRequest) {
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownErr) return ownErr;
 
-  const droitErr = await requirePagePermission(PAGES.ORDONNANCES, "read");
+  const canal = canalDuParametre(req.nextUrl.searchParams.get("canal"));
+  const droitErr = await requirePagePermission(
+    canal === "konnect" ? PAGES.KONNECT_QUESTIONNAIRES : PAGES.ORDONNANCES,
+    "read"
+  );
   if (droitErr) return droitErr;
 
-  // Config alertAfterHours (fallback DEFAULT si pas de ligne PrescriptionConfig)
-  const cfgRes = await db.query<{ alertAfterHours: number }>(
-    `SELECT "alertAfterHours"
+  // Delai du canal (fallback DEFAULT si pas de ligne PrescriptionConfig)
+  const cfgRes = await db.query<{ alertAfterHours: number; alertAfterHoursKonnect: number | null }>(
+    `SELECT "alertAfterHours", "alertAfterHoursKonnect"
        FROM "PrescriptionConfig"
       WHERE "userProductId" = $1
       LIMIT 1`,
     [userProductId]
   );
-  const thresholdHours =
-    cfgRes.rows.length > 0
-      ? normalizeAlertAfterHours(cfgRes.rows[0].alertAfterHours)
-      : DEFAULT_ALERT_AFTER_HOURS;
+  const thresholdHours = delaiDuCanal(cfgRes.rows[0], canal);
 
   // Resolution userProductId -> externalCenterCodes (multi-centre)
   const codesRes = await db.query<{ externalCenterCode: string }>(
@@ -95,6 +98,7 @@ export async function GET(req: NextRequest) {
       FROM "PieceAttendue" p
       JOIN "PrescriptionUpload" pu ON pu."id" = p."uploadId"
      WHERE pu."externalCenterCode" = ANY($1::text[])
+       AND pu."canal" = $3
        AND pu."status" <> 'EXPIRED'
        AND p."recueAt" IS NULL
        AND p."alertResolvedAt" IS NULL
@@ -102,7 +106,7 @@ export async function GET(req: NextRequest) {
        AND NOT ${PAST_APPOINTMENT_SQL}
      GROUP BY p."piece"
     `,
-    [codes, thresholdHours]
+    [codes, thresholdHours, canal]
   );
   const parSorte = (sorte: string) =>
     Number(piecesRes.rows.find((r) => r.piece === sorte)?.count ?? 0);
@@ -110,8 +114,11 @@ export async function GET(req: NextRequest) {
   // Count documents REJECTED non resolus (alertes "Xplore a refuse, a traiter
   // manuellement", chantier prescriptions rejected 2026-08-04). Par document
   // depuis le 08/10/2026 : un RDV peut en porter plusieurs.
-  const rejectedRes = await db.query<{ count: string }>(
-    `
+  const rejectedRes =
+    canal === "konnect"
+      ? { rows: [{ count: "0" }] }
+      : await db.query<{ count: string }>(
+          `
     SELECT COUNT(*)::text AS count
       FROM "PrescriptionDocument" d
       JOIN "PrescriptionUpload" pu ON pu."id" = d."uploadId"
@@ -119,8 +126,8 @@ export async function GET(req: NextRequest) {
        AND d."status" = 'REJECTED'
        AND d."manualResolvedAt" IS NULL
     `,
-    [codes]
-  );
+          [codes]
+        );
 
   // Questionnaires recus dont une reponse est a verifier (questionnaire en
   // ligne, 20/10/2026) : comptes sans seuil, des la reception.
@@ -129,11 +136,12 @@ export async function GET(req: NextRequest) {
     SELECT COUNT(*)::text AS count
       FROM "PrescriptionUpload" pu
      WHERE pu."externalCenterCode" = ANY($1::text[])
+       AND pu."canal" = $2
        AND pu."status" <> 'EXPIRED'
        AND NOT ${PAST_APPOINTMENT_SQL}
        AND ${REPONSE_A_VERIFIER_SQL}
     `,
-    [codes]
+    [codes, canal]
   );
 
   const pendingCount = parSorte("ordonnance");

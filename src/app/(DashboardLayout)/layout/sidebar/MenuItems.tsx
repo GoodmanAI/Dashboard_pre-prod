@@ -435,6 +435,14 @@ export const KonnectMenuitems: SidebarItem[] = [
     href: "/client/c/{USER_ID}/konnect/demandes-rappel",
   },
   {
+    // 26/10/2026 : questionnaires du centre non remplis par le lien de la
+    // confirmation, au-dela du delai du centre. Badge : SidebarItems, par le titre.
+    id: uniqueId(),
+    title: "Questionnaires des patients",
+    icon: IconFileAlert,
+    href: "/client/c/{USER_ID}/konnect/questionnaires",
+  },
+  {
     // Alimenté par la remontée du portail (lot E), pas par une lecture : le
     // Dashboard ne peut pas interroger Konnect, qui passe derrière un VPN.
     id: uniqueId(),
