@@ -50,6 +50,16 @@ après le RDV.
 - `documentsDemandes` gagne la liste `grossesse`. `grossesseSeulement` et
   `mineursSeulement` s'excluent (`api/documents-demandes` répond 400 aux deux).
 
+**Questionnaires du centre dans Konnect** (26/10/2026, plan workspace
+`plans/2026-10-konnect-questionnaires-centre.md`, `DECISIONS.md` du 26/10/2026). Additif :
+
+- `DocumentDemande.disponibleKonnect` (SQL `2026_10_26_documents_konnect.sql`, repris de
+  `disponible`) : interrupteur du client pour Konnect. `disponible` reste celui de LyraeTalk.
+- `POST /api/prescriptions/init` avec `KONNECT_API_KEY` lit `disponibleKonnect` au lieu de
+  `disponible`. Le patient remplit ces documents par le lien de dépôt de sa confirmation,
+  sans ordonnance (`ordonnanceRecue`), et AI2Xplore les envoie sur le `rdvId` comme pour
+  LyraeTalk. LyraeTalk et `GET /api/configuration` ne changent pas.
+
 ⚠️ **`GET /api/configuration` renvoie un bloc `site`** (07/09/2026), miroir exact de
 l'objet `call.site` de LyraeTalk. Il porte la configuration qui vit encore dans le
 `getInitInfo.js` du robot et qui descend ici au fur et à mesure, lue dans le domaine

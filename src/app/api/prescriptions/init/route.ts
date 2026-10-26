@@ -74,6 +74,9 @@ function extractClientIp(req: NextRequest): string | null {
  *     ordonnanceRecue?: boolean             // Konnect : toujours vrai, impose
  *   }
  *
+ * Avec la cle Konnect, les documents sont ceux que le client a mis a
+ * disposition de Konnect (`disponibleKonnect`), pas de LyraeTalk.
+ *
  * Pieces attendues (plans/2026-10-documents-demandes.md) : le Dashboard les
  * calcule seul. L'ordonnance si le type est soumis au depot
  * (PrescriptionConfig) et qu'elle n'est pas deja recue ; chaque document
@@ -245,7 +248,15 @@ export async function POST(req: NextRequest) {
   ) {
     pieces.push(pieceOrdonnance());
   }
-  pieces.push(...(await documentsApplicables(userProductId, examType, mineur, grossessePossible)));
+  pieces.push(
+    ...(await documentsApplicables(
+      userProductId,
+      examType,
+      mineur,
+      grossessePossible,
+      parKonnect ? "konnect" : "talk"
+    ))
+  );
   const enReponse = (
     liste: { piece: PieceRenvoyee["piece"]; libelle: string; avecModele: boolean }[]
   ): PieceRenvoyee[] =>
