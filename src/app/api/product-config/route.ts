@@ -21,6 +21,10 @@ import { validerSallesParType } from "@/lib/sallesExamen";
 import { validerTextes, centreEtAdresse } from "@/lib/talkTextes";
 import { DOMAINE_PLAGES_PRIVEES, validerPlagesPrivees } from "@/lib/konnectPlagesPrivees";
 import {
+  DOMAINE_LIBELLE_ORDONNANCE,
+  validerLibelleOrdonnance,
+} from "@/lib/konnectLibelleOrdonnance";
+import {
   DOMAINE_QUESTIONS_CLINIQUES,
   validerQuestionsCliniques,
 } from "@/lib/konnectQuestionsCliniques";
@@ -292,6 +296,15 @@ export async function PUT(req: NextRequest) {
     }
     for (const cle of Object.keys(valeur)) delete valeur[cle];
     Object.assign(valeur, questions.valeur);
+  }
+
+  if (domaine.cle === DOMAINE_LIBELLE_ORDONNANCE) {
+    const libelle = validerLibelleOrdonnance(valeur);
+    if ("erreur" in libelle) {
+      return NextResponse.json({ error: libelle.erreur }, { status: 400 });
+    }
+    for (const cle of Object.keys(valeur)) delete valeur[cle];
+    Object.assign(valeur, libelle.valeur);
   }
 
   // `version + 1` calculé par la base : deux écritures concurrentes ne peuvent

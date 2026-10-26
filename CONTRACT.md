@@ -211,6 +211,13 @@ flux montant (`DECISIONS.md` du workspace). Le centre se résout par `externalCe
 demandés et la page Ordonnances vivent sur le `userProductId` LyraeTalk du centre. Sans
 mapping : 404, la confirmation part sans lien.
 
+**Pour LyraeKonnect, réglages du parcours** (26/10/2026, plan workspace
+`plans/2026-10-konnect-questionnaires-centre.md`) : deux domaines `product-config` nouveaux,
+lus par Konnect avec sa clé : `konnect.questions-cliniques` (`{ desactivees: string[] }`, ids
+des questions de `app/questionnaire/contenu.py` que le client ne veut pas poser ; vide = toutes
+posées) et `konnect.libelle-ordonnance` (`{ libelle: string | null }`, nom de la pièce jointe
+de l'ordonnance dans Xplore, 64 caractères ; null = « Ordonnance i/n »).
+
 **Pour LyraeKonnect** — header `x-api-key: KONNECT_API_KEY` :
 `GET /api/konnect-tenant-mapping/resolve?tenantId=<uuid>` → `{ userProductId }`,
 `GET /api/konnect-configuration?userProductId=NN` (ou `?tenantId=<uuid>`),
