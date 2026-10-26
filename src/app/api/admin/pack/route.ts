@@ -37,7 +37,7 @@ import { versionMapping } from "@/lib/versionMapping";
 
 /** Les domaines `ProductConfig` que le pack transporte : ceux du portail, sauf l'identité. */
 const DOMAINES_PACK = Object.values(DOMAINES)
-  .filter((d) => d.produit === "konnect" && d.cle !== "konnect.ris-identite")
+  .filter((d) => d.produit === "konnect" && d.cle !== "konnect.ris-identite" && d.cle !== "konnect.salles")
   .map((d) => d.cle);
 
 function objet(v: unknown): Record<string, any> {

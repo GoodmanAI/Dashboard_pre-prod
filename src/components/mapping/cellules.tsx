@@ -386,12 +386,18 @@ export function CelluleSalles({
   onChange,
   disabled,
   imposee,
+  sansSalleMessage = "Aucune salle déclarée pour ce type. Demandez-les à Lyrae.",
+  sansSalleTexte = "Toutes les salles",
 }: {
   salles: readonly { poste: string; libelle: string }[];
   valeur: readonly string[];
   onChange: (postes: string[]) => void;
   disabled?: boolean;
   imposee?: string;
+  /** Info-bulle d'une cellule sans salle à choisir. Konnect dit autre chose (26/10/2026). */
+  sansSalleMessage?: string;
+  /** Ce qu'affiche une cellule sans salle à choisir. */
+  sansSalleTexte?: string;
 }) {
   if (imposee) {
     const libelle = salles.find((s) => s.poste === imposee)?.libelle ?? imposee;
@@ -440,7 +446,7 @@ export function CelluleSalles({
       renderValue={(choisis) =>
         choisis.length === 0 ? (
           <Typography component="span" sx={{ fontSize: 13, color: P.inkMuted }}>
-            Toutes les salles
+            {sansSalle ? sansSalleTexte : "Toutes les salles"}
           </Typography>
         ) : (
           choisis.map(libelleDe).join(", ")
@@ -471,7 +477,7 @@ export function CelluleSalles({
   if (!sansSalle) return champ;
   // Un élément désactivé ne déclenche pas l'info-bulle : l'enveloppe la porte.
   return (
-    <Tooltip title="Aucune salle déclarée pour ce type. Demandez-les à Lyrae." arrow>
+    <Tooltip title={sansSalleMessage} arrow>
       <Box component="span" sx={{ display: "block" }}>
         {champ}
       </Box>

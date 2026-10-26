@@ -8,6 +8,16 @@ import { PRODUITS } from "@/lib/produits";
 import { amorcerMapping } from "@/lib/referentielExamens";
 import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
+import {
+  DOMAINE_SALLES_KONNECT,
+  lireSallesKonnect,
+  normaliserPostesExamen,
+  postesPourKonnect,
+  sallesOuvertesParType,
+  typesSansSalleOuverte,
+  typeSallesExamen,
+  type SallesKonnect,
+} from "@/lib/konnectSalles";
 
 /**
  * Mapping d'examens LyraeKonnect d'un centre (lot C).
@@ -53,11 +63,32 @@ type LigneMapping = {
   reservableEnLigne: boolean;
   ordoOblig: boolean;
   examenInjecte: boolean;
+  /**
+   * Salles choisies par le centre pour cet examen (26/10/2026), parmi celles que
+   * l'équipe a ouvertes au portail. Vide = toutes les salles ouvertes du type.
+   */
+  postes: string[];
 };
 
 const COLONNES = `"codeExamen", "typeExamen", "libelle", "codeExamenClient",
                   "codeExamenInjection", "typeExamenClient", "libelleClient",
-                  "performed", "reservableEnLigne", "ordoOblig", "examenInjecte"`;
+                  "performed", "reservableEnLigne", "ordoOblig", "examenInjecte",
+                  "postes"`;
+
+/** Les salles du portail (`konnect.salles`) et la version du domaine, 0 si absent. */
+async function sallesDuPortail(
+  userProductId: number
+): Promise<{ config: SallesKonnect; version: number }> {
+  const res = await db.query<{ valeur: unknown; version: number }>(
+    `SELECT "valeur", "version" FROM "ProductConfig"
+      WHERE "userProductId" = $1 AND "domaine" = $2 LIMIT 1`,
+    [userProductId, DOMAINE_SALLES_KONNECT]
+  );
+  return {
+    config: lireSallesKonnect(res.rows[0]?.valeur ?? null),
+    version: res.rows[0]?.version ?? 0,
+  };
+}
 
 async function estCentreKonnect(userProductId: number): Promise<boolean> {
   const res = await db.query<{ id: number }>(
@@ -78,15 +109,21 @@ function lireUserProductId(req: NextRequest): number | null {
   return !brut || Number.isNaN(brut) ? null : brut;
 }
 
-/** `count` + le plus récent `updatedAt` : couvre ajout, modification et suppression. */
-async function signature(userProductId: number): Promise<string> {
+/**
+ * `count` + le plus récent `updatedAt` : couvre ajout, modification et suppression.
+ *
+ * Plus la version de `konnect.salles` (26/10/2026) : ouvrir ou fermer une salle
+ * change les `postes` du catalogue sans toucher une ligne de `KonnectExamens`. Sans
+ * elle, Konnect recevrait un 304 et garderait l'ancien filtre.
+ */
+async function signature(userProductId: number, versionSalles: number): Promise<string> {
   const res = await db.query<{ n: string; dernier: Date | null }>(
     `SELECT COUNT(*)::text AS n, MAX("updatedAt") AS dernier
        FROM "KonnectExamens" WHERE "userProductId" = $1`,
     [userProductId]
   );
   const { n, dernier } = res.rows[0];
-  return `W/"${n}-${dernier ? dernier.getTime() : 0}"`;
+  return `W/"${n}-${dernier ? dernier.getTime() : 0}-s${versionSalles}"`;
 }
 
 /**
@@ -97,10 +134,18 @@ async function signature(userProductId: number): Promise<string> {
  * prime, avec repli sur le libellé NEURACORP : un centre qui n'a pas renommé
  * l'examen affiche notre libellé plutôt qu'un vide.
  */
-function versCatalogueKonnect(lignes: LigneMapping[]) {
+function versCatalogueKonnect(lignes: LigneMapping[], salles: SallesKonnect) {
   return lignes
     .filter((l) => l.performed && l.codeExamenClient.trim())
-    .map((l) => ({
+    .map((l) => {
+      // Les salles où chercher (plan `2026-10-salles-ouvertes-konnect`) : `[]` =
+      // aucun filtre, `null` = aucune salle ouverte, l'examen passe au rappel.
+      const postes = postesPourKonnect(
+        salles,
+        typeSallesExamen(l.typeExamen, l.typeExamenClient),
+        l.postes
+      );
+      return {
       examen_code: l.codeExamenClient.trim(),
       // Le code de NOTRE referentiel. Konnect s'en sert pour retrouver l'examen
       // pivot correspondant : `referentiel_pivot_examens.code_pivot` EST ce code
@@ -118,9 +163,13 @@ function versCatalogueKonnect(lignes: LigneMapping[]) {
       // Le chemin de la demande. `false` → Konnect ne propose aucun créneau et
       // offre le rappel. C'est la seule chose qui distingue les deux parcours
       // depuis la fin des modes de traitement.
-      reservable_en_ligne: l.reservableEnLigne,
+      reservable_en_ligne: l.reservableEnLigne && postes !== null,
+      // Les numéros de poste où Konnect cherche les créneaux et accepte une
+      // réservation. `[]` = toutes les salles.
+      postes: postes ?? [],
       source: "manuel",
-    }));
+      };
+    });
 }
 
 export async function GET(req: NextRequest) {
@@ -165,7 +214,8 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const etag = await signature(userProductId);
+  const salles = await sallesDuPortail(userProductId);
+  const etag = await signature(userProductId, salles.version);
   if (req.headers.get("if-none-match") === etag) {
     return new NextResponse(null, { status: 304, headers: { ETag: etag } });
   }
@@ -179,7 +229,7 @@ export async function GET(req: NextRequest) {
 
   // --- Voie de Konnect : le catalogue effectif ---
   if (auth.bot) {
-    const catalogue = versCatalogueKonnect(res.rows);
+    const catalogue = versCatalogueKonnect(res.rows, salles.config);
     return NextResponse.json(
       { userProductId, count: catalogue.length, examens: catalogue },
       { headers: { ETag: etag, "Cache-Control": "no-cache" } }
@@ -199,20 +249,40 @@ export async function GET(req: NextRequest) {
         amorce: true,
         source: amorce.source,
         motif: amorce.motif,
-        examens: amorce.lignes,
+        examens: amorce.lignes.map((l) => ({ ...l, postes: [] })),
+        sallesOuvertes: sallesOuvertesParType(salles.config),
+        typesFermes: typesSansSalleOuverte(salles.config),
       },
       { headers: { ETag: etag } }
     );
   }
 
   return NextResponse.json(
-    { userProductId, amorce: false, source: "enregistre", examens: res.rows },
+    {
+      userProductId,
+      amorce: false,
+      source: "enregistre",
+      examens: res.rows,
+      // Les salles que l'équipe a ouvertes, par type, en lecture seule : le centre
+      // choisit parmi elles. Le domaine `konnect.salles` lui est fermé.
+      sallesOuvertes: sallesOuvertesParType(salles.config),
+      // Types dont aucune salle n'est ouverte : leurs examens passent au rappel.
+      typesFermes: typesSansSalleOuverte(salles.config),
+    },
     { headers: { ETag: etag, "Cache-Control": "no-cache" } }
   );
 }
 
-/** Normalise une ligne du formulaire. Lève si elle est inexploitable. */
-function normaliser(brut: any, index: number): LigneMapping {
+/**
+ * Normalise une ligne du formulaire. Lève si elle est inexploitable.
+ *
+ * `postes` absent reste `undefined` : un import de pack ou un ancien écran ne les
+ * porte pas, et le PUT garde alors ceux déjà enregistrés au lieu de les effacer.
+ */
+function normaliser(
+  brut: any,
+  index: number
+): Omit<LigneMapping, "postes"> & { postes: string[] | undefined } {
   const code = typeof brut?.codeExamen === "string" ? brut.codeExamen.trim() : "";
   if (!code) {
     // Le code NEURACORP est la clé du mapping : sans lui la ligne ne désigne rien.
@@ -233,6 +303,7 @@ function normaliser(brut: any, index: number): LigneMapping {
     reservableEnLigne: brut?.reservableEnLigne !== false,
     ordoOblig: brut?.ordoOblig === true,
     examenInjecte: brut?.examenInjecte === true,
+    postes: brut?.postes === undefined ? undefined : normaliserPostesExamen(brut.postes),
   };
 }
 
@@ -277,12 +348,21 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "`examens` doit être un tableau." }, { status: 400 });
   }
 
-  let lignes: LigneMapping[];
+  let lues: ReturnType<typeof normaliser>[];
   try {
-    lignes = body.examens.map(normaliser);
+    lues = body.examens.map(normaliser);
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? "Ligne invalide" }, { status: 400 });
   }
+  const anciens = await db.query<{ codeExamen: string; postes: string[] | null }>(
+    `SELECT "codeExamen", "postes" FROM "KonnectExamens" WHERE "userProductId" = $1`,
+    [userProductId]
+  );
+  const postesAnciens = new Map(anciens.rows.map((r) => [r.codeExamen, r.postes ?? []]));
+  const lignes: LigneMapping[] = lues.map((l) => ({
+    ...l,
+    postes: l.postes ?? postesAnciens.get(l.codeExamen) ?? [],
+  }));
 
   const vus = new Set<string>();
   for (const l of lignes) {
@@ -321,8 +401,8 @@ export async function PUT(req: NextRequest) {
         `INSERT INTO "KonnectExamens"
            ("userProductId", "codeExamen", "typeExamen", "libelle", "codeExamenClient",
             "codeExamenInjection", "typeExamenClient", "libelleClient", "performed",
-            "reservableEnLigne", "ordoOblig", "examenInjecte")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+            "reservableEnLigne", "ordoOblig", "examenInjecte", "postes")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
         [
           userProductId,
           l.codeExamen,
@@ -336,6 +416,7 @@ export async function PUT(req: NextRequest) {
           l.reservableEnLigne,
           l.ordoOblig,
           l.examenInjecte,
+          l.postes,
         ]
       );
     }
@@ -374,6 +455,10 @@ export async function PUT(req: NextRequest) {
         (l) => l.performed && l.codeExamenClient.trim() && !l.reservableEnLigne
       ).length,
     },
-    { headers: { ETag: await signature(userProductId) } }
+    {
+      headers: {
+        ETag: await signature(userProductId, (await sallesDuPortail(userProductId)).version),
+      },
+    }
   );
 }
