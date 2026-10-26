@@ -227,6 +227,10 @@ mapping : 404, la confirmation part sans lien.
   `{ pdf (base64), libelle, libelleXplore, alertes }`. 400 avec `erreurs` par champ, 404 si le
   document n'est plus à disposition de Konnect ou plus remplissable en ligne. Konnect envoie le
   PDF dans Xplore lui-même, puis passe `{ id, alertes }` dans `documentsRecus` à `init`.
+- Deux domaines `product-config` nouveaux, lus par Konnect avec sa clé : `konnect.questions-cliniques`
+  (`{ desactivees: string[] }`, ids des questions de `app/questionnaire/contenu.py` que le client
+  ne veut pas poser ; vide = toutes posées) et `konnect.libelle-ordonnance` (`{ libelle: string | null }`,
+  nom de la pièce jointe de l'ordonnance dans Xplore, 64 caractères ; null = « Ordonnance i/n »).
 
 **Pour LyraeKonnect** — header `x-api-key: KONNECT_API_KEY` :
 `GET /api/konnect-tenant-mapping/resolve?tenantId=<uuid>` → `{ userProductId }`,

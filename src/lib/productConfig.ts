@@ -187,6 +187,15 @@ export const DOMAINES: Record<string, Domaine> = {
     libelle: "Questions cliniques posées au patient",
     page: PAGES.KONNECT_PARAMETRAGE,
   },
+  // Nom de l'ordonnance dans Xplore, deposee par Konnect (26/10/2026).
+  // `src/lib/konnectLibelleOrdonnance.ts`.
+  "konnect.libelle-ordonnance": {
+    cle: "konnect.libelle-ordonnance",
+    produit: "konnect",
+    cleApiEnv: "KONNECT_API_KEY",
+    libelle: "Nom de l'ordonnance dans Xplore",
+    page: PAGES.KONNECT_PARAMETRAGE,
+  },
   "konnect.paires-examens": {
     cle: "konnect.paires-examens",
     produit: "konnect",

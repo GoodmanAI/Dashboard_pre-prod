@@ -32,6 +32,7 @@ import IdentiteVisuelleKonnect from "@/components/konnect/IdentiteVisuelleKonnec
 import PlanningCompletKonnect from "@/components/konnect/PlanningCompletKonnect";
 import PlagesPriveesKonnect from "@/components/konnect/PlagesPriveesKonnect";
 import QuestionsCliniquesKonnect from "@/components/konnect/QuestionsCliniquesKonnect";
+import LibelleOrdonnanceKonnect from "@/components/konnect/LibelleOrdonnanceKonnect";
 import SmsConfirmationConfigCard from "../../talk/parametrage/SmsConfirmationConfigCard";
 import DocumentsDemandesCard, {
   type DocumentsDemandesHandle,
@@ -578,6 +579,19 @@ export default function ParametrageKonnectPage() {
             canal="konnect"
           />
         )}
+
+        {/* ---------------- Ordonnance dans Xplore (26/10/2026) ---------------- */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6">Ordonnance dans Xplore</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <LibelleOrdonnanceKonnect
+              userProductId={userProductId}
+              lectureSeule={raisonLectureSeule}
+            />
+          </AccordionDetails>
+        </Accordion>
 
         {/* ---------------- Plages privées (15/10/2026) ---------------- */}
         <Accordion>
