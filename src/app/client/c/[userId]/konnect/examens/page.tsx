@@ -39,12 +39,15 @@ import {
   CelluleCodeLibelle,
   CelluleExamen,
   CelluleInjection,
+  CelluleSalles,
   CelluleType,
   EnTeteMapping,
   OPTIONS_SEUIL,
   RangeeChamp,
   SEUIL_FICHES,
 } from "@/components/mapping/cellules";
+import { typeSallesExamen } from "@/lib/konnectSalles";
+import type { SallesParType } from "@/lib/sallesExamen";
 import ImportExportMapping, {
   CHAMPS_KONNECT,
 } from "@/components/mapping/ImportExportMapping";
@@ -121,6 +124,8 @@ type Ligne = {
   reservableEnLigne: boolean;
   ordoOblig: boolean;
   examenInjecte: boolean;
+  /** Salles choisies parmi celles ouvertes au portail. Vide = toutes. */
+  postes: string[];
 };
 
 type FiltreAttribution = "tous" | "attribues" | "non_attribues";
@@ -184,6 +189,29 @@ export default function MappingExamensKonnect() {
   const [filtreAttribution, setFiltreAttribution] = useState<FiltreAttribution>("tous");
   const [filtreChemin, setFiltreChemin] = useState<FiltreChemin>("tous");
   const [page, setPage] = useState(0);
+  // Salles ouvertes au portail par l'équipe (26/10/2026), en lecture seule ici.
+  const [sallesOuvertes, setSallesOuvertes] = useState<SallesParType>({});
+  const [typesFermes, setTypesFermes] = useState<string[]>([]);
+
+  /** La cellule « Salles » d'un examen : ce qu'on peut y choisir, et ce qu'elle dit sinon. */
+  function salles(l: Ligne) {
+    const type = typeSallesExamen(l.typeExamen, l.typeExamenClient);
+    const ferme = type !== null && typesFermes.includes(type);
+    return (
+      <CelluleSalles
+        salles={type ? (sallesOuvertes[type] ?? []) : []}
+        valeur={l.postes}
+        onChange={(v) => maj(l.codeExamen, "postes", v)}
+        disabled={!l.performed}
+        sansSalleTexte={ferme ? "Aucune salle ouverte" : "Toutes les salles"}
+        sansSalleMessage={
+          ferme
+            ? "Aucune salle de ce type n'est ouverte au portail : le patient est rappelé par le centre. L'équipe Lyrae ouvre les salles."
+            : "Le portail cherche dans toutes les salles de ce type. Pour choisir par salle, demandez à l'équipe Lyrae de les déclarer."
+        }
+      />
+    );
+  }
 
   useEffect(() => {
     if (!userProductId) return;
@@ -194,7 +222,13 @@ export default function MappingExamensKonnect() {
         if (!r.ok) throw new Error("Chargement impossible.");
         const data = await r.json();
         if (annule) return;
-        const chargees: Ligne[] = Array.isArray(data.examens) ? data.examens : [];
+        const chargees: Ligne[] = (Array.isArray(data.examens) ? data.examens : []).map(
+          (l: Ligne) => ({ ...l, postes: Array.isArray(l.postes) ? l.postes : [] })
+        );
+        setSallesOuvertes(
+          data.sallesOuvertes && typeof data.sallesOuvertes === "object" ? data.sallesOuvertes : {}
+        );
+        setTypesFermes(Array.isArray(data.typesFermes) ? data.typesFermes : []);
         setLignes(chargees);
         setInitial(chargees);
         setAmorce(data.amorce === true);
@@ -662,6 +696,8 @@ export default function MappingExamensKonnect() {
                       />
                     </RangeeChamp>
 
+                    <RangeeChamp libelle="Salles">{salles(l)}</RangeeChamp>
+
                     <RangeeChamp libelle="Réservable en ligne">
                       <CaseMapping
                         coche={l.reservableEnLigne}
@@ -692,7 +728,7 @@ export default function MappingExamensKonnect() {
               )}
             </Stack>
           ) : (
-          <Table size="small" sx={{ minWidth: 1180 }}>
+          <Table size="small" sx={{ minWidth: 1340 }}>
             <TableHead>
               <TableRow>
                 <EnTeteMapping
@@ -722,6 +758,12 @@ export default function MappingExamensKonnect() {
                   largeur={150}
                 >
                   Injecté
+                </EnTeteMapping>
+                <EnTeteMapping
+                  aide="Les salles où le portail cherche les créneaux de cet examen, parmi celles ouvertes au portail. Rien de choisi : toutes les salles ouvertes de ce type."
+                  largeur={160}
+                >
+                  Salles
                 </EnTeteMapping>
                 <EnTeteMapping
                   aide="Le patient choisit son créneau et le rendez-vous est posé. Décoché, aucun créneau ne lui est proposé : on lui offre de laisser son numéro et vous le rappelez."
@@ -800,6 +842,8 @@ export default function MappingExamensKonnect() {
                       />
                     </TableCell>
 
+                    <TableCell>{salles(l)}</TableCell>
+
                     <TableCell align="center">
                       <CaseMapping
                         coche={l.reservableEnLigne}
@@ -819,7 +863,7 @@ export default function MappingExamensKonnect() {
               })}
               {filtrees.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
                     <Typography variant="body2" sx={{ color: INK_MUTED }}>
                       {lignes.length === 0
                         ? "Aucun examen au référentiel."

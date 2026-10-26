@@ -22,6 +22,7 @@ import Link from "next/link";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import { cheminCentre } from "@/lib/cheminsCentre";
 import SectionHeader from "@/components/admin/SectionHeader";
+import SallesPortailKonnect from "@/components/konnect/SallesPortailKonnect";
 import type { Manque } from "@/lib/completude/types";
 import type { StatutCentre } from "@/lib/centreStatut";
 import { INK, INK_MUTED, BORDER, SURFACE_MUTED, OK, MANQUE } from "@/lib/jetons";
@@ -520,6 +521,10 @@ export default function InstallationKonnect() {
                 </Alert>
               )}
             </Paper>
+
+            {/* Engagement commercial, comme l'accord ci-dessus : le portail se facture
+                par salle, et seule l'équipe ouvre une salle (26/10/2026). */}
+            <SallesPortailKonnect userProductId={centre.userProductId} />
 
             <Typography sx={{ fontSize: 12.5, color: INK_MUTED, mt: 3, mb: 1.5 }}>
               Ce qui suit appartient au client et se règle dans son espace. Affiché ici

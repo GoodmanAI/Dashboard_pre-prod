@@ -123,7 +123,11 @@ export type PackKonnect = {
   sites: { siteId: string; libelle: string; codePostal: string; adresse: string }[];
   examens: LignePackExamen[];
 
-  /** Les domaines `ProductConfig` du portail, **sans** `konnect.ris-identite`. */
+  /**
+   * Les domaines `ProductConfig` du portail, **sans** `konnect.ris-identite` ni
+   * `konnect.salles` : les salles sont celles d'UN centre, et ce qui est ouvert est
+   * facturé ; un pack recopié ailleurs ne doit ni les déclarer ni les ouvrir.
+   */
   domaines: Record<string, Record<string, unknown>>;
 };
 

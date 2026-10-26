@@ -364,6 +364,16 @@ a remplacé la route `konnect-modes-traitement` et ses trois modes le 02/09/2026
 choix du chemin se fait désormais ligne par ligne dans le mapping. Konnect la lit dans
 `cabinet_examen.reservable_en_ligne`.
 
+**`konnect-examens` : `postes` par examen (26/10/2026).** Konnect se facture par salle.
+L'équipe déclare les salles du centre et ouvre celles qu'il a prises (domaine admin
+`konnect.salles` : `{ sallesParType, ouvertes }`, validé par `src/lib/konnectSalles.ts`) ;
+le centre peut en choisir par examen (`KonnectExamens.postes`, SQL
+`2026_10_26_konnect_examens_postes.sql`). Le catalogue envoyé à Konnect porte, par examen,
+`postes` : les `numeroPoste` Xplore où chercher et réserver, **`[]` = aucun filtre** (type
+sans salle déclarée). Aucune salle ouverte pour l'examen : `reservable_en_ligne: false`
+(rappel). L'ETag du catalogue intègre la version de `konnect.salles`. Konnect ne lit pas
+ce domaine. Plan : `lyrae/plans/2026-10-salles-ouvertes-konnect.md`.
+
 `GET /api/konnect-installation` (lot G6) n'est **pas** une route machine-à-machine :
 session admin uniquement, aucune clé d'API. Elle agrège l'état d'installation des
 centres Konnect depuis les tables du Dashboard, sans jamais appeler Konnect, qui est

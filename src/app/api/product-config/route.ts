@@ -24,6 +24,7 @@ import {
   DOMAINE_LIBELLE_ORDONNANCE,
   validerLibelleOrdonnance,
 } from "@/lib/konnectLibelleOrdonnance";
+import { DOMAINE_SALLES_KONNECT, validerSallesKonnect } from "@/lib/konnectSalles";
 import {
   DOMAINE_QUESTIONS_CLINIQUES,
   validerQuestionsCliniques,
@@ -296,6 +297,17 @@ export async function PUT(req: NextRequest) {
     }
     for (const cle of Object.keys(valeur)) delete valeur[cle];
     Object.assign(valeur, questions.valeur);
+  }
+
+  // `konnect.salles` : un poste mal saisi ou ouvert sans être déclaré ferait chercher
+  // des créneaux dans une salle qui n'existe pas, donc aucun. Postes normalisés.
+  if (domaine.cle === DOMAINE_SALLES_KONNECT) {
+    const salles = validerSallesKonnect(valeur);
+    if ("erreur" in salles) {
+      return NextResponse.json({ error: salles.erreur }, { status: 400 });
+    }
+    for (const cle of Object.keys(valeur)) delete valeur[cle];
+    Object.assign(valeur, salles.valeur);
   }
 
   if (domaine.cle === DOMAINE_LIBELLE_ORDONNANCE) {
