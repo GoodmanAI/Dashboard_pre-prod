@@ -75,7 +75,9 @@ function extractClientIp(req: NextRequest): string | null {
  *   }
  *
  * Avec la cle Konnect, les documents sont ceux que le client a mis a
- * disposition de Konnect (`disponibleKonnect`), pas de LyraeTalk.
+ * disposition de Konnect (`disponibleKonnect`), pas de LyraeTalk, et le lien
+ * est cree avec `canal = 'konnect'` : la secretaire le voit dans la section
+ * Konnect du Dashboard, avec le delai de Konnect.
  *
  * Pieces attendues (plans/2026-10-documents-demandes.md) : le Dashboard les
  * calcule seul. L'ordonnance si le type est soumis au depot
@@ -378,8 +380,8 @@ export async function POST(req: NextRequest) {
         INSERT INTO "PrescriptionUpload"
           ("rdvId", "centerId", "externalCenterCode", "examType",
            "appointmentDate", "phone", "firstname", "lastname",
-           "token", "shortCode", "verificationCodeHash", "expiresAt")
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+           "token", "shortCode", "verificationCodeHash", "expiresAt", "canal")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         ON CONFLICT ("rdvId", "centerId") DO UPDATE
           SET "phone"                = EXCLUDED."phone",
               "firstname"            = EXCLUDED."firstname",
@@ -409,6 +411,9 @@ export async function POST(req: NextRequest) {
           attemptedShortCode,
           verificationCodeHash,
           expiresAt,
+          // Le canal se pose a la creation et ne change plus (26/10/2026) : il
+          // range le lien dans la section LyraeTalk ou Konnect du Dashboard.
+          parKonnect ? "konnect" : "talk",
         ]
       );
       const row = upsertRes.rows[0];

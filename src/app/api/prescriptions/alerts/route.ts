@@ -4,8 +4,8 @@ import { assertUserProductOwnership, requireAuth } from "@/lib/auth-helpers";
 import {
   ALERT_AFTER_HOURS_MAX,
   ALERT_AFTER_HOURS_MIN,
-  DEFAULT_ALERT_AFTER_HOURS,
-  normalizeAlertAfterHours,
+  canalDuParametre,
+  delaiDuCanal,
 } from "@/lib/prescriptionConfig";
 import { autoResolvePastAppointments } from "@/lib/prescriptionAlerts";
 import { sortieDeSection } from "@/lib/piecesAttendues";
@@ -13,7 +13,7 @@ import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuard
 import { PAGES } from "@/lib/permissions";
 
 /**
- * GET /api/prescriptions/alerts?userProductId=X[&hoursThreshold=Y][&section=documents]
+ * GET /api/prescriptions/alerts?userProductId=X[&hoursThreshold=Y][&section=documents][&canal=konnect]
  *
  * Liste les ordonnances en attente d'upload depuis > Y heures pour un centre.
  * Alimente la page dashboard "Ordonnances manquantes" ou la secretaire voit
@@ -40,6 +40,11 @@ import { PAGES } from "@/lib/permissions";
  * aussi, sans attendre le seuil, les liens dont un questionnaire recu porte
  * une reponse a verifier ("alertesReponses" de la piece, non classee) :
  * `reponses` en donne les libelles (« Pacemaker ou défibrillateur : oui »).
+ *
+ * `canal` (26/10/2026, plans/2026-10-konnect-questionnaires-centre.md) : les
+ * liens de LyraeTalk (defaut) ou ceux de Konnect (`PrescriptionUpload.canal`).
+ * Konnect a son droit de page (`konnect_questionnaires`) et son delai
+ * (`alertAfterHoursKonnect`, 24 h par defaut).
  *
  * Filtre metier :
  *   - une piece de la section ni recue (recueAt) ni classee (alertResolvedAt)
@@ -91,25 +96,26 @@ export async function GET(req: NextRequest) {
   }
 
   const section = sortieDeSection(req.nextUrl.searchParams.get("section"));
+  const canal = canalDuParametre(req.nextUrl.searchParams.get("canal"));
 
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownErr) return ownErr;
 
-  const droitErr = await requirePagePermission(PAGES.ORDONNANCES, "read");
+  const droitErr = await requirePagePermission(
+    canal === "konnect" ? PAGES.KONNECT_QUESTIONNAIRES : PAGES.ORDONNANCES,
+    "read"
+  );
   if (droitErr) return droitErr;
 
-  // Config alertAfterHours (defaut si pas de PrescriptionConfig pour ce centre)
-  const cfgRes = await db.query<{ alertAfterHours: number }>(
-    `SELECT "alertAfterHours"
+  // Delai du canal (defaut si pas de PrescriptionConfig pour ce centre)
+  const cfgRes = await db.query<{ alertAfterHours: number; alertAfterHoursKonnect: number | null }>(
+    `SELECT "alertAfterHours", "alertAfterHoursKonnect"
        FROM "PrescriptionConfig"
       WHERE "userProductId" = $1
       LIMIT 1`,
     [userProductId]
   );
-  const defaultHours =
-    cfgRes.rows.length > 0
-      ? normalizeAlertAfterHours(cfgRes.rows[0].alertAfterHours)
-      : DEFAULT_ALERT_AFTER_HOURS;
+  const defaultHours = delaiDuCanal(cfgRes.rows[0], canal);
 
   // Parse et borne le hoursThreshold si fourni
   const rawThreshold = req.nextUrl.searchParams.get("hoursThreshold");
@@ -215,12 +221,13 @@ export async function GET(req: NextRequest) {
        AND o."depuis" < NOW() - ($2::int || ' hours')::interval
       LEFT JOIN reponses r ON r."uploadId" = pu."id"
      WHERE pu."externalCenterCode" = ANY($1::text[])
+       AND pu."canal" = $4
        AND pu."status" <> 'EXPIRED'
        AND (o."uploadId" IS NOT NULL OR r."uploadId" IS NOT NULL)
      ORDER BY COALESCE(o."depuis", r."recue") ASC
      LIMIT 500
     `,
-    [codes, thresholdHours, section]
+    [codes, thresholdHours, section, canal]
   );
 
   const items = alertsRes.rows.map((r) => ({

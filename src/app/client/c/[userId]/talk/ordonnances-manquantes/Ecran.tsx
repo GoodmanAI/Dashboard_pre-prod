@@ -41,6 +41,7 @@ import {
   ALERT_AFTER_HOURS_MAX,
   ALERT_AFTER_HOURS_MIN,
   DEFAULT_ALERT_AFTER_HOURS,
+  type CanalDepot,
 } from "@/lib/prescriptionConfig";
 
 /* =============================================================================
@@ -60,6 +61,13 @@ import {
    du workspace), deux listes d'attente : « Ordonnances en attente » et
    « Questionnaires et documents ». Meme carte, meme delai, meme « Marquer
    traite » ; l'alerte vit sur la piece attendue, pas sur le lien.
+
+   Depuis le 26/10/2026 (plans/2026-10-konnect-questionnaires-centre.md du
+   workspace), le meme ecran sert la section Konnect (`canal="konnect"`) : les
+   questionnaires que les patients du portail n'ont pas remplis par le lien de
+   leur confirmation, avec le delai de Konnect. Un seul onglet (l'ordonnance
+   part avec la reservation), et un bilan par patient a la place des KPI des
+   ordonnances.
 
    Actions secretaire :
      - Cliquer sur le numero pour le copier
@@ -152,10 +160,21 @@ function formatPhoneFr(raw: string): string {
 
 interface Props {
   params: { id: string };
+  /** `konnect` : les questionnaires des patients du portail. LyraeTalk par defaut. */
+  canal?: CanalDepot;
 }
 
-export default function OrdonnancesManquantesPage({ params }: Props) {
+/** Bilan des questionnaires de Konnect sur 30 jours (/api/prescriptions/questionnaires-stats). */
+type BilanQuestionnaires = {
+  demandes: number;
+  remplis: number;
+  aVerifier: number;
+  enAttente: number;
+};
+
+export default function OrdonnancesManquantesPage({ params, canal = "talk" }: Props) {
   const userProductId = Number(params.id);
+  const konnect = canal === "konnect";
   const [items, setItems] = useState<AlertItem[]>([]);
   // Questionnaires et documents demandes non recus (11/10/2026).
   const [docItems, setDocItems] = useState<AlertItem[]>([]);
@@ -163,7 +182,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [resolving, setResolving] = useState<Set<number>>(new Set());
   // Chantier prescriptions rejected 2026-08-04 : tab actif entre les 2 vues
-  const [tab, setTab] = useState<Onglet>("pending");
+  const [tab, setTab] = useState<Onglet>(konnect ? "documents" : "pending");
   const [rejectedCount, setRejectedCount] = useState<number>(0);
   // Patients sans portable invites par le robot a envoyer l'ordonnance par mail
   // (09/10/2026). Charges avec les alertes pour le compteur de l'onglet.
@@ -180,6 +199,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
     acked: number;
     rejected: number;
   } | null>(null);
+  const [bilanKonnect, setBilanKonnect] = useState<BilanQuestionnaires | null>(null);
   const [snack, setSnack] = useState<{ open: boolean; msg: string; sev: "success" | "error" | "info" }>(
     { open: false, msg: "", sev: "success" }
   );
@@ -215,6 +235,22 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
         setError(null);
         // Fetch en parallele : alertes pending + count rejected (pour le badge tab)
         const seuil = hours != null ? `&hoursThreshold=${hours}` : "";
+        // Konnect : seulement les questionnaires de ses liens (26/10/2026).
+        if (konnect) {
+          const docsRes = await fetch(
+            `/api/prescriptions/alerts?userProductId=${userProductId}${seuil}&section=documents&canal=konnect`,
+            { cache: "no-store" }
+          );
+          if (!docsRes.ok) throw new Error(`HTTP ${docsRes.status}`);
+          const docs = await docsRes.json();
+          setDocItems(Array.isArray(docs?.items) ? docs.items : []);
+          setAutoResolvedCount(
+            Number.isFinite(docs?.autoResolvedCount) ? docs.autoResolvedCount : 0
+          );
+          if (Number.isFinite(docs?.defaultHours)) setDefaultHours(docs.defaultHours);
+          if (Number.isFinite(docs?.thresholdHours)) setThresholdHours(docs.thresholdHours);
+          return;
+        }
         const [alertsRes, docsRes, countRes, parMailRes] = await Promise.all([
           fetch(
             `/api/prescriptions/alerts?userProductId=${userProductId}${seuil}`,
@@ -264,7 +300,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
         setLoading(false);
       }
     },
-    [userProductId, seuilChoisi]
+    [userProductId, seuilChoisi, konnect]
   );
 
   useEffect(() => {
@@ -286,6 +322,21 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
     const controller = new AbortController();
     (async () => {
       try {
+        if (konnect) {
+          const res = await fetch(
+            `/api/prescriptions/questionnaires-stats?userProductId=${userProductId}`,
+            { signal: controller.signal, cache: "no-store" }
+          );
+          if (!res.ok) return;
+          const data = await res.json();
+          setBilanKonnect({
+            demandes: Number(data?.demandes) || 0,
+            remplis: Number(data?.remplis) || 0,
+            aVerifier: Number(data?.aVerifier) || 0,
+            enAttente: Number(data?.enAttente) || 0,
+          });
+          return;
+        }
         const to = new Date();
         const from = new Date();
         from.setDate(from.getDate() - 30);
@@ -310,7 +361,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
       }
     })();
     return () => controller.abort();
-  }, [userProductId]);
+  }, [userProductId, konnect]);
 
   // Websocket : refresh instantane sur upload/resolve emis par le backend
   // (meme event "prescription-alerts-updated" que le hook du badge navbar).
@@ -465,13 +516,21 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
 
   return (
     <PageContainer
-      title="Ordonnances manquantes"
-      description="Rendez-vous pour lesquels aucune ordonnance n'a été déposée à temps"
+      title={konnect ? "Questionnaires des patients" : "Ordonnances manquantes"}
+      description={
+        konnect
+          ? "Patients du portail qui n'ont pas rempli leurs questionnaires à temps"
+          : "Rendez-vous pour lesquels aucune ordonnance n'a été déposée à temps"
+      }
     >
       <Box>
         <SectionHeader
-          title="Ordonnances manquantes"
-          subtitle={`Les patients qui ont reçu le lien de dépôt${thresholdHours != null ? ` il y a plus de ${thresholdHours} heures` : ""} et n'ont pas envoyé leur ordonnance ou leurs questionnaires, ceux sans portable qui les envoient par mail, et les documents refusés par votre logiciel de gestion.`}
+          title={konnect ? "Questionnaires des patients" : "Ordonnances manquantes"}
+          subtitle={
+            konnect
+              ? `Les patients du portail qui ont reçu le lien de leurs questionnaires${thresholdHours != null ? ` il y a plus de ${thresholdHours} heures` : ""} et ne les ont pas remplis, et ceux dont une réponse est à vérifier.`
+              : `Les patients qui ont reçu le lien de dépôt${thresholdHours != null ? ` il y a plus de ${thresholdHours} heures` : ""} et n'ont pas envoyé leur ordonnance ou leurs questionnaires, ceux sans portable qui les envoient par mail, et les documents refusés par votre logiciel de gestion.`
+          }
           actions={
             tab === "pending" || tab === "documents" ? (
               <Chip
@@ -520,7 +579,41 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
             mb: 2,
           }}
         >
-          {[
+          {(konnect
+            ? [
+                {
+                  label: "Questionnaires demandés",
+                  value: bilanKonnect?.demandes,
+                  color: "#3b82f6",
+                  icon: <Send fontSize="inherit" />,
+                  sub: undefined as string | undefined,
+                },
+                {
+                  label: "Remplis",
+                  value: bilanKonnect?.remplis,
+                  color: "#16a34a",
+                  icon: <TaskAlt fontSize="inherit" />,
+                  sub:
+                    bilanKonnect && bilanKonnect.demandes > 0
+                      ? `${Math.round((bilanKonnect.remplis / bilanKonnect.demandes) * 100)}%`
+                      : undefined,
+                },
+                {
+                  label: "Réponses à vérifier",
+                  value: bilanKonnect?.aVerifier,
+                  color: "#ef4444",
+                  icon: <ErrorOutline fontSize="inherit" />,
+                  sub: undefined,
+                },
+                {
+                  label: "En attente",
+                  value: bilanKonnect?.enAttente,
+                  color: "#EA580C",
+                  icon: <WarningAmber fontSize="inherit" />,
+                  sub: undefined,
+                },
+              ]
+            : [
             {
               label: "Liens envoyés",
               value: statsTotals?.requested,
@@ -557,7 +650,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
                   ? `${Math.round((statsTotals.rejected / statsTotals.uploaded) * 100)}%`
                   : undefined,
             },
-          ].map((kpi) => (
+          ]).map((kpi) => (
             <Card
               key={kpi.label}
               elevation={0}
@@ -597,10 +690,14 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
           ))}
         </Box>
         <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 2, ml: 0.5 }}>
-          Bilan sur les 30 derniers jours
+          {konnect
+            ? "Bilan sur les 30 derniers jours, par patient"
+            : "Bilan sur les 30 derniers jours"}
         </Typography>
 
-        {/* Tabs : En attente patient / Refusees par Xplore (chantier 2026-08-04) */}
+        {/* Tabs : En attente patient / Refusees par Xplore (chantier 2026-08-04).
+            Konnect n'a qu'une liste : pas d'onglets. */}
+        {!konnect && (
         <Card sx={{ mb: 2, borderRadius: 2 }}>
           <Tabs
             value={tab}
@@ -643,6 +740,7 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
             />
           </Tabs>
         </Card>
+        )}
 
         {tab === "par-mail" && (
           <ParMailPrescriptionsPanel
@@ -786,7 +884,9 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
             <Typography variant="body2" color="text.secondary">
               {enDocuments
                 ? thresholdHours != null
-                  ? `Aucun patient n'a dépassé ${thresholdHours} heures sans renvoyer ses questionnaires ou documents.`
+                  ? konnect
+                    ? `Aucun patient n'a dépassé ${thresholdHours} heures sans remplir ses questionnaires.`
+                    : `Aucun patient n'a dépassé ${thresholdHours} heures sans renvoyer ses questionnaires ou documents.`
                   : "Aucun patient n'attend de renvoyer un questionnaire ou un document."
                 : thresholdHours != null
                   ? `Aucun patient n'a dépassé ${thresholdHours} heures sans déposer son ordonnance.`
@@ -802,7 +902,9 @@ export default function OrdonnancesManquantesPage({ params }: Props) {
             >
               Cliquez sur le numéro pour le copier. Une fois le patient rappelé, cliquez
               &laquo; Marquer traité &raquo; pour retirer la carte de la liste.{" "}
-              {enDocuments
+              {konnect
+                ? "Chaque carte dit quels questionnaires manquent. Le patient a reçu le lien après sa réservation, par e-mail avec son code ou par SMS, et peut encore les remplir jusqu'à l'heure du rendez-vous. Une carte rouge « À vérifier » signale une réponse qui peut empêcher l'examen : rappelez le patient avant le rendez-vous."
+                : enDocuments
                 ? "Chaque carte dit quels questionnaires ou documents manquent. Le patient peut encore les déposer avec le lien reçu, jusqu'à l'heure du rendez-vous. Une carte rouge « À vérifier » signale une réponse du questionnaire rempli en ligne qui peut empêcher l'examen : rappelez le patient avant le rendez-vous."
                 : "Le rendez-vous reste en attente d'ordonnance tant que le patient n'a pas déposé son document sur la plateforme."}{" "}
               Les rendez-vous déjà passés sont classés

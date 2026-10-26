@@ -59,6 +59,16 @@ après le RDV.
   `disponible`. Le patient remplit ces documents par le lien de dépôt de sa confirmation,
   sans ordonnance (`ordonnanceRecue`), et AI2Xplore les envoie sur le `rdvId` comme pour
   LyraeTalk. LyraeTalk et `GET /api/configuration` ne changent pas.
+- `PrescriptionUpload.canal` (SQL `2026_10_26_depot_canal.sql`, `talk` par défaut) : `init`
+  le pose à la création, `konnect` avec la clé de Konnect. Le corps et la réponse d'`init` ne
+  changent pas ; `/pending`, `/download`, `/ack` et `/alerts/open` (AI2Xplore) non plus,
+  ils servent les deux canaux.
+- Routes de session (écrans) : `/api/prescriptions/alerts` et `/alerts/count` prennent
+  `canal=konnect` (défaut `talk` : la page de LyraeTalk ne montre plus les liens de Konnect),
+  avec le droit `konnect_questionnaires` et le délai `PrescriptionConfig.alertAfterHoursKonnect`
+  (NULL = 24 h, réglé par `POST /api/prescriptions/config`). Nouvelle
+  `GET /api/prescriptions/questionnaires-stats` (bilan par patient sur 30 jours). Page
+  `/client/c/{userId}/konnect/questionnaires`, badge dans le menu Konnect.
 
 ⚠️ **`GET /api/configuration` renvoie un bloc `site`** (07/09/2026), miroir exact de
 l'objet `call.site` de LyraeTalk. Il porte la configuration qui vit encore dans le

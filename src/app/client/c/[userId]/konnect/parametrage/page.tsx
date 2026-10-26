@@ -33,6 +33,7 @@ import PlanningCompletKonnect from "@/components/konnect/PlanningCompletKonnect"
 import PlagesPriveesKonnect from "@/components/konnect/PlagesPriveesKonnect";
 import QuestionsCliniquesKonnect from "@/components/konnect/QuestionsCliniquesKonnect";
 import LibelleOrdonnanceKonnect from "@/components/konnect/LibelleOrdonnanceKonnect";
+import DelaiQuestionnairesKonnect from "@/components/konnect/DelaiQuestionnairesKonnect";
 import SmsConfirmationConfigCard from "../../talk/parametrage/SmsConfirmationConfigCard";
 import DocumentsDemandesCard, {
   type DocumentsDemandesHandle,
@@ -578,6 +579,21 @@ export default function ParametrageKonnectPage() {
             admin={estAdmin}
             canal="konnect"
           />
+        )}
+
+        {/* ---------------- Questionnaires non remplis (26/10/2026) ---------------- */}
+        {produitDocuments !== null && (
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6">Questionnaires non remplis</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <DelaiQuestionnairesKonnect
+                userProductId={produitDocuments}
+                lectureSeule={raisonLectureSeule}
+              />
+            </AccordionDetails>
+          </Accordion>
         )}
 
         {/* ---------------- Ordonnance dans Xplore (26/10/2026) ---------------- */}

@@ -66,6 +66,39 @@ export function normalizeAlertAfterHours(raw: unknown): number {
   return i;
 }
 
+/**
+ * Canal qui a cree un lien de depot (`PrescriptionUpload.canal`, 26/10/2026,
+ * plans/2026-10-konnect-questionnaires-centre.md du workspace). Les liens de
+ * Konnect ne demandent que des questionnaires : la secretaire les voit dans la
+ * section Konnect, ceux de LyraeTalk dans « Ordonnances manquantes ».
+ */
+export type CanalDepot = "talk" | "konnect";
+
+/** `?canal=konnect` choisit Konnect ; toute autre valeur, ou rien, LyraeTalk. */
+export function canalDuParametre(raw: string | null | undefined): CanalDepot {
+  return raw === "konnect" ? "konnect" : "talk";
+}
+
+/**
+ * Delai avant qu'un questionnaire non rempli d'un patient de Konnect apparaisse
+ * a la secretaire (`PrescriptionConfig.alertAfterHoursKonnect`, NULL = ce defaut).
+ */
+export const DEFAULT_ALERT_AFTER_HOURS_KONNECT = 24;
+
+/** Le delai du canal, lu sur la ligne `PrescriptionConfig` (absente : defaut). */
+export function delaiDuCanal(
+  row: { alertAfterHours?: unknown; alertAfterHoursKonnect?: unknown } | null | undefined,
+  canal: CanalDepot
+): number {
+  if (canal === "konnect") {
+    const brut = row?.alertAfterHoursKonnect;
+    return brut === null || brut === undefined
+      ? DEFAULT_ALERT_AFTER_HOURS_KONNECT
+      : normalizeAlertAfterHours(brut);
+  }
+  return row ? normalizeAlertAfterHours(row.alertAfterHours) : DEFAULT_ALERT_AFTER_HOURS;
+}
+
 /** Longueur maximale du message du centre (contrainte SQL `PrescriptionConfig_message_longueur`). */
 export const MESSAGE_PATIENT_MAX = 500;
 
