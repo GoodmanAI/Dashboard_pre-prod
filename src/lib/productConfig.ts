@@ -152,6 +152,17 @@ export const DOMAINES: Record<string, Domaine> = {
     libelle: "Rattachement au logiciel de gestion du centre",
     page: "admin",
   },
+  // 26/10/2026 : les salles du centre et celles ouvertes au portail, qui se facture
+  // par salle. Réglé par l'équipe, jamais par le centre. Forme et validation :
+  // `src/lib/konnectSalles.ts` ; plan `2026-10-salles-ouvertes-konnect`. Konnect ne
+  // lit pas ce domaine : il reçoit les postes calculés dans le catalogue d'examens.
+  "konnect.salles": {
+    cle: "konnect.salles",
+    produit: "konnect",
+    cleApiEnv: "KONNECT_API_KEY",
+    libelle: "Salles ouvertes au portail",
+    page: "admin",
+  },
   "konnect.synonymes": {
     cle: "konnect.synonymes",
     produit: "konnect",
