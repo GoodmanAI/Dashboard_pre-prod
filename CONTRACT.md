@@ -50,6 +50,26 @@ après le RDV.
 - `documentsDemandes` gagne la liste `grossesse`. `grossesseSeulement` et
   `mineursSeulement` s'excluent (`api/documents-demandes` répond 400 aux deux).
 
+**Questionnaires du centre dans Konnect** (26/10/2026, plan workspace
+`plans/2026-10-konnect-questionnaires-centre.md`, `DECISIONS.md` du 26/10/2026). Additif :
+
+- `DocumentDemande.disponibleKonnect` (SQL `2026_10_26_documents_konnect.sql`, repris de
+  `disponible`) : interrupteur du client pour Konnect. `disponible` reste celui de LyraeTalk.
+- `POST /api/prescriptions/init` avec `KONNECT_API_KEY` lit `disponibleKonnect` au lieu de
+  `disponible`. Le patient remplit ces documents par le lien de dépôt de sa confirmation,
+  sans ordonnance (`ordonnanceRecue`), et AI2Xplore les envoie sur le `rdvId` comme pour
+  LyraeTalk. LyraeTalk et `GET /api/configuration` ne changent pas.
+- `PrescriptionUpload.canal` (SQL `2026_10_26_depot_canal.sql`, `talk` par défaut) : `init`
+  le pose à la création, `konnect` avec la clé de Konnect. Le corps et la réponse d'`init` ne
+  changent pas ; `/pending`, `/download`, `/ack` et `/alerts/open` (AI2Xplore) non plus,
+  ils servent les deux canaux.
+- Routes de session (écrans) : `/api/prescriptions/alerts` et `/alerts/count` prennent
+  `canal=konnect` (défaut `talk` : la page de LyraeTalk ne montre plus les liens de Konnect),
+  avec le droit `konnect_questionnaires` et le délai `PrescriptionConfig.alertAfterHoursKonnect`
+  (NULL = 24 h, réglé par `POST /api/prescriptions/config`). Nouvelle
+  `GET /api/prescriptions/questionnaires-stats` (bilan par patient sur 30 jours). Page
+  `/client/c/{userId}/konnect/questionnaires`, badge dans le menu Konnect.
+
 ⚠️ **`GET /api/configuration` renvoie un bloc `site`** (07/09/2026), miroir exact de
 l'objet `call.site` de LyraeTalk. Il porte la configuration qui vit encore dans le
 `getInitInfo.js` du robot et qui descend ici au fur et à mesure, lue dans le domaine
@@ -200,6 +220,13 @@ flux montant (`DECISIONS.md` du workspace). Le centre se résout par `externalCe
 (`ExternalCenterMapping`, le code de site Xplore), pas par `tenantId` : les documents
 demandés et la page Ordonnances vivent sur le `userProductId` LyraeTalk du centre. Sans
 mapping : 404, la confirmation part sans lien.
+
+**Pour LyraeKonnect, réglages du parcours** (26/10/2026, plan workspace
+`plans/2026-10-konnect-questionnaires-centre.md`) : deux domaines `product-config` nouveaux,
+lus par Konnect avec sa clé : `konnect.questions-cliniques` (`{ desactivees: string[] }`, ids
+des questions de `app/questionnaire/contenu.py` que le client ne veut pas poser ; vide = toutes
+posées) et `konnect.libelle-ordonnance` (`{ libelle: string | null }`, nom de la pièce jointe
+de l'ordonnance dans Xplore, 64 caractères ; null = « Ordonnance i/n »).
 
 **Pour LyraeKonnect** — header `x-api-key: KONNECT_API_KEY` :
 `GET /api/konnect-tenant-mapping/resolve?tenantId=<uuid>` → `{ userProductId }`,

@@ -17,7 +17,10 @@ export interface DocumentDemandeVue {
   typesExamen: ExamTypeKey[];
   mineursSeulement: boolean;
   grossesseSeulement: boolean;
+  /** Mis a disposition des patients de LyraeTalk. */
   disponible: boolean;
+  /** Mis a disposition des patients de Konnect (26/10/2026). */
+  disponibleKonnect: boolean;
   ordre: number;
   modele: { nom: string | null; octets: number; maj: string | null } | null;
   /**
@@ -47,6 +50,7 @@ export async function lireDocumentsDemandes(
     mineursSeulement: boolean;
     grossesseSeulement: boolean;
     disponible: boolean;
+    disponibleKonnect: boolean;
     ordre: number;
     modeleNom: string | null;
     modeleOctets: number | null;
@@ -56,7 +60,7 @@ export async function lireDocumentsDemandes(
     formulaireValable: boolean;
   }>(
     `SELECT "id", "userProductId", "libelle", "libelleXplore", "typesExamen", "mineursSeulement",
-            "grossesseSeulement", "disponible", "ordre", "modeleNom",
+            "grossesseSeulement", "disponible", "disponibleKonnect", "ordre", "modeleNom",
             octet_length("modeleContenu") AS "modeleOctets", "modeleMaj",
             "archivedAt",
             ("formulaire" IS NOT NULL) AS "formulairePrepare",
@@ -76,6 +80,7 @@ export async function lireDocumentsDemandes(
     mineursSeulement: r.mineursSeulement,
     grossesseSeulement: r.grossesseSeulement,
     disponible: r.disponible,
+    disponibleKonnect: r.disponibleKonnect,
     ordre: r.ordre,
     modele:
       r.modeleOctets !== null

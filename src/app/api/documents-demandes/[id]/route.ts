@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { assertUserProductOwnership, requireAuth } from "@/lib/auth-helpers";
-import { requirePagePermission } from "@/lib/authGuards";
+import { requireAnyPagePermission, requirePagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { normaliserTypesExamen } from "@/lib/piecesAttendues";
@@ -18,7 +18,9 @@ import {
  *
  * Partage des droits (DECISIONS.md du 11/10/2026) :
  *   - le CLIENT (proprietaire, droit d'ecriture du parametrage) ne change que
- *     `disponible`, l'interrupteur « Mis a disposition des patients », et
+ *     `disponible`, l'interrupteur « Mis a disposition des patients » de
+ *     LyraeTalk, `disponibleKonnect`, le meme pour Konnect (26/10/2026,
+ *     plans/2026-10-konnect-questionnaires-centre.md), et
  *     `libelleXplore`, le libelle de la piece jointe dans son Xplore (19/10/2026,
  *     plans/2026-10-libelle-xplore-des-documents.md : Xplore renomme tout
  *     libelle absent de sa liste) ; chaine vide ou null => non renseigne ;
@@ -27,6 +29,10 @@ import {
  *     Les deux criteres s'excluent : en allumer un eteint l'autre, envoyer les
  *     deux a vrai repond 400.
  * Un champ d'admin envoye par un client : 403, rien n'est ecrit.
+ *
+ * Droit d'ecriture : `disponible` et les champs d'admin demandent le
+ * parametrage de LyraeTalk ; `disponibleKonnect`, celui de Konnect ;
+ * `libelleXplore`, l'un ou l'autre.
  *
  * Un document archive n'est plus demande aux nouveaux liens ; les liens deja
  * envoyes gardent leur piece (et son libelle fige).
@@ -45,12 +51,24 @@ export async function PATCH(
   }
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownErr) return ownErr;
-  const droitErr = await requirePagePermission(PAGES.PARAMETRAGE, "write");
-  if (droitErr) return droitErr;
-
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const champsKonnect = new Set(["disponibleKonnect", "libelleXplore"]);
+  const pages = Object.keys(body).every((c) => champsKonnect.has(c))
+    ? "disponibleKonnect" in body
+      ? [PAGES.KONNECT_PARAMETRAGE]
+      : [PAGES.PARAMETRAGE, PAGES.KONNECT_PARAMETRAGE]
+    : null;
+  const droitErr = pages
+    ? await requireAnyPagePermission(pages, "write")
+    : await requirePagePermission(PAGES.PARAMETRAGE, "write");
+  if (droitErr) return droitErr;
+  if ("disponibleKonnect" in body && Object.keys(body).some((c) => !champsKonnect.has(c))) {
+    const konnectErr = await requirePagePermission(PAGES.KONNECT_PARAMETRAGE, "write");
+    if (konnectErr) return konnectErr;
   }
 
   const estAdmin =
@@ -78,6 +96,9 @@ export async function PATCH(
   };
 
   if ("disponible" in body) poser("disponible", body.disponible === true);
+  if ("disponibleKonnect" in body) {
+    poser("disponibleKonnect", body.disponibleKonnect === true);
+  }
   if ("libelleXplore" in body) {
     const libelleXplore = libelleXploreValide(body.libelleXplore);
     if (libelleXplore === undefined) {

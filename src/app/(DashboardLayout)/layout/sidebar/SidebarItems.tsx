@@ -71,6 +71,20 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
   const { count: prescriptionAlertsCount, thresholdHours } =
     usePrescriptionAlertsCount(prescriptionScopeUserProductId);
 
+  // Questionnaires des patients de Konnect (26/10/2026) : leurs liens vivent sur
+  // l'affiliation LyraeTalk du centre (ExternalCenterMapping), sinon Konnect.
+  const questionnairesScopeUserProductId: number | null = (() => {
+    if (isAdmin) return selectedCentre?.userProductId ?? null;
+    const konnect: any = trouverProduit<any>(products, "konnect");
+    if (!konnect) return null; // sans Konnect, aucun appel
+    const talk: any = trouverProduit<any>(products, "talk");
+    return talk?.id ?? konnect.id ?? null;
+  })();
+  const { count: questionnairesKonnectCount } = usePrescriptionAlertsCount(
+    questionnairesScopeUserProductId,
+    "konnect"
+  );
+
   /**
    * Le produit affiché se déduit de l'URL et non d'un état mémorisé : un lien
    * partagé doit ouvrir le bon menu.
@@ -229,6 +243,9 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
           // (identifie via son titre car href resolu dynamiquement)
           if (item.title === "Ordonnances manquantes" && prescriptionAlertsCount > 0) {
             updatedItem.badgeCount = prescriptionAlertsCount;
+          }
+          if (item.title === "Questionnaires des patients" && questionnairesKonnectCount > 0) {
+            updatedItem.badgeCount = questionnairesKonnectCount;
           }
 
           // Élément de navigation cliquable

@@ -51,7 +51,12 @@ export async function POST(
   const ownErr = await assertUserProductOwnership(auth.session, userProductId);
   if (ownErr) return ownErr;
 
-  const droitErr = await requirePagePermission(PAGES.ORDONNANCES, "write");
+  // La carte vit dans « Ordonnances manquantes » de LyraeTalk ou dans les
+  // questionnaires de Konnect (26/10/2026) : l'un ou l'autre droit d'ecriture.
+  const droitErr = await requireAnyPagePermission(
+    [PAGES.ORDONNANCES, PAGES.KONNECT_QUESTIONNAIRES],
+    "write"
+  );
   if (droitErr) return droitErr;
 
   // Verif que la ligne appartient bien au centre de l'user (via

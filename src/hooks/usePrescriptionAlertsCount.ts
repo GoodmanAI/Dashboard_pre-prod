@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { io as ioClient, Socket } from "socket.io-client";
+import type { CanalDepot } from "@/lib/prescriptionConfig";
 
 /**
  * Hook client-side qui expose le compteur d'ordonnances en attente pour un
@@ -26,6 +27,9 @@ import { io as ioClient, Socket } from "socket.io-client";
  *   - AbortController + cancelled flag : evite les race conditions au
  *     changement rapide de centre (switchCentre dans le header)
  *   - Erreurs reseau silencieuses : le badge disparait plutot que UI cassee
+ *
+ * `canal` (26/10/2026) : `konnect` compte les questionnaires des patients du
+ * portail, pour l'entree « Questionnaires des patients » du menu Konnect.
  */
 
 const FALLBACK_POLL_INTERVAL_MS = 5 * 60_000; // 5 min
@@ -38,7 +42,8 @@ interface AlertCountState {
 }
 
 export function usePrescriptionAlertsCount(
-  userProductId: number | null | undefined
+  userProductId: number | null | undefined,
+  canal: CanalDepot = "talk"
 ): AlertCountState {
   const [state, setState] = useState<AlertCountState>({
     count: 0,
@@ -66,7 +71,7 @@ export function usePrescriptionAlertsCount(
       try {
         setState((s) => ({ ...s, loading: true }));
         const res = await fetch(
-          `/api/prescriptions/alerts/count?userProductId=${userProductId}`,
+          `/api/prescriptions/alerts/count?userProductId=${userProductId}&canal=${canal}`,
           { cache: "no-store", signal: controller.signal }
         );
         if (cancelled || activeIdRef.current !== userProductId) return;
@@ -144,7 +149,7 @@ export function usePrescriptionAlertsCount(
         socketRef.current = null;
       }
     };
-  }, [userProductId]);
+  }, [userProductId, canal]);
 
   return state;
 }
