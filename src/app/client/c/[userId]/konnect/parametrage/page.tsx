@@ -2,7 +2,7 @@
 
 import Retour from "@/components/shared/Retour";
 import SectionHeader from "@/components/admin/SectionHeader";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -32,6 +32,10 @@ import IdentiteVisuelleKonnect from "@/components/konnect/IdentiteVisuelleKonnec
 import PlanningCompletKonnect from "@/components/konnect/PlanningCompletKonnect";
 import PlagesPriveesKonnect from "@/components/konnect/PlagesPriveesKonnect";
 import SmsConfirmationConfigCard from "../../talk/parametrage/SmsConfirmationConfigCard";
+import DocumentsDemandesCard, {
+  type DocumentsDemandesHandle,
+} from "@/components/prescriptions/DocumentsDemandesCard";
+import { useSession } from "next-auth/react";
 
 /**
  * Configuration LyraeKonnect d'un centre — le portail patient web.
@@ -137,7 +141,16 @@ function Reglage({
 }
 
 export default function ParametrageKonnectPage() {
-  const { userProductId } = useCentreProduit();
+  const { userProductId, produits } = useCentreProduit();
+  // Les documents demandes vivent sur l'affiliation LyraeTalk du centre : c'est
+  // par elle que /api/prescriptions/init les retrouve (ExternalCenterMapping).
+  // Un centre sans LyraeTalk les porte sur son affiliation Konnect.
+  const produitDocuments =
+    produits.find((p) => p.slug === "talk")?.userProductId ?? userProductId;
+  const documentsRef = useRef<DocumentsDemandesHandle>(null);
+  const { data: session } = useSession();
+  const estAdmin =
+    session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN";
 
   // Lecture seule (15/09/2026). Cet écran est le seul écran de configuration Konnect
   // sans `BarreEnregistrement` : il porte son propre bouton, et n'avait donc aucun
@@ -236,9 +249,14 @@ export default function ParametrageKonnectPage() {
         },
       );
       const data = await res.json();
-      if (res.ok) {
+      // La carte des questionnaires enregistre ses propres interrupteurs, au
+      // meme clic.
+      const documentsOk = (await documentsRef.current?.enregistrer()) ?? true;
+      if (res.ok && documentsOk) {
         setConfig(data);
         setSucces(true);
+      } else if (res.ok) {
+        setConfig(data);
       } else {
         setErreur(data.error || "Échec de l'enregistrement.");
       }
@@ -549,6 +567,16 @@ export default function ParametrageKonnectPage() {
           dans LyraeTalk, et inversement. Les rappels propres au portail, l'annulation
           directe et le SMS de secours ont été retirés de Konnect. */}
         {userProductId !== null && <SmsConfirmationConfigCard userProductId={userProductId} />}
+
+        {/* ---------------- Questionnaires du centre (26/10/2026) ---------------- */}
+        {produitDocuments !== null && (
+          <DocumentsDemandesCard
+            ref={documentsRef}
+            userProductId={produitDocuments}
+            admin={estAdmin}
+            canal="konnect"
+          />
+        )}
 
         {/* ---------------- Plages privées (15/10/2026) ---------------- */}
         <Accordion>
