@@ -124,6 +124,11 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // `img-src 'self'` : une image servie par le Dashboard serait bloquee dans le
   // navigateur du patient. Lecture par cle, depot et retrait reserves a une session.
   /^\/api\/konnect-logo$/,
+  // Questionnaires du centre remplis dans Konnect (2026-10-26) : liste des
+  // questionnaires d'un examen, puis production du PDF rempli, que Konnect
+  // envoie lui-meme dans Xplore. Calcul seul, rien n'est ecrit. Cle API seule
+  // cote handler.
+  /^\/api\/konnect-questionnaires(?:\/\d+\/pdf)?$/,
 ];
 
 function isPublicApi(pathname: string): boolean {

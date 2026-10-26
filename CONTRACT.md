@@ -215,6 +215,19 @@ flux montant (`DECISIONS.md` du workspace). Le centre se résout par `externalCe
 demandés et la page Ordonnances vivent sur le `userProductId` LyraeTalk du centre. Sans
 mapping : 404, la confirmation part sans lien.
 
+**Pour LyraeKonnect, questionnaires du centre dans le parcours** (26/10/2026, plan workspace
+`plans/2026-10-konnect-questionnaires-centre.md`) — header `x-api-key: KONNECT_API_KEY`,
+**calcul seul**, rien n'est écrit ni gardé :
+
+- `POST /api/konnect-questionnaires` `{ externalCenterCode, examType, mineur?, grossessePossible? }`
+  → `{ questionnaires: [{ id, libelle, libelleXplore, formulaire }] }` : les `DocumentDemande`
+  `disponibleKonnect` qui valent pour ce cas (mêmes règles que `init`) et qui se remplissent
+  en ligne ; `formulaire` complet, fonds de page compris.
+- `POST /api/konnect-questionnaires/{id}/pdf` `{ externalCenterCode, reponses, signature }` →
+  `{ pdf (base64), libelle, libelleXplore, alertes }`. 400 avec `erreurs` par champ, 404 si le
+  document n'est plus à disposition de Konnect ou plus remplissable en ligne. Konnect envoie le
+  PDF dans Xplore lui-même, puis passe `{ id, alertes }` dans `documentsRecus` à `init`.
+
 **Pour LyraeKonnect** — header `x-api-key: KONNECT_API_KEY` :
 `GET /api/konnect-tenant-mapping/resolve?tenantId=<uuid>` → `{ userProductId }`,
 `GET /api/konnect-configuration?userProductId=NN` (ou `?tenantId=<uuid>`),
