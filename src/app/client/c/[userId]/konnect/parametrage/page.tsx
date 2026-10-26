@@ -31,6 +31,7 @@ import PageContainer from "@/app/(DashboardLayout)/components/container/PageCont
 import IdentiteVisuelleKonnect from "@/components/konnect/IdentiteVisuelleKonnect";
 import PlanningCompletKonnect from "@/components/konnect/PlanningCompletKonnect";
 import PlagesPriveesKonnect from "@/components/konnect/PlagesPriveesKonnect";
+import QuestionsCliniquesKonnect from "@/components/konnect/QuestionsCliniquesKonnect";
 import SmsConfirmationConfigCard from "../../talk/parametrage/SmsConfirmationConfigCard";
 import DocumentsDemandesCard, {
   type DocumentsDemandesHandle,
@@ -631,6 +632,19 @@ export default function ParametrageKonnectPage() {
                 le numéro affiché au patient dont le rendez-vous est bloqué par
                 le questionnaire.
               </Alert>
+            )}
+
+            {config.clinique_actif && (
+              <>
+                <Divider sx={{ my: 2.5 }} />
+                <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
+                  Questions posées
+                </Typography>
+                <QuestionsCliniquesKonnect
+                  userProductId={userProductId}
+                  lectureSeule={raisonLectureSeule}
+                />
+              </>
             )}
 
             <Divider sx={{ my: 2.5 }} />

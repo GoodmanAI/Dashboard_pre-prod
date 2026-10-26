@@ -20,6 +20,10 @@ import {
 import { validerSallesParType } from "@/lib/sallesExamen";
 import { validerTextes, centreEtAdresse } from "@/lib/talkTextes";
 import { DOMAINE_PLAGES_PRIVEES, validerPlagesPrivees } from "@/lib/konnectPlagesPrivees";
+import {
+  DOMAINE_QUESTIONS_CLINIQUES,
+  validerQuestionsCliniques,
+} from "@/lib/konnectQuestionsCliniques";
 
 /**
  * Configuration générique d'un centre, par domaine (lot B).
@@ -278,6 +282,16 @@ export async function PUT(req: NextRequest) {
     }
     for (const cle of Object.keys(valeur)) delete valeur[cle];
     Object.assign(valeur, plages.valeur);
+  }
+
+  // `konnect.questions-cliniques` : les ids retirés, connus du catalogue seulement.
+  if (domaine.cle === DOMAINE_QUESTIONS_CLINIQUES) {
+    const questions = validerQuestionsCliniques(valeur);
+    if ("erreur" in questions) {
+      return NextResponse.json({ error: questions.erreur }, { status: 400 });
+    }
+    for (const cle of Object.keys(valeur)) delete valeur[cle];
+    Object.assign(valeur, questions.valeur);
   }
 
   // `version + 1` calculé par la base : deux écritures concurrentes ne peuvent
