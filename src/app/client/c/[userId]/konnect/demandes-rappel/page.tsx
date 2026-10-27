@@ -25,7 +25,7 @@ import {
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
-import EnTete from "@/components/shared/EnTeteTableau";
+import EnTete, { SX_COLLEE_A_DROITE } from "@/components/shared/EnTeteTableau";
 import { MOTIFS_RAPPEL, type MotifRappel } from "@/lib/konnectDemandesRappel";
 import { INK, INK_MUTED, BORDER, SURFACE, SURFACE_MUTED } from "@/lib/jetons";
 
@@ -287,7 +287,7 @@ export default function DemandesRappelKonnect() {
                   Note
                 </EnTete>
                 <EnTete largeur={120}>Statut</EnTete>
-                <EnTete largeur={220}>Action</EnTete>
+                <EnTete colle largeur={220}>Action</EnTete>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -388,7 +388,7 @@ export default function DemandesRappelKonnect() {
                       )}
                     </TableCell>
 
-                    <TableCell>
+                    <TableCell sx={SX_COLLEE_A_DROITE}>
                       <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
                         {traitee ? (
                           <Button

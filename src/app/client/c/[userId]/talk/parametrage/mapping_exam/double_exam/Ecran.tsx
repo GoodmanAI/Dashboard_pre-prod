@@ -151,6 +151,9 @@ export default function DoubleExamPage({ params }: DoubleExamPageProps) {
           "&:disabled": { opacity: 0.7 },
         }}
       >
+      {/* Défile sur un écran étroit : le tableau débordait du cadre et la colonne
+          « Mode Xplore » était coupée, sans moyen de l'atteindre. */}
+      <Box sx={{ overflowX: "auto" }}>
       <table
         style={{
           width: "100%",
@@ -221,6 +224,7 @@ export default function DoubleExamPage({ params }: DoubleExamPageProps) {
           ))}
         </tbody>
       </table>
+      </Box>
 
       </Box>
 
