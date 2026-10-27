@@ -71,9 +71,10 @@ export async function GET(req: NextRequest) {
     const ownershipErr = await assertUserProductOwnership(auth.session, userProductId);
     if (ownershipErr) return ownershipErr;
 
-    // L'ecran des regles de coexistence lit aussi les sites.
+    // L'ecran des regles de coexistence lit aussi les sites, et depuis le 27/10/2026
+    // « Paramètres du portail » (la place tenue de la liste d'attente se regle par site).
     const droitErr = await requireAnyPagePermission(
-      [PAGES.KONNECT_SITES, PAGES.KONNECT_REGLES_COEXISTENCE],
+      [PAGES.KONNECT_SITES, PAGES.KONNECT_REGLES_COEXISTENCE, PAGES.KONNECT_PARAMETRAGE],
       "read"
     );
     if (droitErr) return droitErr;

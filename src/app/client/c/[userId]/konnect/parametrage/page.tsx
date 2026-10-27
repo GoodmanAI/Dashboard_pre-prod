@@ -30,6 +30,7 @@ import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elem
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import IdentiteVisuelleKonnect from "@/components/konnect/IdentiteVisuelleKonnect";
 import PlanningCompletKonnect from "@/components/konnect/PlanningCompletKonnect";
+import FileAttenteKonnect from "@/components/konnect/FileAttenteKonnect";
 import PlagesPriveesKonnect from "@/components/konnect/PlagesPriveesKonnect";
 import QuestionsCliniquesKonnect from "@/components/konnect/QuestionsCliniquesKonnect";
 import LibelleOrdonnanceKonnect from "@/components/konnect/LibelleOrdonnanceKonnect";
@@ -626,6 +627,16 @@ export default function ParametrageKonnectPage() {
           </AccordionSummary>
           <AccordionDetails>
             <PlanningCompletKonnect userProductId={userProductId} lectureSeule={raisonLectureSeule} />
+          </AccordionDetails>
+        </Accordion>
+
+        {/* ---------------- Liste d'attente (27/10/2026) ---------------- */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6">Liste d&apos;attente</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <FileAttenteKonnect userProductId={userProductId} lectureSeule={raisonLectureSeule} />
           </AccordionDetails>
         </Accordion>
 

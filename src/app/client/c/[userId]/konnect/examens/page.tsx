@@ -126,6 +126,8 @@ type Ligne = {
   examenInjecte: boolean;
   /** Salles choisies parmi celles ouvertes au portail. Vide = toutes. */
   postes: string[];
+  /** Sans créneau, le patient s'inscrit en liste d'attente au lieu d'être rappelé (27/10/2026). */
+  fileAttente: boolean;
 };
 
 type FiltreAttribution = "tous" | "attribues" | "non_attribues";
@@ -404,7 +406,7 @@ export default function MappingExamensKonnect() {
 
         <Alert severity="info" icon={false} sx={{ mb: 2.5 }}>
           <Typography sx={{ fontSize: 13, fontWeight: 600, color: INK, mb: 0.5 }}>
-            Deux cases, deux décisions
+            Trois cases, trois décisions
           </Typography>
           <Typography sx={{ fontSize: 13, color: INK_MUTED }}>
             <strong>Pratiqué</strong> : vous faites cet examen, le portail le reconnaît.
@@ -414,6 +416,11 @@ export default function MappingExamensKonnect() {
             que le patient réserve seul. Décoché, aucun créneau ne lui est proposé, on
             lui offre de laisser son numéro et vous retrouvez sa demande dans
             « Demandes de rappel ».
+            <br />
+            <strong>File d&apos;attente</strong> : pour un examen réservable en ligne. Quand il
+            n&apos;a plus de créneau, le patient s&apos;inscrit en liste d&apos;attente au lieu
+            d&apos;être rappelé, et reçoit par SMS la première place qui se libère. Vous le
+            retrouvez dans « Liste d&apos;attente ».
           </Typography>
         </Alert>
 
@@ -706,6 +713,14 @@ export default function MappingExamensKonnect() {
                       />
                     </RangeeChamp>
 
+                    <RangeeChamp libelle="File d'attente">
+                      <CaseMapping
+                        coche={l.reservableEnLigne && l.fileAttente === true}
+                        disabled={inactif || !l.reservableEnLigne}
+                        onChange={(v) => maj(l.codeExamen, "fileAttente", v)}
+                      />
+                    </RangeeChamp>
+
                     <RangeeChamp libelle="Ordonnance">
                       <CaseMapping
                         coche={l.ordoOblig}
@@ -771,6 +786,13 @@ export default function MappingExamensKonnect() {
                   align="center"
                 >
                   Réservable en ligne
+                </EnTeteMapping>
+                <EnTeteMapping
+                  aide="Pour un examen réservable en ligne. Sans créneau, le patient s'inscrit en liste d'attente au lieu d'être rappelé, et reçoit par SMS la première place qui se libère."
+                  largeur={110}
+                  align="center"
+                >
+                  File d&apos;attente
                 </EnTeteMapping>
                 <EnTeteMapping
                   aide="Le portail demande au patient de déposer son ordonnance, et signale le dossier au secrétariat tant qu'elle n'est pas validée. Il ne bloque pas la réservation."
@@ -852,6 +874,14 @@ export default function MappingExamensKonnect() {
                       />
                     </TableCell>
                     <TableCell align="center">
+                      {/* Un examen à rappel n'a pas de file : la case ne se coche pas. */}
+                      <CaseMapping
+                        coche={l.reservableEnLigne && l.fileAttente === true}
+                        disabled={!l.performed || !l.reservableEnLigne}
+                        onChange={(v) => maj(l.codeExamen, "fileAttente", v)}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
                       <CaseMapping
                         coche={l.ordoOblig}
                         disabled={!l.performed}
@@ -863,7 +893,7 @@ export default function MappingExamensKonnect() {
               })}
               {filtrees.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                     <Typography variant="body2" sx={{ color: INK_MUTED }}>
                       {lignes.length === 0
                         ? "Aucun examen au référentiel."

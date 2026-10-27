@@ -76,6 +76,10 @@ const PATH_MATCHERS: Array<{ pattern: RegExp; page: PageKey }> = [
     page: PAGES.KONNECT_DEMANDES_RAPPEL,
   },
   {
+    pattern: /\/konnect\/(?:\d+\/)?liste-attente(?:\/|$)/,
+    page: PAGES.KONNECT_FILE_ATTENTE,
+  },
+  {
     pattern: /\/konnect\/(?:\d+\/)?questionnaires(?:\/|$)/,
     page: PAGES.KONNECT_QUESTIONNAIRES,
   },
@@ -203,6 +207,7 @@ export const PAGE_PRIORITY: PageKey[] = [
   // decoratives : sans elles, un sous-compte a qui l'on n'accorde QUE des pages
   // Konnect ne trouve aucune URL et retombe sur l'ecran vide « aucun produit trouve ».
   PAGES.KONNECT_DEMANDES_RAPPEL,
+  PAGES.KONNECT_FILE_ATTENTE,
   PAGES.KONNECT_QUESTIONNAIRES,
   PAGES.KONNECT_DASHBOARD,
   PAGES.KONNECT_STATS,
@@ -266,6 +271,8 @@ export function getClientPathForPage(
       return `${baseKonnect}/regles-cliniques`;
     case PAGES.KONNECT_DEMANDES_RAPPEL:
       return `${baseKonnect}/demandes-rappel`;
+    case PAGES.KONNECT_FILE_ATTENTE:
+      return `${baseKonnect}/liste-attente`;
     case PAGES.KONNECT_QUESTIONNAIRES:
       return `${baseKonnect}/questionnaires`;
     case PAGES.KONNECT_STATS:

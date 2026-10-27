@@ -119,6 +119,12 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // derriere un VPN : le Dashboard ne peut pas aller le lire, d'ou ce push.
   // Aucune configuration ni donnee patient n'entre par la. Lecture par session.
   /^\/api\/konnect-remontee$/,
+  // File d'attente (2026-10-27) : le QUATRIEME flux montant, et le seul ou Konnect
+  // relit ce qu'il a ecrit. La file ne vit qu'ici ; Konnect y inscrit le patient, la
+  // relit a chaque passage de son moteur et y demande chaque changement d'etat.
+  // Donnee patient. L'ecran (`/ecran`) reste derriere la session.
+  /^\/api\/konnect-file-attente$/,
+  /^\/api\/konnect-file-attente\/transition$/,
   // Logo du cabinet (2026-09-09) : Konnect TIRE le binaire et le sert ensuite depuis
   // sa propre origine. Il ne peut pas faire autrement, la CSP de son iframe est
   // `img-src 'self'` : une image servie par le Dashboard serait bloquee dans le

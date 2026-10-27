@@ -25,6 +25,7 @@ import {
   validerLibelleOrdonnance,
 } from "@/lib/konnectLibelleOrdonnance";
 import { DOMAINE_SALLES_KONNECT, validerSallesKonnect } from "@/lib/konnectSalles";
+import { DOMAINE_FILE_ATTENTE, validerReglageFileAttente } from "@/lib/konnectFileAttente";
 import {
   DOMAINE_QUESTIONS_CLINIQUES,
   validerQuestionsCliniques,
@@ -308,6 +309,17 @@ export async function PUT(req: NextRequest) {
     }
     for (const cle of Object.keys(valeur)) delete valeur[cle];
     Object.assign(valeur, salles.valeur);
+  }
+
+  // `konnect.file-attente` : une place tenue sans code de caractéristique ferait créer
+  // à Konnect un RDV ordinaire, que le centre prendrait pour un vrai rendez-vous.
+  if (domaine.cle === DOMAINE_FILE_ATTENTE) {
+    const reglage = validerReglageFileAttente(valeur);
+    if ("erreur" in reglage) {
+      return NextResponse.json({ error: reglage.erreur }, { status: 400 });
+    }
+    for (const cle of Object.keys(valeur)) delete valeur[cle];
+    Object.assign(valeur, reglage.valeur);
   }
 
   if (domaine.cle === DOMAINE_LIBELLE_ORDONNANCE) {
