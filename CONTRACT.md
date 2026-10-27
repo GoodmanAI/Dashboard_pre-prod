@@ -388,6 +388,9 @@ ce domaine. Plan : `lyrae/plans/2026-10-salles-ouvertes-konnect.md`.
   d'inscription (`inscriptions`, données patient comprises) et `aNettoyer` (RDV d'attente à
   relire dans Xplore). **Sans cache** : Konnect la relit à chaque passage de son moteur et
   n'en garde aucune copie.
+- `GET /api/konnect-file-attente?userProductId=NN&id=MM` (lot L6, 27/10/2026) : une seule
+  inscription, sortie ou non (`{ inscription }`, `null` si purgée). Lue par la page du lien
+  du SMS de Konnect, qui dit au patient ce qu'est devenue sa place.
 - `POST /api/konnect-file-attente/transition?userProductId=NN` : un geste du moteur,
   `{ id, version, geste, creneau?, reponseAvant?, rdvIdAttente?, rdvId? }`. Gestes :
   `proposer`, `attacher_rdv`, `commencer_confirmation`, `confirmer`, `echec_confirmation`,

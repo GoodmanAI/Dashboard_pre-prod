@@ -23,6 +23,7 @@ import {
  *
  *  POST /api/konnect-file-attente?userProductId=NN   (KONNECT_API_KEY) inscription
  *  GET  /api/konnect-file-attente?userProductId=NN   (KONNECT_API_KEY) la file vivante
+ *  GET  /api/konnect-file-attente?userProductId=NN&id=MM   (KONNECT_API_KEY) une inscription
  *  POST /api/konnect-file-attente/transition?userProductId=NN   (KONNECT_API_KEY) un geste
  *
  * QUATRIÈME FLUX MONTANT DE KONNECT, et le seul où Konnect relit ce qu'il a écrit.
@@ -265,6 +266,27 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // Une seule inscription, sortie ou non : la page du lien du SMS dit au patient ce
+  // qu'est devenue sa place (prise, traitée par le centre, délai écoulé). Absente
+  // (purgée) : `inscription: null`, pas un 404 qui se lirait « centre non rattaché ».
+  const idBrut = new URL(req.url).searchParams.get("id");
+  if (idBrut !== null) {
+    const id = Number(idBrut);
+    if (!Number.isInteger(id) || id < 1) {
+      return NextResponse.json({ error: "`id` invalide." }, { status: 400 });
+    }
+    const une = await db.query<InscriptionRow>(
+      `SELECT ${COLONNES_INSCRIPTION}
+         FROM "KonnectFileAttente"
+        WHERE "userProductId" = $1 AND "id" = $2`,
+      [userProductId, id],
+    );
+    return NextResponse.json(
+      { userProductId, inscription: une.rows[0] ?? null },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   const res = await db.query<InscriptionRow>(
     `SELECT ${COLONNES_INSCRIPTION}
        FROM "KonnectFileAttente"
@@ -282,19 +304,17 @@ export async function GET(req: NextRequest) {
       // d'attente, Konnect le supprime puis envoie `rdv_attente_libere` ; s'il ne la
       // porte plus, la secrétaire a donné la place au patient et Konnect n'y touche
       // pas (il envoie aussi `rdv_attente_libere`, pour ne plus le relire).
-      aNettoyer: res.rows
-        .filter(rdvAttenteANettoyer)
-        .map((r) => ({
-          id: r.id,
-          version: r.version,
-          etat: r.etat,
-          codeExamen: r.codeExamen,
-          rdvIdAttente: r.rdvIdAttente,
-          // DeleteRendezVous exige l'identité exacte du patient du RDV.
-          nom: r.nom,
-          prenom: r.prenom,
-          dateNaissance: r.dateNaissance,
-        })),
+      aNettoyer: res.rows.filter(rdvAttenteANettoyer).map((r) => ({
+        id: r.id,
+        version: r.version,
+        etat: r.etat,
+        codeExamen: r.codeExamen,
+        rdvIdAttente: r.rdvIdAttente,
+        // DeleteRendezVous exige l'identité exacte du patient du RDV.
+        nom: r.nom,
+        prenom: r.prenom,
+        dateNaissance: r.dateNaissance,
+      })),
     },
     { headers: { "Cache-Control": "no-store" } },
   );
