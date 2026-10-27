@@ -58,6 +58,8 @@ export const PAGES = {
   // 26/10/2026 : les questionnaires du centre que les patients du portail n'ont pas
   // remplis par le lien de leur confirmation (le pendant d'ORDONNANCES).
   KONNECT_QUESTIONNAIRES: "konnect_questionnaires",
+  // 27/10/2026 : la file d'attente des patients du portail (plan 2026-10-file-attente-konnect).
+  KONNECT_FILE_ATTENTE: "konnect_file_attente",
 
   // --- Transverse ---
   TICKETS: "tickets",
@@ -109,6 +111,7 @@ export const PAGE_GROUPS: { titre: string; pages: PageKey[] }[] = [
       PAGES.KONNECT_REGLES_CLINIQUES,
       PAGES.KONNECT_DEMANDES_RAPPEL,
       PAGES.KONNECT_QUESTIONNAIRES,
+      PAGES.KONNECT_FILE_ATTENTE,
       PAGES.KONNECT_STATS,
       PAGES.KONNECT_RELANCES,
     ],
@@ -149,6 +152,7 @@ export const PAGE_LABELS: Record<PageKey, string> = {
   [PAGES.KONNECT_STATS]: "Statistiques Konnect",
   [PAGES.KONNECT_RELANCES]: "Relances no-show",
   [PAGES.KONNECT_QUESTIONNAIRES]: "Questionnaires des patients",
+  [PAGES.KONNECT_FILE_ATTENTE]: "Liste d'attente",
 
   [PAGES.TICKETS]: "Support (tickets)",
 };
@@ -220,6 +224,7 @@ const SECRETARY_READONLY_PAGES: PageKey[] = [
 
   // `KONNECT_DEMANDES_RAPPEL` reste en ecriture, et c'est deliberé : marquer un patient
   // comme rappele est precisement le travail d'une secretaire, pas de la configuration.
+  // Meme chose pour `KONNECT_FILE_ATTENTE` (27/10/2026) : traiter ou retirer un patient.
   // `KONNECT_STATS` et `KONNECT_DASHBOARD` sont en lecture seule par nature.
 ];
 

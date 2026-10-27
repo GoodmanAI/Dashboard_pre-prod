@@ -126,7 +126,8 @@ export type PackKonnect = {
   /**
    * Les domaines `ProductConfig` du portail, **sans** `konnect.ris-identite` ni
    * `konnect.salles` : les salles sont celles d'UN centre, et ce qui est ouvert est
-   * facturé ; un pack recopié ailleurs ne doit ni les déclarer ni les ouvrir.
+   * facturé ; un pack recopié ailleurs ne doit ni les déclarer ni les ouvrir. Ni
+   * `konnect.file-attente` (27/10/2026) : ses clés sont les codes site d'un centre.
    */
   domaines: Record<string, Record<string, unknown>>;
 };
