@@ -28,7 +28,7 @@ import {
  *
  * Les deux mappings restent **séparés**, un par produit : même RIS et mêmes codes,
  * mais Konnect porte quatre réglages que le robot vocal ignore (réservable en ligne,
- * ordonnance obligatoire, injection, liste d'attente), et chaque produit a son écran.
+ * ordonnance obligatoire, injection, file d'attente), et chaque produit a son écran.
  *
  * `reservableEnLigne` est le seul endroit où se décide le chemin d'une demande
  * depuis la fin des modes de traitement (chantier `2026-09-konnect-deux-chemins`) :
@@ -68,12 +68,18 @@ type LigneMapping = {
    * l'équipe a ouvertes au portail. Vide = toutes les salles ouvertes du type.
    */
   postes: string[];
+  /**
+   * Case « File d'attente » (27/10/2026, plan `2026-10-file-attente-konnect`) : sans
+   * créneau, le patient s'inscrit en file au lieu de demander un rappel. Sans effet,
+   * et ramenée à `false` à l'écriture, si l'examen n'est pas réservable en ligne.
+   */
+  fileAttente: boolean;
 };
 
 const COLONNES = `"codeExamen", "typeExamen", "libelle", "codeExamenClient",
                   "codeExamenInjection", "typeExamenClient", "libelleClient",
                   "performed", "reservableEnLigne", "ordoOblig", "examenInjecte",
-                  "postes"`;
+                  "postes", "fileAttente"`;
 
 /** Les salles du portail (`konnect.salles`) et la version du domaine, 0 si absent. */
 async function sallesDuPortail(
@@ -164,6 +170,9 @@ function versCatalogueKonnect(lignes: LigneMapping[], salles: SallesKonnect) {
       // offre le rappel. C'est la seule chose qui distingue les deux parcours
       // depuis la fin des modes de traitement.
       reservable_en_ligne: l.reservableEnLigne && postes !== null,
+      // Sans créneau, Konnect propose la file d'attente au lieu du rappel. Seulement
+      // pour un examen réservable : un examen à rappel n'a pas de file (K1).
+      file_attente: l.fileAttente && l.reservableEnLigne && postes !== null,
       // Les numéros de poste où Konnect cherche les créneaux et accepte une
       // réservation. `[]` = toutes les salles.
       postes: postes ?? [],
@@ -249,7 +258,7 @@ export async function GET(req: NextRequest) {
         amorce: true,
         source: amorce.source,
         motif: amorce.motif,
-        examens: amorce.lignes.map((l) => ({ ...l, postes: [] })),
+        examens: amorce.lignes.map((l) => ({ ...l, postes: [], fileAttente: false })),
         sallesOuvertes: sallesOuvertesParType(salles.config),
         typesFermes: typesSansSalleOuverte(salles.config),
       },
@@ -276,13 +285,17 @@ export async function GET(req: NextRequest) {
 /**
  * Normalise une ligne du formulaire. Lève si elle est inexploitable.
  *
- * `postes` absent reste `undefined` : un import de pack ou un ancien écran ne les
- * porte pas, et le PUT garde alors ceux déjà enregistrés au lieu de les effacer.
+ * `postes` et `fileAttente` absents restent `undefined` : un import de pack ou un
+ * ancien écran ne les porte pas, et le PUT garde alors ceux déjà enregistrés au lieu
+ * de les effacer.
  */
 function normaliser(
   brut: any,
   index: number
-): Omit<LigneMapping, "postes"> & { postes: string[] | undefined } {
+): Omit<LigneMapping, "postes" | "fileAttente"> & {
+  postes: string[] | undefined;
+  fileAttente: boolean | undefined;
+} {
   const code = typeof brut?.codeExamen === "string" ? brut.codeExamen.trim() : "";
   if (!code) {
     // Le code NEURACORP est la clé du mapping : sans lui la ligne ne désigne rien.
@@ -304,6 +317,7 @@ function normaliser(
     ordoOblig: brut?.ordoOblig === true,
     examenInjecte: brut?.examenInjecte === true,
     postes: brut?.postes === undefined ? undefined : normaliserPostesExamen(brut.postes),
+    fileAttente: brut?.fileAttente === undefined ? undefined : brut.fileAttente === true,
   };
 }
 
@@ -354,14 +368,18 @@ export async function PUT(req: NextRequest) {
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? "Ligne invalide" }, { status: 400 });
   }
-  const anciens = await db.query<{ codeExamen: string; postes: string[] | null }>(
-    `SELECT "codeExamen", "postes" FROM "KonnectExamens" WHERE "userProductId" = $1`,
+  const anciens = await db.query<{ codeExamen: string; postes: string[] | null; fileAttente: boolean }>(
+    `SELECT "codeExamen", "postes", "fileAttente" FROM "KonnectExamens" WHERE "userProductId" = $1`,
     [userProductId]
   );
   const postesAnciens = new Map(anciens.rows.map((r) => [r.codeExamen, r.postes ?? []]));
+  const fileAnciens = new Map(anciens.rows.map((r) => [r.codeExamen, r.fileAttente === true]));
   const lignes: LigneMapping[] = lues.map((l) => ({
     ...l,
     postes: l.postes ?? postesAnciens.get(l.codeExamen) ?? [],
+    // Un examen à rappel n'a pas de file : la case retombe, plutôt que de rester
+    // cochée sans effet et de surprendre le jour où l'examen redevient réservable.
+    fileAttente: l.reservableEnLigne && (l.fileAttente ?? fileAnciens.get(l.codeExamen) ?? false),
   }));
 
   const vus = new Set<string>();
@@ -401,8 +419,8 @@ export async function PUT(req: NextRequest) {
         `INSERT INTO "KonnectExamens"
            ("userProductId", "codeExamen", "typeExamen", "libelle", "codeExamenClient",
             "codeExamenInjection", "typeExamenClient", "libelleClient", "performed",
-            "reservableEnLigne", "ordoOblig", "examenInjecte", "postes")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+            "reservableEnLigne", "ordoOblig", "examenInjecte", "postes", "fileAttente")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
         [
           userProductId,
           l.codeExamen,
@@ -417,6 +435,7 @@ export async function PUT(req: NextRequest) {
           l.ordoOblig,
           l.examenInjecte,
           l.postes,
+          l.fileAttente,
         ]
       );
     }

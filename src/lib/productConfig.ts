@@ -179,6 +179,17 @@ export const DOMAINES: Record<string, Domaine> = {
     libelle: "Consignes quand le planning est complet",
     page: PAGES.KONNECT_PARAMETRAGE,
   },
+  // 27/10/2026 : par site, la place proposée à un patient de la file d'attente est-elle
+  // tenue par un vrai RDV portant la caractéristique d'attente du centre ? Réglé par le
+  // centre (son outil SMS peut réagir à la création d'un RDV), lu par Konnect. Forme et
+  // validation : `src/lib/konnectFileAttente.ts` ; plan `2026-10-file-attente-konnect`.
+  "konnect.file-attente": {
+    cle: "konnect.file-attente",
+    produit: "konnect",
+    cleApiEnv: "KONNECT_API_KEY",
+    libelle: "File d'attente : place tenue par site",
+    page: PAGES.KONNECT_PARAMETRAGE,
+  },
   // 15/10/2026 : les créneaux que le centre signale comme plages privées (code
   // médecin ou valeur de dépassement), avec la consigne lue par le patient. Forme et
   // validation : `src/lib/konnectPlagesPrivees.ts`. Distinct de `talk.site`.

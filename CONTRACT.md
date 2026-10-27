@@ -242,7 +242,7 @@ lui manquent. Les cabinets nés avant le 15/09 n'ont pas de slug et n'y figurent
 Toutes en **lecture seule** : le `PUT` de ces routes refuse un appel par clé, la
 configuration se pilote depuis le Dashboard.
 
-**Deux exceptions, et elles sont délibérées.**
+**Des exceptions, toutes délibérées** (rappel, remontée, lien des documents, file d'attente).
 
 **1.** `POST /api/konnect-demandes-rappel?userProductId=NN` (02/09/2026). Konnect y dépose la
 demande de rappel d'un patient dont l'examen n'est pas coché « Réservable en ligne »
@@ -351,8 +351,9 @@ Migration : `prisma/migrations/manual/2026_09_08_konnect_remontee.sql`, à appli
 **avant** le déploiement du code. Sans elle le `POST` échoue, Konnect le traite comme
 « indisponible », et rien ne casse côté patient.
 
-⚠️ **`KonnectDemandesRappel` est la SEULE table de cette base qui porte de la donnée
-patient** (nom, prénom, téléphone). Q33 et Q34 restent ouverts. Trois règles qui ne se
+⚠️ **`KonnectDemandesRappel` et, depuis le 27/10/2026, `KonnectFileAttente` sont les
+tables de cette base qui portent de la donnée patient venue de Konnect** (nom, prénom,
+téléphone ; date de naissance en plus pour la file). Q33 et Q34 restent ouverts. Trois règles qui ne se
 négocient pas : le strict minimum descend (jamais l'ordonnance ni le questionnaire),
 l'`auditLog` ne compte que des volumes, et la purge à 90 jours après traitement est
 obligatoire (`scripts/db-maintenance/purge_konnect_demandes_rappel.sh`).
@@ -373,6 +374,42 @@ le centre peut en choisir par examen (`KonnectExamens.postes`, SQL
 sans salle déclarée). Aucune salle ouverte pour l'examen : `reservable_en_ligne: false`
 (rappel). L'ETag du catalogue intègre la version de `konnect.salles`. Konnect ne lit pas
 ce domaine. Plan : `lyrae/plans/2026-10-salles-ouvertes-konnect.md`.
+
+**4. File d'attente (27/10/2026)**, le quatrième flux montant, décidé le 27/10
+(`lyrae/DECISIONS.md`, plan `lyrae/plans/2026-10-file-attente-konnect.md`). Clé `KONNECT_API_KEY` :
+
+- `POST /api/konnect-file-attente?userProductId=NN` : inscription. Corps : `referenceKonnect`,
+  `codeExamen` (code RIS du centre), `nom`, `prenom`, `dateNaissance` (AAAA-MM-JJ),
+  `telephone` (portable), `sites` (codes site, `[]` = tous), `examenLibelle` facultatif.
+  409 si l'examen n'est pas coché « File d'attente » ou plus réservable. Même patient, même
+  code, encore en file : 200 `deja: true`, téléphone et sites rafraîchis, rang inchangé.
+  `referenceKonnect` rend le dépôt idempotent.
+- `GET /api/konnect-file-attente?userProductId=NN` : la file vivante dans l'ordre
+  d'inscription (`inscriptions`, données patient comprises) et `aNettoyer` (RDV d'attente à
+  relire dans Xplore). **Sans cache** : Konnect la relit à chaque passage de son moteur et
+  n'en garde aucune copie.
+- `GET /api/konnect-file-attente?userProductId=NN&id=MM` (lot L6, 27/10/2026) : une seule
+  inscription, sortie ou non (`{ inscription }`, `null` si purgée). Lue par la page du lien
+  du SMS de Konnect, qui dit au patient ce qu'est devenue sa place.
+- `POST /api/konnect-file-attente/transition?userProductId=NN` : un geste du moteur,
+  `{ id, version, geste, creneau?, reponseAvant?, rdvIdAttente?, rdvId? }`. Gestes :
+  `proposer`, `attacher_rdv`, `commencer_confirmation`, `confirmer`, `echec_confirmation`,
+  `refuser_date`, `plus_besoin`, `delai_ecoule`, `rendre`, `rdv_attente_libere`. Chaque
+  geste verrouille la ligne, vérifie l'état attendu et la version lue : **409 = la ligne a
+  bougé (secrétaire, autre passe), Konnect abandonne le geste et relit**. Réponse
+  `{ id, etat, version }`.
+
+États (`src/lib/konnectFileAttente.ts`, énumération, ne jamais renommer) : `en_file`,
+`proposition`, `confirmation_en_cours`, `pris_par_la_file`, `traite_secretaire`,
+`retire_secretaire`, `retire_patient`, `sans_reponse`, `refus_repetes`, `expire_60j`.
+Le catalogue `konnect-examens` porte `file_attente` par examen (vrai seulement si
+réservable). Le domaine `konnect.file-attente` (`{ sites: { [codeSite]: { placeTenue,
+caracteristique } } }`, lu par la clé, écrit depuis « Paramètres du portail ») dit, par
+site, si la place proposée est tenue par un RDV Xplore portant la caractéristique
+d'attente. Tables `KonnectFileAttente` (données patient, purge 30 jours après la sortie,
+expiration à 60 jours : `scripts/db-maintenance/purge_konnect_file_attente.sh`) et
+`KonnectFileAttenteEvenement` (sans donnée patient, garde les statistiques). SQL :
+`2026_10_27_konnect_file_attente.sql`, **avant** le déploiement du code.
 
 `GET /api/konnect-installation` (lot G6) n'est **pas** une route machine-à-machine :
 session admin uniquement, aucune clé d'API. Elle agrège l'état d'installation des
