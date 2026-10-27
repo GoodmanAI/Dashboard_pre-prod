@@ -20,12 +20,12 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
+import EnTete from "@/components/shared/EnTeteTableau";
 import { MOTIFS_RAPPEL, type MotifRappel } from "@/lib/konnectDemandesRappel";
 import { INK, INK_MUTED, BORDER, SURFACE, SURFACE_MUTED } from "@/lib/jetons";
 
@@ -78,42 +78,6 @@ const STATUTS: Record<string, { libelle: string; fg: string; bg: string }> = {
   rappele: { libelle: "Rappelé", fg: "#1E8A5B", bg: "#E5F5EE" },
   sans_suite: { libelle: "Sans suite", fg: "#5A6B7B", bg: "#F1F5F9" },
 };
-
-function EnTete({
-  children,
-  aide,
-  largeur,
-}: {
-  children: React.ReactNode;
-  aide?: string;
-  largeur?: number;
-}) {
-  const cellule = (
-    <TableCell
-      sx={{
-        bgcolor: SURFACE_MUTED,
-        color: INK_MUTED,
-        fontWeight: 600,
-        fontSize: 11.5,
-        textTransform: "uppercase",
-        letterSpacing: "0.05em",
-        borderBottom: `1px solid ${BORDER}`,
-        width: largeur,
-        whiteSpace: "nowrap",
-        py: 1.25,
-      }}
-    >
-      {children}
-    </TableCell>
-  );
-  return aide ? (
-    <Tooltip title={aide} placement="top">
-      {cellule}
-    </Tooltip>
-  ) : (
-    cellule
-  );
-}
 
 /** « il y a 3 jours », plus parlant qu'une date pour une file d'appels. */
 function depuis(iso: string): string {

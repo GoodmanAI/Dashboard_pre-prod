@@ -15,6 +15,7 @@ import {
   IconCalendarOff,
   IconMessage2,
   IconFileAlert,
+  IconHourglass,
   IconRocket,
   IconChecklist,
   IconListDetails,
@@ -433,6 +434,13 @@ export const KonnectMenuitems: SidebarItem[] = [
     title: "Demandes de rappel",
     icon: IconPhoneCall,
     href: "/client/c/{USER_ID}/konnect/demandes-rappel",
+  },
+  {
+    // 27/10/2026 : la file d'attente des examens sans créneau, par code examen.
+    id: uniqueId(),
+    title: "Liste d'attente",
+    icon: IconHourglass,
+    href: "/client/c/{USER_ID}/konnect/liste-attente",
   },
   {
     // 26/10/2026 : questionnaires du centre non remplis par le lien de la
