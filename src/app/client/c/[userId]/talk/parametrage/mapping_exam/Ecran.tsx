@@ -29,8 +29,6 @@ import {
   ToggleButtonGroup,
   Tooltip,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from "@mui/material";
 import {
   IconArrowLeft,
@@ -62,9 +60,8 @@ import {
   CelluleSalles,
   CelluleType,
   EnTeteMapping,
-  OPTIONS_SEUIL,
   RangeeChamp,
-  SEUIL_FICHES,
+  useFichesSiTropEtroit,
 } from "@/components/mapping/cellules";
 import {
   INK,
@@ -168,6 +165,12 @@ interface TalkPageProps {
   params: { id: string };
 }
 
+/**
+ * Largeur du tableau, somme de ses colonnes : sous elle, l'écran passe en fiches
+ * (`useFichesSiTropEtroit`). À changer avec toute colonne ajoutée ou retirée.
+ */
+const LARGEUR_TABLEAU = 1360;
+
 export default function MappingExam({ params }: TalkPageProps) {
   const router = useRouter();
   const userProductId = Number(params.id);
@@ -182,15 +185,12 @@ export default function MappingExam({ params }: TalkPageProps) {
   const readOnly = !peutEcrire;
 
   /**
-   * En dessous du seuil, chaque examen devient une fiche : tous ses champs visibles
-   * d'un coup, au lieu d'un tableau qu'il faudrait pousser vers la gauche pour
-   * atteindre la colonne qu'on remplit. Voir `SEUIL_FICHES`.
+   * Quand le tableau ne tient pas en entier dans la place réelle, chaque examen devient
+   * une fiche : tous ses champs visibles d'un coup, au lieu d'un tableau qu'il faudrait
+   * pousser vers la gauche pour atteindre la colonne qu'on remplit. Voir
+   * `useFichesSiTropEtroit`.
    */
-  const theme = useTheme();
-  const enFiches = useMediaQuery(
-    theme.breakpoints.down(SEUIL_FICHES),
-    OPTIONS_SEUIL,
-  );
+  const { enFiches, refConteneur } = useFichesSiTropEtroit(LARGEUR_TABLEAU);
 
   const [data, setData] = useState<ExamRow[]>([]);
   const [originalData, setOriginalData] = useState<ExamRow[]>([]);
@@ -820,6 +820,7 @@ export default function MappingExam({ params }: TalkPageProps) {
       {/* -------- Table -------- */}
       {!loading && filtered.length > 0 && (
         <Box
+          ref={refConteneur}
           sx={{
             mt: 3,
             border: `1px solid ${BORDER}`,
@@ -844,7 +845,7 @@ export default function MappingExam({ params }: TalkPageProps) {
             </Stack>
           ) : (
             <TableContainer sx={{ maxHeight: "none" }}>
-              <Table stickyHeader size="small" sx={{ minWidth: 1360 }}>
+              <Table stickyHeader size="small" sx={{ minWidth: LARGEUR_TABLEAU }}>
                 <TableHead>
                   <TableRow>
                     <EnTeteMapping

@@ -21,8 +21,6 @@ import {
   TextField,
   Tooltip,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
@@ -42,9 +40,8 @@ import {
   CelluleSalles,
   CelluleType,
   EnTeteMapping,
-  OPTIONS_SEUIL,
   RangeeChamp,
-  SEUIL_FICHES,
+  useFichesSiTropEtroit,
 } from "@/components/mapping/cellules";
 import { typeSallesExamen } from "@/lib/konnectSalles";
 import type { SallesParType } from "@/lib/sallesExamen";
@@ -90,10 +87,15 @@ import {
  * parcours web que le robot vocal n'a pas :
  *
  * - Réservable en ligne : le patient choisit son créneau seul, ou on le rappelle ;
- * - Ordonnance obligatoire : le portail demande le dépôt de l'ordonnance et signale
- *   le dossier au secrétariat tant qu'elle n'est pas validée. Il ne bloque pas la
- *   réservation (règle `_ordonnance_obligatoire_non_validee` de Konnect, criticité
- *   haute, `INFORMER` + `MARQUER_VALIDATION`).
+ * - File d'attente (27/10/2026) : sans créneau, le patient s'inscrit en liste
+ *   d'attente au lieu d'être rappelé.
+ *
+ * « Ordonnance obligatoire » a quitté l'écran le 27/10/2026 (décision d'Enzo) : elle
+ * n'avait aucun effet visible. La règle de Konnect qu'elle armait n'était évaluée qu'à
+ * l'envoi du questionnaire médical (ordonnance déjà validée, donc jamais vraie), son
+ * message patient n'était appelé par aucun écran, et son signalement visait les files
+ * du secrétariat retirées le 23/09. La colonne `ordoOblig` reste en base et part
+ * toujours au catalogue, inchangée : plus personne ne la règle ici.
  *
  * « Liste d'attente » a disparu pour de bon le 18/09/2026 : la fonction a été
  * retirée de Konnect, la colonne de la base reste en place mais plus personne ne la
@@ -133,6 +135,12 @@ type Ligne = {
 type FiltreAttribution = "tous" | "attribues" | "non_attribues";
 type FiltreChemin = "tous" | "bout_en_bout" | "rappel";
 
+/**
+ * Largeur du tableau, somme de ses colonnes : sous elle, l'écran passe en fiches
+ * (`useFichesSiTropEtroit`). À changer avec toute colonne ajoutée ou retirée.
+ */
+const LARGEUR_TABLEAU = 1240;
+
 export default function MappingExamensKonnect() {
 
   // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
@@ -141,13 +149,12 @@ export default function MappingExamensKonnect() {
   const { userProductId } = useCentreProduit();
 
   /**
-   * En dessous du seuil, chaque examen devient une fiche : tous ses champs visibles
-   * d'un coup, au lieu d'un tableau qu'il faudrait pousser vers la gauche pour
-   * atteindre la colonne qu'on remplit. Même seuil que LyraeTalk, voir
-   * `SEUIL_FICHES`.
+   * Quand le tableau ne tient pas en entier dans la place réelle, chaque examen devient
+   * une fiche : tous ses champs visibles d'un coup, au lieu d'un tableau qu'il faudrait
+   * pousser vers la gauche pour atteindre la colonne qu'on remplit. Voir
+   * `useFichesSiTropEtroit`.
    */
-  const theme = useTheme();
-  const enFiches = useMediaQuery(theme.breakpoints.down(SEUIL_FICHES), OPTIONS_SEUIL);
+  const { enFiches, refConteneur } = useFichesSiTropEtroit(LARGEUR_TABLEAU);
 
   const [lignes, setLignes] = useState<Ligne[]>([]);
   const [initial, setInitial] = useState<Ligne[]>([]);
@@ -651,6 +658,7 @@ export default function MappingExamensKonnect() {
             `overflow-x: auto`. En fiches il n'y a rien a faire defiler, la regle est
             donc inerte, et un second conteneur n'apporterait rien. */}
         <TableContainer
+          ref={refConteneur}
           component={Paper}
           variant="outlined"
           sx={{ overflowX: "auto", borderColor: BORDER, borderRadius: 2 }}
@@ -720,14 +728,6 @@ export default function MappingExamensKonnect() {
                         onChange={(v) => maj(l.codeExamen, "fileAttente", v)}
                       />
                     </RangeeChamp>
-
-                    <RangeeChamp libelle="Ordonnance">
-                      <CaseMapping
-                        coche={l.ordoOblig}
-                        disabled={inactif}
-                        onChange={(v) => maj(l.codeExamen, "ordoOblig", v)}
-                      />
-                    </RangeeChamp>
                   </CarteMapping>
                 );
               })}
@@ -743,7 +743,7 @@ export default function MappingExamensKonnect() {
               )}
             </Stack>
           ) : (
-          <Table size="small" sx={{ minWidth: 1340 }}>
+          <Table size="small" sx={{ minWidth: LARGEUR_TABLEAU }}>
             <TableHead>
               <TableRow>
                 <EnTeteMapping
@@ -793,13 +793,6 @@ export default function MappingExamensKonnect() {
                   align="center"
                 >
                   File d&apos;attente
-                </EnTeteMapping>
-                <EnTeteMapping
-                  aide="Le portail demande au patient de déposer son ordonnance, et signale le dossier au secrétariat tant qu'elle n'est pas validée. Il ne bloque pas la réservation."
-                  largeur={105}
-                  align="center"
-                >
-                  Ordonnance
                 </EnTeteMapping>
               </TableRow>
             </TableHead>
@@ -881,19 +874,12 @@ export default function MappingExamensKonnect() {
                         onChange={(v) => maj(l.codeExamen, "fileAttente", v)}
                       />
                     </TableCell>
-                    <TableCell align="center">
-                      <CaseMapping
-                        coche={l.ordoOblig}
-                        disabled={!l.performed}
-                        onChange={(v) => maj(l.codeExamen, "ordoOblig", v)}
-                      />
-                    </TableCell>
                   </TableRow>
                 );
               })}
               {filtrees.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
                     <Typography variant="body2" sx={{ color: INK_MUTED }}>
                       {lignes.length === 0
                         ? "Aucun examen au référentiel."

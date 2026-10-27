@@ -332,8 +332,8 @@ function DayHoursField({
   onChange: (update: DayHours) => void;
 }) {
   return (
-    <Box sx={{ border: "1px solid #ddd", p: 2, borderRadius: 1 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
+    <Box sx={{ border: "1px solid #ddd", p: { xs: 1.5, sm: 2 }, borderRadius: 1 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
         <Typography variant="subtitle1" sx={{ textTransform: "capitalize" }}>
           {day}
         </Typography>
@@ -350,7 +350,8 @@ function DayHoursField({
       {data.enabled && (
         <Stack spacing={1} mt={2}>
           {data.ranges.map((r, idx) => (
-            <Stack direction="row" spacing={2} key={idx}>
+            // Passe à la ligne sur un téléphone : « Supprimer » sortait du cadre.
+            <Stack direction="row" spacing={2} useFlexGap flexWrap="wrap" alignItems="center" key={idx}>
               <TextField
                 label="Début"
                 type="time"

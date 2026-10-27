@@ -43,9 +43,16 @@ import { trouverProduit } from "@/lib/produits";
     backdropFilter: "blur(4px)",
   }));
 
+  // Sur un téléphone (27/10/2026) : marges réduites et pas de retour à la ligne, la
+  // barre doit tenir en 360 px sans que l'avatar sorte de l'écran.
   const ToolbarStyled = styled(Toolbar)(({ theme }) => ({
     width: "100%",
     color: theme.palette.text.secondary,
+    gap: theme.spacing(0.5),
+    [theme.breakpoints.down("sm")]: {
+      paddingLeft: theme.spacing(1),
+      paddingRight: theme.spacing(1),
+    },
   }));
 
   const Header = ({ toggleMobileSidebar }: HeaderProps) => {
@@ -119,7 +126,9 @@ import { trouverProduit } from "@/lib/produits";
             color="inherit"
             aria-label="menu"
             onClick={toggleMobileSidebar}
-            sx={{ display: { lg: "none", xs: "inline" } }}
+            // `inline-flex` et non `inline` : en `inline`, le bouton gardait la hauteur
+            // d'une ligne de texte et l'icône débordait sur le sélecteur de produit.
+            sx={{ display: { lg: "none", xs: "inline-flex" } }}
           >
             <IconMenu width={20} height={20} />
           </IconButton>
@@ -130,14 +139,16 @@ import { trouverProduit } from "@/lib/produits";
           <SelecteurProduit />
 
           {/* Zone breadcrumb (placeholder) */}
-          <Box sx={{ flexGrow: 1 }}>
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
             <Typography variant="body1" sx={{ fontWeight: 500 }}>
               {generateBreadcrumb()}
             </Typography>
           </Box>
 
           {/* Zone à droite : notifications support, compteur ordonnances, sélecteur de centre, profil */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box
+            sx={{ display: "flex", alignItems: "center", gap: { xs: 0.5, sm: 2 }, minWidth: 0 }}
+          >
             {/* Cloche notifications support (tickets : nouveau message, prise en charge, resolution) */}
             <NotificationBell />
 
@@ -173,8 +184,22 @@ import { trouverProduit } from "@/lib/produits";
             )}
 
             {/* Identité + sélecteur de centre si applicable */}
-            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                minWidth: 0,
+                // Le sélecteur de centre se tronque plutôt que de pousser l'avatar
+                // hors de l'écran.
+                maxWidth: { xs: 120, sm: 260 },
+              }}
+            >
+              <Typography
+                variant="body1"
+                noWrap
+                sx={{ fontWeight: 600, maxWidth: "100%", display: { xs: "none", sm: "block" } }}
+              >
                 {session?.user?.name ?? session?.user?.email}
               </Typography>
 
@@ -194,9 +219,11 @@ import { trouverProduit } from "@/lib/produits";
                   displayEmpty
                   aria-label="Sélection de centre"
                   sx={{
+                    maxWidth: "100%",
                     fontWeight: 600,
                     fontSize: "0.8rem",
                     color: "var(--accent)",
+                    "& .MuiSelect-select": { overflow: "hidden", textOverflow: "ellipsis" },
                     "& .MuiSelect-icon": { color: "var(--accent)", fontSize: 18 },
                   }}
                 >

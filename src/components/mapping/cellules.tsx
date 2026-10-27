@@ -603,33 +603,40 @@ export function CarteMapping({
 }
 
 /**
- * Les options passées à `useMediaQuery` pour évaluer le seuil.
+ * Fiches ou tableau, selon la place RÉELLE (27/10/2026).
  *
- * `noSsr: true` supprime le double rendu de `useMediaQuery` : sans lui, le hook
- * renvoie d'abord `false` (le serveur ne connaît aucune largeur), puis la vraie
- * mesure au rendu suivant. Ces deux écrans sont derrière une session et ne sont
- * jamais indexés : il n'y a rien à gagner à les rendre côté serveur, et un rendu de
- * plus à perdre.
+ * Avant, les deux écrans passaient en fiches sous un seuil de FENÊTRE (`lg`, 1 200 px),
+ * calé le 14/09 pour 1 180 px de colonnes. Deux colonnes plus tard (« Salles » le 26/10,
+ * « File d'attente » le 27/10), le tableau de Konnect faisait 1 340 px : entre 1 200 et
+ * 1 650 px de fenêtre environ, il débordait, et sa barre de défilement horizontale était
+ * sous les 150 lignes. Les cases de droite étaient hors d'atteinte. Un seuil de fenêtre
+ * ignore aussi le menu latéral, replié ou non.
  *
- * ⚠️ Ce drapeau ne protège d'AUCUN clignotement ici, contrairement à ce que j'avais
- * écrit le 14/09/2026 en voyant un `MuiTable-root` dans le HTML servi. Ce tableau-là
- * venait de la page d'aperçu jetable, qui n'a pas d'état de chargement. Les deux
- * écrans réels ne rendent leur tableau qu'une fois les données arrivées
- * (`loading` / `chargement`, vrais au départ), donc après la mesure : le HTML du
- * serveur ne porte jamais la mauvaise disposition. Le gain est d'un rendu, pas d'un
- * clignotement.
+ * On mesure donc le conteneur (`ResizeObserver`) et on le compare à la largeur du
+ * tableau, que chaque écran déclare à côté de son `minWidth` : le tableau n'apparaît que
+ * s'il tient en entier, sinon les fiches. Une colonne ajoutée se règle en changeant ce
+ * nombre, nulle part ailleurs.
+ *
+ * `refConteneur` se pose sur un élément présent dans les DEUX dispositions (sinon la
+ * mesure disparaît avec le tableau). Mesure avant peinture (`useLayoutEffect`) : pas de
+ * tableau affiché une image puis remplacé.
  */
-export const OPTIONS_SEUIL = { noSsr: true } as const;
-
-/**
- * Le seuil en dessous duquel les deux écrans passent en fiches.
- *
- * `lg` = 1 200 px de fenêtre. La zone de contenu est plus étroite que la fenêtre, le
- * menu latéral en prenant environ 270 px : en dessous de ce seuil, les 1 180 px de
- * colonnes ne tiennent plus sans défilement horizontal. Au-dessus, le tableau reste,
- * parce qu'il montre plus de lignes d'un coup et que c'est ce qu'on veut quand on
- * relit un mapping.
- *
- * Une seule constante, pour que les deux produits basculent au même endroit.
- */
-export const SEUIL_FICHES = "lg" as const;
+export function useFichesSiTropEtroit(largeurTableau: number): {
+  enFiches: boolean;
+  refConteneur: (noeud: HTMLElement | null) => void;
+} {
+  const [noeud, setNoeud] = React.useState<HTMLElement | null>(null);
+  const [largeur, setLargeur] = React.useState<number | null>(null);
+  React.useLayoutEffect(() => {
+    if (!noeud) return;
+    const mesurer = () => setLargeur(noeud.clientWidth);
+    mesurer();
+    const observateur = new ResizeObserver(mesurer);
+    observateur.observe(noeud);
+    return () => observateur.disconnect();
+  }, [noeud]);
+  return {
+    enFiches: largeur !== null && largeur < largeurTableau,
+    refConteneur: setNoeud,
+  };
+}

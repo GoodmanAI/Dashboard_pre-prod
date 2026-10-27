@@ -707,6 +707,7 @@ export default function OrdonnancesManquantesPage({ params, canal = "talk" }: Pr
             }}
             variant="scrollable"
             scrollButtons="auto"
+            allowScrollButtonsMobile
             sx={{
               px: 2,
               "& .MuiTab-root": { fontWeight: 600, minHeight: 48 },
