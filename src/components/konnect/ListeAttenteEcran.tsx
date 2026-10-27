@@ -31,7 +31,7 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
-import EnTete from "@/components/shared/EnTeteTableau";
+import EnTete, { SX_COLLEE_A_DROITE } from "@/components/shared/EnTeteTableau";
 import TuileChiffre from "@/components/shared/TuileChiffre";
 import DialogConfirmation from "@/components/shared/DialogConfirmation";
 import { INK, INK_MUTED, BORDER, SURFACE, OK } from "@/lib/jetons";
@@ -433,7 +433,7 @@ export default function ListeAttenteEcran({
                             </EnTete>
                             <EnTete largeur={120}>Inscrit</EnTete>
                             <EnTete>État</EnTete>
-                            <EnTete largeur={300}>Action</EnTete>
+                            <EnTete colle largeur={300}>Action</EnTete>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -516,7 +516,7 @@ export default function ListeAttenteEcran({
                                 <TableCell>
                                   <Etat p={p} />
                                 </TableCell>
-                                <TableCell>
+                                <TableCell sx={SX_COLLEE_A_DROITE}>
                                   <Stack
                                     direction="row"
                                     spacing={0.5}

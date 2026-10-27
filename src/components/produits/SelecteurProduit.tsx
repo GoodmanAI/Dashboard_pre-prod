@@ -199,8 +199,10 @@ export default function SelecteurProduit() {
         sx={{
           color: "var(--accent-deep)",
           bgcolor: "rgba(var(--accent-rgb), 0.10)",
-          px: 1.75,
+          px: { xs: 1, sm: 1.75 },
           py: 1,
+          minWidth: 0,
+          flexShrink: 0,
           borderRadius: 2,
           "&:hover": { bgcolor: "rgba(var(--accent-rgb), 0.18)" },
         }}
@@ -216,7 +218,7 @@ export default function SelecteurProduit() {
             alt={PRODUITS[actif.slug].libelle}
             // Hauteur imposée, largeur libre : les deux noms de produit n'ont pas
             // la même longueur, les figer à la même largeur en déformerait un.
-            style={{ height: 30, width: "auto", display: "block" }}
+            style={{ height: 30, width: "auto", maxWidth: "34vw", objectFit: "contain", objectPosition: "left", display: "block" }}
           />
         ) : (
           <Typography fontWeight={600}>Produits</Typography>

@@ -710,6 +710,9 @@ export default function CallListPage({ params }: CallListPageProps) {
           setTab(v);
           setPage(1);
         }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
         sx={{ mb: 3 }}
       >
         <Tab value="all" label="Tous les appels" />

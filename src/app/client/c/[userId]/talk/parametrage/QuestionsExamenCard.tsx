@@ -229,6 +229,9 @@ export default function QuestionsExamenCard({
             <Tabs
               value={onglet}
               onChange={(_, v) => setOnglet(v)}
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
               sx={{ borderBottom: 1, borderColor: "divider" }}
             >
               {ARBRE_QUESTIONS.map((a) => (

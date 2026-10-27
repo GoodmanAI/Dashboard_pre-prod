@@ -1838,7 +1838,9 @@ export default function StatsAppelPage({ params }: any) {
               spacing={1.5}
               sx={{ mb: 1.5, flexWrap: "wrap", gap: 1 }}
             >
-              <Box sx={{ flex: 1, minWidth: 0 }}>
+              {/* Toute la largeur sur un téléphone : en colonne, la boîte prenait la
+                  largeur de son contenu et le sous-titre sortait du cadre. */}
+              <Box sx={{ flex: 1, minWidth: 0, width: { xs: "100%", sm: "auto" } }}>
                 <Typography variant="h6" fontWeight={700}>
                   Heatmap d&apos;activité
                 </Typography>
@@ -1851,7 +1853,9 @@ export default function StatsAppelPage({ params }: any) {
                 onChange={(_, v) => setHeatmapMetric(v as HeatmapMetricKey)}
                 variant="scrollable"
                 scrollButtons="auto"
+                allowScrollButtonsMobile
                 sx={{
+                  maxWidth: "100%",
                   minHeight: 36,
                   "& .MuiTab-root": {
                     fontWeight: 600,
