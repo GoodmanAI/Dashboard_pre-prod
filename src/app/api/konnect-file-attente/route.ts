@@ -290,6 +290,10 @@ export async function GET(req: NextRequest) {
           etat: r.etat,
           codeExamen: r.codeExamen,
           rdvIdAttente: r.rdvIdAttente,
+          // DeleteRendezVous exige l'identité exacte du patient du RDV.
+          nom: r.nom,
+          prenom: r.prenom,
+          dateNaissance: r.dateNaissance,
         })),
     },
     { headers: { "Cache-Control": "no-store" } },
