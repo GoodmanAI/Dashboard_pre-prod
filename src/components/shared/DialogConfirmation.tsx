@@ -25,6 +25,7 @@ export default function DialogConfirmation({
   libelleAction,
   destructif = false,
   enCours = false,
+  focusSurAction = true,
   onConfirmer,
   onAnnuler,
 }: {
@@ -36,6 +37,8 @@ export default function DialogConfirmation({
   /** En rouge quand le geste ne se rattrape pas. */
   destructif?: boolean;
   enCours?: boolean;
+  /** `false` quand le texte porte un champ à remplir, qui prend le focus. */
+  focusSurAction?: boolean;
   onConfirmer: () => void;
   onAnnuler: () => void;
 }) {
@@ -67,7 +70,7 @@ export default function DialogConfirmation({
           color={destructif ? "error" : "primary"}
           onClick={onConfirmer}
           disabled={enCours}
-          autoFocus={!destructif}
+          autoFocus={!destructif && focusSurAction}
         >
           {libelleAction}
         </Button>

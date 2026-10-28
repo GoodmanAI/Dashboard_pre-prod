@@ -10,7 +10,10 @@
 #   - "steps"                  -> '[]'          (la transcription)
 #   - "stats"->'phoneNumber'   -> retiré        (le numéro appelant)
 #   - "stats"->'entites'       -> retiré        (nom, prénom, date de naissance extraits)
+#   - "flagComment"            -> NULL          (commentaire du signalement, texte libre
+#                                                de la secrétaire, depuis le 28/10/2026)
 #   - "anonymiseeLe"           -> maintenant
+# "flagged" et "flaggedAt" restent : le signalement compte encore, son texte non.
 # Le reste de "stats" fait les statistiques (RDV pris, examen, issue, durée...) et
 # reste. "stats"->'internal' est gardé (décision du 28/09/2026) : compteurs et
 # latences, aucune donnée patient.
@@ -120,6 +123,7 @@ while true; do
              ),
              steps = '[]'::jsonb,
              stats = cc.stats::jsonb - 'phoneNumber' - 'entites',
+             \"flagComment\" = NULL,
              \"anonymiseeLe\" = now() AT TIME ZONE 'UTC'
         FROM cible
        WHERE cc.id = cible.id

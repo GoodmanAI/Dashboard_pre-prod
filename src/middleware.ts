@@ -69,6 +69,10 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   //  - GET  : page /admin/deployments (session admin) OU daily-report (API key),
   //           auth mixte côté handler. Whitelisté car l'appel cron n'a pas de session.
   /^\/api\/deployments$/,
+  // Appels signalés par les clients (lot 0 de l'amélioration continue, 28/10/2026) :
+  // daily-report les lit chaque matin. Clé API SEULE côté handler
+  // (DAILY_REPORT_API_KEY, lecture seule) : la liste couvre tout le parc.
+  /^\/api\/incidents-signales$/,
   // Configuration LyraeKonnect (chantier multi-produit, 2026-08-24) :
   //  - GET  : Konnect vient lire la config de son cabinet → x-api-key
   //           KONNECT_API_KEY, distincte de BOT_API_KEY pour rester
