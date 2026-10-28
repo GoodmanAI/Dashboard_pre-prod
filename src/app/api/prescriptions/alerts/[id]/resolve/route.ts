@@ -123,6 +123,11 @@ export async function POST(
         )`,
     [uploadId]
   );
+  // Le statut de suivi de la carte (28/10/2026) n'a plus d'objet.
+  await db.query(
+    `DELETE FROM "SuiviCarte" WHERE "uploadId" = $1 AND "piece" = $2`,
+    [uploadId, section]
+  );
 
   // Diffusion websocket : notifie tous les clients connectes (autres pages
   // du dashboard, autres sessions secretaire du meme centre) pour rafraichir
