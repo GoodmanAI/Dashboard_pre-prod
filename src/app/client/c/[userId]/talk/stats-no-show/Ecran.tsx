@@ -20,6 +20,8 @@ import {
 import { startOfDay, endOfDay, subDays } from "date-fns";
 import SectionHeader from "@/components/admin/SectionHeader";
 import DateRangePresets from "@/components/DateRangePresets";
+import { useFiltresRecherche } from "@/lib/recherche/integre";
+import { plageDePeriode } from "@/lib/recherche/periode";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import { EXAM_TYPE_KEYS, ExamTypeKey } from "@/lib/smsConfirmationConfig";
@@ -144,10 +146,14 @@ interface Props {
 export default function StatsNoShowPage({ params }: Props) {
   const userProductId = Number(params.id);
 
-  const [range, setRange] = useState<DateRange>({
-    from: startOfDay(subDays(new Date(), 29)),
-    to: endOfDay(new Date()),
-  });
+  const filtresRecherche = useFiltresRecherche();
+  const [range, setRange] = useState<DateRange>(
+    () =>
+      plageDePeriode(filtresRecherche.periode) ?? {
+        from: startOfDay(subDays(new Date(), 29)),
+        to: endOfDay(new Date()),
+      }
+  );
   const [showPicker, setShowPicker] = useState(false);
 
   const [config, setConfig] = useState<ConfigResponse | null>(null);
@@ -307,7 +313,7 @@ export default function StatsNoShowPage({ params }: Props) {
 
             {/* ---------- Tuiles KPI ---------- */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={4} id="sms_envoyes">
                 {loading || !stats ? (
                   <KpiTileSkeleton />
                 ) : (
@@ -319,7 +325,7 @@ export default function StatsNoShowPage({ params }: Props) {
                   />
                 )}
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={4} id="confirmations_via_rappel">
                 {loading || !stats ? (
                   <KpiTileSkeleton />
                 ) : (
@@ -331,7 +337,7 @@ export default function StatsNoShowPage({ params }: Props) {
                   />
                 )}
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={4} id="annulations_via_rappel">
                 {loading || !stats ? (
                   <KpiTileSkeleton />
                 ) : (

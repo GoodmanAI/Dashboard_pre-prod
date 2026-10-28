@@ -50,6 +50,8 @@ import {
 import { fr } from "date-fns/locale";
 import SectionHeader from "@/components/admin/SectionHeader";
 import DateRangePresets from "@/components/DateRangePresets";
+import { useFiltresRecherche } from "@/lib/recherche/integre";
+import { plageDePeriode } from "@/lib/recherche/periode";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 
@@ -637,10 +639,14 @@ interface Props {
 export default function PlanningCompletPage({ params }: Props) {
   const userProductId = Number(params.id);
 
-  const [range, setRange] = useState<DateRange>({
-    from: startOfDay(subDays(new Date(), 6)),
-    to: endOfDay(new Date()),
-  });
+  const filtresRecherche = useFiltresRecherche();
+  const [range, setRange] = useState<DateRange>(
+    () =>
+      plageDePeriode(filtresRecherche.periode) ?? {
+        from: startOfDay(subDays(new Date(), 6)),
+        to: endOfDay(new Date()),
+      }
+  );
   const [showPicker, setShowPicker] = useState(false);
 
   const [data, setData] = useState<AggregateResponse | null>(null);
@@ -1167,7 +1173,7 @@ export default function PlanningCompletPage({ params }: Props) {
             </Typography>
           </Card>
         ) : data ? (
-          <Stack spacing={3}>
+          <Stack spacing={3} id="planning_complet">
             {/* === Planning complet confirmé === */}
             {data.confirmed.items.length > 0 && (
               <Box>
@@ -1629,7 +1635,7 @@ export default function PlanningCompletPage({ params }: Props) {
               </Typography>
             </Card>
           ) : examNonPris ? (
-            <Stack spacing={3}>
+            <Stack spacing={3} id="examens_non_couverts">
               {/* === Codes examens précis (Cas A) === */}
               {examNonPris.codes.items.length > 0 && (
                 <Box>

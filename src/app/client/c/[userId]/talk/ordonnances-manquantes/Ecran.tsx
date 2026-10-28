@@ -771,24 +771,28 @@ export default function OrdonnancesManquantesPage({ params, canal = "talk" }: Pr
             }}
           >
             <Tab
+              id="en_attente"
               value="pending"
               icon={<WarningAmber sx={{ fontSize: 18 }} />}
               iconPosition="start"
               label={`Ordonnances en attente (${orderedItems.length})`}
             />
             <Tab
+              id="questionnaires"
               value="documents"
               icon={<Assignment sx={{ fontSize: 18 }} />}
               iconPosition="start"
               label={`Questionnaires et documents (${orderedDocItems.length})`}
             />
             <Tab
+              id="par_mail"
               value="par-mail"
               icon={<MailOutline sx={{ fontSize: 18 }} />}
               iconPosition="start"
               label={`À vérifier dans la boîte mail (${parMailItems.length})`}
             />
             <Tab
+              id="refusees"
               value="rejected"
               icon={<IconAlertTriangle size={18} />}
               iconPosition="start"

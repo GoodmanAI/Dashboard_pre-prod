@@ -319,7 +319,7 @@ export default function ParametrageKonnectPage() {
         />
 
         {/* ---------------- Identité du centre ---------------- */}
-        <Accordion defaultExpanded>
+        <Accordion id="identite" defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6">Identité du centre</Typography>
           </AccordionSummary>
@@ -384,7 +384,7 @@ export default function ParametrageKonnectPage() {
         </Accordion>
 
         {/* ---------------- Parcours patient ---------------- */}
-        <Accordion>
+        <Accordion id="parcours">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6">Parcours patient</Typography>
           </AccordionSummary>
@@ -470,7 +470,7 @@ export default function ParametrageKonnectPage() {
         </Accordion>
 
         {/* ---------------- Notifications ---------------- */}
-        <Accordion>
+        <Accordion id="notifications">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6">Notifications au patient</Typography>
           </AccordionSummary>
@@ -584,7 +584,7 @@ export default function ParametrageKonnectPage() {
 
         {/* ---------------- Questionnaires non remplis (26/10/2026) ---------------- */}
         {produitDocuments !== null && (
-          <Accordion>
+          <Accordion id="questionnaires_non_remplis">
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Typography variant="h6">Questionnaires non remplis</Typography>
             </AccordionSummary>
@@ -598,7 +598,7 @@ export default function ParametrageKonnectPage() {
         )}
 
         {/* ---------------- Ordonnance dans Xplore (26/10/2026) ---------------- */}
-        <Accordion>
+        <Accordion id="ordonnance_xplore">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6">Ordonnance dans Xplore</Typography>
           </AccordionSummary>
@@ -611,7 +611,7 @@ export default function ParametrageKonnectPage() {
         </Accordion>
 
         {/* ---------------- Plages privées (15/10/2026) ---------------- */}
-        <Accordion>
+        <Accordion id="plages_privees">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6">Plages privées</Typography>
           </AccordionSummary>
@@ -621,7 +621,7 @@ export default function ParametrageKonnectPage() {
         </Accordion>
 
         {/* ---------------- Planning complet (18/09/2026) ---------------- */}
-        <Accordion>
+        <Accordion id="planning_complet">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6">Planning complet</Typography>
           </AccordionSummary>
@@ -631,7 +631,7 @@ export default function ParametrageKonnectPage() {
         </Accordion>
 
         {/* ---------------- Liste d'attente (27/10/2026) ---------------- */}
-        <Accordion>
+        <Accordion id="liste_attente">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6">Liste d&apos;attente</Typography>
           </AccordionSummary>
@@ -641,7 +641,7 @@ export default function ParametrageKonnectPage() {
         </Accordion>
 
         {/* ---------------- Sécurité clinique ---------------- */}
-        <Accordion>
+        <Accordion id="securite_clinique">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1.5} alignItems="center">
               <Typography variant="h6">Sécurité clinique</Typography>

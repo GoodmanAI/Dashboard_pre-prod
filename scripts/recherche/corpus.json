@@ -970,9 +970,11 @@
       "phrase": "le robot répond quoi pour le parking ?",
       "attendu": {
         "destinations": [
-          "talk/parametrage#accessibilite"
+          "talk/informationnel"
         ],
-        "filtres": {}
+        "filtres": {
+          "texte": "parking"
+        }
       },
       "lot": 1,
       "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."

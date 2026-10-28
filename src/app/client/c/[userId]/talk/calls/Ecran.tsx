@@ -70,6 +70,17 @@ import {
 import { getLanguageMeta, isNonDefaultLanguage } from "@/lib/languages";
 import { getHangupContext } from "@/lib/hangupContext";
 import { MENU_FILTRE } from "@/lib/menuFiltre";
+import { useFiltresRecherche, useIntegre } from "@/lib/recherche/integre";
+import { plageDePeriode } from "@/lib/recherche/periode";
+
+/** Issue d'appel lue par la recherche (`VALEURS_ISSUE`), vers la valeur du filtre de statut. */
+const STATUT_DE_L_ISSUE: Record<string, string> = {
+  rdv_booked: "success",
+  rdv_canceled: "canceled",
+  rdv_modified: "rescheduled",
+  transfert: "transfer:all",
+  raccroche: "hung_up",
+};
 
 function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
   const stats = call.stats;
@@ -244,6 +255,9 @@ export default function CallListPage({ params }: CallListPageProps) {
   const searchParams = useSearchParams();
   const userProductId = Number(params.id);
   const basePath = useTalkBasePath(userProductId);
+  // Monté dans le panneau de la recherche : filtres pris du résultat, URL laissée tranquille.
+  const integre = useIntegre();
+  const filtresRecherche = useFiltresRecherche();
 
   const [calls, setCalls] = useState<CallSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -278,7 +292,19 @@ export default function CallListPage({ params }: CallListPageProps) {
   // diminutif diffère du code canonique apparaîtrait deux fois dans la liste.
   const examTypeOptions = useMemo(() => listerTypesExamen(mapping), [mapping]);
 
+  // Le type d'examen de la recherche est un code robot (`MG`) ; le filtre attend la
+  // valeur du centre, connue une fois le mapping chargé.
+  const typeRecherche = useRef(filtresRecherche.type);
+  useEffect(() => {
+    const option = examTypeOptions.find((o) => o.code === typeRecherche.current);
+    if (!option) return;
+    typeRecherche.current = undefined;
+    setExamTypeFilter(option.valeur);
+  }, [examTypeOptions]);
+
   const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const plage = plageDePeriode(filtresRecherche.periode);
+    if (plage) return plage;
     const today = new Date();
     return {
       from: startOfDay(subDays(today, 6)),
@@ -297,8 +323,16 @@ export default function CallListPage({ params }: CallListPageProps) {
   const [phoneSearch, setPhoneSearch] = useState("");
   const phoneSearchActive = phoneSearch.trim().length > 0;
 
-  // URL → state
+  // URL → state (ou filtres de la recherche)
   useEffect(() => {
+    const issue = filtresRecherche.issue && STATUT_DE_L_ISSUE[filtresRecherche.issue];
+    if (issue) setStatusFilter(issue);
+    if (filtresRecherche.telephone) {
+      setPhoneInput(filtresRecherche.telephone);
+      setPhoneSearch(filtresRecherche.telephone);
+    }
+    if (integre) return;
+
     const pageFromUrl: any = Number(searchParams?.get("page"));
     const statusFromUrl: any = searchParams?.get("status");
     const examTypeFromUrl: any = searchParams?.get("examType");
@@ -361,6 +395,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
   // state → URL
   useEffect(() => {
+    if (integre) return;
     const paramsUrl = new URLSearchParams();
 
     paramsUrl.set("page", String(page));

@@ -50,6 +50,8 @@ export type Fiche = {
   termes: string[];
   /** Filtres que l'écran sait recevoir. Les autres sont ignorés, et on le dit. */
   filtres?: CleFiltre[];
+  /** Termes qui mènent à la fiche mais restent le sujet du filtre `texte` (« parking »). */
+  sujets?: string[];
 };
 
 export type Filtres = Partial<Record<CleFiltre, string>>;
@@ -255,11 +257,12 @@ const VIDES = new Set([
   "est", "ce", "qu", "que", "qui", "il", "elle", "on", "y", "a", "existe", "une", "un", "des", "de",
   "du", "d", "le", "la", "les", "l", "dans", "pour", "par", "sur", "en", "et", "ou", "donne", "donner",
   "dit", "dire", "nos", "notre", "vos", "votre", "je", "veux", "voudrais", "montre", "moi", "affiche",
-  "quel", "quelle", "quels", "quelles", "robot", "patient", "patients",
+  "quel", "quelle", "quels", "quelles", "robot", "patient", "patients", "quoi", "comment", "repond",
 ]);
 
 function lireTexte(m: string[], fiche: Fiche): string | undefined {
-  const exclus = new Set(fiche.termes.flatMap(mots));
+  const sujets = new Set((fiche.sujets ?? []).flatMap(mots));
+  const exclus = new Set(fiche.termes.flatMap(mots).filter((x) => !sujets.has(x)));
   const reste = m.filter((x) => !VIDES.has(x) && !exclus.has(x));
   return reste.length ? reste.join(" ") : undefined;
 }

@@ -52,6 +52,8 @@ import { useCentre } from "@/app/context/CentreContext";
 import { subDays, startOfDay, endOfDay } from "date-fns";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import DateRangePresets from "@/components/DateRangePresets";
+import { useFiltresRecherche } from "@/lib/recherche/integre";
+import { plageDePeriode } from "@/lib/recherche/periode";
 import {
   TransferCategory,
   CATEGORY_META,
@@ -612,6 +614,16 @@ function Heatmap({
    Page principale
 ========================================================= */
 
+/** Ancres de la recherche centrale sur la première rangée de tuiles (`catalogue.ts`). */
+const ANCRES_TUILES = [
+  "total_appels",
+  "prises_de_rdv",
+  "urgences",
+  "informations",
+  "demandes_de_resultats",
+  "heures",
+];
+
 export default function StatsAppelPage({ params }: any) {
   const userProductId = Number(params.id);
   const basePath = useTalkBasePath(userProductId);
@@ -628,7 +640,11 @@ export default function StatsAppelPage({ params }: any) {
   const [loading, setLoading] = useState(true);
 
   // Date range state - CORRIGÉ : déplacé avant les useEffect
+  // Période posée par la recherche (panneau ou lien « Ouvrir l'écran complet »).
+  const filtresRecherche = useFiltresRecherche();
   const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const plage = plageDePeriode(filtresRecherche.periode);
+    if (plage) return plage;
     const today = new Date();
     return {
       from: startOfDay(subDays(today, 6)),
@@ -1704,7 +1720,7 @@ export default function StatsAppelPage({ params }: any) {
       {/* 6 tuiles */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
         {[0, 1, 2, 3, 4, 5].map((i) => (
-          <Grid item xs={12} sm={6} md={4} lg={2} key={i}>
+          <Grid item xs={12} sm={6} md={4} lg={2} key={i} id={ANCRES_TUILES[i]}>
             {loading ? (
               <StatTileSkeleton />
             ) : i === 0 ? (
@@ -1762,7 +1778,7 @@ export default function StatsAppelPage({ params }: any) {
       </Grid>
       <Grid container spacing={2} sx={{ mb: 2 }}>
         {[0, 1, 2, 3, 4].map((i) => (
-          <Grid item xs={12} sm={6} md={2.4} key={i}>
+          <Grid item xs={12} sm={6} md={2.4} key={i} id={i === 3 ? "interventionnel" : undefined}>
             {loading ? (
               <StatTileSkeleton />
             ) : i === 0 ? (
@@ -2011,7 +2027,7 @@ export default function StatsAppelPage({ params }: any) {
 
       {/* 3 blocs supplémentaires */}
       <Grid container spacing={2} sx={{ mt: 2 }}>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={4} id="transferts">
           <Paper sx={{ p: 2, height: 360 }}>
             <Typography variant="h6" fontWeight={700}>
               Raison du transfert

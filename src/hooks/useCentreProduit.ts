@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { SlugProduit } from "@/lib/produits";
 import { lireCheminCentre } from "@/lib/cheminsCentre";
 import type { ProduitDuCentre } from "@/app/api/centre/[userId]/produits/route";
+import { useIntegre } from "@/lib/recherche/integre";
 
 /**
  * Le centre et le produit que la page regarde, d'après l'URL (lot U1).
@@ -83,7 +84,10 @@ function produitsDuCentre(userId: number): Promise<ProduitDuCentre[]> {
 
 export function useCentreProduit(): CentreProduit {
   const pathname = usePathname();
-  const cible = lireCheminCentre(pathname);
+  // Monté dans le panneau de la recherche, l'écran regarde le centre et le produit du
+  // résultat, pas ceux de la page d'en dessous (`src/lib/recherche/integre.tsx`).
+  const integre = useIntegre();
+  const cible = integre ? { userId: integre.userId, produit: integre.produit } : lireCheminCentre(pathname);
   const userId = cible?.userId ?? null;
   const produit = cible?.produit ?? null;
 
