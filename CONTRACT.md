@@ -513,6 +513,17 @@ de lignes et ne peut pas transiter à chaque lecture. Un domaine jamais configur
 **200 avec `{}` en version 0**, jamais 404 — le consommateur doit pouvoir distinguer « pas
 encore configuré » d'une erreur pour appliquer ses défauts.
 
+**Pour le rapport du matin** — header `x-api-key: DAILY_REPORT_API_KEY` (28/10/2026, lot 0
+de `plans/2026-10-amelioration-continue-lyraetalk.md`) : `GET /api/incidents-signales?depuis=<ISO>[&jusqua=<ISO>]`,
+lecture seule, tout le parc, clé seule (jamais une session). Par défaut les 24 dernières
+heures, fenêtre de 31 jours au plus, filtre sur la date du **signalement** (`flaggedAt`).
+Réponse `{ depuis, jusqua, incidents: [{ id, userProductId, appeleLe, flaggedAt, flagComment,
+callId, anonymise }] }`. `callId` = `stats.callId` posé par LyraeTalk depuis la v2.60.1
+(identifiant des lignes Loki), `null` avant. `flagComment` (500 caractères, facultatif) est
+saisi par le client au signalement (`PATCH /api/calls/[id]/flag` reçoit `flagComment`) ; il
+peut porter une donnée patient, n'est jamais journalisé et s'efface avec la transcription
+(`anonymise_appels.sh`). Ni transcription ni numéro ne sortent par cette route.
+
 **Pour les sondes de déploiement** — header `x-api-key: DEPLOY_PROBE_API_KEY` :
 `POST /api/deployments` (écriture, appelée par `deploy/deployment-probe.js` des VMs
 lyraetalk, ai2xplore et dashboard, toutes les 15 min),
@@ -854,6 +865,7 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 | **LyraeKonnect** | 9 chemins, dont 2 en écriture : cabinets attendus, résolution d'identité, configuration cabinet, socle générique par domaine, mapping d'examens, sites. **Le pont est éteint par défaut** (`KONNECT_DASHBOARD_BASE_URL` vide côté Konnect) ; branché, une panne du Dashboard fige sa configuration mais n'arrête pas le portail patient — il sert son cache |
 | **Grafana** | format des logs d'audit |
 | **daily-report** | `GET /api/deployments` — section « Déploiement » du mail quotidien. Dégradation gracieuse de son côté : si la route tombe, la section disparaît, le mail part quand même |
+| **daily-report** (lot 1, à venir) | `GET /api/incidents-signales` (`DAILY_REPORT_API_KEY`) : signalements des clients de la veille, rattachés à Loki par `callId` |
 | **Sondes de déploiement** (3 VMs) | `POST /api/deployments` toutes les 15 min |
 
 **Je n'appelle jamais Konnect, et je ne le pourrai pas** : il passe derrière un VPN, je

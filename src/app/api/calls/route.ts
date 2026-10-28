@@ -112,6 +112,8 @@ async function lireAppels(where: any, sansTranscription: boolean): Promise<any[]
           centerId: true,
           treated: true,
           flagged: true,
+          flaggedAt: true,
+          flagComment: true,
           stats: true,
           createdAt: true,
         },

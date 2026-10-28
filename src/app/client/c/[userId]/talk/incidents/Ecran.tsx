@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 import { useTalkBasePath } from "@/utils/talkRoutes";
 import Transcription from "@/components/transcription/Transcription";
 import PastilleMineur from "@/components/transcription/PastilleMineur";
+import { useSignalement } from "@/components/shared/DialogSignalement";
 import { apercuConversation } from "@/lib/entitesTranscription";
 import { exporterTranscriptionPdf, formatPhoneFR } from "@/lib/transcriptionPdf";
 
@@ -35,6 +36,7 @@ interface FlaggedCall {
   stats: any;
   createdAt: string;
   flagged?: boolean;
+  flagComment?: string | null;
   treated?: boolean;
 }
 
@@ -68,6 +70,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedCall, setSelectedCall] = useState<any | null>(null);
   const [flaggedState, setFlaggedState] = useState<Record<number, boolean>>({});
+  const { demanderCommentaire, dialogue: dialogueSignalement } = useSignalement();
 
   useEffect(() => {
     if (!userProductId || isNaN(userProductId)) return;
@@ -131,14 +134,21 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
 
   const toggleFlag = async (call: FlaggedCall) => {
     const newValue = !flaggedState[call.id];
+    // Même geste que la liste des appels : signaler demande ce qui s'est mal passé.
+    let commentaire: string | null = null;
+    if (newValue) {
+      commentaire = await demanderCommentaire();
+      if (commentaire === null) return;
+    }
     setFlaggedState((prev) => ({ ...prev, [call.id]: newValue }));
 
     try {
-      await fetch(`/api/calls/${call.id}/flag`, {
+      const res = await fetch(`/api/calls/${call.id}/flag`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ flagged: newValue }),
+        body: JSON.stringify({ flagged: newValue, flagComment: commentaire }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       if (!newValue) {
         setCalls((prev) => prev.filter((c) => c.id !== call.id));
@@ -269,6 +279,15 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
                           {apercu.patient && <span>, {apercu.patient}</span>}
                         </Typography>
                       )}
+
+                      {call.flagComment && (
+                        <Typography
+                          variant="caption"
+                          sx={{ color: "text.primary", display: "block", mt: 0.25, whiteSpace: "pre-line" }}
+                        >
+                          <strong>Votre signalement :</strong> {call.flagComment}
+                        </Typography>
+                      )}
                     </Box>
                   </ListItemButton>
 
@@ -340,6 +359,8 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
 
         <Transcription steps={selectedCall?.steps} entites={selectedCall?.stats?.entites} />
       </Drawer>
+
+      {dialogueSignalement}
     </Box>
   );
 }
