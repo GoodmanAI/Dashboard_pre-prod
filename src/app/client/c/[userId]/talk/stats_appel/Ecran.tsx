@@ -84,6 +84,7 @@ import {
   formatDateFr,
 } from "@/lib/csvExport";
 import { IconDownload } from "@tabler/icons-react";
+import { MENU_FILTRE } from "@/lib/menuFiltre";
 
 /* =========================================================
    Types & utils
@@ -2408,6 +2409,7 @@ export default function StatsAppelPage({ params }: any) {
               <Select
                 size="small"
                 value={selectedExamCode}
+                MenuProps={MENU_FILTRE}
                 onChange={(e) => setSelectedExamCode(e.target.value)}
                 sx={{ minWidth: 180 }}
               >
