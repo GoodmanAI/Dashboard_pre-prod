@@ -1,0 +1,981 @@
+{
+  "_lisezmoi": "Corpus du banc de la recherche centrale (plan workspace plans/2026-10-recherche-centrale-dashboard.md, R6). Rejoué par : node --experimental-strip-types scripts/recherche/banc.mjs. Source : enzo = phrase d'Enzo (28/10) ; brouillon = imaginée par Claude, acceptée par Enzo le 28/10 ; temoin = phrase écrite après le premier réglage, pour mesurer la généralisation. Noms de patient inventés : jamais de vraie donnée patient ici. destinations = clés de src/lib/recherche/catalogue.ts ; une clé sans ancre accepte toute ancre de l'écran. Liste vide = la barre doit refuser (action ou hors périmètre). lot = lot du plan.",
+  "phrases": [
+    {
+      "id": "e01",
+      "source": "enzo",
+      "phrase": "Je veux modifier les horaires d'ouverture",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#horaires"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Section « Horaires & disponibilité ». Konnect n'a pas d'horaires réglables (sites : nom et adresse). Secrétaire : lecture seule (parametrage en read)."
+    },
+    {
+      "id": "e02",
+      "source": "enzo",
+      "phrase": "Rendez-vous MAMO vendredi",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "examen": "mammographie",
+          "issue": "rdv_booked",
+          "periode": "vendredi"
+        }
+      },
+      "lot": 1,
+      "note": "Ambigu : appel passé vendredi, ou RDV fixé à vendredi. Le second n'est pas un filtre structuré du plan (R3) : à trancher."
+    },
+    {
+      "id": "e03",
+      "source": "enzo",
+      "phrase": "Rendez-vous scanner injecté patient mineur",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage/questions_exam",
+          "talk/calls"
+        ],
+        "filtres": {
+          "examen": "scanner injecté"
+        }
+      },
+      "lot": 1,
+      "note": "À trancher : le réglage (questions et consignes du scanner injecté chez un mineur) ou les appels. L'âge n'est pas un filtre d'appel (R3)."
+    },
+    {
+      "id": "e04",
+      "source": "enzo",
+      "phrase": "Combien de rendez-vous il y a eu hier ?",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#prises_de_rdv"
+        ],
+        "filtres": {
+          "periode": "hier"
+        }
+      },
+      "lot": 1,
+      "note": "Tuile « Prises de RDV » réglée sur hier. Chiffre : la carte existante, jamais un chiffre formulé (R4)."
+    },
+    {
+      "id": "e05",
+      "source": "enzo",
+      "phrase": "Combien de pourcentage de redirection cette semaine ?",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#transferts"
+        ],
+        "filtres": {
+          "periode": "cette_semaine"
+        }
+      },
+      "lot": 1,
+      "note": "Synonyme : redirection = transfert. Tuile ou graphique exact à repérer dans stats_appel."
+    },
+    {
+      "id": "e06",
+      "source": "enzo",
+      "phrase": "Est-ce qu'il existe une question fréquente qui donne l'email ?",
+      "attendu": {
+        "destinations": [
+          "talk/informationnel"
+        ],
+        "filtres": {
+          "texte": "mail"
+        }
+      },
+      "lot": 1,
+      "note": "Questions fréquentes (ModuleInfoAdmin), recherche dans le texte des réponses. Secrétaire : lecture seule."
+    },
+    {
+      "id": "e07",
+      "source": "enzo",
+      "phrase": "Est-ce qu'on donne les consignes pour du scanner dans les questions fréquentes ?",
+      "attendu": {
+        "destinations": [
+          "talk/informationnel"
+        ],
+        "filtres": {
+          "texte": "scanner consigne"
+        }
+      },
+      "lot": 1
+    },
+    {
+      "id": "e08",
+      "source": "enzo",
+      "phrase": "Quels sont les examens non couverts qui reviennent le plus ?",
+      "attendu": {
+        "destinations": [
+          "talk/planning-complet#examens_non_couverts"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Écran « Examens non couverts » (planning-complet). Période par défaut."
+    },
+    {
+      "id": "e09",
+      "source": "enzo",
+      "phrase": "Quels sont les plannings complets qui ressortent le plus de cette semaine ?",
+      "attendu": {
+        "destinations": [
+          "talk/planning-complet#planning_complet"
+        ],
+        "filtres": {
+          "periode": "cette_semaine"
+        }
+      },
+      "lot": 1
+    },
+    {
+      "id": "e10",
+      "source": "enzo",
+      "phrase": "Quels sont les examens non pris en charge qui ressortent le plus sur le dernier mois ?",
+      "attendu": {
+        "destinations": [
+          "talk/planning-complet#examens_non_couverts"
+        ],
+        "filtres": {
+          "periode": "dernier_mois"
+        }
+      },
+      "lot": 1,
+      "note": "Synonyme : non pris en charge = non couverts. Aussi la tuile « Examen non pris en charge » de stats_appel."
+    },
+    {
+      "id": "e11",
+      "source": "enzo",
+      "phrase": "Combien y a-t-il de rendez-vous non honorés ?",
+      "attendu": {
+        "destinations": [
+          "talk/stats-no-show"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Synonymes : non honoré, absent, no-show, lapin."
+    },
+    {
+      "id": "e12",
+      "source": "enzo",
+      "phrase": "Combien y a-t-il d'annulations via les relances no-show ?",
+      "attendu": {
+        "destinations": [
+          "talk/stats-no-show#annulations_via_rappel"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Tuile « Annulations via rappel »."
+    },
+    {
+      "id": "e13",
+      "source": "enzo",
+      "phrase": "Affiche-moi les ordonnances manquantes",
+      "attendu": {
+        "destinations": [
+          "talk/ordonnances-manquantes"
+        ],
+        "filtres": {}
+      },
+      "lot": 2
+    },
+    {
+      "id": "e14",
+      "source": "enzo",
+      "phrase": "Affiche-moi l'ordonnance de Monsieur Durand",
+      "attendu": {
+        "destinations": [
+          "talk/ordonnances-manquantes#en_attente"
+        ],
+        "filtres": {
+          "nom": "Durand"
+        }
+      },
+      "lot": 2,
+      "note": "Onglet « Ordonnances en attente », filtre sur le nom."
+    },
+    {
+      "id": "e15",
+      "source": "enzo",
+      "phrase": "Montre-moi les incidents",
+      "attendu": {
+        "destinations": [
+          "talk/incidents"
+        ],
+        "filtres": {}
+      },
+      "lot": 2
+    },
+    {
+      "id": "b01",
+      "source": "brouillon",
+      "phrase": "Je veux modifier le code d'examen de la mammo de dépistage",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage/mapping_exam"
+        ],
+        "filtres": {
+          "examen": "mammographie de dépistage"
+        }
+      },
+      "lot": 1,
+      "note": "Exemple du plan. Code non modifiable par une secrétaire : ligne en lecture."
+    },
+    {
+      "id": "b02",
+      "source": "brouillon",
+      "phrase": "La transcription de la dame qui a demandé une mammographie hier",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "examen": "mammographie",
+          "periode": "hier"
+        }
+      },
+      "lot": 1,
+      "note": "Exemple du plan. « la dame » : sexe non stocké, filtre ignoré et dit."
+    },
+    {
+      "id": "b03",
+      "source": "brouillon",
+      "phrase": "Les appels de Madame Martin",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "nom": "Martin"
+        }
+      },
+      "lot": 1
+    },
+    {
+      "id": "b04",
+      "source": "brouillon",
+      "phrase": "Qui a appelé du 06 12 34 56 78 ?",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "telephone": "0612345678"
+        }
+      },
+      "lot": 1
+    },
+    {
+      "id": "b05",
+      "source": "brouillon",
+      "phrase": "Les appels transférés ce matin",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "issue": "transfert",
+          "periode": "ce_matin"
+        }
+      },
+      "lot": 1
+    },
+    {
+      "id": "b06",
+      "source": "brouillon",
+      "phrase": "Pourquoi le robot a transféré monsieur Bernard ?",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "nom": "Bernard",
+          "issue": "transfert"
+        }
+      },
+      "lot": 1,
+      "note": "Le motif (transferReason) s'affiche sur l'appel trouvé."
+    },
+    {
+      "id": "b07",
+      "source": "brouillon",
+      "phrase": "Les rendez-vous annulés par le robot cette semaine",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "issue": "rdv_canceled",
+          "periode": "cette_semaine"
+        }
+      },
+      "lot": 1
+    },
+    {
+      "id": "b08",
+      "source": "brouillon",
+      "phrase": "Les rendez-vous déplacés hier",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "issue": "rdv_modified",
+          "periode": "hier"
+        }
+      },
+      "lot": 1,
+      "note": "Synonymes : déplacé, décalé, modifié."
+    },
+    {
+      "id": "b09",
+      "source": "brouillon",
+      "phrase": "Vers quel numéro le robot transfère pour une IRM ?",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#planning_rempli"
+        ],
+        "filtres": {
+          "type": "MR"
+        }
+      },
+      "lot": 1,
+      "note": "Section « Planning rempli : consignes » (numéro de redirection) ; la redirection par type est à situer dans l'écran."
+    },
+    {
+      "id": "b10",
+      "source": "brouillon",
+      "phrase": "Changer le message d'accueil du robot",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#preferences_generales"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Champ « Message d'accueil personnalisé »."
+    },
+    {
+      "id": "b11",
+      "source": "brouillon",
+      "phrase": "La consigne de préparation de l'échographie abdominale",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#apres_reservation"
+        ],
+        "filtres": {
+          "examen": "échographie abdominale"
+        }
+      },
+      "lot": 1,
+      "note": "Carte « Ce que le robot dit après la réservation » ou « Consignes d'accessibilité et de logistique » : à départager."
+    },
+    {
+      "id": "b12",
+      "source": "brouillon",
+      "phrase": "Le SMS de confirmation qu'on envoie aux patients",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#confirmation_sms"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Carte « Confirmation de RDV par SMS »."
+    },
+    {
+      "id": "b13",
+      "source": "brouillon",
+      "phrase": "Est-ce que le robot prend les rendez-vous d'IRM ?",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#examens_acceptes",
+          "talk/parametrage/mapping_exam"
+        ],
+        "filtres": {
+          "type": "MR"
+        }
+      },
+      "lot": 1,
+      "note": "Section « Examens acceptés »."
+    },
+    {
+      "id": "b14",
+      "source": "brouillon",
+      "phrase": "Les questions posées avant un scanner",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#questions_irm_scanner",
+          "talk/parametrage/questions_exam"
+        ],
+        "filtres": {
+          "type": "CT"
+        }
+      },
+      "lot": 1,
+      "note": "Carte « Questions avant l'IRM et le scanner », puis les questions par examen."
+    },
+    {
+      "id": "b15",
+      "source": "brouillon",
+      "phrase": "Enlever la question sur la grossesse",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#options_questions"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "À confirmer : section « Options : Motif, Questions » ou carte « Questions et documents »."
+    },
+    {
+      "id": "b16",
+      "source": "brouillon",
+      "phrase": "L'écho doppler des jambes, on peut la réserver en ligne ?",
+      "attendu": {
+        "destinations": [
+          "konnect/examens"
+        ],
+        "filtres": {
+          "examen": "écho doppler des membres inférieurs"
+        }
+      },
+      "lot": 1,
+      "note": "Case « Réservable en ligne »."
+    },
+    {
+      "id": "b17",
+      "source": "brouillon",
+      "phrase": "Mettre l'échographie en file d'attente sur le portail",
+      "attendu": {
+        "destinations": [
+          "konnect/examens"
+        ],
+        "filtres": {
+          "examen": "échographie"
+        }
+      },
+      "lot": 1,
+      "note": "Case « File d'attente »."
+    },
+    {
+      "id": "b18",
+      "source": "brouillon",
+      "phrase": "Les sites ouverts sur le portail patient",
+      "attendu": {
+        "destinations": [
+          "konnect/sites"
+        ],
+        "filtres": {}
+      },
+      "lot": 1
+    },
+    {
+      "id": "b19",
+      "source": "brouillon",
+      "phrase": "Dans quel ordre le portail propose les créneaux ?",
+      "attendu": {
+        "destinations": [
+          "konnect/ordre-creneaux"
+        ],
+        "filtres": {}
+      },
+      "lot": 1
+    },
+    {
+      "id": "b20",
+      "source": "brouillon",
+      "phrase": "Les examens qu'on ne peut pas faire le même jour",
+      "attendu": {
+        "destinations": [
+          "konnect/paires-examens"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "regles-coexistence redirige vers paires-examens."
+    },
+    {
+      "id": "b21",
+      "source": "brouillon",
+      "phrase": "Quand un patient tape « mammo » sur le portail, il arrive où ?",
+      "attendu": {
+        "destinations": [
+          "konnect/mots-cabinet"
+        ],
+        "filtres": {
+          "examen": "mammographie"
+        }
+      },
+      "lot": 1,
+      "note": "« Mots du cabinet » : mot tapé par le patient → recherche ou examen visé."
+    },
+    {
+      "id": "b22",
+      "source": "brouillon",
+      "phrase": "L'écho et la mammo le même jour, c'est réglé où ?",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#doubles_examens",
+          "talk/parametrage/mapping_exam/double_exam",
+          "konnect/paires-examens"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Deux produits."
+    },
+    {
+      "id": "b23",
+      "source": "brouillon",
+      "phrase": "Les patients en file d'attente",
+      "attendu": {
+        "destinations": [
+          "konnect/liste-attente"
+        ],
+        "filtres": {}
+      },
+      "lot": 2
+    },
+    {
+      "id": "b24",
+      "source": "brouillon",
+      "phrase": "Les demandes de rappel pas encore traitées",
+      "attendu": {
+        "destinations": [
+          "konnect/demandes-rappel"
+        ],
+        "filtres": {
+          "etat": "en_attente"
+        }
+      },
+      "lot": 2
+    },
+    {
+      "id": "b25",
+      "source": "brouillon",
+      "phrase": "Madame Lefèvre a demandé qu'on la rappelle",
+      "attendu": {
+        "destinations": [
+          "konnect/demandes-rappel"
+        ],
+        "filtres": {
+          "nom": "Lefèvre"
+        }
+      },
+      "lot": 2
+    },
+    {
+      "id": "b26",
+      "source": "brouillon",
+      "phrase": "Les questionnaires remplis aujourd'hui",
+      "attendu": {
+        "destinations": [
+          "konnect/questionnaires",
+          "talk/ordonnances-manquantes#questionnaires"
+        ],
+        "filtres": {
+          "periode": "aujourd_hui"
+        }
+      },
+      "lot": 2,
+      "note": "Les deux produits ont une liste de questionnaires (même écran, canal différent)."
+    },
+    {
+      "id": "b27",
+      "source": "brouillon",
+      "phrase": "Combien d'appels aujourd'hui ?",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#total_appels",
+          "talk#appels_aujourd_hui"
+        ],
+        "filtres": {
+          "periode": "aujourd_hui"
+        }
+      },
+      "lot": 1,
+      "note": "Tuile « Total d'appels », ou « Appels (aujourd'hui) » de l'accueil Talk."
+    },
+    {
+      "id": "b28",
+      "source": "brouillon",
+      "phrase": "Les statistiques du portail ce mois-ci",
+      "attendu": {
+        "destinations": [
+          "konnect/statistiques"
+        ],
+        "filtres": {
+          "periode": "ce_mois"
+        }
+      },
+      "lot": 1
+    },
+    {
+      "id": "b29",
+      "source": "brouillon",
+      "phrase": "Les relances envoyées aux patients absents",
+      "attendu": {
+        "destinations": [
+          "talk/stats-no-show",
+          "konnect/relances-no-show"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Même écran sous les deux produits."
+    },
+    {
+      "id": "b30",
+      "source": "brouillon",
+      "phrase": "Annule le rendez-vous de madame Petit",
+      "attendu": {
+        "destinations": [],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Négatif : la barre ne fait aucune action. Elle le dit, et propose les appels de Petit."
+    },
+    {
+      "id": "b31",
+      "source": "brouillon",
+      "phrase": "Changer mon mot de passe",
+      "attendu": {
+        "destinations": [],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Négatif : profil hors périmètre (R4)."
+    },
+    {
+      "id": "b32",
+      "source": "brouillon",
+      "phrase": "La liste de tous les centres clients",
+      "attendu": {
+        "destinations": [],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Négatif : pages /admin jamais atteintes (R0)."
+    },
+    {
+      "id": "b33",
+      "source": "brouillon",
+      "phrase": "Les appels des hommes de plus de 60 ans",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Sexe et âge non stockés : filtres ignorés et dits (R3)."
+    },
+    {
+      "id": "b34",
+      "source": "brouillon",
+      "phrase": "Urgences de la semaine",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#urgences"
+        ],
+        "filtres": {
+          "periode": "cette_semaine"
+        }
+      },
+      "lot": 1,
+      "note": "Tuile « Urgences détectées »."
+    },
+    {
+      "id": "b35",
+      "source": "brouillon",
+      "phrase": "Demandes de résultats hier",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#demandes_de_resultats"
+        ],
+        "filtres": {
+          "periode": "hier"
+        }
+      },
+      "lot": 1,
+      "note": "Tuile « Demandes de résultats »."
+    },
+    {
+      "id": "b36",
+      "source": "brouillon",
+      "phrase": "Appels raccrochés aujourd'hui",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "issue": "raccroche",
+          "periode": "aujourd_hui"
+        }
+      },
+      "lot": 1,
+      "note": "Filtre « Raccroché » de la liste des appels."
+    },
+    {
+      "id": "b37",
+      "source": "brouillon",
+      "phrase": "Confirmations par SMS ce mois",
+      "attendu": {
+        "destinations": [
+          "talk/stats-no-show#confirmations_via_rappel"
+        ],
+        "filtres": {
+          "periode": "ce_mois"
+        }
+      },
+      "lot": 1,
+      "note": "Tuile « Confirmations via rappel »."
+    },
+    {
+      "id": "b38",
+      "source": "brouillon",
+      "phrase": "Numéro de transfert",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#planning_rempli",
+          "talk/parametrage#preferences_generales"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Phrase courte, deux réglages possibles (redirection, décroché/débordement)."
+    },
+    {
+      "id": "t01",
+      "source": "temoin",
+      "phrase": "les appels d'hier",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "periode": "hier"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t02",
+      "source": "temoin",
+      "phrase": "on est fermé le samedi ?",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#horaires"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t03",
+      "source": "temoin",
+      "phrase": "changer l'adresse du centre",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#preferences_generales"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t04",
+      "source": "temoin",
+      "phrase": "appels de monsieur Dupont pour une irm",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "nom": "Dupont",
+          "examen": "irm"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t05",
+      "source": "temoin",
+      "phrase": "combien d'urgences ce mois",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#urgences"
+        ],
+        "filtres": {
+          "periode": "ce_mois"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t06",
+      "source": "temoin",
+      "phrase": "quel est le code de l'echo abdominale",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage/mapping_exam"
+        ],
+        "filtres": {
+          "examen": "échographie abdominale"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t07",
+      "source": "temoin",
+      "phrase": "les absents de la semaine dernière",
+      "attendu": {
+        "destinations": [
+          "talk/stats-no-show",
+          "konnect/relances-no-show"
+        ],
+        "filtres": {
+          "periode": "semaine_derniere"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t08",
+      "source": "temoin",
+      "phrase": "où je règle le sms envoyé après le rendez-vous",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#confirmation_sms"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t09",
+      "source": "temoin",
+      "phrase": "patients inscrits en liste d'attente",
+      "attendu": {
+        "destinations": [
+          "konnect/liste-attente"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t10",
+      "source": "temoin",
+      "phrase": "les ordonnances refusées",
+      "attendu": {
+        "destinations": [
+          "talk/ordonnances-manquantes#refusees"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t11",
+      "source": "temoin",
+      "phrase": "la voix du robot",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#preferences_generales"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t12",
+      "source": "temoin",
+      "phrase": "est-ce que le scanner est réservable sur internet",
+      "attendu": {
+        "destinations": [
+          "konnect/examens"
+        ],
+        "filtres": {
+          "examen": "scanner"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t13",
+      "source": "temoin",
+      "phrase": "taux de transfert du mois dernier",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#transferts"
+        ],
+        "filtres": {
+          "periode": "dernier_mois"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t14",
+      "source": "temoin",
+      "phrase": "supprime la demande de rappel de madame Roux",
+      "attendu": {
+        "destinations": [],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t15",
+      "source": "temoin",
+      "phrase": "les transcriptions de la semaine",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "periode": "cette_semaine"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t16",
+      "source": "temoin",
+      "phrase": "le robot répond quoi pour le parking ?",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#accessibilite"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    }
+  ]
+}
