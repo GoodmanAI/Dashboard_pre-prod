@@ -69,6 +69,7 @@ import {
 } from "@/lib/transferReasons";
 import { getLanguageMeta, isNonDefaultLanguage } from "@/lib/languages";
 import { getHangupContext } from "@/lib/hangupContext";
+import { MENU_FILTRE } from "@/lib/menuFiltre";
 
 function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
   const stats = call.stats;
@@ -734,6 +735,7 @@ export default function CallListPage({ params }: CallListPageProps) {
           <Select
             value={statusFilter}
             label="Filtrer par statut"
+            MenuProps={MENU_FILTRE}
             onChange={(e) => {
               setStatusFilter(e.target.value);
               setPage(1);
@@ -747,6 +749,7 @@ export default function CallListPage({ params }: CallListPageProps) {
             <MenuItem value="not_performed">Examen non pris en charge</MenuItem>
             <MenuItem value="hung_up">Raccroché</MenuItem>
             <MenuItem value="transfer:all">Toutes les redirections</MenuItem>
+            <MenuItem value="resultats">Demandes de résultats</MenuItem>
           </Select>
         </FormControl>
 
@@ -755,6 +758,7 @@ export default function CallListPage({ params }: CallListPageProps) {
           <Select
             value={examTypeFilter}
             label="Filtrer par type d&#39;examen"
+            MenuProps={MENU_FILTRE}
             onChange={(e) => {
               setExamTypeFilter(e.target.value);
               setPage(1);

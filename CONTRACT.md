@@ -571,6 +571,10 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   Avant, ces appels (environ 15 % des transferts) comptaient comme des raccrochés, ici et
   dans les écrans. La tuile « Demandes de résultats » (écran client, cartes de la vue
   d'ensemble admin) compte `estDemandeDeResultats` : un transfert de motif `result`.
+- **`status=resultats`** (28/10/2026) : les demandes de résultats, selon
+  `estDemandeDeResultats`, la règle de la tuile. `transfer:result` ne regardait que le
+  motif, sans exiger un transfert. Aussi appliqué à la période précédente
+  (`includePrevious`).
 - **`stats.funnel`** (06/10/2026) : `lib/callFunnel.ts` lit aussi `routing_intents` et
   `stop` (v2.15.0 du robot) et rattrape les appels d'avant : un examen refusé
   (`exam_not_bookable`, `exam_not_practiced_*`, motif `examen_non_traitable`) compte

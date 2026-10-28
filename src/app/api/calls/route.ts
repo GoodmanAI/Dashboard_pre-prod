@@ -6,7 +6,7 @@ import { indexerParType, diminutifDuType } from "@/lib/examTypes";
 import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 import { debutConservation } from "@/lib/retentionAppels";
-import { estExamenNonPris, FINS_DE_TRANSFERT_LISTE } from "@/lib/transferReasons";
+import { estExamenNonPris, estDemandeDeResultats, FINS_DE_TRANSFERT_LISTE } from "@/lib/transferReasons";
 
 export const dynamic = "force-dynamic";
 
@@ -409,6 +409,12 @@ export async function GET(request: NextRequest) {
         // strictement identique à la page Statistiques d'appels.
         // — `not_performed`        → estExamenNonPris(stats)
         // — `no_slot_api_retrieve` → stats.no_slot_api_retrieve truthy
+      } else if (statusParam === "resultats") {
+        // Le motif réduit la lecture en base ; estDemandeDeResultats (post-fetch)
+        // tranche, comme la tuile « Demandes de résultats » des statistiques.
+        whereClause.AND.push({
+          stats: { path: ["transferReason"], equals: "result" },
+        });
       } else if (statusParam === "hung_up") {
         whereClause.AND.push({
           AND: [
@@ -472,6 +478,10 @@ export async function GET(request: NextRequest) {
       calls = calls.filter((c: any) => estExamenNonPris(c?.stats));
     }
 
+    if (statusParam === "resultats") {
+      calls = calls.filter((c: any) => estDemandeDeResultats(c?.stats));
+    }
+
     if (mineurOnly) {
       calls = calls.filter((c: any) => c?.stats?.patient_mineur === true);
     }
@@ -522,6 +532,11 @@ export async function GET(request: NextRequest) {
         if (statusParam === "not_performed") {
           previousCalls = previousCalls.filter(
             (c: any) => estExamenNonPris(c?.stats)
+          );
+        }
+        if (statusParam === "resultats") {
+          previousCalls = previousCalls.filter(
+            (c: any) => estDemandeDeResultats(c?.stats)
           );
         }
         if (phoneSearchActive) {
