@@ -82,6 +82,7 @@ import { PAGES } from "@/lib/permissions";
  *       hoursSinceCreated, hoursSinceAlert,
  *       pieces: string[]      // libelles des pieces ouvertes de la section
  *       reponses: string[]    // section documents : reponses a verifier
+ *       suivi: { statut, note, parNom, majAt } | null  // "SuiviCarte" (28/10/2026)
  *     }]
  *   }
  */
@@ -182,6 +183,10 @@ export async function GET(req: NextRequest) {
     hoursSinceAlert: string | null;
     pieces: string[];
     reponses: string[];
+    suiviStatut: string | null;
+    suiviNote: string | null;
+    suiviParNom: string | null;
+    suiviMajAt: Date | null;
   }>(
     `
     WITH ouvertes AS (
@@ -214,12 +219,15 @@ export async function GET(req: NextRequest) {
              ELSE NULL
            END AS "hoursSinceAlert",
            COALESCE(o."pieces", '{}') AS "pieces",
-           COALESCE(r."reponses", '{}') AS "reponses"
+           COALESCE(r."reponses", '{}') AS "reponses",
+           s."statut" AS "suiviStatut", s."note" AS "suiviNote",
+           s."parNom" AS "suiviParNom", s."majAt" AS "suiviMajAt"
       FROM "PrescriptionUpload" pu
       LEFT JOIN ouvertes o
         ON o."uploadId" = pu."id"
        AND o."depuis" < NOW() - ($2::int || ' hours')::interval
       LEFT JOIN reponses r ON r."uploadId" = pu."id"
+      LEFT JOIN "SuiviCarte" s ON s."uploadId" = pu."id" AND s."piece" = $3
      WHERE pu."externalCenterCode" = ANY($1::text[])
        AND pu."canal" = $4
        AND pu."status" <> 'EXPIRED'
@@ -230,14 +238,24 @@ export async function GET(req: NextRequest) {
     [codes, thresholdHours, section, canal]
   );
 
-  const items = alertsRes.rows.map((r) => ({
-    ...r,
-    hoursSinceCreated: Math.round(Number(r.hoursSinceCreated) * 10) / 10,
-    hoursSinceAlert:
-      r.hoursSinceAlert !== null
-        ? Math.round(Number(r.hoursSinceAlert) * 10) / 10
+  const items = alertsRes.rows.map(
+    ({ suiviStatut, suiviNote, suiviParNom, suiviMajAt, ...r }) => ({
+      ...r,
+      hoursSinceCreated: Math.round(Number(r.hoursSinceCreated) * 10) / 10,
+      hoursSinceAlert:
+        r.hoursSinceAlert !== null
+          ? Math.round(Number(r.hoursSinceAlert) * 10) / 10
+          : null,
+      suivi: suiviStatut
+        ? {
+            statut: suiviStatut,
+            note: suiviNote,
+            parNom: suiviParNom,
+            majAt: suiviMajAt,
+          }
         : null,
-  }));
+    })
+  );
 
   return NextResponse.json({
     userProductId,

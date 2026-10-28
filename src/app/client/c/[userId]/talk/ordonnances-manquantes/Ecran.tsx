@@ -33,6 +33,8 @@ import {
 import { IconInfoCircle, IconAlertTriangle } from "@tabler/icons-react";
 import ExamTypeBadge, { toExamTypeCode } from "@/components/shared/ExamTypeBadge";
 import { io as ioClient, Socket } from "socket.io-client";
+import { BoutonSuivi, SuiviAffiche } from "@/components/prescriptions/SuiviCarte";
+import type { StatutSuivi, SuiviCarte } from "@/lib/suiviCarte";
 import SectionHeader from "@/components/admin/SectionHeader";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import RejectedPrescriptionsPanel from "@/components/prescriptions/RejectedPrescriptionsPanel";
@@ -73,6 +75,9 @@ import {
      - Cliquer sur le numero pour le copier
      - Appeler tel:xxx via le lien direct
      - "Marquer traité" -> POST /alerts/{id}/resolve (fait disparaitre la carte)
+     - "Indiquer un suivi" -> PUT /alerts/{id}/suivi (28/10/2026) : statut
+       « Contacté » ou « Injoignable » et note courte, la carte reste ; le
+       socket recharge la liste chez les autres secretaires
 ============================================================================= */
 
 const EXAM_LABELS: Record<string, string> = {
@@ -106,6 +111,8 @@ type AlertItem = {
    * demandent l'oeil du secretariat (« Pacemaker ou défibrillateur : oui »).
    */
   reponses?: string[];
+  /** Statut de suivi pose par une secretaire (28/10/2026), visible de toutes. */
+  suivi?: SuiviCarte | null;
 };
 
 type Onglet = "pending" | "documents" | "par-mail" | "rejected";
@@ -181,6 +188,7 @@ export default function OrdonnancesManquantesPage({ params, canal = "talk" }: Pr
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolving, setResolving] = useState<Set<number>>(new Set());
+  const [suiviEnCours, setSuiviEnCours] = useState<Set<number>>(new Set());
   // Chantier prescriptions rejected 2026-08-04 : tab actif entre les 2 vues
   const [tab, setTab] = useState<Onglet>(konnect ? "documents" : "pending");
   const [rejectedCount, setRejectedCount] = useState<number>(0);
@@ -469,6 +477,53 @@ export default function OrdonnancesManquantesPage({ params, canal = "talk" }: Pr
       }
     },
     [userProductId]
+  );
+
+  const handleSuivi = useCallback(
+    async (
+      id: number,
+      section: "ordonnances" | "documents",
+      statut: StatutSuivi | null,
+      note: string
+    ): Promise<boolean> => {
+      setSuiviEnCours((prev) => new Set(prev).add(id));
+      try {
+        const res = await fetch(`/api/prescriptions/alerts/${id}/suivi`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userProductId, section, statut, note }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          if (res.status === 404) load();
+          throw new Error(data.error || `HTTP ${res.status}`);
+        }
+        const maj = (prev: AlertItem[]) =>
+          prev.map((i) => (i.id === id ? { ...i, suivi: data.suivi ?? null } : i));
+        if (section === "documents") setDocItems(maj);
+        else setItems(maj);
+        setSnack({
+          open: true,
+          msg: statut ? "Suivi enregistré, visible de vos collègues" : "Suivi retiré",
+          sev: "success",
+        });
+        return true;
+      } catch (err: any) {
+        setSnack({
+          open: true,
+          msg: err?.message || "Le suivi n'a pas été enregistré. Réessayez dans un instant.",
+          sev: "error",
+        });
+        return false;
+      } finally {
+        setSuiviEnCours((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+    },
+    [userProductId, load]
   );
 
   // Liste des types d'examens presents dans les items courants (source de
@@ -1078,6 +1133,8 @@ export default function OrdonnancesManquantesPage({ params, canal = "talk" }: Pr
                         </Stack>
                       )}
 
+                      <SuiviAffiche suivi={item.suivi} />
+
                       <Typography variant="caption" color="text.secondary">
                         {aVerifier && !manque
                           ? `Questionnaire reçu ${formatFrDateShort(item.createdAt)}, transmis à votre logiciel de gestion`
@@ -1085,7 +1142,14 @@ export default function OrdonnancesManquantesPage({ params, canal = "talk" }: Pr
                       </Typography>
                     </Box>
 
-                    <Box sx={{ flexShrink: 0 }}>
+                    <Stack spacing={1} sx={{ flexShrink: 0 }}>
+                      <BoutonSuivi
+                        suivi={item.suivi}
+                        enCours={suiviEnCours.has(item.id)}
+                        onEnregistrer={(statut, note) =>
+                          handleSuivi(item.id, enDocuments ? "documents" : "ordonnances", statut, note)
+                        }
+                      />
                       <Button
                         variant="contained"
                         disabled={resolving.has(item.id)}
@@ -1104,7 +1168,7 @@ export default function OrdonnancesManquantesPage({ params, canal = "talk" }: Pr
                           "Marquer traité"
                         )}
                       </Button>
-                    </Box>
+                    </Stack>
                   </Stack>
                 </Card>
               );
