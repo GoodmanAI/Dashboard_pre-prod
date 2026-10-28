@@ -32,11 +32,19 @@ export async function PATCH(req: Request, { params }: any) {
   const droitErr = await requireAnyPagePermission([PAGES.CALLS, PAGES.INCIDENTS], "write");
   if (droitErr) return droitErr;
 
-  const { flagged } = await req.json();
+  const corps = await req.json();
+  const flagged = corps?.flagged === true;
+  // Commentaire facultatif du client (décision A6, 27/10/2026), lu chaque matin par
+  // daily-report via `GET /api/incidents-signales`. Peut porter une donnée patient :
+  // jamais journalisé. Retirer le signalement efface la date et le commentaire.
+  const commentaire =
+    typeof corps?.flagComment === "string" ? corps.flagComment.trim().slice(0, 500) : "";
 
   const call = await prisma.callConversation.update({
     where: { id },
-    data: { flagged },
+    data: flagged
+      ? { flagged, flaggedAt: new Date(), flagComment: commentaire || null }
+      : { flagged, flaggedAt: null, flagComment: null },
   });
 
   const io: any = globalThis.io;

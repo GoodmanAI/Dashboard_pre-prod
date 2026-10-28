@@ -38,6 +38,7 @@ import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import DateRangePresets from "@/components/DateRangePresets";
 import { construireExamLabelMap, listerTypesExamen } from "@/lib/examLabels";
 import Transcription from "@/components/transcription/Transcription";
+import { useSignalement } from "@/components/shared/DialogSignalement";
 import PastilleMineur from "@/components/transcription/PastilleMineur";
 import { apercuConversation } from "@/lib/entitesTranscription";
 import { exporterTranscriptionPdf, formatPhoneFR } from "@/lib/transcriptionPdf";
@@ -212,6 +213,7 @@ interface CallSummary {
   createdAt: string;
   treated?: boolean;
   flagged?: boolean;
+  flagComment?: string | null;
 }
 
 interface CallListPageProps {
@@ -256,6 +258,7 @@ export default function CallListPage({ params }: CallListPageProps) {
   const [selectedCall, setSelectedCall] = useState<any | null>(null);
   const [checkboxState, setCheckboxState] = useState<Record<number, boolean>>({});
   const [flaggedState, setFlaggedState] = useState<Record<number, boolean>>({});
+  const { demanderCommentaire, dialogue: dialogueSignalement } = useSignalement();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const open = Boolean(anchorEl);
 
@@ -486,6 +489,12 @@ export default function CallListPage({ params }: CallListPageProps) {
 
   const toggleFlag = async (call: CallSummary) => {
     const newValue = !flaggedState[call.id];
+    // Signaler demande ce qui s'est mal passé (facultatif) ; retirer ne demande rien.
+    let commentaire: string | null = null;
+    if (newValue) {
+      commentaire = await demanderCommentaire();
+      if (commentaire === null) return;
+    }
 
     setFlaggedState((prev) => ({
       ...prev,
@@ -500,13 +509,13 @@ export default function CallListPage({ params }: CallListPageProps) {
       const res = await fetch(`/api/calls/${call.id}/flag`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ flagged: newValue }),
+        body: JSON.stringify({ flagged: newValue, flagComment: commentaire }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       setCalls((prev) =>
         prev.map((c) =>
-          c.id === call.id ? { ...c, flagged: newValue } : c
+          c.id === call.id ? { ...c, flagged: newValue, flagComment: commentaire || null } : c
         )
       );
     } catch (e) {
@@ -979,7 +988,13 @@ export default function CallListPage({ params }: CallListPageProps) {
                     />
 
                     <Tooltip
-                      title={flaggedState[call.id] ? "Retirer le signalement" : "Signaler comme incident"}
+                      title={
+                        flaggedState[call.id]
+                          ? call.flagComment
+                            ? `Signalé : ${call.flagComment}. Cliquer pour retirer le signalement.`
+                            : "Retirer le signalement"
+                          : "Signaler comme incident"
+                      }
                     >
                       <IconButton
                         size="small"
@@ -1065,6 +1080,7 @@ export default function CallListPage({ params }: CallListPageProps) {
 
       </Drawer>
 
+      {dialogueSignalement}
     </Box>
   );
 }

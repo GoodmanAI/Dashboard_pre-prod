@@ -315,6 +315,13 @@ model CallConversation {
   /// Posé par le job d'anonymisation : `steps` vidé, `phoneNumber` et `entites`
   /// retirés de `stats`. NULL = la ligne porte encore sa transcription.
   anonymiseeLe  DateTime?
+  /// Quand le client a signalé l'appel ; NULL s'il ne l'est pas. Les signalements
+  /// d'avant le 28/10/2026 sont datés de l'appel.
+  /// Posé par prisma/migrations/manual/2026_10_28_signalement_commente.sql.
+  flaggedAt     DateTime?
+  /// « Qu'est-ce qui s'est mal passé ? », facultatif. Peut porter une donnée patient :
+  /// effacé avec la transcription par anonymise_appels.sh, jamais journalisé.
+  flagComment   String?   @db.VarChar(500)
 
   userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
 
