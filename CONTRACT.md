@@ -663,6 +663,12 @@ réponses à vérifier vont dans `PieceAttendue.alertesReponses` (carte rouge de
 « Questionnaires et documents », `reponses` de `GET /api/prescriptions/alerts`,
 `reponsesCount` de `alerts/count`, session seule). Journal des accès : actions
 `formulaire` et `formulaire_envoi` (SQL `2026_10_20_questionnaires_en_ligne.sql`).
+**Suivi des cartes** (28/10/2026, session seule, aucune brique ne le consomme) : table
+`SuiviCarte` (une ligne par lien et par section, `statut` `contacte` ou `injoignable`, note
+de 200 caractères, auteur, purgée avec le lien), posée par `PUT
+/api/prescriptions/alerts/[id]/suivi`, rendue en `suivi` dans chaque item de `GET
+/api/prescriptions/alerts`, effacée par `resolve`. SQL `2026_10_28_suivi_cartes.sql`, à
+passer avant le build.
 Sous-domaines : `rdv.neuracorp.ai`, `depot-ordonnances.neuracorp.ai` (doivent pointer sur le même conteneur Next).
 
 **Ces trois pages doivent conserver leurs métadonnées** (`generateMetadata` / `metadata`
