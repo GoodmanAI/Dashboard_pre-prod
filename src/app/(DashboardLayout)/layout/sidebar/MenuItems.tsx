@@ -159,7 +159,7 @@ const Menuitems: SidebarItem[] = [
     id: uniqueId(),
     title: "Support",
     icon: IconLifebuoy,
-    href: "/client/ticket",
+    href: "/client/c/{USER_ID}/talk/support",
   },
 ];
 
@@ -472,7 +472,7 @@ export const KonnectMenuitems: SidebarItem[] = [
     id: uniqueId(),
     title: "Support",
     icon: IconLifebuoy,
-    href: "/admin/ticket",
+    href: "/client/c/{USER_ID}/konnect/support",
   },
 ];
 

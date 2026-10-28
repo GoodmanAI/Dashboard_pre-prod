@@ -7,11 +7,14 @@ import { authOptions } from "@/lib/authOptions";
 import { z } from "zod";
 import { notifyNewTicketToAdmin } from "@/lib/ticketNotifications";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
+import { lireProduitParam, produitDuTicket } from "@/lib/supportProduit";
 
 /**
  * API Tickets (centre-aware, refonte chantier 2)
  * -----------------------------------------------------------------------------
  * GET  /api/tickets          -> liste des tickets du user effectif
+ *                               (?produit=talk|konnect : ceux de ce produit seul,
+ *                               28/10/2026, voir `lib/supportProduit.ts`)
  * POST /api/tickets          -> creation ticket (+ notif email admin + notif in-app)
  *
  * Le detail par ticket (GET/POST) est dans /api/tickets/[id]/*.
@@ -83,6 +86,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const effectiveUserId = await resolveEffectiveUserId(sessionUserId, request);
+    const produit = lireProduitParam(request.nextUrl.searchParams.get("produit"));
     // Fetch en ASC pour attribuer displayNumber = position chronologique
     // (le 1er ticket du client = displayNumber 1, meme si son Ticket.id
     // global est 6). Evite au client de voir le volume total de tickets
@@ -99,6 +103,7 @@ export async function GET(request: NextRequest) {
         resolvedAt: true,
         closedAt: true,
         userProductId: true,
+        userProduct: { select: { product: { select: { name: true } } } },
         assignedToId: true,
         createdBy: { select: { id: true, name: true, email: true } },
         assignedTo: { select: { id: true, name: true, email: true } },
@@ -106,7 +111,11 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { createdAt: "asc" },
     });
-    const enriched = ticketsAsc.map((t, i) => ({ ...t, displayNumber: i + 1 }));
+    // Numerote AVANT de filtrer par produit : le detail (`/api/tickets/[id]`)
+    // compte tous les tickets du client, la liste doit dire le meme numero.
+    const enriched = ticketsAsc
+      .map((t, i) => ({ ...t, displayNumber: i + 1 }))
+      .filter((t) => !produit || produitDuTicket(t.userProduct?.product.name) === produit);
     // Reverse pour rendre desc dans la reponse (UI attend plus recents en tete)
     const tickets = enriched.reverse();
     return NextResponse.json({ tickets }, { status: 200 });
