@@ -5,6 +5,7 @@ import prisma from "@/utils/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import type { Prisma } from "@prisma/client";
+import { filtreTicketsDuProduit, lireProduitParam } from "@/lib/supportProduit";
 
 /**
  * GET /api/admin/tickets
@@ -17,6 +18,7 @@ import type { Prisma } from "@prisma/client";
  *   - assignedToMe : "1" pour ne voir que les tickets assignes a l'admin appelant
  *   - unassigned   : "1" pour ne voir que les tickets non assignes
  *   - userProductId: filtre centre
+ *   - produit      : talk|konnect, les tickets de ce produit seul (28/10/2026)
  *   - limit        : max 500, defaut 200
  *
  * Reponse : { tickets: [...] } — tries par status puis createdAt desc.
@@ -75,8 +77,11 @@ export async function GET(request: NextRequest) {
     if (Number.isFinite(upid)) where.userProductId = upid;
   }
 
+  const produit = lireProduitParam(searchParams.get("produit"));
+  // `AND` et non une fusion : le filtre de LyraeTalk porte son propre `OR`, qui
+  // écraserait celui de la recherche.
   const tickets = await prisma.ticket.findMany({
-    where,
+    where: produit ? { AND: [where, filtreTicketsDuProduit(produit)] } : where,
     include: {
       user: { select: { id: true, name: true, email: true } },
       createdBy: { select: { id: true, name: true, email: true } },

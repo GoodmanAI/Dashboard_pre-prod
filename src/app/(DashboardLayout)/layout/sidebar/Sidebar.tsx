@@ -66,23 +66,24 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
   /**
    * Où mène le clic sur le logo.
    *
-   * Un admin retourne à sa console. Un client retourne à l'accueil du produit
-   * qu'il est en train de consulter : cliquer sur le logo Konnect pour atterrir
-   * sur LyraeTalk serait déroutant, d'autant que le logo porte maintenant la
-   * couleur du produit.
+   * Dans un centre, l'accueil du produit qu'on consulte, quel que soit le rôle :
+   * cliquer sur le logo Konnect pour atterrir sur LyraeTalk serait déroutant,
+   * d'autant que le logo porte la couleur du produit. Seul le sélecteur du header
+   * change de produit (28/10/2026 : un admin repartait sur sa console, aux couleurs
+   * de Talk). Hors d'un centre, un admin retourne à sa console.
    *
    * L'identifiant vient de l'URL courante, qui désigne déjà le bon centre. On
    * retombe sur le `userProductId` de LyraeTalk hors des pages produit, ou si
    * l'URL n'en porte pas : c'est le cas de la quasi-totalité des clients.
    */
   const accueilProduit = () => {
-    if (session?.user.role === "ADMIN" || session?.user.role === "SUPER_ADMIN") {
-      return "/admin";
-    }
     // URL par client (chantier U) : l'accueil du produit est le chemin lui-même,
     // sans sous-chemin. Rien à reconstruire, tout est déjà dans l'adresse.
     const cible = lireCheminCentre(pathname);
     if (cible) return cheminCentre(cible.userId, cible.produit);
+    if (session?.user.role === "ADMIN" || session?.user.role === "SUPER_ADMIN") {
+      return "/admin";
+    }
 
     const segments = pathname?.split("/") ?? [];
     const idDansUrl = segments[3] === produit.segment ? segments[4] : undefined;

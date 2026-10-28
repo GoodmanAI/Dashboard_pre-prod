@@ -22,6 +22,8 @@ const PATH_MATCHERS: Array<{ pattern: RegExp; page: PageKey }> = [
   // Tickets (client + admin)
   { pattern: /^\/client\/ticket(?:\/|$)/, page: PAGES.TICKETS },
   { pattern: /^\/admin\/ticket(?:\/|$)/, page: PAGES.TICKETS },
+  // Le support de chaque produit (28/10/2026), avant les racines de produit.
+  { pattern: /\/(?:talk|konnect)\/(?:\d+\/)?support(?:\/|$)/, page: PAGES.TICKETS },
 
   // Talk sous-sections.
   //

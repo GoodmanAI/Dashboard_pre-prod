@@ -1,80 +1,49 @@
 "use client";
 
-import SectionHeader from "@/components/admin/SectionHeader";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Box, Button, Card, Stack, Typography } from "@mui/material";
-import { ArrowBack } from "@mui/icons-material";
+import { Box } from "@mui/material";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
-import TicketConversation from "@/components/tickets/TicketConversation";
+import { cheminSupport, produitDuTicket } from "@/lib/supportProduit";
 
 /**
- * Page detail ticket cote client : /client/ticket/[id]
- *
- * Affiche le fil complet du ticket + input pour repondre.
- * Le controle d'acces est fait cote endpoint GET /api/tickets/[id] :
- *   - owner (userId), createur (createdById), ADMIN_USER manager, ou ADMIN
- *   - sinon 403 -> le composant TicketConversation affiche l'erreur
- *
- * Rien de specifique client ici (pas de gestion de status, pas de note).
- * L'admin a sa propre page avec ces controles supplementaires.
+ * Ancienne adresse d'un ticket côté client, que la cloche des notifications envoie
+ * encore. On lit le ticket pour connaître son centre et son produit, puis on ouvre
+ * le support de ce produit (28/10/2026). Le contrôle d'accès reste celui de
+ * `GET /api/tickets/[id]`.
  */
-
-interface Props {
-  params: { id: string };
-}
-
-export default function ClientTicketDetailPage({ params }: Props) {
+export default function AncienTicketClient({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const { data: session, status } = useSession();
-  const [ticketId, setTicketId] = useState<number | null>(null);
-
-  useEffect(() => {
-    const parsed = parseInt(params.id, 10);
-    if (Number.isFinite(parsed)) setTicketId(parsed);
-  }, [params.id]);
+  const { status } = useSession();
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/authentication/signin");
+      router.replace("/authentication/signin");
+      return;
     }
-  }, [status, router]);
-
-  if (status !== "authenticated" || !session?.user?.id || !ticketId) {
-    return (
-      <PageContainer title="Ticket" description="Détail du ticket">
-        <Box />
-      </PageContainer>
-    );
-  }
-
-  const currentUserId = Number(session.user.id);
+    if (status !== "authenticated") return;
+    const id = parseInt(params.id, 10);
+    if (!Number.isFinite(id)) {
+      router.replace("/client/ticket");
+      return;
+    }
+    fetch(`/api/tickets/${id}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const t = d?.ticket;
+        if (!t?.userId) {
+          router.replace("/client/ticket");
+          return;
+        }
+        router.replace(cheminSupport(t.userId, produitDuTicket(t.userProduct?.product?.name), id));
+      })
+      .catch(() => router.replace("/client/ticket"));
+  }, [status, params.id, router]);
 
   return (
-    <PageContainer
-      title="Ticket"
-      description="Détail du ticket"
-    >
-      <Stack spacing={2}>
-        <SectionHeader
-          title="Ticket"
-          retour={{ libelle: "Retour aux tickets", href: "/client/ticket" }}
-        />
-
-        <Card sx={{ p: { xs: 2, sm: 3 } }}>
-          <TicketConversation
-            ticketId={ticketId}
-            currentUserId={currentUserId}
-            useDisplayNumber
-          />
-        </Card>
-
-        <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
-          Le support reçoit vos messages par e-mail. Vous serez prévenu
-          par e-mail quand votre ticket sera résolu ou fermé.
-        </Typography>
-      </Stack>
+    <PageContainer title="Ticket" description="Détail du ticket">
+      <Box />
     </PageContainer>
   );
 }
