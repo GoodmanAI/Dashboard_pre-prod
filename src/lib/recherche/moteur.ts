@@ -117,6 +117,8 @@ const ABREVIATIONS: Record<string, string> = {
   mme: "madame",
   mr: "monsieur",
   faq: "questions frequentes",
+  // La dictée (Deepgram) écrit « explore » pour le logiciel du centre, malgré le keyterm.
+  explore: "xplore",
 };
 
 /** Pluriel ramené au singulier, des deux côtés de la comparaison. */
@@ -294,6 +296,14 @@ const MOTS_TALK = ["robot", "telephone", "talk", "appel"];
 
 /** Plus une fiche marque de points, plus elle est sûre. Sous ce seuil : rien (étage 2). */
 export const SEUIL = 2;
+
+/**
+ * Sous ce score, l'étage 1 a une réponse mais pas d'assurance : la route consulte aussi
+ * l'étage 2, dont la réponse passe devant. Réglé le 29/10/2026 sur les deux corpus : les
+ * réponses fausses de l'étage 1 notaient de 2,5 à 5,3, et quatre réponses justes sur cinq
+ * notent au-dessus. Le baisser fait moins appeler le modèle, et laisse passer plus d'erreurs.
+ */
+export const SEUIL_SUR = 5.5;
 
 function noter(fiche: Fiche, m: string[], lus: Filtres): number {
   // Le terme le plus long trouvé compte en entier, les autres pour moitié : une section

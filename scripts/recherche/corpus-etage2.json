@@ -1,0 +1,328 @@
+{
+  "_lisezmoi": "Banc de l'étage 2 (plan workspace plans/2026-10-recherche-llm-et-voix.md, § 3) : phrases que le catalogue seul ne comprend pas, ou mal. Rejoué par scripts/recherche/banc-etage2.mjs contre la fonction Azure recherche_dashboard (locale ou slot). Une liste de destinations vide veut cle null. Noms inventés.",
+  "phrases": [
+    {
+      "id": "x01",
+      "phrase": "le monsieur qui a appelé ce matin pour son genou, je veux relire ce qu'il a dit",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "periode": "ce_matin"
+        }
+      }
+    },
+    {
+      "id": "x02",
+      "phrase": "les patients que le robot a passés au secrétariat hier",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "periode": "hier",
+          "issue": "transfert"
+        }
+      }
+    },
+    {
+      "id": "x03",
+      "phrase": "ceux qui ont raccroché au nez du robot cette semaine",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "periode": "cette_semaine",
+          "issue": "raccroche"
+        }
+      }
+    },
+    {
+      "id": "x04",
+      "phrase": "les coups de fil de vendredi où un rendez-vous a été calé",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "periode": "vendredi",
+          "issue": "rdv_booked"
+        }
+      }
+    },
+    {
+      "id": "x05",
+      "phrase": "qui a appelé depuis le 06 12 34 56 78",
+      "attendu": {
+        "destinations": [
+          "talk/calls"
+        ],
+        "filtres": {
+          "telephone": "0612345678"
+        }
+      }
+    },
+    {
+      "id": "x06",
+      "phrase": "on a eu combien de nouveaux rendez-vous grâce au robot le mois dernier",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#prises_de_rdv"
+        ],
+        "filtres": {
+          "periode": "dernier_mois"
+        }
+      }
+    },
+    {
+      "id": "x07",
+      "phrase": "quelle proportion des appels finit chez les secrétaires",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#transferts"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x08",
+      "phrase": "à quel moment de la journée le téléphone sonne le plus",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#heures"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x09",
+      "phrase": "les absents à leur rendez-vous ce mois",
+      "attendu": {
+        "destinations": [
+          "talk/stats-no-show"
+        ],
+        "filtres": {
+          "periode": "ce_mois"
+        }
+      }
+    },
+    {
+      "id": "x10",
+      "phrase": "les gens qui n'ont toujours pas envoyé leur prescription",
+      "attendu": {
+        "destinations": [
+          "talk/ordonnances-manquantes#en_attente"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x11",
+      "phrase": "la feuille de soins de madame Garnier qu'on attend toujours",
+      "attendu": {
+        "destinations": [
+          "talk/ordonnances-manquantes#en_attente"
+        ],
+        "filtres": {
+          "nom": "Garnier"
+        }
+      }
+    },
+    {
+      "id": "x12",
+      "phrase": "les documents que le logiciel a rejetés",
+      "attendu": {
+        "destinations": [
+          "talk/ordonnances-manquantes#refusees"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x13",
+      "phrase": "les appels où on a noté un souci",
+      "attendu": {
+        "destinations": [
+          "talk/incidents"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x14",
+      "phrase": "à quelle heure on ouvre le samedi pour le robot",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#horaires"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x15",
+      "phrase": "vers quel numéro le robot envoie les gens quand il n'y a plus de place",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#planning_rempli"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x16",
+      "phrase": "le texto que reçoit le patient juste après avoir réservé",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#confirmation_sms",
+          "talk/parametrage#apres_reservation"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x17",
+      "phrase": "le message envoyé la veille pour rappeler le rendez-vous",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#rappel_sms"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x18",
+      "phrase": "je voudrais que le robot demande si la patiente est enceinte avant une radio",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage/questions_exam",
+          "talk/parametrage#options_questions",
+          "talk/parametrage#questions_irm_scanner"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x19",
+      "phrase": "le code Xplore de l'échographie de la thyroïde",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage/mapping_exam"
+        ],
+        "filtres": {
+          "type": "US"
+        }
+      }
+    },
+    {
+      "id": "x20",
+      "phrase": "quels examens le robot n'a pas le droit de réserver",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#examens_acceptes",
+          "talk/parametrage/mapping_exam"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x21",
+      "phrase": "ce que répond le robot quand on lui demande où se garer",
+      "attendu": {
+        "destinations": [
+          "talk/informationnel"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x22",
+      "phrase": "mettre le robot en vacances pendant la fermeture du centre",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#desactiver"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x23",
+      "phrase": "les internautes qui veulent qu'on les rappelle",
+      "attendu": {
+        "destinations": [
+          "konnect/demandes-rappel"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x24",
+      "phrase": "monsieur Bernard attend un coup de fil après sa demande sur le site",
+      "attendu": {
+        "destinations": [
+          "konnect/demandes-rappel"
+        ],
+        "filtres": {
+          "nom": "Bernard"
+        }
+      }
+    },
+    {
+      "id": "x25",
+      "phrase": "les patients en attente d'une place qui se libère sur le site",
+      "attendu": {
+        "destinations": [
+          "konnect/liste-attente"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x26",
+      "phrase": "changer la couleur et l'image du site de réservation",
+      "attendu": {
+        "destinations": [
+          "konnect/parametrage#identite"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x27",
+      "phrase": "les adresses de nos cabinets affichées sur le site",
+      "attendu": {
+        "destinations": [
+          "konnect/sites"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x28",
+      "phrase": "combien de réservations faites sur internet",
+      "attendu": {
+        "destinations": [
+          "konnect/statistiques"
+        ],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x29",
+      "phrase": "déplace le rendez-vous de madame Roux à jeudi",
+      "attendu": {
+        "destinations": [],
+        "filtres": {}
+      }
+    },
+    {
+      "id": "x30",
+      "phrase": "comment je change mon mot de passe",
+      "attendu": {
+        "destinations": [],
+        "filtres": {}
+      }
+    }
+  ]
+}
