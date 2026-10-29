@@ -1,5 +1,7 @@
 "use client";
 
+import { useFiltresRecherche } from "@/lib/recherche/integre";
+import { contientTousLesMots, precisionExamen } from "@/lib/recherche/texte";
 import { useConfirmation } from "@/components/shared/DialogConfirmation";
 import Retour from "@/components/shared/Retour";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
@@ -208,8 +210,10 @@ export default function MappingExam({ params }: TalkPageProps) {
   }>({ open: false, message: "", severity: "success" });
 
   // Filtres UI
-  const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  // Préfiltre de la recherche centrale (panneau ou lien « Ouvrir l'écran complet »).
+  const filtresRecherche = useFiltresRecherche();
+  const [search, setSearch] = useState(() => precisionExamen(filtresRecherche.examen));
+  const [typeFilter, setTypeFilter] = useState<string>(() => filtresRecherche.type ?? "all");
   const [attribFilter, setAttribFilter] = useState<AttribFilter>("all");
   const [codeRisFilter, setCodeRisFilter] = useState<CodeRisFilter>("all");
   const [page, setPage] = useState(0);
@@ -359,9 +363,8 @@ export default function MappingExam({ params }: TalkPageProps) {
         row.typeExamenClient,
       ]
         .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
+        .join(" ");
+      return contientTousLesMots(hay, q);
     });
   }, [data, search, typeFilter, attribFilter, codeRisFilter]);
 

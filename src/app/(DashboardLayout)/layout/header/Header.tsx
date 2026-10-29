@@ -17,11 +17,13 @@
   import { IconFileAlert, IconMenu } from "@tabler/icons-react";
   import Profile from "./Profile";
   import { useCentre, ManagedUser } from "../../../context/CentreContext";
-  import { cheminCentre } from "@/lib/cheminsCentre";
+  import { cheminCentre, lireCheminCentre } from "@/lib/cheminsCentre";
   import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
   import NotificationBell from "@/components/notifications/NotificationBell";
 import { trouverProduit } from "@/lib/produits";
   import SelecteurProduit from "@/components/produits/SelecteurProduit";
+  import BarreRecherche from "@/components/recherche/BarreRecherche";
+  import PanneauRecherche from "@/components/recherche/PanneauRecherche";
 
   /**
    * Header d’application (barre supérieure).
@@ -89,6 +91,17 @@ import { trouverProduit } from "@/lib/produits";
         .catch(() => setTalkProductId(null));
     }, [status, isAdmin, session?.user?.id]);
 
+    /**
+     * Le client dans lequel cherche la barre (recherche centrale, R0) : celui de l'URL
+     * dans un écran de centre, sinon le compte connecté sur son accueil. Jamais une page
+     * `/admin` : un admin cherche depuis la vue d'un client.
+     */
+    const rechercheUserId: number | null =
+      lireCheminCentre(pathname)?.userId ??
+      (!isAdmin && pathname?.startsWith("/client") && session?.user?.id
+        ? Number(session.user.id)
+        : null);
+
     const prescriptionScopeUserProductId: number | null = isAdmin
       ? selectedCentre?.userProductId ?? null
       : talkProductId;
@@ -137,6 +150,14 @@ import { trouverProduit } from "@/lib/produits";
               ce qui est affiche en dessous, donc la premiere chose qu'on lit.
               Invisible pour un client mono-produit. */}
           <SelecteurProduit />
+
+          {/* Recherche centrale : petite barre, Ctrl+K, et le panneau commun aux deux barres */}
+          {rechercheUserId !== null && (
+            <Box sx={{ ml: { xs: 0.5, md: 2 } }}>
+              <BarreRecherche variante="entete" />
+            </Box>
+          )}
+          <PanneauRecherche userId={rechercheUserId} />
 
           {/* Zone breadcrumb (placeholder) */}
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>

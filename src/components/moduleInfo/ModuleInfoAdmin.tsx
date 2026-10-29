@@ -1,6 +1,8 @@
 "use client";
 
 import { useConfirmation } from "@/components/shared/DialogConfirmation";
+import { useFiltresRecherche } from "@/lib/recherche/integre";
+import { contientTousLesMots } from "@/lib/recherche/texte";
 import Retour from "@/components/shared/Retour";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -76,7 +78,9 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
   const [error, setError] = useState<string | null>(null);
   const [snack, setSnack] = useState<{ msg: string; kind: "success" | "error" } | null>(null);
   const { confirmer, dialogue } = useConfirmation();
-  const [query, setQuery] = useState("");
+  // Préfiltre de la recherche centrale (panneau ou lien « Ouvrir l'écran complet »).
+  const filtresRecherche = useFiltresRecherche();
+  const [query, setQuery] = useState(() => filtresRecherche.texte ?? "");
   const [showCreate, setShowCreate] = useState(false);
   const [newQuestion, setNewQuestion] = useState("");
   const [newReponse, setNewReponse] = useState("");
@@ -109,12 +113,9 @@ export default function ModuleInfoAdmin({ userProductId }: { userProductId: numb
   }, [load]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     if (!q) return items;
-    return items.filter(
-      (it) =>
-        it.question.toLowerCase().includes(q) || it.reponse.toLowerCase().includes(q)
-    );
+    return items.filter((it) => contientTousLesMots(`${it.question} ${it.reponse}`, q));
   }, [items, query]);
 
   const activeCount = items.filter((i) => i.enabled).length;

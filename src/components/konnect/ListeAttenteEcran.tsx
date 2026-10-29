@@ -35,6 +35,8 @@ import EnTete, { SX_COLLEE_A_DROITE } from "@/components/shared/EnTeteTableau";
 import TuileChiffre from "@/components/shared/TuileChiffre";
 import DialogConfirmation from "@/components/shared/DialogConfirmation";
 import { INK, INK_MUTED, BORDER, SURFACE, OK } from "@/lib/jetons";
+import { useFiltresRecherche } from "@/lib/recherche/integre";
+import { contientTousLesMots } from "@/lib/recherche/texte";
 
 /**
  * Liste d'attente des patients LyraeKonnect (27/10/2026, lot L2). La page
@@ -174,6 +176,14 @@ export default function ListeAttenteEcran({
   const [ouverts, setOuverts] = useState<Record<string, boolean>>({});
   const [aRetirer, setARetirer] = useState<Patient | null>(null);
   const premierChargement = useRef(true);
+  // Patient nommé par la recherche centrale : ses listes s'ouvrent, sa ligne est soulignée.
+  // L'écran n'a pas de champ de recherche, il ne masque donc personne.
+  const nomCherche = useFiltresRecherche().nom;
+  const nomChercheRef = useRef(nomCherche);
+  const estCherche = useCallback(
+    (p: Patient) => !!nomCherche && contientTousLesMots(`${p.prenom} ${p.nom}`, nomCherche),
+    [nomCherche],
+  );
 
   const charger = useCallback(async () => {
     if (!userProductId) return;
@@ -190,7 +200,16 @@ export default function ListeAttenteEcran({
       setCodes(liste);
       setStats(data.stats ?? null);
       // Une seule liste : on l'ouvre d'office. Plusieurs : la secrétaire choisit.
-      if (premierChargement.current && liste.length === 1) {
+      if (premierChargement.current && nomChercheRef.current) {
+        const nom = nomChercheRef.current;
+        setOuverts(
+          Object.fromEntries(
+            liste
+              .filter((c) => c.patients.some((p) => contientTousLesMots(`${p.prenom} ${p.nom}`, nom)))
+              .map((c) => [c.codeExamen, true]),
+          ),
+        );
+      } else if (premierChargement.current && liste.length === 1) {
         setOuverts({ [liste[0].codeExamen]: true });
       }
       premierChargement.current = false;
@@ -311,6 +330,15 @@ export default function ListeAttenteEcran({
             {erreurGeste}
           </Alert>
         )}
+
+        {nomCherche &&
+          codes.length > 0 &&
+          !codes.some((c) => c.patients.some(estCherche)) && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Aucun patient nommé « {nomCherche} » dans la liste d&apos;attente. Il a
+              peut-être déjà reçu une place ou été retiré.
+            </Alert>
+          )}
 
         {codes.length === 0 ? (
           <Paper
@@ -448,6 +476,7 @@ export default function ListeAttenteEcran({
                                 key={p.id}
                                 hover
                                 sx={{
+                                  ...(estCherche(p) && { bgcolor: "rgba(var(--accent-rgb), 0.1)" }),
                                   "& > td": {
                                     borderBottom: `1px solid ${BORDER}`,
                                     py: 1,

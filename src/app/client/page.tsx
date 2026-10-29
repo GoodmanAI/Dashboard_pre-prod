@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import { IconArrowRight } from "@tabler/icons-react";
 import SectionHeader from "@/components/admin/SectionHeader";
+import BarreRecherche from "@/components/recherche/BarreRecherche";
 import { produitDepuisNom } from "@/lib/produits";
 import { cheminCentre, PRODUITS_MIGRES } from "@/lib/cheminsCentre";
 
@@ -129,6 +130,8 @@ const ClientHomePage = () => {
         title={`Bienvenue${session?.user?.name ? `, ${session.user.name}` : ""}`}
         subtitle="Vos produits Lyrae. Le menu de gauche mène directement à chacun d'eux."
       />
+
+      <BarreRecherche variante="accueil" />
 
       <Grid container spacing={2}>
         {sortedProducts.map((product) => {

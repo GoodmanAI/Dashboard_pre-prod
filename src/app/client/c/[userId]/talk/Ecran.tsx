@@ -374,7 +374,7 @@ export default function TalkPage({ params }: TalkPageProps) {
           )}
 
           {/* === Row 1 : KPI tiles === */}
-          <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid container id="appels_aujourd_hui" spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12} sm={6} md={3}>
               <KpiTile
                 label="Indice de performance"

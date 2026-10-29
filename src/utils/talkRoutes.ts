@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { cheminCentre, lireCheminCentre } from "@/lib/cheminsCentre";
+import { useIntegre } from "@/lib/recherche/integre";
 
 /**
  * Le préfixe commun aux écrans LyraeTalk d'un centre.
@@ -17,6 +18,9 @@ import { cheminCentre, lireCheminCentre } from "@/lib/cheminsCentre";
  */
 export function useTalkBasePath(userProductId: number | string): string {
   const pathname = usePathname();
+  // Dans le panneau de la recherche, le chemin courant est celui de la page d'en dessous.
+  const integre = useIntegre();
+  if (integre) return cheminCentre(integre.userId, "talk");
 
   const cible = lireCheminCentre(pathname);
   if (cible) return cheminCentre(cible.userId, cible.produit);
