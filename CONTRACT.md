@@ -538,6 +538,13 @@ saisi par le client au signalement (`PATCH /api/calls/[id]/flag` reçoit `flagCo
 peut porter une donnée patient, n'est jamais journalisé et s'efface avec la transcription
 (`anonymise_appels.sh`). Ni transcription ni numéro ne sortent par cette route.
 
+**Pour le rapport hebdomadaire de Konnect** — même clé `DAILY_REPORT_API_KEY` (29/10/2026,
+lot 4 de `plans/2026-10-konnect-stats-surveillance-ocr.md`) : `GET /api/konnect-stats-hebdo?depuis=AAAA-MM-JJ&jusqua=AAAA-MM-JJ`
+(`jusqua` exclu, 63 jours au plus), lecture seule, tous centres, clé seule. Réponse `{ depuis,
+jusqua, lignes: [{ userProductId, jour, cle, valeur }], centres: [{ userProductId, nom,
+dernierRecu }] }` : toutes les clés de `KonnectStatJour`, **OCR compris** (la route du centre
+les écarte, D4). Des agrégats seuls, aucune donnée patient.
+
 **Pour les sondes de déploiement** — header `x-api-key: DEPLOY_PROBE_API_KEY` :
 `POST /api/deployments` (écriture, appelée par `deploy/deployment-probe.js` des VMs
 lyraetalk, ai2xplore et dashboard, toutes les 15 min),
@@ -893,6 +900,7 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 | **Grafana** | format des logs d'audit |
 | **daily-report** | `GET /api/deployments` — section « Déploiement » du mail quotidien. Dégradation gracieuse de son côté : si la route tombe, la section disparaît, le mail part quand même |
 | **daily-report** (lot 1, à venir) | `GET /api/incidents-signales` (`DAILY_REPORT_API_KEY`) : signalements des clients de la veille, rattachés à Loki par `callId` |
+| **daily-report** (rapport hebdomadaire de Konnect) | `GET /api/konnect-stats-hebdo` (`DAILY_REPORT_API_KEY`) : compteurs quotidiens de Konnect, tous centres, OCR compris |
 | **Sondes de déploiement** (3 VMs) | `POST /api/deployments` toutes les 15 min |
 
 **Je n'appelle jamais Konnect, et je ne le pourrai pas** : il passe derrière un VPN, je
