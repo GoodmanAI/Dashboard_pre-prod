@@ -156,6 +156,6 @@ export const REGISTRE: Record<string, EcranMontable> = {
   },
   "konnect/statistiques": {
     composant: charger(() => import("@/app/client/c/[userId]/konnect/statistiques/page")),
-    applique: [],
+    applique: ["periode"],
   },
 };
