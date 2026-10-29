@@ -107,7 +107,7 @@ export const CATALOGUE: Fiche[] = [
     genre: "reglage",
     termes: [
       "horaire", "horaires d'ouverture", "heures d'ouverture", "ouverture", "fermeture", "jours d'ouverture",
-      "ouvert le", "ferme le", "disponibilite", "fermeture exceptionnelle",
+      "ouvert le", "ferme le", "disponibilite", "fermeture exceptionnelle", "a quelle heure on ouvre", "heure d'ouverture", "ouvre le samedi",
     ],
   },
   {
@@ -215,7 +215,7 @@ export const CATALOGUE: Fiche[] = [
     page: "parametrage",
     libelle: "Désactiver le service",
     genre: "reglage",
-    termes: ["desactiver le service", "couper le robot", "arreter le robot", "mettre en pause le robot", "desactiver le robot"],
+    termes: ["desactiver le service", "couper le robot", "arreter le robot", "mettre en pause le robot", "desactiver le robot", "robot en vacances", "pendant les vacances", "pendant la fermeture"],
   },
   {
     cle: "talk/parametrage/mapping_exam",
@@ -225,7 +225,7 @@ export const CATALOGUE: Fiche[] = [
     genre: "reglage",
     termes: [
       "code d'examen", "code examen", "code ris", "correspondance des examens", "mapping", "libelle patient",
-      "creneau horaire", "salle", "attribue a lyrae", "liste des examens", "catalogue des examens", "code de",
+      "creneau horaire", "salle", "attribue a lyrae", "code xplore", "code dans xplore", "liste des examens", "catalogue des examens", "code de",
     ],
     filtres: ["examen", "type"],
   },
@@ -630,7 +630,7 @@ export const CATALOGUE: Fiche[] = [
     page: "konnect_sites",
     libelle: "Sites",
     genre: "reglage",
-    termes: ["site", "sites ouverts", "adresse du site", "nos sites", "cabinets ouverts"],
+    termes: ["site", "sites ouverts", "adresse du site", "nos sites", "cabinets ouverts", "adresse des cabinets", "adresses de nos cabinets"],
   },
   {
     cle: "konnect/statistiques",
@@ -638,7 +638,7 @@ export const CATALOGUE: Fiche[] = [
     page: "konnect_stats",
     libelle: "Statistiques du portail",
     genre: "statistique",
-    termes: ["statistiques du portail", "ont abandonne", "abandon", "sont alles au bout", "patients ont commence", "statistiques"],
+    termes: ["statistiques du portail", "ont abandonne", "abandon", "sont alles au bout", "patients ont commence", "combien de reservations", "nombre de reservations", "reservations faites", "statistiques"],
     filtres: ["periode"],
   },
 ];

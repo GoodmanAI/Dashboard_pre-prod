@@ -88,6 +88,18 @@ const nextConfig = {
         source: "/:path*",
         headers: securityHeaders,
       },
+      {
+        // Dictée de la recherche centrale (29/10/2026) : le micro est permis à l'espace
+        // client, sur notre seule origine, et reste interdit partout ailleurs (pages
+        // patient, admin). La règle la plus loin dans cette liste l'emporte.
+        source: "/client/:path*",
+        headers: [
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
+          },
+        ],
+      },
     ];
   },
 };
