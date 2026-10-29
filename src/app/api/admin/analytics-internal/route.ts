@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, requireAdmin } from "@/lib/auth-helpers";
 import { getTransferMeta, isCounterTransfer } from "@/lib/transferReasons";
+import { agregerV2 } from "@/lib/statsInternesV2";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,11 @@ export const dynamic = "force-dynamic";
  *  - userProductId (number) — filtre un seul site (legacy, conservé pour compat)
  *  - userProductIds (string CSV "1,2,3") — filtre plusieurs sites (prioritaire)
  *  - rdv_status (string) — filtre sur stats.rdv_status (success / no_slot / ...)
+ *  - comparer=precedente — ajoute `v2Precedente` : la même agrégation V2 sur la période de
+ *    même durée qui précède, mêmes centres et même statut (comparaison à centre constant)
+ *
+ * `v2` agrège les seuls appels en `stats.internal.version === 2` (LyraeTalk v2.62.0),
+ * voir `src/lib/statsInternesV2.ts`.
  *
  * Réservé aux ADMIN.
  */
@@ -942,11 +948,33 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ---------- Stats internes version 2 ----------
+  const v2 = agregerV2(calls.map((c) => ({ stats: (c.stats as any) ?? {} })));
+  let v2Precedente = null;
+  if (searchParams.get("comparer") === "precedente") {
+    const duree = to.getTime() - from.getTime();
+    const wherePrecedente: any = {
+      ...whereClause,
+      createdAt: { gte: new Date(from.getTime() - duree), lt: from },
+    };
+    try {
+      const precedents = await prisma.callConversation.findMany({
+        where: wherePrecedente,
+        select: { stats: true },
+      });
+      v2Precedente = agregerV2(precedents.map((c) => ({ stats: (c.stats as any) ?? {} })));
+    } catch (err) {
+      console.error("analytics-internal fetch precedente error:", err);
+    }
+  }
+
   // ---------- Réponse ----------
   return NextResponse.json({
     period: { from: from.toISOString(), to: to.toISOString() },
     totalCalls: calls.length,
     callsWithInternal: n,
+    v2,
+    v2Precedente,
     timeseries,
     features,
     transfers: {
