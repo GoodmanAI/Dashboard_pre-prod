@@ -98,9 +98,27 @@ function lienComplet(r: ResultatRecherche): string {
   return chemin + filtresEnParametres(r.filtres) + (ancre ? `#${ancre}` : "");
 }
 
+/** L'anneau qui désigne l'élément demandé (tuile, section) : le même pendant l'arrivée et après. */
+const ANNEAU = "0 0 0 3px rgba(var(--accent-rgb), 0.55)";
+
+/**
+ * Garde l'élément demandé entouré tant que l'écran est là (« combien de prises de
+ * rendez-vous hier » : la tuile des RDV pris, parmi les autres). Une règle CSS plutôt
+ * qu'un style posé sur le nœud : l'écran recharge ses données et React remplace la tuile,
+ * la règle s'applique à la nouvelle. Un onglet n'est pas entouré : il est sélectionné.
+ */
+function AncreMarquee({ ancre, portee }: { ancre: string | undefined; portee: string }) {
+  if (!ancre || !/^[a-z_]+$/.test(ancre)) return null;
+  // Une tuile de statistiques porte son ancre sur la case de grille, marges comprises :
+  // l'anneau va à la carte qu'elle contient.
+  const cible = `${portee} #${ancre}:not([role="tab"]):not(.MuiGrid-item), ${portee} #${ancre}.MuiGrid-item > *`;
+  return <style>{`${cible} { box-shadow: ${ANNEAU}; border-radius: 8px; }`}</style>;
+}
+
 /**
  * Amène l'ancre d'une fiche à l'écran une fois l'écran chargé : sélectionne l'onglet, ou
- * déplie l'accordéon qui la porte, la fait défiler et la souligne un instant. Les données arrivent après le montage,
+ * déplie l'accordéon qui la porte, la fait défiler et la fait pulser à l'arrivée ;
+ * `AncreMarquee` la garde ensuite entourée. Les données arrivent après le montage,
  * d'où l'attente (8 s au plus) ; une ancre absente (section vide) est laissée tranquille.
  */
 export function allerAAncre(racine: ParentNode, ancre: string, defilant?: HTMLElement | null) {
@@ -129,12 +147,15 @@ export function allerAAncre(racine: ParentNode, ancre: string, defilant?: HTMLEl
       } else {
         cible.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-      cible.animate?.(
+      const carte = cible.classList.contains("MuiGrid-item")
+        ? ((cible.firstElementChild as HTMLElement | null) ?? cible)
+        : cible;
+      carte.animate?.(
         [
-          { boxShadow: "0 0 0 3px rgba(var(--accent-rgb), 0.55)", borderRadius: "8px" },
-          { boxShadow: "0 0 0 3px rgba(var(--accent-rgb), 0)", borderRadius: "8px" },
+          { boxShadow: "0 0 0 8px rgba(var(--accent-rgb), 0.25)", borderRadius: "8px" },
+          { boxShadow: ANNEAU, borderRadius: "8px" },
         ],
-        { duration: 1800, easing: "ease-out" }
+        { duration: 900, easing: "ease-out" }
       );
     }, 250);
   }, 200);
@@ -215,9 +236,14 @@ export default function PanneauRecherche({ userId }: { userId: number | null }) 
 
   // « Ouvrir l'écran complet » mène à `…#ancre` : même geste sur la page entière.
   const pathname = usePathname();
+  const [ancrePage, setAncrePage] = useState<string | undefined>();
   useEffect(() => {
     const ancre = decodeURIComponent(window.location.hash.slice(1));
-    if (!/^[a-z_]+$/.test(ancre)) return;
+    if (!/^[a-z_]+$/.test(ancre)) {
+      setAncrePage(undefined);
+      return;
+    }
+    setAncrePage(ancre);
     return allerAAncre(document, ancre);
   }, [pathname]);
 
@@ -248,166 +274,172 @@ export default function PanneauRecherche({ userId }: { userId: number | null }) 
   );
 
   return (
-    <Dialog
-      open={ouvert}
-      onClose={() => setOuvert(false)}
-      fullWidth
-      maxWidth="lg"
-      TransitionProps={{ onEntered: () => champ.current?.focus() }}
-      PaperProps={{
-        sx: {
-          height: { xs: "100%", md: "min(90vh, 960px)" },
-          width: { xs: "100%", md: "calc(100% - 64px)" },
-          m: { xs: 0, md: 4 },
-          maxHeight: { xs: "100%", md: "calc(100% - 64px)" },
-          borderRadius: { xs: 0, md: 3 },
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        },
-      }}
-      aria-labelledby="recherche-titre"
-    >
-      {/* La phrase */}
-      <Box
-        component="form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          chercher(phrase);
+    <>
+      {/* « Ouvrir l'écran complet » : l'élément reste entouré sur la page entière. */}
+      <AncreMarquee ancre={ancrePage} portee="body" />
+      <Dialog
+        open={ouvert}
+        onClose={() => setOuvert(false)}
+        fullWidth
+        maxWidth="lg"
+        TransitionProps={{ onEntered: () => champ.current?.focus() }}
+        PaperProps={{
+          sx: {
+            height: { xs: "100%", md: "min(90vh, 960px)" },
+            width: { xs: "100%", md: "calc(100% - 64px)" },
+            m: { xs: 0, md: 4 },
+            maxHeight: { xs: "100%", md: "calc(100% - 64px)" },
+            borderRadius: { xs: 0, md: 3 },
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          },
         }}
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 1.5,
-          px: { xs: 2, md: 3 },
-          py: 1.5,
-          borderBottom: `1px solid ${BORDER}`,
-        }}
+        aria-labelledby="recherche-titre"
       >
-        <Typography id="recherche-titre" component="h2" sx={{ position: "absolute", left: -9999 }}>
-          Rechercher dans votre espace
-        </Typography>
-        {etat.phase === "cherche" ? (
-          <CircularProgress size={22} sx={{ color: "var(--accent)", flexShrink: 0 }} />
-        ) : (
-          <IconSearch size={22} color={INK_MUTED} style={{ flexShrink: 0 }} />
-        )}
-        <InputBase
-          inputRef={champ}
-          value={phrase}
-          onChange={(e) => setPhrase(e.target.value)}
-          placeholder="Ce que vous cherchez, en une phrase : « les appels transférés hier »"
-          inputProps={{ "aria-label": "Ce que vous cherchez", maxLength: 300 }}
-          sx={{ flex: 1, fontSize: { xs: 16, md: 19 }, color: INK, "& input": { py: 1 } }}
-        />
-        <IconButton onClick={() => setOuvert(false)} aria-label="Fermer la recherche" size="small">
-          <IconX size={20} />
-        </IconButton>
-      </Box>
-
-      {/* Ce qui a été trouvé */}
-      {etat.phase === "erreur" && (
-        <Alert severity="error" sx={{ m: 2 }}>
-          {etat.message}
-        </Alert>
-      )}
-      {etat.phase === "vide" && <Exemples onChoisir={(p) => { setPhrase(p); chercher(p); }} />}
-      {reponse && <Messages reponse={reponse} />}
-
-      {reponse && reponse.resultats.length > 0 && (
-        <Box sx={{ px: { xs: 2, md: 3 }, pt: 1.5, borderBottom: `1px solid ${BORDER}` }}>
-          <Stack
-            direction="row"
-            role="tablist"
-            aria-label="Résultats"
-            sx={{ gap: 1, overflowX: "auto", pb: 0 }}
-          >
-            {reponse.resultats.map((r, i) => (
-              <Onglet key={r.cle} resultat={r} actif={i === choix} onClick={() => setChoix(i)} />
-            ))}
-          </Stack>
-        </Box>
-      )}
-
-      {resultat && (
+        {/* La phrase */}
         <Box
+          component="form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            chercher(phrase);
+          }}
           sx={{
             display: "flex",
-            flexWrap: "wrap",
             alignItems: "center",
-            gap: 1,
+            gap: 1.5,
             px: { xs: 2, md: 3 },
-            py: 1.25,
-            bgcolor: SURFACE_MUTED,
+            py: 1.5,
             borderBottom: `1px solid ${BORDER}`,
           }}
         >
-          {appliques.map(([k, v]) => (
-            <Chip
-              key={k}
-              size="small"
-              label={valeurLue(k, v)}
-              sx={{ bgcolor: "rgba(var(--accent-rgb), 0.15)", color: "var(--accent-deep)", fontWeight: 600 }}
-            />
-          ))}
-          {nonAppliques.length > 0 && (
-            <Typography variant="body2" sx={{ color: INK_MUTED }}>
-              Pas filtré sur cet écran : {nonAppliques.map(([k, v]) => valeurLue(k, v)).join(", ")}.
-            </Typography>
-          )}
-          {!resultat.modifiable && (
-            <Typography variant="body2" sx={{ color: INK_MUTED }}>
-              Vous pouvez le lire, pas le modifier.
-            </Typography>
-          )}
-          <Box sx={{ flex: 1 }} />
-          <Link
-            component={NextLink}
-            href={lienComplet(resultat)}
-            onClick={() => setOuvert(false)}
-            underline="hover"
-            sx={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 0.5,
-              fontWeight: 600,
-              fontSize: 14,
-              color: "var(--accent-deep)",
-            }}
-          >
-            Ouvrir l&apos;écran complet
-            <IconExternalLink size={16} />
-          </Link>
-        </Box>
-      )}
-
-      {/* L'écran, préfiltré */}
-      <Box
-        ref={zoneEcran}
-        sx={{ flex: 1, overflow: "auto", px: { xs: 1.5, md: 3 }, py: 2 }}
-        style={resultat ? (accentDe(resultat.produit) as React.CSSProperties) : undefined}
-        data-produit={resultat?.produit}
-      >
-        {resultat && ecran && (
-          <FournisseurIntegre
-            key={resultat.cle}
-            value={{
-              userId,
-              produit: resultat.produit,
-              filtres: resultat.filtres as Filtres,
-              ancre,
-            }}
-          >
-            <ecran.composant />
-          </FournisseurIntegre>
-        )}
-        {resultat && !ecran && (
-          <Typography sx={{ color: INK_MUTED }}>
-            Cet écran ne s&apos;ouvre pas encore ici. Ouvrez-le en entier par le lien ci-dessus.
+          <Typography id="recherche-titre" component="h2" sx={{ position: "absolute", left: -9999 }}>
+            Rechercher dans votre espace
           </Typography>
+          {etat.phase === "cherche" ? (
+            <CircularProgress size={22} sx={{ color: "var(--accent)", flexShrink: 0 }} />
+          ) : (
+            <IconSearch size={22} color={INK_MUTED} style={{ flexShrink: 0 }} />
+          )}
+          <InputBase
+            inputRef={champ}
+            value={phrase}
+            onChange={(e) => setPhrase(e.target.value)}
+            placeholder="Ce que vous cherchez, en une phrase : « les appels transférés hier »"
+            inputProps={{ "aria-label": "Ce que vous cherchez", maxLength: 300 }}
+            sx={{ flex: 1, fontSize: { xs: 16, md: 19 }, color: INK, "& input": { py: 1 } }}
+          />
+          <IconButton onClick={() => setOuvert(false)} aria-label="Fermer la recherche" size="small">
+            <IconX size={20} />
+          </IconButton>
+        </Box>
+
+        {/* Ce qui a été trouvé */}
+        {etat.phase === "erreur" && (
+          <Alert severity="error" sx={{ m: 2 }}>
+            {etat.message}
+          </Alert>
         )}
-      </Box>
-    </Dialog>
+        {etat.phase === "vide" && <Exemples onChoisir={(p) => { setPhrase(p); chercher(p); }} />}
+        {reponse && <Messages reponse={reponse} />}
+
+        {reponse && reponse.resultats.length > 0 && (
+          <Box sx={{ px: { xs: 2, md: 3 }, pt: 1.5, borderBottom: `1px solid ${BORDER}` }}>
+            <Stack
+              direction="row"
+              role="tablist"
+              aria-label="Résultats"
+              sx={{ gap: 1, overflowX: "auto", pb: 0 }}
+            >
+              {reponse.resultats.map((r, i) => (
+                <Onglet key={r.cle} resultat={r} actif={i === choix} onClick={() => setChoix(i)} />
+              ))}
+            </Stack>
+          </Box>
+        )}
+
+        {resultat && (
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 1,
+              px: { xs: 2, md: 3 },
+              py: 1.25,
+              bgcolor: SURFACE_MUTED,
+              borderBottom: `1px solid ${BORDER}`,
+            }}
+          >
+            {appliques.map(([k, v]) => (
+              <Chip
+                key={k}
+                size="small"
+                label={valeurLue(k, v)}
+                sx={{ bgcolor: "rgba(var(--accent-rgb), 0.15)", color: "var(--accent-deep)", fontWeight: 600 }}
+              />
+            ))}
+            {nonAppliques.length > 0 && (
+              <Typography variant="body2" sx={{ color: INK_MUTED }}>
+                Pas filtré sur cet écran : {nonAppliques.map(([k, v]) => valeurLue(k, v)).join(", ")}.
+              </Typography>
+            )}
+            {!resultat.modifiable && (
+              <Typography variant="body2" sx={{ color: INK_MUTED }}>
+                Vous pouvez le lire, pas le modifier.
+              </Typography>
+            )}
+            <Box sx={{ flex: 1 }} />
+            <Link
+              component={NextLink}
+              href={lienComplet(resultat)}
+              onClick={() => setOuvert(false)}
+              underline="hover"
+              sx={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 0.5,
+                fontWeight: 600,
+                fontSize: 14,
+                color: "var(--accent-deep)",
+              }}
+            >
+              Ouvrir l&apos;écran complet
+              <IconExternalLink size={16} />
+            </Link>
+          </Box>
+        )}
+
+        {/* L'écran, préfiltré */}
+        <Box
+          ref={zoneEcran}
+          sx={{ flex: 1, overflow: "auto", px: { xs: 1.5, md: 3 }, py: 2 }}
+          style={resultat ? (accentDe(resultat.produit) as React.CSSProperties) : undefined}
+          data-produit={resultat?.produit}
+          data-zone-recherche=""
+        >
+          <AncreMarquee ancre={ancre} portee="[data-zone-recherche]" />
+          {resultat && ecran && (
+            <FournisseurIntegre
+              key={resultat.cle}
+              value={{
+                userId,
+                produit: resultat.produit,
+                filtres: resultat.filtres as Filtres,
+                ancre,
+              }}
+            >
+              <ecran.composant />
+            </FournisseurIntegre>
+          )}
+          {resultat && !ecran && (
+            <Typography sx={{ color: INK_MUTED }}>
+              Cet écran ne s&apos;ouvre pas encore ici. Ouvrez-le en entier par le lien ci-dessus.
+            </Typography>
+          )}
+        </Box>
+      </Dialog>
+    </>
   );
 }
 
