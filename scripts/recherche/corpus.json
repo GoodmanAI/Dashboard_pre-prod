@@ -1345,6 +1345,21 @@
       },
       "lot": 1,
       "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t44",
+      "source": "temoin",
+      "phrase": "Le code explore de la mammographie de dépistage.",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage/mapping_exam"
+        ],
+        "filtres": {
+          "type": "MG"
+        }
+      },
+      "lot": 1,
+      "note": "Transcription réelle de Deepgram (29/10) : « Xplore » dicté devient « explore »."
     }
   ]
 }

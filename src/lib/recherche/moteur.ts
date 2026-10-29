@@ -117,6 +117,8 @@ const ABREVIATIONS: Record<string, string> = {
   mme: "madame",
   mr: "monsieur",
   faq: "questions frequentes",
+  // La dictée (Deepgram) écrit « explore » pour le logiciel du centre, malgré le keyterm.
+  explore: "xplore",
 };
 
 /** Pluriel ramené au singulier, des deux côtés de la comparaison. */
