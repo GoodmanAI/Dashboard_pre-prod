@@ -978,6 +978,94 @@
       },
       "lot": 1,
       "note": "Témoin écrit par Claude le 28/10 après le premier réglage, pour mesurer ce que le catalogue sait sans avoir été réglé dessus (14 sur 16 au premier essai)."
+    },
+    {
+      "id": "t17",
+      "source": "temoin",
+      "phrase": "combien de prises de rendez-vous hier",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#prises_de_rdv"
+        ],
+        "filtres": {
+          "periode": "hier"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : une demande de chiffre désigne sa tuile, que le panneau garde entourée."
+    },
+    {
+      "id": "t18",
+      "source": "temoin",
+      "phrase": "combien d'appels transférés cette semaine",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#transferts"
+        ],
+        "filtres": {
+          "periode": "cette_semaine"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : une demande de chiffre désigne sa tuile, que le panneau garde entourée."
+    },
+    {
+      "id": "t19",
+      "source": "temoin",
+      "phrase": "combien de rendez-vous annulés ce mois",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#annulations"
+        ],
+        "filtres": {
+          "periode": "ce_mois"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : une demande de chiffre désigne sa tuile, que le panneau garde entourée."
+    },
+    {
+      "id": "t20",
+      "source": "temoin",
+      "phrase": "combien de confirmations cette semaine",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#confirmations"
+        ],
+        "filtres": {
+          "periode": "cette_semaine"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : une demande de chiffre désigne sa tuile, que le panneau garde entourée."
+    },
+    {
+      "id": "t21",
+      "source": "temoin",
+      "phrase": "combien d'appels sans créneau ce mois",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#sans_creneau"
+        ],
+        "filtres": {
+          "periode": "ce_mois"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : une demande de chiffre désigne sa tuile, que le panneau garde entourée."
+    },
+    {
+      "id": "t22",
+      "source": "temoin",
+      "phrase": "combien de patients n'ont pas honoré leur rendez-vous",
+      "attendu": {
+        "destinations": [
+          "talk/stats-no-show"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : une demande de chiffre désigne sa tuile, que le panneau garde entourée."
     }
   ]
 }

@@ -624,6 +624,15 @@ const ANCRES_TUILES = [
   "heures",
 ];
 
+/** Et sur la seconde rangée. */
+const ANCRES_TUILES_BAS = [
+  "annulations",
+  "non_pris_en_charge",
+  "sans_creneau",
+  "interventionnel",
+  "confirmations",
+];
+
 export default function StatsAppelPage({ params }: any) {
   const userProductId = Number(params.id);
   const basePath = useTalkBasePath(userProductId);
@@ -1778,7 +1787,7 @@ export default function StatsAppelPage({ params }: any) {
       </Grid>
       <Grid container spacing={2} sx={{ mb: 2 }}>
         {[0, 1, 2, 3, 4].map((i) => (
-          <Grid item xs={12} sm={6} md={2.4} key={i} id={i === 3 ? "interventionnel" : undefined}>
+          <Grid item xs={12} sm={6} md={2.4} key={i} id={ANCRES_TUILES_BAS[i]}>
             {loading ? (
               <StatTileSkeleton />
             ) : i === 0 ? (

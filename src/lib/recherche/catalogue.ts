@@ -302,7 +302,52 @@ export const CATALOGUE: Fiche[] = [
     page: "stats_appel",
     libelle: "Transferts",
     genre: "statistique",
-    termes: ["transfert", "redirection", "taux de transfert", "pourcentage de redirection", "transferes"],
+    termes: [
+      "transfert", "redirection", "taux de transfert", "pourcentage de redirection", "transferes",
+      "appels transferes", "combien de transferts", "combien d'appels transferes", "nombre de transferts",
+    ],
+    filtres: [...CHIFFRE],
+  },
+  {
+    cle: "talk/stats_appel#annulations",
+    produit: "talk",
+    page: "stats_appel",
+    libelle: "Annulation et modification",
+    genre: "statistique",
+    // Seulement des demandes de chiffre : « les rendez-vous annulés hier » veut la liste des appels.
+    termes: [
+      "annulation", "combien d'annulations", "nombre d'annulations", "combien de rendez-vous annules",
+      "combien de modifications", "combien de rendez-vous modifies", "combien de rendez-vous deplaces",
+    ],
+    filtres: [...CHIFFRE],
+  },
+  {
+    cle: "talk/stats_appel#non_pris_en_charge",
+    produit: "talk",
+    page: "stats_appel",
+    libelle: "Examen non pris en charge",
+    genre: "statistique",
+    termes: ["examen non pris en charge", "examens non realises", "examen pas realise", "pas pris en charge"],
+    filtres: [...CHIFFRE],
+  },
+  {
+    cle: "talk/stats_appel#sans_creneau",
+    produit: "talk",
+    page: "stats_appel",
+    libelle: "Planning complet (appels sans créneau)",
+    genre: "statistique",
+    termes: ["sans creneau", "aucun creneau", "pas de creneau", "appels sans creneau"],
+    filtres: [...CHIFFRE],
+  },
+  {
+    cle: "talk/stats_appel#confirmations",
+    produit: "talk",
+    page: "stats_appel",
+    libelle: "Confirmation RDV",
+    genre: "statistique",
+    termes: [
+      "confirmation de rendez-vous", "rendez-vous confirmes", "combien de confirmations", "confirmation rdv",
+    ],
     filtres: [...CHIFFRE],
   },
   {
@@ -379,6 +424,7 @@ export const CATALOGUE: Fiche[] = [
     genre: "statistique",
     termes: [
       "non honore", "rendez-vous non honores", "absent", "no show", "lapin", "ne sont pas venus",
+      "pas honore", "n'ont pas honore", "pas venu",
       "relance", "relances no-show",
     ],
     filtres: ["periode"],
