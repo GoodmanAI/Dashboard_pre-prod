@@ -6,6 +6,7 @@ import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { INK, INK_MUTED, BORDER, PERDU } from "@/lib/jetons";
+import SuiviJours from "./SuiviJours";
 
 /**
  * Où les patients s'arrêtent dans le parcours (lot F).
@@ -15,9 +16,10 @@ import { INK, INK_MUTED, BORDER, PERDU } from "@/lib/jetons";
  * même écran continue de bloquer les mêmes patients mois après mois, et ce sont
  * surtout les plus âgés, ceux qui ont le plus besoin que ça marche. »
  *
- * UNE SEULE VUE, ET C'EST VOLONTAIRE. Konnect en expose douze. Celle-ci répond à la
- * question qu'un cabinet se pose vraiment : où ça casse. Les onze autres suivront
- * si celle-ci sert, pas avant.
+ * LE FUNNEL D'ABORD, ET C'EST VOLONTAIRE. Il répond à la question qu'un cabinet se pose
+ * vraiment : où ça casse. Dessous, depuis le 29/10/2026 (C-STAT.1), le suivi semaine par
+ * semaine (`SuiviJours.tsx`) : évolution, motifs de passage au secrétariat, examens,
+ * réservations hors des heures d'ouverture.
  *
  * LA DONNÉE VIENT D'UNE REMONTÉE, PAS D'UNE LECTURE. Le Dashboard ne peut pas
  * interroger Konnect (VPN). Le portail pousse donc son funnel toutes les six heures,
@@ -239,6 +241,8 @@ export default function StatistiquesKonnect() {
             </Typography>
           </>
         )}
+
+        <SuiviJours userProductId={userProductId ?? null} />
       </Box>
     </PageContainer>
   );
