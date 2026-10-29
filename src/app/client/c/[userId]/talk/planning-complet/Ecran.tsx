@@ -54,6 +54,7 @@ import { useFiltresRecherche } from "@/lib/recherche/integre";
 import { plageDePeriode } from "@/lib/recherche/periode";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
+import PhraseStatistiques from "@/components/premiersPas/PhraseStatistiques";
 
 // ---------- Types ----------
 type AggregateItem = {
@@ -746,6 +747,10 @@ export default function PlanningCompletPage({ params }: Props) {
           title="Examens non couverts"
           subtitle="Planning complet et examens non pris en charge, par site, sur la période"
           actions={loading ? <Chip size="small" label="chargement…" variant="outlined" /> : undefined}
+        />
+        <PhraseStatistiques
+          cle="talk.planning_complet"
+          texte="Cette page montre les statistiques des examens demandés sans créneau. Vous n'avez rien à y remplir."
         />
 
         {/* ---------- Filtres période ---------- */}
