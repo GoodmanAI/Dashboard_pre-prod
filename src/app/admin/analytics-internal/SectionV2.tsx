@@ -179,6 +179,29 @@ export default function SectionV2({ v2, precedente }: { v2: StatsV2; precedente:
         </Grid>
       </Grid>
 
+      <Box id="robot-v2-cerveau" sx={{ mb: 3 }}>
+        <SectionCard
+          title="Cerveau"
+          subtitle="Temps de décision par profil. « Modèle seul » : l'appel à Azure OpenAI, sans le réseau ni la Function."
+          icon={<IconBrain size={22} />}
+        >
+          <Tableau
+            entetes={["Profil", "Tours", "Décision", "Modèle seul", "Part modèle", "Neutres", "Relances", "Jetons (entrée / sortie)", "Cache"]}
+            lignes={profils.map(([k, x]) => [
+              k,
+              nb(x.n),
+              ms(x.latenceMoyMs),
+              ms(x.llmMoyMs),
+              pc(x.partLlmPct),
+              pc(x.neutresPct),
+              pc(x.relancesPct),
+              `${nb(x.entreeMoy)} / ${nb(x.sortieMoy)}`,
+              pc(x.cachePct),
+            ])}
+          />
+        </SectionCard>
+      </Box>
+
       <Box
         sx={{
           columnCount: { xs: 1, md: 2 },
@@ -186,29 +209,6 @@ export default function SectionV2({ v2, precedente }: { v2: StatsV2; precedente:
           "& > *": { breakInside: "avoid", display: "block", mb: 3 },
         }}
       >
-        <Box id="robot-v2-cerveau">
-          <SectionCard
-            title="Cerveau"
-            subtitle="Temps de décision par profil. « Modèle seul » : l'appel à Azure OpenAI, sans le réseau ni la Function."
-            icon={<IconBrain size={22} />}
-          >
-            <Tableau
-              entetes={["Profil", "Tours", "Décision", "Modèle seul", "Part modèle", "Neutres", "Relances", "Jetons (entrée / sortie)", "Cache"]}
-              lignes={profils.map(([k, x]) => [
-                k,
-                nb(x.n),
-                ms(x.latenceMoyMs),
-                ms(x.llmMoyMs),
-                pc(x.partLlmPct),
-                pc(x.neutresPct),
-                pc(x.relancesPct),
-                `${nb(x.entreeMoy)} / ${nb(x.sortieMoy)}`,
-                pc(x.cachePct),
-              ])}
-            />
-          </SectionCard>
-        </Box>
-
         <Box id="robot-v2-latence">
           <SectionCard
             title="Latence"
