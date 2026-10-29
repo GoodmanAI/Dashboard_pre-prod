@@ -14,8 +14,12 @@ import {
   ListItemIcon,
   ListItemText,
 } from "@mui/material";
-import { IconUser } from "@tabler/icons-react";
+import { IconListCheck, IconUser } from "@tabler/icons-react";
 import { useProduitActif } from "@/hooks/useProduitActif";
+import { useCentreProduit } from "@/hooks/useCentreProduit";
+import { usePremiersPas } from "@/hooks/usePremiersPas";
+import { cheminCentre } from "@/lib/cheminsCentre";
+import { etapesDuProduit } from "@/lib/premiersPas";
 
 /**
  * Composant Profil
@@ -40,6 +44,22 @@ const Profile = () => {
 
   // Router client-side pour la navigation
   const router = useRouter();
+
+  // Premiers pas rangés : le menu permet de les rouvrir, sur l'accueil du produit regardé.
+  const centre = useCentreProduit();
+  const premiersPas = usePremiersPas();
+  const peutRevoir =
+    !premiersPas.admin &&
+    premiersPas.etat?.masque === true &&
+    centre.userId !== null &&
+    etapesDuProduit(centre.produit).length > 0;
+
+  const handleRevoirPremiersPas = async () => {
+    setAnchorEl(null);
+    if (centre.userId === null || !centre.produit) return;
+    await premiersPas.agir({ masque: false });
+    router.push(`${cheminCentre(centre.userId, centre.produit)}#premiers_pas`);
+  };
 
   // Ouvre le menu de profil
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -111,6 +131,15 @@ const Profile = () => {
           </ListItemIcon>
           <ListItemText primary="My Profile" />
         </MenuItem>
+
+        {peutRevoir && (
+          <MenuItem onClick={() => void handleRevoirPremiersPas()}>
+            <ListItemIcon>
+              <IconListCheck width={20} />
+            </ListItemIcon>
+            <ListItemText primary="Revoir les premiers pas" />
+          </MenuItem>
+        )}
 
         {/* Action de déconnexion */}
         <Box mt={1} py={1} px={2}>

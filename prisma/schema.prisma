@@ -41,6 +41,12 @@ model User {
   /// Ignore pour SUPER_ADMIN / ADMIN (acces total quel que soit le contenu).
   permissions Json?
 
+  /// Premiers pas d'un nouveau client (plan `2026-10-onboarding-dashboard-talk.md`).
+  /// null = jamais ouverts : la carte de l'accueil s'affiche.
+  /// { "masque": bool, "lus": ["talk.doubles"], "phrases": ["talk.stats_appel"] }
+  /// Colonne posée par `manual/2026_10_29_premiers_pas.sql`.
+  premiersPas Json?
+
   /// Compteur de version pour la revocation JWT (kick a distance).
   /// Bump = tous les JWT existants du compte deviennent invalides au
   /// prochain refresh (callback jwt les rejette).

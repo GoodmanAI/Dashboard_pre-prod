@@ -87,6 +87,7 @@ import {
   type Salle,
   type SallesParType,
 } from "@/lib/sallesExamen";
+import EncartEtape from "@/components/premiersPas/EncartEtape";
 
 /**
  * Correspondance des examens (refonte design 2026-08-06).
@@ -217,8 +218,12 @@ export default function MappingExam({ params }: TalkPageProps) {
   // Filtres UI
   // Préfiltre de la recherche centrale (panneau ou lien « Ouvrir l'écran complet »).
   const filtresRecherche = useFiltresRecherche();
-  const [search, setSearch] = useState(() => precisionExamen(filtresRecherche.examen));
-  const [typeFilter, setTypeFilter] = useState<string>(() => filtresRecherche.type ?? "all");
+  const [search, setSearch] = useState(() =>
+    precisionExamen(filtresRecherche.examen),
+  );
+  const [typeFilter, setTypeFilter] = useState<string>(
+    () => filtresRecherche.type ?? "all",
+  );
   const [attribFilter, setAttribFilter] = useState<AttribFilter>("all");
   const [codeRisFilter, setCodeRisFilter] = useState<CodeRisFilter>("all");
   const [page, setPage] = useState(0);
@@ -398,7 +403,9 @@ export default function MappingExam({ params }: TalkPageProps) {
    * attend l'enregistrement, car le test relit la ligne en base (T3 du plan).
    */
   const lignesModifiees = useMemo(() => {
-    const avant = new Map(originalData.map((r) => [r.codeExamen, JSON.stringify(r)]));
+    const avant = new Map(
+      originalData.map((r) => [r.codeExamen, JSON.stringify(r)]),
+    );
     return new Set(
       data
         .filter((r) => avant.get(r.codeExamen) !== JSON.stringify(r))
@@ -570,6 +577,8 @@ export default function MappingExam({ params }: TalkPageProps) {
         </Alert>
       )}
 
+      <EncartEtape chemin="parametrage/mapping_exam" />
+
       {/* -------- Sticky Toolbar (recherche + filtres + KPIs) -------- */}
       <Box
         sx={{
@@ -716,11 +725,13 @@ export default function MappingExam({ params }: TalkPageProps) {
           </ToggleButtonGroup>
 
           {!readOnly && (
-            <ImportExportMapping
-              lignes={data}
-              champs={CHAMPS_TALK}
-              onAppliquer={setData}
-            />
+            <Box id="classeur_examens" sx={{ borderRadius: 2 }}>
+              <ImportExportMapping
+                lignes={data}
+                champs={CHAMPS_TALK}
+                onAppliquer={setData}
+              />
+            </Box>
           )}
         </Stack>
 
@@ -843,6 +854,7 @@ export default function MappingExam({ params }: TalkPageProps) {
       {/* -------- Table -------- */}
       {!loading && filtered.length > 0 && (
         <Box
+          id="correspondance_examens"
           ref={refConteneur}
           sx={{
             mt: 3,
@@ -870,7 +882,11 @@ export default function MappingExam({ params }: TalkPageProps) {
             </Stack>
           ) : (
             <TableContainer sx={{ maxHeight: "none" }}>
-              <Table stickyHeader size="small" sx={{ minWidth: LARGEUR_TABLEAU }}>
+              <Table
+                stickyHeader
+                size="small"
+                sx={{ minWidth: LARGEUR_TABLEAU }}
+              >
                 <TableHead>
                   <TableRow>
                     <EnTeteMapping

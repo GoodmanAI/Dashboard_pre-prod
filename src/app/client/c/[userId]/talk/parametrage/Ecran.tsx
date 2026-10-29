@@ -75,6 +75,7 @@ import {
   type ExceptionSalle,
   type SallesParType,
 } from "@/lib/sallesExamen";
+import EncartEtape from "@/components/premiersPas/EncartEtape";
 
 type ExamKey = "radiographie" | "irm" | "echographie" | "scanner" | "mammo";
 type VoiceKey = "femme" | "homme" | "neutre";
@@ -855,6 +856,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
             : undefined
         }
       />
+      <EncartEtape chemin="parametrage" />
 
       {readOnly && (
         <Alert severity="info" sx={{ mb: 2 }}>

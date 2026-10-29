@@ -1416,6 +1416,32 @@
       },
       "lot": 1,
       "note": "C-STAT.1, suivi jour par jour du portail (29/10/2026)."
+    },
+    {
+      "id": "pp01",
+      "source": "brouillon",
+      "phrase": "Par où je commence ?",
+      "attendu": {
+        "destinations": [
+          "talk#premiers_pas"
+        ],
+        "filtres": {}
+      },
+      "lot": "premiers-pas",
+      "note": "Carte Premiers pas de l accueil Talk (plan 2026-10-onboarding-dashboard-talk.md)."
+    },
+    {
+      "id": "pp02",
+      "source": "brouillon",
+      "phrase": "Je voudrais revoir le tutoriel",
+      "attendu": {
+        "destinations": [
+          "talk#premiers_pas"
+        ],
+        "filtres": {}
+      },
+      "lot": "premiers-pas",
+      "note": "Carte Premiers pas de l accueil Talk (plan 2026-10-onboarding-dashboard-talk.md)."
     }
   ]
 }
