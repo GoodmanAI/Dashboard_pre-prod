@@ -63,6 +63,46 @@ import { PAGES } from "@/lib/permissions";
  */
 const SECTIONS = new Set(["messagerie", "funnel", "catalogue"]);
 
+/**
+ * `jours` (29/10/2026, C-STAT.1 de Konnect) : les compteurs quotidiens de ses 14 derniers
+ * jours, poussés chaque nuit par le cron du rollup. **Pas fusionnés dans `charge`** : ils
+ * vont dans `KonnectStatJour`, une ligne par centre, jour et clé, remplacée à chaque
+ * envoi. C'est la série temporelle que la table `KonnectRemontee` renvoyait à sa propre
+ * table. Des comptes seulement ; les clés `ocr*` restent internes (D4), la lecture du
+ * centre les écarte.
+ *
+ * Forme : `{ depuis, jusqu_a, valeurs: { "AAAA-MM-JJ": { cle: nombre } } }`.
+ */
+const SECTION_JOURS = "jours";
+const MAX_JOURS = 31;
+/** Garde de taille de `jours`, qui ne compte pas dans `MAX_OCTETS_CHARGE`. */
+const MAX_LIGNES_JOURS = 20000;
+const CLE_JOUR = /^[a-z0-9_.]{1,40}$/i;
+const DATE_JOUR = /^\d{4}-\d{2}-\d{2}$/;
+
+type LigneJour = { jour: string; cle: string; valeur: number };
+
+/** Lignes valides de la section `jours`, ou `null` si elle est mal formée. */
+function lireJours(section: unknown): LigneJour[] | null {
+  if (!section || typeof section !== "object" || Array.isArray(section)) return null;
+  const valeurs = (section as { valeurs?: unknown }).valeurs;
+  if (!valeurs || typeof valeurs !== "object" || Array.isArray(valeurs)) return null;
+  const jours = Object.entries(valeurs as Record<string, unknown>);
+  if (jours.length > MAX_JOURS) return null;
+  const lignes: LigneJour[] = [];
+  for (const [jour, compteurs] of jours) {
+    if (!DATE_JOUR.test(jour) || Number.isNaN(Date.parse(jour))) return null;
+    if (!compteurs || typeof compteurs !== "object" || Array.isArray(compteurs)) return null;
+    for (const [cle, valeur] of Object.entries(compteurs as Record<string, unknown>)) {
+      // Une clé ou une valeur hors forme est écartée, pas refusée : même tolérance que
+      // pour une section inconnue.
+      if (!CLE_JOUR.test(cle) || typeof valeur !== "number" || !Number.isFinite(valeur)) continue;
+      lignes.push({ jour, cle, valeur });
+    }
+  }
+  return lignes;
+}
+
 /** Garde de taille : au-delà, c'est une erreur d'appel, pas un état. */
 const MAX_OCTETS_CHARGE = 64 * 1024;
 
@@ -130,9 +170,12 @@ export async function POST(req: NextRequest) {
   for (const [cle, valeur] of Object.entries(body)) {
     if (SECTIONS.has(cle) && valeur && typeof valeur === "object") charge[cle] = valeur;
   }
-  if (Object.keys(charge).length === 0) {
+  const avecJours = SECTION_JOURS in body;
+  if (Object.keys(charge).length === 0 && !avecJours) {
     return NextResponse.json(
-      { error: `Aucune section connue. Attendu : ${[...SECTIONS].join(", ")}.` },
+      {
+        error: `Aucune section connue. Attendu : ${[...SECTIONS, SECTION_JOURS].join(", ")}.`,
+      },
       { status: 400 }
     );
   }
@@ -140,6 +183,36 @@ export async function POST(req: NextRequest) {
   const serialisee = JSON.stringify(charge);
   if (Buffer.byteLength(serialisee, "utf8") > MAX_OCTETS_CHARGE) {
     return NextResponse.json({ error: "Remontée trop volumineuse." }, { status: 413 });
+  }
+
+  const sections = Object.keys(charge);
+  if (avecJours) {
+    const lignes = lireJours(body[SECTION_JOURS]);
+    if (lignes === null) {
+      return NextResponse.json(
+        { error: `Section jours mal formée (${MAX_JOURS} jours au plus).` },
+        { status: 400 }
+      );
+    }
+    if (lignes.length > MAX_LIGNES_JOURS) {
+      return NextResponse.json({ error: "Section jours trop volumineuse." }, { status: 413 });
+    }
+    if (lignes.length > 0) {
+      // Une requête pour toute la section : 14 jours de compteurs tiennent en quelques
+      // centaines de lignes.
+      await db.query(
+        `INSERT INTO "KonnectStatJour" ("userProductId", "jour", "cle", "valeur", "recuAt")
+         SELECT $1, j.jour::date, j.cle, j.valeur, NOW()
+           FROM jsonb_to_recordset($2::jsonb) AS j(jour text, cle text, valeur double precision)
+         ON CONFLICT ("userProductId", "jour", "cle")
+           DO UPDATE SET "valeur" = EXCLUDED."valeur", "recuAt" = NOW()`,
+        [userProductId, JSON.stringify(lignes)]
+      );
+    }
+    sections.push(SECTION_JOURS);
+  }
+  if (Object.keys(charge).length === 0) {
+    return NextResponse.json({ userProductId, sections }, { status: 200 });
   }
 
   // Fusion sur l'existant, section par section : Konnect peut n'avoir à remonter
@@ -157,7 +230,7 @@ export async function POST(req: NextRequest) {
 
   // Pas d'`auditLog` : ce n'est ni un geste humain ni une donnée sensible, et une
   // remontée périodique noierait le journal d'audit qui part vers Grafana.
-  return NextResponse.json({ userProductId, sections: Object.keys(charge) }, { status: 200 });
+  return NextResponse.json({ userProductId, sections }, { status: 200 });
 }
 
 export async function GET(req: NextRequest) {

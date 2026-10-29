@@ -1360,6 +1360,62 @@
       },
       "lot": 1,
       "note": "Transcription réelle de Deepgram (29/10) : « Xplore » dicté devient « explore »."
+    },
+    {
+      "id": "cstat1",
+      "source": "brouillon",
+      "phrase": "Combien de patients ont réservé en ligne le soir ce mois-ci",
+      "attendu": {
+        "destinations": [
+          "konnect/statistiques#horaires"
+        ],
+        "filtres": {
+          "periode": "ce_mois"
+        }
+      },
+      "lot": 1,
+      "note": "C-STAT.1, suivi jour par jour du portail (29/10/2026)."
+    },
+    {
+      "id": "cstat2",
+      "source": "brouillon",
+      "phrase": "Pourquoi les patients du portail passent par le secrétariat",
+      "attendu": {
+        "destinations": [
+          "konnect/statistiques#motifs"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "C-STAT.1, suivi jour par jour du portail (29/10/2026)."
+    },
+    {
+      "id": "cstat3",
+      "source": "brouillon",
+      "phrase": "Les rendez-vous en ligne par examen le mois dernier",
+      "attendu": {
+        "destinations": [
+          "konnect/statistiques#examens"
+        ],
+        "filtres": {
+          "periode": "dernier_mois"
+        }
+      },
+      "lot": 1,
+      "note": "C-STAT.1, suivi jour par jour du portail (29/10/2026)."
+    },
+    {
+      "id": "cstat4",
+      "source": "brouillon",
+      "phrase": "L'évolution du portail semaine par semaine",
+      "attendu": {
+        "destinations": [
+          "konnect/statistiques#evolution"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "C-STAT.1, suivi jour par jour du portail (29/10/2026)."
     }
   ]
 }
