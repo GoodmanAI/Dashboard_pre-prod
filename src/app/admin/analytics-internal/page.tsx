@@ -14,6 +14,7 @@ import {
   CircularProgress,
   Divider,
   FormControl,
+  FormControlLabel,
   Grid,
   IconButton,
   InputLabel,
@@ -24,6 +25,7 @@ import {
   Select,
   Skeleton,
   Stack,
+  Switch,
   Tab,
   Table,
   TableBody,
@@ -89,6 +91,9 @@ import {
   downloadMarkdown,
   buildFilename,
 } from "@/lib/analyticsInternalExport";
+import { KpiCard, SectionCard } from "./cartes";
+import SectionV2 from "./SectionV2";
+import type { StatsV2 } from "@/lib/statsInternesV2";
 
 // ---------- Types ----------
 type TimeseriesPoint = {
@@ -143,6 +148,10 @@ type AnalyticsInternal = {
   period: { from: string; to: string };
   totalCalls: number;
   callsWithInternal: number;
+  /** Appels en `stats.internal.version === 2` (LyraeTalk v2.62.0). */
+  v2?: StatsV2;
+  /** Même agrégation sur la période précédente, si demandée. */
+  v2Precedente?: StatsV2 | null;
   timeseries: TimeseriesPoint[];
   features: Record<FeatureKey, FeatureData>;
 
@@ -261,114 +270,6 @@ function ExportIconButton({
 }
 
 /** KPI compact : icône teal + label + valeur. */
-function KpiCard({
-  label,
-  value,
-  icon,
-  valueColor,
-  suffix,
-}: {
-  label: string;
-  value: string | number;
-  icon: React.ReactNode;
-  valueColor?: string;
-  suffix?: string;
-}) {
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 1.5,
-        p: 1.5,
-        borderRadius: 2,
-        bgcolor: "rgba(72,200,175,0.05)",
-        border: "1px solid rgba(72,200,175,0.15)",
-        height: "100%",
-      }}
-    >
-      <Box
-        sx={{
-          width: 40,
-          height: 40,
-          borderRadius: "10px",
-          display: "grid",
-          placeItems: "center",
-          bgcolor: "rgba(72,200,175,0.12)",
-          color: "#2a6f64",
-          flexShrink: 0,
-        }}
-      >
-        {icon}
-      </Box>
-      <Box sx={{ minWidth: 0, flex: 1 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }} noWrap>
-          {label}
-        </Typography>
-        <Typography
-          variant="h6"
-          fontWeight={800}
-          sx={{ color: valueColor, lineHeight: 1.2 }}
-          noWrap
-        >
-          {value}
-          {suffix && (
-            <Typography component="span" variant="caption" sx={{ ml: 0.5, fontWeight: 500 }}>
-              {suffix}
-            </Typography>
-          )}
-        </Typography>
-      </Box>
-    </Box>
-  );
-}
-
-/** Section card avec entête : icône, titre, sous-titre, contenu. */
-function SectionCard({
-  title,
-  subtitle,
-  icon,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card elevation={1} sx={{ p: { xs: 2.5, md: 3 }, height: "100%" }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-        <Box
-          sx={{
-            width: 44,
-            height: 44,
-            borderRadius: "12px",
-            display: "grid",
-            placeItems: "center",
-            bgcolor: "rgba(72,200,175,0.12)",
-            color: "#2a6f64",
-            flexShrink: 0,
-          }}
-        >
-          {icon}
-        </Box>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography variant="subtitle1" fontWeight={800} lineHeight={1.2}>
-            {title}
-          </Typography>
-          {subtitle && (
-            <Typography variant="caption" color="text.secondary">
-              {subtitle}
-            </Typography>
-          )}
-        </Box>
-      </Box>
-      <Divider sx={{ mb: 2.5 }} />
-      {children}
-    </Card>
-  );
-}
-
 /** BarChart simple horizontal-friendly. */
 function MiniBarChart({
   data,
@@ -2383,6 +2284,8 @@ const AnalyticsInternalPage = () => {
   // Liste des userProductId sélectionnés ; [] = "tous les centres"
   const [selectedUserProductIds, setSelectedUserProductIds] = useState<number[]>([]);
   const [rdvStatus, setRdvStatus] = useState<string>("all");
+  // Ajoute à la section V2 la période de même durée qui précède (mêmes centres).
+  const [comparer, setComparer] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
 
   // Data
@@ -2410,6 +2313,7 @@ const AnalyticsInternalPage = () => {
           params.set("userProductIds", selectedUserProductIds.join(","));
         }
         if (rdvStatus !== "all") params.set("rdv_status", rdvStatus);
+        if (comparer) params.set("comparer", "precedente");
         const res = await fetch(`/api/admin/analytics-internal?${params.toString()}`, {
           signal: controller.signal,
         });
@@ -2424,7 +2328,7 @@ const AnalyticsInternalPage = () => {
       }
     })();
     return () => controller.abort();
-  }, [range, selectedUserProductIds, rdvStatus]);
+  }, [range, selectedUserProductIds, rdvStatus, comparer]);
 
   // Centres triés alphabétiquement
   const centreOptions = useMemo(
@@ -2691,6 +2595,14 @@ const AnalyticsInternalPage = () => {
                 </Select>
               </FormControl>
 
+              <FormControlLabel
+                control={
+                  <Switch size="small" checked={comparer} onChange={(e) => setComparer(e.target.checked)} />
+                }
+                label={<Typography variant="body2">Comparer à la période précédente</Typography>}
+                sx={{ ml: 0 }}
+              />
+
               <MuiTooltip
                 title={
                   handleExportFull
@@ -2757,6 +2669,11 @@ const AnalyticsInternalPage = () => {
           </Grid>
         </Grid>
 
+        {/* ---------- Robot V2 : stats internes version 2 (LyraeTalk v2.62.0) ---------- */}
+        {data?.v2 && data.v2.appels > 0 && (
+          <SectionV2 v2={data.v2} precedente={comparer ? data.v2Precedente ?? null : null} />
+        )}
+
         {error && (
           <Card elevation={1} sx={{ p: 3, mb: 3, bgcolor: "rgba(239,68,68,0.05)" }}>
             <Typography color="error" variant="body2">
@@ -2790,7 +2707,9 @@ const AnalyticsInternalPage = () => {
         )}
 
         {/* ---------- Monitoring features candidates (eager / tts / buffered) ---------- */}
-        {data?.features && (
+        {/* Les appels en version 2 n'écrivent plus le détail de ces essais (décisions prises) :
+            le bloc ne se lit que sur une période surtout en ancienne forme. */}
+        {data?.features && (data.v2?.appels ?? 0) < data.callsWithInternal / 2 && (
           <FeatureMonitoringSection
             features={data.features}
             onExport={handleExportFeature}
