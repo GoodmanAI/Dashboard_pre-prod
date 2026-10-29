@@ -64,3 +64,20 @@ export function plageDePeriode(periode: string | undefined, maintenant = new Dat
   }
   return null;
 }
+
+const PERIODE_LUE: Record<string, string> = {
+  aujourd_hui: "Aujourd'hui",
+  hier: "Hier",
+  avant_hier: "Avant-hier",
+  ce_matin: "Ce matin",
+  cet_apres_midi: "Cet après-midi",
+  cette_semaine: "Cette semaine",
+  semaine_derniere: "La semaine dernière",
+  ce_mois: "Ce mois",
+  dernier_mois: "Les 30 derniers jours",
+};
+
+/** Une valeur de période telle qu'on la montre (« Hier », « Vendredi », « 12/10 »). */
+export function libellePeriode(periode: string): string {
+  return PERIODE_LUE[periode] ?? periode.charAt(0).toUpperCase() + periode.slice(1);
+}

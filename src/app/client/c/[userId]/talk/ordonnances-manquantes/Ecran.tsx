@@ -38,6 +38,8 @@ import type { StatutSuivi, SuiviCarte } from "@/lib/suiviCarte";
 import SectionHeader from "@/components/admin/SectionHeader";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import RejectedPrescriptionsPanel from "@/components/prescriptions/RejectedPrescriptionsPanel";
+import { useFiltresRecherche } from "@/lib/recherche/integre";
+import { contientTousLesMots } from "@/lib/recherche/texte";
 import ParMailPrescriptionsPanel, { type ParMailItem } from "@/components/prescriptions/ParMailPrescriptionsPanel";
 import {
   ALERT_AFTER_HOURS_MAX,
@@ -233,6 +235,12 @@ export default function OrdonnancesManquantesPage({ params, canal = "talk" }: Pr
   // "all" = pas de filtre. Sinon la valeur brute d'examType (scanner, irm, etc.)
   // Applique cote client sur les items retournes par l'API.
   const [examFilter, setExamFilter] = useState<string>("all");
+  // Nom ou numéro du patient, prérempli par la recherche centrale (« l'ordonnance de
+  // Monsieur Durand »). Comparé sans accents, mot à mot, au nom, au prénom et au numéro.
+  const filtresRecherche = useFiltresRecherche();
+  const [patient, setPatient] = useState<string>(
+    () => filtresRecherche.nom ?? filtresRecherche.telephone ?? ""
+  );
 
   const load = useCallback(
     async (hoursOverride?: number) => {
@@ -543,10 +551,15 @@ export default function OrdonnancesManquantesPage({ params, canal = "talk" }: Pr
 
   const ordonner = useCallback(
     (liste: AlertItem[]) => {
-    const filtered =
-      examFilter === "all"
-        ? liste
-        : liste.filter((it) => it.examType === examFilter);
+    const q = patient.trim();
+    const chiffres = q.replace(/\D/g, "");
+    const filtered = liste.filter((it) => {
+      if (examFilter !== "all" && it.examType !== examFilter) return false;
+      if (!q) return true;
+      if (chiffres.length >= 4 && chiffres.length === q.replace(/[\s.\-()+]/g, "").length)
+        return it.phone.replace(/\D/g, "").includes(chiffres);
+      return contientTousLesMots(`${it.firstname} ${it.lastname}`, q);
+    });
     // Examen le plus proche en tete : les secretaires traitent d'abord les
     // RDV imminents. Sans date d'examen, en fin de liste ; a date egale,
     // le lien le plus ancien d'abord.
@@ -563,7 +576,7 @@ export default function OrdonnancesManquantesPage({ params, canal = "talk" }: Pr
         b.hoursSinceCreated - a.hoursSinceCreated
     );
     },
-    [examFilter]
+    [examFilter, patient]
   );
   const orderedItems = useMemo(() => ordonner(items), [ordonner, items]);
   const orderedDocItems = useMemo(() => ordonner(docItems), [ordonner, docItems]);
@@ -907,6 +920,13 @@ export default function OrdonnancesManquantesPage({ params, canal = "talk" }: Pr
                   );
                 })}
               </Select>
+              <TextField
+                size="small"
+                placeholder="Chercher un patient ou un numéro"
+                value={patient}
+                onChange={(e) => setPatient(e.target.value)}
+                sx={{ minWidth: 260, bgcolor: "#FFF" }}
+              />
             </Stack>
           </Stack>
         </Card>
@@ -935,6 +955,16 @@ export default function OrdonnancesManquantesPage({ params, canal = "talk" }: Pr
           <Stack alignItems="center" sx={{ py: 6 }}>
             <CircularProgress sx={{ color: "var(--accent)" }} />
           </Stack>
+        ) : listeAffichee.length === 0 && patient.trim() ? (
+          <Card elevation={1} sx={{ p: 5, textAlign: "center" }}>
+            <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
+              Aucun patient ne correspond à « {patient.trim()} »
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Le patient n&apos;a peut-être pas encore dépassé le délai, ou il est dans un autre
+              onglet. Videz le champ pour revoir toute la liste.
+            </Typography>
+          </Card>
         ) : listeAffichee.length === 0 ? (
           <Card elevation={1} sx={{ p: 5, textAlign: "center" }}>
             <CheckCircle sx={{ fontSize: 56, color: "#22C55E", mb: 1.5 }} />

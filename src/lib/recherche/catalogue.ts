@@ -55,7 +55,7 @@ export const CATALOGUE: Fiche[] = [
       "ordonnance", "ordonnances manquantes", "ordonnance manquante", "ordonnances en attente",
       "prescription", "ordonnance de",
     ],
-    filtres: ["nom", "periode"],
+    filtres: ["nom", "telephone", "periode"],
   },
   {
     cle: "talk/ordonnances-manquantes#questionnaires",
@@ -64,7 +64,7 @@ export const CATALOGUE: Fiche[] = [
     libelle: "Questionnaires et documents",
     genre: "liste",
     termes: ["questionnaire", "questionnaires remplis", "documents demandes", "questionnaires et documents", "attestation"],
-    filtres: ["nom", "periode"],
+    filtres: ["nom", "telephone", "periode"],
   },
   {
     cle: "talk/ordonnances-manquantes#par_mail",
@@ -551,7 +551,7 @@ export const CATALOGUE: Fiche[] = [
     libelle: "Questionnaires des patients",
     genre: "liste",
     termes: ["questionnaire", "questionnaires remplis", "questionnaires non remplis"],
-    filtres: ["nom", "periode"],
+    filtres: ["nom", "telephone", "periode"],
   },
   {
     cle: "konnect/regles-cliniques",
