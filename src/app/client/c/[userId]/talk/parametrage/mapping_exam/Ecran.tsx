@@ -66,6 +66,11 @@ import {
   useFichesSiTropEtroit,
 } from "@/components/mapping/cellules";
 import {
+  BoutonTestCreneaux,
+  useTestCreneaux,
+  type TestCreneaux,
+} from "@/components/mapping/TestCreneaux";
+import {
   INK,
   INK_MUTED,
   BORDER,
@@ -387,6 +392,21 @@ export default function MappingExam({ params }: TalkPageProps) {
     }
     return n;
   }, [data, originalData]);
+
+  /**
+   * Les lignes modifiées depuis le chargement : leur bouton « Tester les créneaux »
+   * attend l'enregistrement, car le test relit la ligne en base (T3 du plan).
+   */
+  const lignesModifiees = useMemo(() => {
+    const avant = new Map(originalData.map((r) => [r.codeExamen, JSON.stringify(r)]));
+    return new Set(
+      data
+        .filter((r) => avant.get(r.codeExamen) !== JSON.stringify(r))
+        .map((r) => r.codeExamen),
+    );
+  }, [data, originalData]);
+
+  const testCreneaux = useTestCreneaux(userProductId);
 
   // ---- KPIs ----
   const attribCount = useMemo(
@@ -843,6 +863,8 @@ export default function MappingExam({ params }: TalkPageProps) {
                   typesClient={typesClient}
                   salles={sallesDuType(sallesParType, row.typeExamen)}
                   imposee={imposees[row.codeExamen]}
+                  test={testCreneaux}
+                  modifiee={lignesModifiees.has(row.codeExamen)}
                 />
               ))}
             </Stack>
@@ -903,6 +925,8 @@ export default function MappingExam({ params }: TalkPageProps) {
                       typesClient={typesClient}
                       salles={sallesDuType(sallesParType, row.typeExamen)}
                       imposee={imposees[row.codeExamen]}
+                      test={testCreneaux}
+                      modifiee={lignesModifiees.has(row.codeExamen)}
                     />
                   ))}
                 </TableBody>
@@ -975,6 +999,7 @@ export default function MappingExam({ params }: TalkPageProps) {
 
       <Portal>
         {dialogue}
+        {testCreneaux.dialogue}
         <Retour
           ouvert={snack.open}
           message={snack.message}
@@ -1027,6 +1052,8 @@ function FicheExamen({
   typesClient,
   salles,
   imposee,
+  test,
+  modifiee,
 }: ExamRowProps) {
   const codeInjection = row.codeExamenClientInject ?? "";
   const { injecte, setOuvert } = useVoletInjection(codeInjection);
@@ -1051,6 +1078,7 @@ function FicheExamen({
           onLibelle={(v) => onChange(row.codeExamen, "libelleClient", v)}
           disabled={inactif}
         />
+        <BoutonDeLaLigne row={row} test={test} modifiee={modifiee} />
       </RangeeChamp>
 
       <RangeeChamp libelle="Type">
@@ -1110,6 +1138,10 @@ interface ExamRowProps {
   salles: readonly Salle[];
   /** Le poste imposé à cet examen dans Paramètres généraux, s'il y en a un. */
   imposee?: string;
+  /** Le bouton « Tester les créneaux » de l'écran. */
+  test: TestCreneaux;
+  /** La ligne a des changements non enregistrés. */
+  modifiee: boolean;
 }
 
 /**
@@ -1132,6 +1164,8 @@ function ExamTableRow({
   typesClient,
   salles,
   imposee,
+  test,
+  modifiee,
 }: ExamRowProps) {
   const codeInjection = row.codeExamenClientInject ?? "";
   const { injecte, setOuvert } = useVoletInjection(codeInjection);
@@ -1178,6 +1212,7 @@ function ExamTableRow({
           onLibelle={(v) => onChange(row.codeExamen, "libelleClient", v)}
           disabled={inactif}
         />
+        <BoutonDeLaLigne row={row} test={test} modifiee={modifiee} />
       </TableCell>
 
       {/* Type du client */}
@@ -1228,6 +1263,28 @@ function ExamTableRow({
         />
       </TableCell>
     </TableRow>
+  );
+}
+
+/** Sous le code de la ligne : c'est lui que le test envoie à Xplore. */
+function BoutonDeLaLigne({
+  row,
+  test,
+  modifiee,
+}: Pick<ExamRowProps, "row" | "test" | "modifiee">) {
+  const aUnCode =
+    (row.codeExamenClient ?? "").trim() !== "" ||
+    (row.codeExamenClientInject ?? "").trim() !== "";
+  return (
+    <Box sx={{ mt: 0.5 }}>
+      <BoutonTestCreneaux
+        test={test}
+        codeExamen={row.codeExamen}
+        libelle={row.libelleClient?.trim() || row.libelle || row.codeExamen}
+        aUnCode={aUnCode}
+        modifiee={modifiee}
+      />
+    </Box>
   );
 }
 
