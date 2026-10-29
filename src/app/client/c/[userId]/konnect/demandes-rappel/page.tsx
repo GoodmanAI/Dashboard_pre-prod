@@ -23,6 +23,8 @@ import {
   Typography,
 } from "@mui/material";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
+import { useFiltresRecherche } from "@/lib/recherche/integre";
+import { sansAccents } from "@/lib/recherche/texte";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import EnTete, { SX_COLLEE_A_DROITE } from "@/components/shared/EnTeteTableau";
@@ -105,8 +107,22 @@ export default function DemandesRappelKonnect() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [filtreMotif, setFiltreMotif] = useState<string>("tous");
-  const [filtreStatut, setFiltreStatut] = useState<string>("a_rappeler");
-  const [recherche, setRecherche] = useState("");
+  // Préfiltre de la recherche centrale. Un patient nommé est cherché dans toute la
+  // file, traitées comprises : « Madame Lefèvre a demandé qu'on la rappelle » doit la
+  // trouver même si une collègue l'a déjà rappelée.
+  const filtresRecherche = useFiltresRecherche();
+  const [filtreStatut, setFiltreStatut] = useState<string>(() =>
+    filtresRecherche.etat === "traite"
+      ? "traitees"
+      : filtresRecherche.etat === "en_attente"
+        ? "a_rappeler"
+        : filtresRecherche.nom || filtresRecherche.telephone
+          ? "toutes"
+          : "a_rappeler"
+  );
+  const [recherche, setRecherche] = useState(
+    () => filtresRecherche.nom ?? filtresRecherche.telephone ?? ""
+  );
 
   const charger = useCallback(async () => {
     if (!userProductId) return;
@@ -167,15 +183,14 @@ export default function DemandesRappelKonnect() {
 
   // L'ordre du serveur est gardé : à rappeler, urgentes, puis les plus anciennes.
   const visibles = useMemo(() => {
-    const q = recherche.trim().toLowerCase().replace(/[\s.\-()]/g, "");
+    // Sans accents : la barre rend « Lefèvre » tel que dit, la base peut porter « Lefevre ».
+    const q = sansAccents(recherche.trim()).replace(/[\s.\-()]/g, "");
     return demandes.filter((d) => {
       if (filtreMotif !== "tous" && (d.motif ?? "examen_non_reservable") !== filtreMotif) return false;
       if (filtreStatut === "a_rappeler" && d.statut !== "a_rappeler") return false;
       if (filtreStatut === "traitees" && d.statut === "a_rappeler") return false;
       if (!q) return true;
-      const botte = `${d.prenom}${d.nom}${d.nom}${d.prenom}${d.telephone}`
-        .toLowerCase()
-        .replace(/[\s.\-()]/g, "");
+      const botte = sansAccents(`${d.prenom}${d.nom}${d.nom}${d.prenom}${d.telephone}`).replace(/[\s.\-()]/g, "");
       return botte.includes(q);
     });
   }, [demandes, filtreMotif, filtreStatut, recherche]);

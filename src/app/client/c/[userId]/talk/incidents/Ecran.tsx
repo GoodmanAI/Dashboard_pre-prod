@@ -26,6 +26,8 @@ import PastilleMineur from "@/components/transcription/PastilleMineur";
 import { useSignalement } from "@/components/shared/DialogSignalement";
 import { apercuConversation } from "@/lib/entitesTranscription";
 import { exporterTranscriptionPdf, formatPhoneFR } from "@/lib/transcriptionPdf";
+import { useFiltresRecherche } from "@/lib/recherche/integre";
+import { libellePeriode, plageDePeriode } from "@/lib/recherche/periode";
 
 
 interface FlaggedCall {
@@ -71,6 +73,22 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
   const [selectedCall, setSelectedCall] = useState<any | null>(null);
   const [flaggedState, setFlaggedState] = useState<Record<number, boolean>>({});
   const { demanderCommentaire, dialogue: dialogueSignalement } = useSignalement();
+  // Période posée par la recherche centrale (« les incidents d'hier »). L'écran n'a pas
+  // d'autre filtre : la pastille la montre et se retire d'un clic.
+  const periodeRecherche = useFiltresRecherche().periode;
+  const [periode, setPeriode] = useState<string | undefined>(() =>
+    plageDePeriode(periodeRecherche) ? periodeRecherche : undefined
+  );
+  const visibles = useMemo(() => {
+    const plage = plageDePeriode(periode);
+    if (!plage) return calls;
+    const debut = plage.from.getTime();
+    const fin = plage.to.getTime();
+    return calls.filter((c) => {
+      const t = new Date(c.createdAt).getTime();
+      return t >= debut && t <= fin;
+    });
+  }, [calls, periode]);
 
   useEffect(() => {
     if (!userProductId || isNaN(userProductId)) return;
@@ -192,13 +210,29 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
 
       {error && <Alert severity="error">{error}</Alert>}
 
+      {periode && !loading && (
+        <Box sx={{ mb: 1.5 }}>
+          <Chip
+            label={`Période : ${libellePeriode(periode)}`}
+            onDelete={() => setPeriode(undefined)}
+            size="small"
+          />
+        </Box>
+      )}
+
       {!loading && !error && calls.length === 0 && (
         <Alert severity="info">Aucun appel signalé pour le moment.</Alert>
       )}
 
-      {!loading && calls.length > 0 && (
+      {!loading && !error && calls.length > 0 && visibles.length === 0 && (
+        <Alert severity="info">
+          Aucun appel signalé sur cette période. Retirez la pastille pour revoir tous les incidents.
+        </Alert>
+      )}
+
+      {!loading && visibles.length > 0 && (
         <List sx={{ bgcolor: "white", borderRadius: 2 }}>
-          {calls.map((call, index) => {
+          {visibles.map((call, index) => {
             const apercu = apercuConversation(call.steps);
 
             return (
@@ -312,7 +346,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
                   </Tooltip>
                 </ListItem>
 
-                {index < calls.length - 1 && <Divider />}
+                {index < visibles.length - 1 && <Divider />}
               </Box>
             );
           })}

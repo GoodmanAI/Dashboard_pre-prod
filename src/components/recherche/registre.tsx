@@ -26,6 +26,8 @@ import type { CleFiltre } from "@/lib/recherche/moteur";
 export type EcranMontable = {
   composant: ComponentType;
   applique: CleFiltre[];
+  /** Ancres (onglets) montées par un autre composant, où `applique` ne vaut pas. */
+  ancresSansFiltre?: string[];
 };
 
 function Chargement() {
@@ -51,11 +53,12 @@ export const REGISTRE: Record<string, EcranMontable> = {
   },
   "talk/incidents": {
     composant: charger(() => import("@/app/client/c/[userId]/talk/incidents/page")),
-    applique: [],
+    applique: ["periode"],
   },
   "talk/ordonnances-manquantes": {
     composant: charger(() => import("@/app/client/c/[userId]/talk/ordonnances-manquantes/page")),
-    applique: [],
+    applique: ["nom", "telephone"],
+    ancresSansFiltre: ["par_mail", "refusees"],
   },
   "talk/parametrage": {
     composant: charger(() => import("@/app/client/c/[userId]/talk/parametrage/page")),
@@ -101,7 +104,7 @@ export const REGISTRE: Record<string, EcranMontable> = {
   // ── LyraeKonnect ──
   "konnect/demandes-rappel": {
     composant: charger(() => import("@/app/client/c/[userId]/konnect/demandes-rappel/page")),
-    applique: [],
+    applique: ["nom", "telephone", "etat"],
   },
   "konnect/examens": {
     composant: charger(() => import("@/app/client/c/[userId]/konnect/examens/page")),
@@ -109,7 +112,7 @@ export const REGISTRE: Record<string, EcranMontable> = {
   },
   "konnect/liste-attente": {
     composant: charger(() => import("@/app/client/c/[userId]/konnect/liste-attente/page")),
-    applique: [],
+    applique: ["nom"],
   },
   "konnect/mots-cabinet": {
     composant: charger(() => import("@/app/client/c/[userId]/konnect/mots-cabinet/page")),
@@ -133,7 +136,7 @@ export const REGISTRE: Record<string, EcranMontable> = {
   },
   "konnect/questionnaires": {
     composant: charger(() => import("@/app/client/c/[userId]/konnect/questionnaires/page")),
-    applique: [],
+    applique: ["nom", "telephone"],
   },
   "konnect/regles-cliniques": {
     composant: charger(() => import("@/app/client/c/[userId]/konnect/regles-cliniques/page")),

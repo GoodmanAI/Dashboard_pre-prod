@@ -21,6 +21,7 @@ import { PRODUITS, type SlugProduit } from "@/lib/produits";
 import { BORDER, INK, INK_MUTED, SURFACE_MUTED } from "@/lib/jetons";
 import { FournisseurIntegre, filtresEnParametres } from "@/lib/recherche/integre";
 import { precisionExamen } from "@/lib/recherche/texte";
+import { libellePeriode } from "@/lib/recherche/periode";
 import type { CleFiltre, Filtres } from "@/lib/recherche/moteur";
 import type { ReponseRecherche, ResultatRecherche } from "@/app/api/recherche/route";
 import { REGISTRE } from "./registre";
@@ -55,17 +56,6 @@ const GENRE_LU: Record<string, string> = {
   statistique: "statistiques",
 };
 
-const PERIODE_LUE: Record<string, string> = {
-  aujourd_hui: "Aujourd'hui",
-  hier: "Hier",
-  avant_hier: "Avant-hier",
-  ce_matin: "Ce matin",
-  cet_apres_midi: "Cet après-midi",
-  cette_semaine: "Cette semaine",
-  semaine_derniere: "La semaine dernière",
-  ce_mois: "Ce mois",
-  dernier_mois: "Les 30 derniers jours",
-};
 const TYPE_LU: Record<string, string> = {
   US: "Échographie",
   MG: "Mammographie",
@@ -81,7 +71,7 @@ const ISSUE_LUE: Record<string, string> = {
   raccroche: "Raccroché",
 };
 function valeurLue(cle: CleFiltre, v: string): string {
-  if (cle === "periode") return PERIODE_LUE[v] ?? v.charAt(0).toUpperCase() + v.slice(1);
+  if (cle === "periode") return libellePeriode(v);
   if (cle === "type") return TYPE_LU[v] ?? v;
   if (cle === "issue") return ISSUE_LUE[v] ?? v;
   if (cle === "etat") return v === "traite" ? "Traité" : "En attente";
@@ -246,13 +236,15 @@ export default function PanneauRecherche({ userId }: { userId: number | null }) 
   const filtresVus = resultat
     ? (Object.entries(resultat.filtres) as [CleFiltre, string][]).filter(([, v]) => v)
     : [];
-  const appliques = filtresVus.filter(([k]) => ecran?.applique.includes(k));
+  const applique =
+    ecran && !(ancre && ecran.ancresSansFiltre?.includes(ancre)) ? ecran.applique : [];
+  const appliques = filtresVus.filter(([k]) => applique.includes(k));
   // « mammo » donne le type (appliqué) et l'examen « mammographie » : sans précision au-delà
   // de la modalité, l'examen ne dit rien de plus que le type.
   const nonAppliques = filtresVus.filter(
     ([k, v]) =>
-      !ecran?.applique.includes(k) &&
-      !(k === "examen" && !precisionExamen(v) && ecran?.applique.includes("type") && resultat?.filtres.type)
+      !applique.includes(k) &&
+      !(k === "examen" && !precisionExamen(v) && applique.includes("type") && resultat?.filtres.type)
   );
 
   return (
