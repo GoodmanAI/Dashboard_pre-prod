@@ -73,6 +73,8 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // daily-report les lit chaque matin. Clé API SEULE côté handler
   // (DAILY_REPORT_API_KEY, lecture seule) : la liste couvre tout le parc.
   /^\/api\/incidents-signales$/,
+  // Rapport hebdomadaire de Konnect (daily-report, DAILY_REPORT_API_KEY vérifiée dans le handler).
+  /^\/api\/konnect-stats-hebdo$/,
   // Configuration LyraeKonnect (chantier multi-produit, 2026-08-24) :
   //  - GET  : Konnect vient lire la config de son cabinet → x-api-key
   //           KONNECT_API_KEY, distincte de BOT_API_KEY pour rester
