@@ -183,7 +183,7 @@ export const CATALOGUE: Fiche[] = [
     page: "parametrage",
     libelle: "Dépôt d'ordonnance patient",
     genre: "reglage",
-    termes: ["depot d'ordonnance", "lien de depot", "deposer l'ordonnance", "ordonnance obligatoire"],
+    termes: ["depot d'ordonnance", "lien de depot", "deposer l'ordonnance", "ordonnance obligatoire", "ordonnance est obligatoire"],
   },
   {
     cle: "talk/parametrage#documents_demandes",
@@ -191,7 +191,7 @@ export const CATALOGUE: Fiche[] = [
     page: "parametrage",
     libelle: "Questionnaires et documents demandés",
     genre: "reglage",
-    termes: ["documents demandes", "documents a deposer", "questionnaire a remplir par le patient"],
+    termes: ["documents demandes", "documents a deposer", "questionnaire a remplir par le patient", "documents on demande", "quels documents"],
   },
   {
     cle: "talk/parametrage#options_questions",
@@ -540,7 +540,7 @@ export const CATALOGUE: Fiche[] = [
     page: "konnect_parametrage",
     libelle: "Notifications au patient",
     genre: "reglage",
-    termes: ["notifications au patient", "mail au patient", "sms du portail"],
+    termes: ["notifications au patient", "mail au patient", "mail envoye au patient", "mail du portail", "sms du portail"],
   },
   {
     cle: "konnect/parametrage#plages_privees",
