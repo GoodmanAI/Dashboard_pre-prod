@@ -336,6 +336,20 @@ le `GET` à une session. Stocké dans `KonnectRemontee`, une ligne par centre, f
 section par section, horodatée **à la réception** (une horloge décalée sur la VM
 Konnect ferait passer une remontée périmée pour fraîche).
 
+Depuis le 29/10/2026 (Konnect C-STAT.1), une quatrième section, `jours`, porte les
+compteurs quotidiens des 14 derniers jours (`{ depuis, jusqu_a, valeurs: { "AAAA-MM-JJ":
+{ cle: nombre } } }`), poussée une fois par nuit par le cron du rollup, seule dans sa
+charge. **Elle n'entre pas dans `charge`** : la route la verse dans `KonnectStatJour`
+(une ligne par centre, jour et clé, valeur remplacée, jamais additionnée ; SQL
+`2026_10_29_konnect_stat_jour.sql`, **avant** le code). 31 jours et 20 000 lignes au plus,
+clés `^[a-z0-9_.]{1,40}$`, valeurs finies ; une clé hors forme est écartée. Des comptes,
+jamais une valeur patient. Lecture : `GET /api/konnect-stats-jours?userProductId=&semaines=`
+(session, droit `konnect_stats`, écran « Statistiques » du centre) **écarte les clés
+`ocr*`** dans la requête (décision D4 du 29/10/2026, l'OCR reste interne) ;
+`GET /api/admin/konnect-ocr` (ADMIN) les lit, tous centres. Un Dashboard antérieur
+répond 400 à une charge qui ne porte que `jours` : Konnect la compte « indisponible » et
+renvoie ses 14 jours la nuit suivante, rien ne casse.
+
 **Pourquoi un push et pas une lecture** : Konnect passe derrière un VPN, le Dashboard
 est sur un VPS public. Aucun appel du Dashboard vers Konnect ne l'atteindrait. Ce n'est
 pas un arbitrage, c'est la topologie (`lyrae/DECISIONS.md`, 08/09/2026). Tout futur

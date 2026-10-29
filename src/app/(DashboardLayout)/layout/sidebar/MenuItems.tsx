@@ -30,6 +30,7 @@ import {
   IconAbc,
   IconShieldCheck,
   IconKey,
+  IconScan,
 } from "@tabler/icons-react";
 import { uniqueId } from "lodash";
 import { useSession } from "next-auth/react";
@@ -187,6 +188,12 @@ export const AdminMenuitems: SidebarItem[] = [
     title: "Statistiques produit",
     icon: IconChartHistogram,
     href: "/admin/analytics-internal",
+  },
+  {
+    id: uniqueId(),
+    title: "OCR de Konnect",
+    icon: IconScan,
+    href: "/admin/konnect-ocr",
   },
   {
     id: uniqueId(),
