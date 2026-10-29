@@ -68,6 +68,18 @@ Conventions de handler, dans l'ordre : garde d'auth (`requireAuth` / `requirePag
 - La CSP est définie dans `next.config.js` : une nouvelle ressource externe (police, image, appel `fetch` cross-origin) est bloquée tant qu'elle n'y est pas ajoutée.
 - Les `.sh` de `scripts/db-maintenance/` (purges, alertes) tournent en cron système **hors dépôt** sur le VPS ; les modifier ici ne suffit pas à les déployer.
 
+## Recherche centrale : toute nouveauté s'y branche
+
+La barre de l'accueil client (et `Ctrl+K`, texte ou voix) trouve un écran, une section,
+un réglage, une liste ou une tuile de chiffre, et l'ouvre préfiltré dans son panneau.
+**Tout ce qu'on ajoute à l'espace client s'y branche dans le même commit** : une fiche dans
+`src/lib/recherche/catalogue.ts`, l'écran au registre (`src/components/recherche/registre.tsx`),
+une ancre `id="…"` sur l'élément, les filtres reçus par `useFiltresRecherche()` (déclarés dans
+`applique`), et au moins une phrase au corpus (`scripts/recherche/corpus.json`). Contrôle :
+`node --experimental-strip-types scripts/recherche/controle.mjs` ; banc :
+`node --experimental-strip-types scripts/recherche/banc.mjs`. Détail : règle 6 des « Règles
+d'interface » du `CLAUDE.md` du workspace.
+
 ## Ce qui n'existe pas
 
 - **Aucun test**, d'aucune sorte : ni unitaire, ni intégration, ni e2e. Aucun runner installé. La seule vérification automatisable est `npm run build` puis `npm run lint`.

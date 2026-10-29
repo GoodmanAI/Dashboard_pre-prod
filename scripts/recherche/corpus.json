@@ -1066,6 +1066,300 @@
       },
       "lot": 1,
       "note": "Témoin du 29/10 : une demande de chiffre désigne sa tuile, que le panneau garde entourée."
+    },
+    {
+      "id": "t23",
+      "source": "temoin",
+      "phrase": "je veux régler le SMS de rappel la veille du rendez-vous",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#rappel_sms"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t24",
+      "source": "temoin",
+      "phrase": "est-ce que l'ordonnance est obligatoire pour déposer",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#depot_ordonnance"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t25",
+      "source": "temoin",
+      "phrase": "quels documents on demande au patient avant l'examen",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#documents_demandes"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t26",
+      "source": "temoin",
+      "phrase": "comment couper le robot ce week-end",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#desactiver"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t27",
+      "source": "temoin",
+      "phrase": "changer le diminutif d'un type d'examen",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage/mapping_exam/type_exam"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t28",
+      "source": "temoin",
+      "phrase": "combien d'examens non réalisés ce mois",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#non_pris_en_charge"
+        ],
+        "filtres": {
+          "periode": "ce_mois"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t29",
+      "source": "temoin",
+      "phrase": "combien de demandes de renseignement cette semaine",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#informations"
+        ],
+        "filtres": {
+          "periode": "cette_semaine"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t30",
+      "source": "temoin",
+      "phrase": "à quelle heure ils appellent le plus",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#heures"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t31",
+      "source": "temoin",
+      "phrase": "combien de demandes d'infiltration ce mois",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#interventionnel"
+        ],
+        "filtres": {
+          "periode": "ce_mois"
+        }
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t32",
+      "source": "temoin",
+      "phrase": "mettre en avant l'échographie sur le portail",
+      "attendu": {
+        "destinations": [
+          "konnect/ordre-entonnoir"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t33",
+      "source": "temoin",
+      "phrase": "changer le logo du portail",
+      "attendu": {
+        "destinations": [
+          "konnect/parametrage#identite"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t34",
+      "source": "temoin",
+      "phrase": "activer le choix du radiologue sur le portail",
+      "attendu": {
+        "destinations": [
+          "konnect/parametrage#parcours"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t35",
+      "source": "temoin",
+      "phrase": "le mail envoyé au patient par le portail",
+      "attendu": {
+        "destinations": [
+          "konnect/parametrage#notifications"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t36",
+      "source": "temoin",
+      "phrase": "les plages privées du portail",
+      "attendu": {
+        "destinations": [
+          "konnect/parametrage#plages_privees"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t37",
+      "source": "temoin",
+      "phrase": "le délai des questionnaires sur le portail",
+      "attendu": {
+        "destinations": [
+          "konnect/parametrage#questionnaires_non_remplis"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t38",
+      "source": "temoin",
+      "phrase": "le nom de l'ordonnance dans Xplore pour le portail",
+      "attendu": {
+        "destinations": [
+          "konnect/parametrage#ordonnance_xplore"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t39",
+      "source": "temoin",
+      "phrase": "le message quand le planning est complet sur le portail",
+      "attendu": {
+        "destinations": [
+          "konnect/parametrage#planning_complet"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t40",
+      "source": "temoin",
+      "phrase": "activer la liste d'attente du portail",
+      "attendu": {
+        "destinations": [
+          "konnect/parametrage#liste_attente"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t41",
+      "source": "temoin",
+      "phrase": "le poids maximum pour l'IRM sur le portail",
+      "attendu": {
+        "destinations": [
+          "konnect/parametrage#securite_clinique"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t42",
+      "source": "temoin",
+      "phrase": "les règles cliniques du portail",
+      "attendu": {
+        "destinations": [
+          "konnect/regles-cliniques"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t43",
+      "source": "temoin",
+      "phrase": "les règles de fusion des examens",
+      "attendu": {
+        "destinations": [
+          "konnect/regles-fusion"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "Témoin du 29/10 : chaque fiche a au moins une phrase (règle des nouveautés, contrôle 5)."
+    },
+    {
+      "id": "t44",
+      "source": "temoin",
+      "phrase": "Le code explore de la mammographie de dépistage.",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage/mapping_exam"
+        ],
+        "filtres": {
+          "type": "MG"
+        }
+      },
+      "lot": 1,
+      "note": "Transcription réelle de Deepgram (29/10) : « Xplore » dicté devient « explore »."
     }
   ]
 }

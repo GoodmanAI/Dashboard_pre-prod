@@ -25,6 +25,7 @@ import { libellePeriode } from "@/lib/recherche/periode";
 import type { CleFiltre, Filtres } from "@/lib/recherche/moteur";
 import type { ReponseRecherche, ResultatRecherche } from "@/app/api/recherche/route";
 import { REGISTRE } from "./registre";
+import BoutonDictee from "./BoutonDictee";
 
 /**
  * Le panneau de la recherche centrale (plan `2026-10-recherche-centrale-dashboard.md`).
@@ -328,6 +329,13 @@ export default function PanneauRecherche({ userId }: { userId: number | null }) 
             placeholder="Ce que vous cherchez, en une phrase : « les appels transférés hier »"
             inputProps={{ "aria-label": "Ce que vous cherchez", maxLength: 300 }}
             sx={{ flex: 1, fontSize: { xs: 16, md: 19 }, color: INK, "& input": { py: 1 } }}
+          />
+          <BoutonDictee
+            onTexte={(t) => {
+              setPhrase(t);
+              chercher(t);
+            }}
+            onErreur={(message) => setEtat({ phase: "erreur", message })}
           />
           <IconButton onClick={() => setOuvert(false)} aria-label="Fermer la recherche" size="small">
             <IconX size={20} />

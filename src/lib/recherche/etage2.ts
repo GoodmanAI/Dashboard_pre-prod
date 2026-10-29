@@ -1,21 +1,26 @@
 /**
- * Recherche centrale, étage 2 : Azure OpenAI quand le catalogue ne suffit pas (R2).
+ * Recherche centrale, étage 2 : la fonction Azure `recherche_dashboard` (R2).
  * -----------------------------------------------------------------------------
- * Ce que le modèle reçoit : la phrase, et la liste des destinations que CE compte a le
- * droit de lire (clé, libellé, genre, filtres acceptés). Rien d'autre : ni ligne de la
- * base, ni transcription, ni identifiant de centre (plan, § 4).
+ * Plan workspace `plans/2026-10-recherche-llm-et-voix.md`. Appelée par la route
+ * `/api/recherche` quand l'étage 1 n'a rien trouvé, ou n'est pas sûr de lui (`SEUIL_SUR`).
  *
- * Ce qu'il rend : une destination de cette liste et des filtres, par une sortie
- * contrainte (`response_format: json_schema`, `strict`). La réponse est revalidée ici :
- * une destination hors liste ou une valeur hors énumération est jetée, jamais corrigée.
+ * Ce que la fonction reçoit : la phrase, les produits du centre, le catalogue **complet**
+ * et les valeurs permises des filtres. Le catalogue complet, et non celui du compte : il
+ * forme avec les consignes un préfixe identique d'un appel à l'autre, que le cache d'Azure
+ * OpenAI sert au tarif réduit. Aucune ligne de la base, aucune transcription, aucun
+ * identifiant de centre (plan du lot 0, § 4).
  *
- * Panne, délai dépassé ou variable absente : `null`, et la barre continue sur le seul
- * catalogue en le disant (R6).
+ * Ce qu'elle rend : une destination et des filtres, que `valider` revalide ici contre les
+ * fiches que CE compte lit. Une destination hors de ses droits est jetée, jamais corrigée.
  *
- * Variables : `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_API_VERSION`
- * (défaut `2024-12-01-preview`), `RECHERCHE_LLM_DEPLOYMENT` (sans défaut : le choix du
- * modèle est à faire, voir le plan § 6 et la mémoire « Retrait des modèles Azure »).
+ * Panne, délai dépassé ou variable absente : `null`, et la barre garde la réponse de
+ * l'étage 1, ou dit qu'elle n'a que le catalogue (R6).
+ *
+ * Variables : `RECHERCHE_FONCTION_URL` (vide = étage 2 coupé), `RECHERCHE_FONCTION_CLE`
+ * (clé de la fonction, en `x-functions-key` ; inutile pour `func start` en local). Le
+ * modèle se choisit dans la fonction (`RECHERCHE_LLM_DEPLOYMENT` du Function App).
  */
+import { CATALOGUE } from "./catalogue";
 import {
   VALEURS_ETAT,
   VALEURS_ISSUE,
@@ -24,18 +29,17 @@ import {
   type CleFiltre,
   type Fiche,
   type Filtres,
+  type Produit,
 } from "./moteur";
 
-const DELAI_MS = 4000;
+// La fonction coupe à 2,5 s et relance une fois : au-delà, l'étage 1 garde la main.
+const DELAI_MS = 6000;
 
-export type SortieEtage2 = { cle: string | null; filtres: Filtres };
+export type Jetons = { entree: number; cache: number; sortie: number };
+export type SortieEtage2 = { cle: string | null; filtres: Filtres; jetons?: Jetons };
 
 export function etage2Disponible(): boolean {
-  return Boolean(
-    process.env.AZURE_OPENAI_ENDPOINT &&
-      process.env.AZURE_OPENAI_API_KEY &&
-      process.env.RECHERCHE_LLM_DEPLOYMENT
-  );
+  return Boolean(process.env.RECHERCHE_FONCTION_URL);
 }
 
 const ENUMS: Partial<Record<CleFiltre, string[]>> = {
@@ -44,91 +48,51 @@ const ENUMS: Partial<Record<CleFiltre, string[]>> = {
   etat: VALEURS_ETAT,
   type: VALEURS_TYPE,
 };
-const CLES_FILTRE: CleFiltre[] = ["periode", "examen", "type", "issue", "nom", "telephone", "texte", "etat"];
 
-function schema(fiches: Fiche[]) {
-  const filtres: Record<string, unknown> = {};
-  for (const k of CLES_FILTRE) {
-    filtres[k] = ENUMS[k]
-      ? { type: ["string", "null"], enum: [...ENUMS[k]!, null] }
-      : { type: ["string", "null"] };
-  }
-  return {
-    name: "destination",
-    strict: true,
-    schema: {
-      type: "object",
-      additionalProperties: false,
-      required: ["cle", "filtres"],
-      properties: {
-        cle: { type: ["string", "null"], enum: [...fiches.map((f) => f.cle), null] },
-        filtres: { type: "object", additionalProperties: false, required: CLES_FILTRE, properties: filtres },
-      },
-    },
-  };
-}
+// Calculé une fois : le même texte à chaque appel, donc le même préfixe pour le cache.
+const CATALOGUE_ENVOYE = CATALOGUE.map(({ cle, produit, genre, libelle, filtres, termes }) => ({
+  cle,
+  produit,
+  genre,
+  libelle,
+  filtres: filtres ?? [],
+  termes,
+}));
 
-const CONSIGNE = `Tu orientes une secrétaire de centre d'imagerie médicale dans son espace client.
-Elle a écrit ou dicté une phrase. Choisis la destination de la liste qui répond le mieux,
-ou null si aucune ne convient. Tu ne réponds jamais à la question toi-même et tu ne calcules
-aucun chiffre : tu désignes l'écran.
-Remplis seulement les filtres que la destination accepte et que la phrase dit, null sinon.
-periode : hier, aujourd_hui, ce_matin, cette_semaine, semaine_derniere, ce_mois, dernier_mois,
-un jour de la semaine, ou une date jj/mm. type : US échographie, MG mammographie, RX radio,
-MR IRM, CT scanner. examen : le nom de l'examen tel qu'il est dit. nom : le nom de famille du
-patient, seulement s'il est dit. telephone : 10 chiffres commençant par 0.
-Une demande d'action (annuler, supprimer, envoyer, réserver) : cle null.`;
-
-/** Appelle le modèle ; `null` si l'étage 2 est indisponible ou que la réponse ne tient pas. */
-export async function chercherEtage2(phrase: string, fiches: Fiche[]): Promise<SortieEtage2 | null> {
+/** Appelle la fonction ; `null` si l'étage 2 est coupé, en panne ou que la réponse ne tient pas. */
+export async function chercherEtage2(
+  phrase: string,
+  fiches: Fiche[],
+  produits: Produit[]
+): Promise<SortieEtage2 | null> {
   if (!etage2Disponible() || !fiches.length) return null;
-  const endpoint = process.env.AZURE_OPENAI_ENDPOINT!.replace(/\/+$/, "");
-  const version = process.env.AZURE_OPENAI_API_VERSION || "2024-12-01-preview";
-  const deploiement = process.env.RECHERCHE_LLM_DEPLOYMENT!;
-  const url = `${endpoint}/openai/deployments/${encodeURIComponent(deploiement)}/chat/completions?api-version=${version}`;
-
-  const destinations = fiches.map((f) => ({
-    cle: f.cle,
-    libelle: f.libelle,
-    genre: f.genre,
-    produit: f.produit === "talk" ? "Robot téléphonique" : "Portail patient",
-    filtres: f.filtres ?? [],
-  }));
-
+  const cle = process.env.RECHERCHE_FONCTION_CLE;
   try {
-    const r = await fetch(url, {
+    const r = await fetch(process.env.RECHERCHE_FONCTION_URL!, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "api-key": process.env.AZURE_OPENAI_API_KEY! },
+      headers: { "Content-Type": "application/json", ...(cle ? { "x-functions-key": cle } : {}) },
       signal: AbortSignal.timeout(DELAI_MS),
-      body: JSON.stringify({
-        temperature: 0,
-        max_tokens: 200,
-        response_format: { type: "json_schema", json_schema: schema(fiches) },
-        messages: [
-          { role: "system", content: CONSIGNE },
-          { role: "user", content: `Destinations :\n${JSON.stringify(destinations)}\n\nPhrase : ${phrase}` },
-        ],
-      }),
+      body: JSON.stringify({ phrase, produits, catalogue: CATALOGUE_ENVOYE, valeurs: ENUMS }),
     });
     if (!r.ok) {
-      console.error(`[recherche] étage 2 : Azure a répondu ${r.status}`);
+      console.error(`[recherche] étage 2 : la fonction a répondu ${r.status}`);
       return null;
     }
     const corps = await r.json();
-    const brut = JSON.parse(corps?.choices?.[0]?.message?.content ?? "null");
-    return valider(brut, fiches);
+    const sortie = valider(corps, fiches);
+    return sortie && { ...sortie, jetons: corps?.jetons };
   } catch (e) {
     console.error(`[recherche] étage 2 indisponible : ${(e as Error).name}`);
     return null;
   }
 }
 
-/** Revalide la sortie du modèle : tout ce qui sort de la liste ou des énumérations est jeté. */
+/** Revalide la sortie : une fiche que le compte ne lit pas, ou une valeur hors énumération, est jetée. */
 export function valider(brut: unknown, fiches: Fiche[]): SortieEtage2 | null {
   if (!brut || typeof brut !== "object") return null;
   const { cle, filtres } = brut as { cle?: unknown; filtres?: unknown };
   const fiche = typeof cle === "string" ? fiches.find((f) => f.cle === cle) : undefined;
-  if (cle !== null && !fiche) return null;
+  if (cle !== null && !fiche) return { cle: null, filtres: {} };
   const propres: Filtres = {};
   if (fiche && filtres && typeof filtres === "object") {
     const accepte = new Set(fiche.filtres ?? []);

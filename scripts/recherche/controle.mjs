@@ -11,7 +11,10 @@
 //   3. une fiche à ancre (`talk/parametrage#horaires`) dont l'ancre n'existe pas dans le code
 //      de son écran : la barre y mènerait sans rien montrer ;
 //   4. une section (`<Accordion>`) des deux écrans de Paramétrage sans ancre de fiche : c'est
-//      un réglage que la barre ne trouverait pas.
+//      un réglage que la barre ne trouverait pas ;
+//   5. une fiche sans aucune phrase du corpus qui y mène (règle des nouveautés, 29/10/2026,
+//      plan `2026-10-recherche-llm-et-voix.md` § 4) : une fiche que personne n'a essayée
+//      peut ne jamais sortir.
 // La granularité est l'écran et la section, pas le champ : un champ ajouté dans une section
 // qui a sa fiche se trouve par elle, à condition d'ajouter ses mots à `termes`.
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
@@ -108,6 +111,15 @@ for (const chemin of PARAMETRAGES) {
         erreurs.push(`section sans fiche : ${chemin}#${id} (${nom}:${ligne})`);
       }
     }
+  }
+}
+
+// 5. Chaque fiche a au moins une phrase au corpus (son écran entier compte pour une ancre).
+const corpus = JSON.parse(readFileSync(join(racine, 'scripts/recherche/corpus.json'), 'utf8'));
+const visees = new Set(corpus.phrases.flatMap((p) => p.attendu.destinations));
+for (const f of CATALOGUE) {
+  if (!visees.has(f.cle) && !visees.has(f.cle.split('#')[0])) {
+    erreurs.push(`fiche sans phrase au corpus : ${f.cle} (ajouter à scripts/recherche/corpus.json une phrase d'une secrétaire qui y mène)`);
   }
 }
 
