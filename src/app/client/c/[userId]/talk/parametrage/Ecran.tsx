@@ -890,7 +890,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         }}
       >
         {/* Préférences générales */}
-        <Accordion defaultExpanded>
+        <Accordion id="preferences_generales" defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6">Préférences générales</Typography>
           </AccordionSummary>
@@ -1118,7 +1118,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           </AccordionDetails>
         </Accordion>
 
-        <Accordion>
+        <Accordion id="horaires">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" alignItems="center" spacing={1.5}>
               <Typography variant="h6">Horaires & disponibilité</Typography>
@@ -1192,7 +1192,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         </Accordion>
 
         {/* Planning rempli */}
-        <Accordion>
+        <Accordion id="planning_rempli">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" alignItems="center" spacing={1.5}>
               <Typography variant="h6">Planning rempli : consignes</Typography>
@@ -1338,7 +1338,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         </Accordion>
 
         {/* Examens acceptés */}
-        <Accordion>
+        <Accordion id="examens_acceptes">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" alignItems="center" spacing={1.5}>
               <Typography variant="h6">Examens acceptés</Typography>
@@ -1395,49 +1395,61 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         </Accordion>
 
         {/* Consigne dite après la réservation (domaine talk.textes) */}
-        <ConsigneApresReservationCard
-          userProductId={Number(params.id)}
-          readOnly={readOnly}
-          centre={settings.centerName ?? ""}
-        />
+        <Box id="apres_reservation">
+          <ConsigneApresReservationCard
+            userProductId={Number(params.id)}
+            readOnly={readOnly}
+            centre={settings.centerName ?? ""}
+          />
+        </Box>
 
         {/* Questions avant l'IRM et le scanner (talk.textes, 15/10) */}
-        <QuestionsExamenCard
-          userProductId={Number(params.id)}
-          readOnly={readOnly}
-        />
+        <Box id="questions_irm_scanner">
+          <QuestionsExamenCard
+            userProductId={Number(params.id)}
+            readOnly={readOnly}
+          />
+        </Box>
 
         {/* Confirmation de RDV par SMS (à la prise de RDV via bot) */}
-        <SmsBookingConfirmationCard
-          userProductId={Number(params.id)}
-          readOnly={readOnly}
-          centre={settings.centerName ?? ""}
-          adresse={[settings.address, `${zipCode} ${city}`]
-            .map((x) => (x ?? "").trim())
-            .filter(Boolean)
-            .join(", ")}
-        />
+        <Box id="confirmation_sms">
+          <SmsBookingConfirmationCard
+            userProductId={Number(params.id)}
+            readOnly={readOnly}
+            centre={settings.centerName ?? ""}
+            adresse={[settings.address, `${zipCode} ${city}`]
+              .map((x) => (x ?? "").trim())
+              .filter(Boolean)
+              .join(", ")}
+          />
+        </Box>
 
         {/* Rappel de RDV par SMS (no-show) */}
-        <SmsConfirmationConfigCard userProductId={Number(params.id)} />
+        <Box id="rappel_sms">
+          <SmsConfirmationConfigCard userProductId={Number(params.id)} />
+        </Box>
 
         {/* Depot d'ordonnance patient (lien dans le SMS de confirmation) */}
-        <PrescriptionConfigCard
-          ref={ordonnancesRef}
-          userProductId={Number(params.id)}
-          onDirtyChange={setOrdonnancesModifiees}
-        />
+        <Box id="depot_ordonnance">
+          <PrescriptionConfigCard
+            ref={ordonnancesRef}
+            userProductId={Number(params.id)}
+            onDirtyChange={setOrdonnancesModifiees}
+          />
+        </Box>
 
         {/* Questionnaires et documents demandes au patient, sur le meme lien */}
-        <DocumentsDemandesCard
-          ref={documentsRef}
-          userProductId={Number(params.id)}
-          admin={estAdmin}
-          onDirtyChange={setDocumentsModifies}
-        />
+        <Box id="documents_demandes">
+          <DocumentsDemandesCard
+            ref={documentsRef}
+            userProductId={Number(params.id)}
+            admin={estAdmin}
+            onDirtyChange={setDocumentsModifies}
+          />
+        </Box>
 
         {/* Options */}
-        <Accordion>
+        <Accordion id="options_questions">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" alignItems="center" spacing={1.5}>
               <Typography variant="h6">Options</Typography>
@@ -1601,7 +1613,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
       </Accordion> */}
 
         {/* Reconnaissance du numéro de téléphone */}
-        <Accordion>
+        <Accordion id="lien_mapping_exam">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6">Correspondance des examens</Typography>
           </AccordionSummary>
@@ -1627,7 +1639,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         </Accordion>
 
         {/* Questionnaire */}
-        <Accordion>
+        <Accordion id="lien_questions_exam">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography variant="h6">
               Paramétrer le questionnaire par examen
@@ -1655,7 +1667,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         </Accordion>
 
         {/* Gestion des doubles examens */}
-        <Accordion>
+        <Accordion id="doubles_examens">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" alignItems="center" spacing={1.5}>
               <IconLink size={20} color="var(--accent)" />
@@ -1901,7 +1913,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         </Accordion>
 
         {/* Désactiver le service */}
-        <Accordion>
+        <Accordion id="desactiver">
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" alignItems="center" spacing={1.5}>
               <Typography variant="h6">Désactiver le service</Typography>

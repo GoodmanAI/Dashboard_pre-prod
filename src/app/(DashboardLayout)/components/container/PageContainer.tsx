@@ -2,6 +2,7 @@
 
 import { Helmet, HelmetProvider } from "react-helmet-async";
 import { useProduitActif } from "@/hooks/useProduitActif";
+import { useIntegre } from "@/lib/recherche/integre";
 
 type Props = {
   /** Balise meta description de la page (SEO). */
@@ -24,6 +25,9 @@ type Props = {
  */
 const PageContainer = ({ title, description, children }: Props) => {
   const produit = useProduitActif();
+  // Dans le panneau de la recherche, l'onglet garde le titre de la page d'en dessous.
+  const integre = useIntegre();
+  if (integre) return <div>{children}</div>;
   const titreOnglet = title ? `${title} | ${produit.nom}` : produit.nom;
   return (
     // Fournisseur nécessaire pour l’utilisation de Helmet en environnement async/SSR.

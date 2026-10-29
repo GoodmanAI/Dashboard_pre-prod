@@ -1,5 +1,7 @@
 "use client";
 
+import { useFiltresRecherche } from "@/lib/recherche/integre";
+import { contientTousLesMots, precisionExamen } from "@/lib/recherche/texte";
 import Retour from "@/components/shared/Retour";
 import SectionHeader from "@/components/admin/SectionHeader";
 import React, { useEffect, useMemo, useState } from "react";
@@ -193,8 +195,10 @@ export default function MappingExamensKonnect() {
     hors_entonnoir?: string[];
   } | null>(null);
 
-  const [recherche, setRecherche] = useState("");
-  const [filtreType, setFiltreType] = useState("tous");
+  // Préfiltre de la recherche centrale (panneau ou lien « Ouvrir l'écran complet »).
+  const filtresRecherche = useFiltresRecherche();
+  const [recherche, setRecherche] = useState(() => precisionExamen(filtresRecherche.examen));
+  const [filtreType, setFiltreType] = useState(() => filtresRecherche.type ?? "tous");
   const [filtreAttribution, setFiltreAttribution] = useState<FiltreAttribution>("tous");
   const [filtreChemin, setFiltreChemin] = useState<FiltreChemin>("tous");
   const [page, setPage] = useState(0);
@@ -313,9 +317,10 @@ export default function MappingExamensKonnect() {
       if (filtreChemin === "bout_en_bout" && !l.reservableEnLigne) return false;
       if (filtreChemin === "rappel" && l.reservableEnLigne) return false;
       if (!q) return true;
-      return [l.codeExamen, l.libelle, l.codeExamenClient, l.libelleClient]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q));
+      return contientTousLesMots(
+        [l.codeExamen, l.libelle, l.codeExamenClient, l.libelleClient].filter(Boolean).join(" "),
+        q
+      );
     });
   }, [lignes, recherche, filtreType, filtreAttribution, filtreChemin]);
 
