@@ -5,6 +5,7 @@ import { Box, ButtonBase, Chip, InputBase, Stack, Typography } from "@mui/materi
 import { IconSearch } from "@tabler/icons-react";
 import { BORDER, INK, INK_MUTED, SURFACE, SURFACE_MUTED } from "@/lib/jetons";
 import { EXEMPLES, ouvrirRecherche } from "./PanneauRecherche";
+import BoutonDictee from "./BoutonDictee";
 
 /**
  * Les deux portes de la recherche centrale (R5). Toutes deux ouvrent le même panneau,
@@ -67,6 +68,7 @@ function PorteEntete() {
 
 function BarreAccueil() {
   const [phrase, setPhrase] = useState("");
+  const [erreurDictee, setErreurDictee] = useState<string | null>(null);
   return (
     <Box sx={{ maxWidth: 760, mx: "auto", mb: 4 }}>
       <Box
@@ -101,7 +103,20 @@ function BarreAccueil() {
           inputProps={{ "aria-label": "Ce que vous cherchez", maxLength: 300 }}
           sx={{ flex: 1, fontSize: { xs: 16, md: 18 }, color: INK }}
         />
+        <BoutonDictee
+          onTexte={(t) => {
+            setErreurDictee(null);
+            setPhrase(t);
+            ouvrirRecherche(t);
+          }}
+          onErreur={setErreurDictee}
+        />
       </Box>
+      {erreurDictee && (
+        <Typography variant="body2" role="alert" sx={{ mt: 1, textAlign: "center", color: INK_MUTED }}>
+          {erreurDictee}
+        </Typography>
+      )}
       <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, mt: 1.5, justifyContent: "center" }}>
         {EXEMPLES.slice(0, 3).map((p) => (
           <Chip

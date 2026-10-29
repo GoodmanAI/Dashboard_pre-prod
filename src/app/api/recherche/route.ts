@@ -5,9 +5,9 @@ import { requireAuth, assertUserAccess } from "@/lib/auth-helpers";
 import { hasPermission, PAGES, PageKey } from "@/lib/permissions";
 import { cheminCentre } from "@/lib/cheminsCentre";
 import { produitsDuCentre } from "@/lib/produitsDuCentre";
-import { chercher, type Resultat } from "@/lib/recherche/moteur";
+import { chercher, SEUIL_SUR, type Filtres, type Produit, type Resultat } from "@/lib/recherche/moteur";
 import { CATALOGUE } from "@/lib/recherche/catalogue";
-import { chercherEtage2, etage2Disponible } from "@/lib/recherche/etage2";
+import { chercherEtage2, etage2Disponible, type Jetons } from "@/lib/recherche/etage2";
 
 /**
  * Recherche centrale de l'espace client (plan `2026-10-recherche-centrale-dashboard.md`).
@@ -21,9 +21,12 @@ import { chercherEtage2, etage2Disponible } from "@/lib/recherche/etage2";
  *   - `modifiable` dit si le compte y écrit (le panneau montera l'écran en lecture sinon) ;
  *   - une fiche d'un produit que le client n'a pas n'est pas notée.
  *
- * Étage 1 (catalogue, sans modèle) d'abord. Étage 2 (Azure OpenAI, `etage2.ts`) seulement
- * si l'étage 1 ne trouve rien et ne refuse rien ; s'il est coupé ou en panne, la réponse
- * le dit (`etage2: "indisponible"`) et la barre l'affiche.
+ * Étage 1 (catalogue, sans modèle) d'abord. Étage 2 (fonction Azure, `etage2.ts`) seulement
+ * quand l'étage 1 doute : il ne trouve rien, ou sa meilleure fiche note sous `SEUIL_SUR`.
+ * Un refus (action, hors périmètre) ne va jamais au modèle. Quand le modèle désigne une
+ * fiche, elle passe devant, et la réponse de l'étage 1 reste proposée à côté. Coupé ou en
+ * panne : l'étage 1 garde la main, et quand il n'avait rien, la réponse le dit
+ * (`etage2: "indisponible"`).
  *
  * La barre ne lit aucune donnée ici : elle rend des destinations et des filtres. Les
  * données (appels, listes) sont chargées par l'écran monté, avec ses propres gardes.
@@ -88,15 +91,27 @@ export async function POST(req: NextRequest) {
   const reponse = chercher(phrase, fiches);
   let etage: 1 | 2 = 1;
   let etage2: "indisponible" | undefined;
-  if (!reponse.resultats.length && !reponse.refus) {
-    const llm = etage2Disponible() ? await chercherEtage2(phrase, fiches) : null;
+  let jetons: Jetons | undefined;
+  const doute = !reponse.refus && (reponse.resultats[0]?.score ?? 0) < SEUIL_SUR;
+  if (doute) {
+    const slugs = produits.map((p) => p.slug).filter((s): s is Produit => s === "talk" || s === "konnect");
+    const llm = etage2Disponible() ? await chercherEtage2(phrase, fiches, slugs) : null;
     const fiche = llm?.cle ? fiches.find((f) => f.cle === llm.cle) : undefined;
-    if (!llm) etage2 = "indisponible";
-    else etage = 2;
+    jetons = llm?.jetons;
+    if (!llm && !reponse.resultats.length) etage2 = "indisponible";
     if (fiche && llm) {
-      reponse.resultats = [
-        { cle: fiche.cle, produit: fiche.produit, page: fiche.page, libelle: fiche.libelle, genre: fiche.genre, score: 0, filtres: llm.filtres },
-      ];
+      etage = 2;
+      // Ce que l'étage 1 lit sans modèle (période, nom, numéro) complète ce que le modèle a omis.
+      const accepte = new Set(fiche.filtres ?? []);
+      const lus: Filtres = {};
+      for (const k of ["periode", "nom", "telephone"] as const) {
+        if (accepte.has(k) && reponse.lus[k]) lus[k] = reponse.lus[k];
+      }
+      const premier: Resultat = {
+        cle: fiche.cle, produit: fiche.produit, page: fiche.page, libelle: fiche.libelle, genre: fiche.genre,
+        score: 0, filtres: { ...lus, ...llm.filtres },
+      };
+      reponse.resultats = [premier, ...reponse.resultats.filter((r) => r.cle !== fiche.cle)].slice(0, 3);
     }
   }
 
@@ -122,6 +137,8 @@ export async function POST(req: NextRequest) {
       premier: resultats[0]?.cle ?? null,
       refus: reponse.refus ?? null,
       ignores: reponse.ignores,
+      doute,
+      jetons: jetons ?? null,
       dureeMs: Date.now() - debut,
     })
   );

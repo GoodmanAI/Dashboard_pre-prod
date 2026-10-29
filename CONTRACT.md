@@ -717,6 +717,8 @@ une erreur de rendu laisse une page blanche au patient et aucune trace côté se
 
 | Cible | Détail |
 |---|---|
+| **Fonction Azure `recherche_dashboard`** (depuis le 29/10/2026) | Étage 2 de la recherche centrale, seulement quand le catalogue doute (`SEUIL_SUR`). `RECHERCHE_FONCTION_URL` (vide = étage 2 coupé) et `RECHERCHE_FONCTION_CLE` en `x-functions-key`, délai 6 s. Envoie la phrase, les produits du centre, le catalogue complet et les valeurs des filtres ; aucune ligne de la base. La sortie est revalidée contre les droits du compte (`etage2.ts`). Plan `plans/2026-10-recherche-llm-et-voix.md` |
+| **Deepgram** `api.deepgram.com/v1/listen` (depuis le 29/10/2026) | Dictée de la recherche centrale, relayée par `POST /api/recherche/voix` (session) : `nova-3`, français, `DEEPGRAM_API_KEY` (vide = pas de micro), `DEEPGRAM_MODEL`. Ni l'audio ni le texte ne sont gardés ni journalisés. Même compte que LyraeTalk. Le micro n'est permis que sous `/client` (`Permissions-Policy`, `next.config.js`) |
 | **Brevo** | `api.brevo.com/v3/smtp/email` (URL en dur) |
 | **Azure Blob `neuracorp-exams`** | `/api/data/exams`, `/api/configuration/exam` — **partagé avec les Azure Functions, couplage non identifié jusqu'ici [?] Q3**. `/api/configuration/get/mapping` ne le lit plus (11/09/2026) : la nomenclature vient de `ReferentielExamens`, le blob n'étant qu'un repli tant que la table est vide |
 | **ClamAV** | socket Unix local |
