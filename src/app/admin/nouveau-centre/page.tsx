@@ -41,6 +41,7 @@ import {
   type Fiche,
 } from "@/lib/ficheOuverture";
 import { estNumeroEntrant } from "@/lib/completude/validateurs";
+import Link from "next/link";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import Horaires from "@/components/admin/nouveau-centre/Horaires";
@@ -859,6 +860,13 @@ export default function NouveauCentrePage() {
                   Continuer
                 </Button>
               </Stack>
+              <Typography sx={{ fontSize: 12, color: INK_MUTED }}>
+                Un client LyraeKonnect seul ?{" "}
+                <Link href="/admin/nouveau-centre-konnect">
+                  Assistant « Nouveau portail Konnect »
+                </Link>
+                , qui lit la fiche d&apos;ouverture Konnect.
+              </Typography>
             </Stack>
           )}
 

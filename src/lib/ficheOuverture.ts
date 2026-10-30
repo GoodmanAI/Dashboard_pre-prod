@@ -209,6 +209,11 @@ export function lireFiche(html: string): Fiche {
       "Les réponses de cette fiche sont illisibles. Demandez au client de l'enregistrer à nouveau.",
     );
   }
+  if (objet(brut).produit === "konnect") {
+    throw new Error(
+      "C'est une fiche LyraeKonnect. Déposez-la dans l'assistant « Nouveau portail Konnect ».",
+    );
+  }
   const fiche = versFiche(objet(brut));
   if (!fiche.centre.nom && fiche.sites.length === 0) {
     throw new Error(
