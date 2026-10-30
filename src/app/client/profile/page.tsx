@@ -36,7 +36,6 @@ import {
 } from "@tabler/icons-react";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
-import { estProduit } from "@/lib/produits";
 
 /* -------------------------------------------------------------------------- */
 /*                                    Types                                   */
@@ -69,273 +68,6 @@ interface ClientData {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                        Plans d'abonnement Talk                              */
-/* -------------------------------------------------------------------------- */
-
-type TalkPlan = {
-  tier: number;
-  name: string;
-  volumeLabel: string;
-  /** `null` = plan entreprise (sur devis, pas de prix affiché). */
-  price: string | null;
-};
-
-const TALK_PLANS: TalkPlan[] = [
-  { tier: 1, name: "Pack TALK 1", volumeLabel: "< 500 appels / mois", price: "270 € HT" },
-  { tier: 2, name: "Pack TALK 2", volumeLabel: "500 à 1 500 appels / mois", price: "650 € HT" },
-  { tier: 3, name: "Pack TALK 3", volumeLabel: "1 500 à 3 000 appels / mois", price: "1 240 € HT" },
-  { tier: 4, name: "Pack TALK 4", volumeLabel: "3 000 à 5 000 appels / mois", price: "1 950 € HT" },
-  { tier: 5, name: "Pack TALK 5", volumeLabel: "5 000 à 7 000 appels / mois", price: "2 680 € HT" },
-  { tier: 6, name: "Pack TALK 6", volumeLabel: "7 000 à 10 000 appels / mois", price: "3 740 € HT" },
-  { tier: 7, name: "Pack TALK 7", volumeLabel: "10 000+ appels / mois", price: null },
-];
-
-/** Retourne le tier Talk correspondant à un nombre d'appels mensuels. */
-function tierForCallCount(n: number): number {
-  if (n < 500) return 1;
-  if (n < 1500) return 2;
-  if (n < 3000) return 3;
-  if (n < 5000) return 4;
-  if (n < 7000) return 5;
-  if (n < 10000) return 6;
-  return 7;
-}
-
-/** Hauteur en px d'une lame selon son tier (effet escalier). */
-const MAX_STAIR_HEIGHT = 280;
-const MIN_STAIR_HEIGHT = 120;
-function stairHeight(tier: number): number {
-  const step = (MAX_STAIR_HEIGHT - MIN_STAIR_HEIGHT) / 6;
-  return Math.round(MIN_STAIR_HEIGHT + (tier - 1) * step);
-}
-
-/**
- * Accordéon horizontal des plans Talk (effet escalier).
- * - Lames alignées en bas, hauteur croissante avec le tier (Talk 1 court, Talk 7 grand)
- * - Un clic sur une lame l'ouvre en pleine hauteur, ferme la précédente
- * - Re-cliquer sur la lame ouverte la ferme
- * - Si `matchedTier` est fourni, cette lame s'ouvre automatiquement au premier render
- *   et affiche un badge "Vous vous situez ici".
- */
-function HorizontalPlans({ matchedTier }: { matchedTier: number | null }) {
-  const [openTier, setOpenTier] = useState<number | null>(null);
-
-  // Auto-ouverture du tier correspondant quand il devient connu
-  useEffect(() => {
-    if (matchedTier !== null) {
-      setOpenTier(matchedTier);
-    }
-  }, [matchedTier]);
-
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        gap: 1,
-        height: MAX_STAIR_HEIGHT,
-        width: "100%",
-        alignItems: "flex-end", // staircase : alignés en bas
-      }}
-    >
-      {TALK_PLANS.map((plan) => {
-        const isOpen = openTier === plan.tier;
-        // Répartition : panneau ouvert 58%, les 6 restants se partagent 42%
-        const width = isOpen
-          ? "58%"
-          : openTier === null
-          ? `${100 / 7}%`
-          : `${42 / 6}%`;
-        // Hauteur : pleine si ouvert, sinon staircase
-        const height = isOpen ? MAX_STAIR_HEIGHT : stairHeight(plan.tier);
-
-        return (
-          <Box
-            key={plan.tier}
-            role="button"
-            tabIndex={0}
-            onClick={() => setOpenTier(isOpen ? null : plan.tier)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setOpenTier(isOpen ? null : plan.tier);
-              }
-            }}
-            sx={{
-              width,
-              height,
-              minWidth: 0,
-              transition:
-                "width 420ms cubic-bezier(0.4, 0, 0.2, 1), height 420ms cubic-bezier(0.4, 0, 0.2, 1)",
-              cursor: "pointer",
-              position: "relative",
-              overflow: "hidden",
-              borderRadius: 2,
-              bgcolor: isOpen ? "#ffffff" : "rgba(var(--accent-rgb), 0.08)",
-              border: isOpen
-                ? "1px solid rgba(var(--accent-rgb), 0.5)"
-                : "1px solid rgba(var(--accent-rgb), 0.15)",
-              boxShadow: isOpen ? "0 8px 24px rgba(var(--accent-rgb), 0.15)" : "none",
-              "&:hover": {
-                bgcolor: isOpen ? "#ffffff" : "rgba(var(--accent-rgb), 0.15)",
-              },
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            {isOpen ? (
-              <PlanOpenPanel plan={plan} isMatched={plan.tier === matchedTier} />
-            ) : (
-              <PlanClosedStrip plan={plan} isMatched={plan.tier === matchedTier} />
-            )}
-          </Box>
-        );
-      })}
-    </Box>
-  );
-}
-
-/**
- * Vue compacte (fermée) — taille du numéro proportionnelle au tier pour renforcer
- * l'effet escalier. Un petit point teal indique la lame "matchée" par le client.
- */
-function PlanClosedStrip({ plan, isMatched }: { plan: TalkPlan; isMatched: boolean }) {
-  // Nombre qui grandit avec le tier : Talk 1 ~22px → Talk 7 ~42px
-  const numberFontSize = 22 + (plan.tier - 1) * 3.3;
-  return (
-    <Box
-      sx={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        p: 1,
-        gap: 0.5,
-        color: "var(--accent-deep)",
-        userSelect: "none",
-        position: "relative",
-      }}
-    >
-      {isMatched && (
-        <Box
-          sx={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            bgcolor: "var(--accent)",
-            boxShadow: "0 0 0 3px rgba(var(--accent-rgb), 0.3)",
-          }}
-        />
-      )}
-      <Typography
-        sx={{
-          fontWeight: 800,
-          fontSize: numberFontSize,
-          lineHeight: 1,
-          color: "var(--accent-deep)",
-        }}
-      >
-        {plan.tier}
-      </Typography>
-      <Typography
-        variant="caption"
-        sx={{
-          fontWeight: 700,
-          letterSpacing: 1.2,
-          color: "var(--accent-deep)",
-          opacity: 0.8,
-        }}
-      >
-        TALK
-      </Typography>
-    </Box>
-  );
-}
-
-/** Vue détaillée (ouverte) : infos du pack + badge si c'est la lame "matchée". */
-function PlanOpenPanel({ plan, isMatched }: { plan: TalkPlan; isMatched: boolean }) {
-  return (
-    <Box
-      sx={{
-        flex: 1,
-        p: 3,
-        display: "flex",
-        flexDirection: "column",
-        gap: 1.5,
-        overflow: "hidden",
-        animation: "fadePanel 320ms ease",
-        "@keyframes fadePanel": {
-          from: { opacity: 0, transform: "translateX(6px)" },
-          to: { opacity: 1, transform: "translateX(0)" },
-        },
-      }}
-    >
-      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, flexWrap: "wrap" }}>
-        <Typography variant="subtitle1" fontWeight={800}>
-          {plan.name}
-        </Typography>
-        {isMatched && (
-          <Chip
-            size="small"
-            label="Vous vous situez ici sur ces 30 derniers jours"
-            sx={{
-              bgcolor: "transparent",
-              color: "var(--accent-deep)",
-              border: "1.5px solid var(--accent)",
-              fontWeight: 600,
-              fontSize: 11,
-              height: 22,
-            }}
-          />
-        )}
-      </Box>
-
-      <Divider sx={{ opacity: 0.6 }} />
-
-      <Box>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-          Volume d&apos;appels
-        </Typography>
-        <Typography variant="body2" fontWeight={600}>
-          {plan.volumeLabel}
-        </Typography>
-      </Box>
-
-      <Box sx={{ mt: "auto" }}>
-        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-          Abonnement mensuel
-        </Typography>
-        <Typography
-          variant="h5"
-          fontWeight={800}
-          sx={{ color: "var(--accent-deep)", lineHeight: 1.2 }}
-        >
-          {plan.price ?? "Sur devis"}
-        </Typography>
-      </Box>
-
-      {/* Barre de progression du tier */}
-      <Box sx={{ display: "flex", gap: 0.5, mt: 0.5 }}>
-        {Array.from({ length: 7 }).map((_, i) => (
-          <Box
-            key={i}
-            sx={{
-              flex: 1,
-              height: 3,
-              borderRadius: 1,
-              bgcolor: i < plan.tier ? "var(--accent)" : "rgba(var(--accent-rgb), 0.15)",
-            }}
-          />
-        ))}
-      </Box>
-    </Box>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
 /*                                 Page Profil                                 */
 /* -------------------------------------------------------------------------- */
 
@@ -345,8 +77,6 @@ const ProfilePage = () => {
 
   const [clientData, setClientData] = useState<ClientData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [last30DaysCalls, setLast30DaysCalls] = useState<number | null>(null);
-  const [matchedTier, setMatchedTier] = useState<number | null>(null);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -380,44 +110,6 @@ const ProfilePage = () => {
     }
     if (status === "authenticated") fetchClientData();
   }, [status]);
-
-  // Récupère le nombre d'appels sur les 30 derniers jours du Talk UserProduct du client
-  // et détermine le tier correspondant.
-  useEffect(() => {
-    if (!clientData) return;
-    const talkUP = (clientData.userProducts ?? []).find(
-      (up: any) => estProduit(up?.product?.name, "talk")
-    );
-    const talkUserProductId = talkUP?.id;
-    if (!talkUserProductId) return;
-
-    const controller = new AbortController();
-    (async () => {
-      try {
-        const from = new Date();
-        from.setDate(from.getDate() - 30);
-        from.setHours(0, 0, 0, 0);
-        const to = new Date();
-        // Un NOMBRE suffit ici : `mode=agregat` le compte côté serveur, au lieu de
-        // rapatrier trente jours de lignes d'appel pour en lire la longueur.
-        const url =
-          `/api/calls?userProductId=${talkUserProductId}` +
-          `&mode=agregat&from=${from.toISOString()}&to=${to.toISOString()}`;
-        const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok) return;
-        const data = await res.json();
-        const count = typeof data?.total === "number" ? data.total : 0;
-        setLast30DaysCalls(count);
-        setMatchedTier(tierForCallCount(count));
-      } catch (err: any) {
-        if (err?.name !== "AbortError") {
-          console.error("Error fetching 30d calls:", err);
-        }
-      }
-    })();
-
-    return () => controller.abort();
-  }, [clientData]);
 
   if (loading) {
     return (
@@ -515,11 +207,11 @@ const ProfilePage = () => {
   );
 
   return (
-    <PageContainer title="Mon profil" description="Informations de compte et abonnement">
+    <PageContainer title="Mon profil" description="Informations de compte et sécurité">
       <Box>
         <SectionHeader
           title="Mon profil"
-          subtitle="Informations personnelles, abonnement et sécurité"
+          subtitle="Informations personnelles et sécurité"
         />
 
         {/* ========== Informations de compte ========== */}
@@ -643,46 +335,6 @@ const ProfilePage = () => {
               </List>
             </>
           )}
-        </Card>
-
-        {/* ========== Plan de l'abonnement ========== */}
-        <Card sx={{ p: 3, mb: 3 }} elevation={1}>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              gap: 2,
-              flexWrap: "wrap",
-              mb: 2.5,
-            }}
-          >
-            <Box>
-              <Typography
-                variant="overline"
-                sx={{ color: "var(--accent-deep)", fontWeight: 700, letterSpacing: 1 }}
-              >
-                Plan de l&apos;abonnement
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                7 paliers disponibles selon le volume d&apos;appels mensuels
-                {last30DaysCalls !== null && (
-                  <> · {last30DaysCalls} appel{last30DaysCalls > 1 ? "s" : ""} sur les 30 derniers jours</>
-                )}
-              </Typography>
-            </Box>
-          </Box>
-          <Divider sx={{ mb: 3 }} />
-
-          <HorizontalPlans matchedTier={matchedTier} />
-
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: "block", mt: 2, textAlign: "center" }}
-          >
-            Cliquez sur un pack pour afficher les détails
-          </Typography>
         </Card>
 
         {/* ========== Changer le mot de passe (accordéon) ========== */}
