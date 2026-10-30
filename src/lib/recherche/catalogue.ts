@@ -283,6 +283,20 @@ export const CATALOGUE: Fiche[] = [
     ],
   },
 
+  // ── LyraeKonnect : tutoriel (plan 2026-10-tutoriel-client-talk.md) ─────────
+  {
+    cle: "konnect#premiers_pas",
+    produit: "konnect",
+    page: "konnect_parametrage",
+    libelle: "Tutoriel",
+    genre: "reglage",
+    termes: [
+      "premiers pas", "par ou commencer", "par ou je commence", "comment commencer",
+      "je commence", "debuter", "tutoriel", "tuto", "guide de demarrage", "mise en route",
+      "aide pour commencer", "les etapes a faire", "tutoriel du portail", "tutoriel konnect",
+    ],
+  },
+
   // ── LyraeTalk : chiffres (R9) ──────────────────────────────────────────────
   {
     cle: "talk#appels_aujourd_hui",

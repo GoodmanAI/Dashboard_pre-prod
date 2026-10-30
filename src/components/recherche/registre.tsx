@@ -102,6 +102,10 @@ export const REGISTRE: Record<string, EcranMontable> = {
   },
 
   // ── LyraeKonnect ──
+  konnect: {
+    composant: charger(() => import("@/app/client/c/[userId]/konnect/page")),
+    applique: [],
+  },
   "konnect/demandes-rappel": {
     composant: charger(() => import("@/app/client/c/[userId]/konnect/demandes-rappel/page")),
     applique: ["nom", "telephone", "etat"],

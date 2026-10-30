@@ -1,6 +1,7 @@
 import type { SlugProduit } from "@/lib/produits";
 import type { Chapitre } from "@/lib/tutoriel/types";
 import { CHAPITRES_TALK } from "@/lib/tutoriel/talk";
+import { CHAPITRES_KONNECT } from "@/lib/tutoriel/konnect";
 
 /**
  * Ce que chaque utilisateur a fait de son tutoriel (`User.premiersPas`, plans
@@ -27,6 +28,7 @@ export type EtatPremiersPas = {
 
 export const CHAPITRES: Partial<Record<SlugProduit, Chapitre[]>> = {
   talk: CHAPITRES_TALK,
+  konnect: CHAPITRES_KONNECT,
 };
 
 export function chapitresDuProduit(produit: SlugProduit | null): Chapitre[] {

@@ -2,6 +2,7 @@
 
 import { Box, Button, Stack, Typography } from "@mui/material";
 import { usePremiersPas } from "@/hooks/usePremiersPas";
+import { useCentreProduit } from "@/hooks/useCentreProduit";
 import { useIntegre } from "@/lib/recherche/integre";
 import { BORDER, INK, INK_MUTED, SURFACE } from "@/lib/jetons";
 import { useTutoriel } from "./ContexteTutoriel";
@@ -21,6 +22,7 @@ export default function SommaireTutoriel({ id }: { id: string }) {
   const tuto = useTutoriel();
   const integre = useIntegre();
   const { etat, agir } = usePremiersPas();
+  const { produit } = useCentreProduit();
   const demande = integre?.ancre === "premiers_pas";
 
   if (!tuto?.disponible || !etat) return null;
@@ -55,7 +57,7 @@ export default function SommaireTutoriel({ id }: { id: string }) {
           </Typography>
           <Typography variant="body2" sx={{ color: INK_MUTED, mt: 0.25 }}>
             {aFaire > 0
-              ? `${aFaire} chapitre${aFaire > 1 ? "s" : ""} à compléter avant que le robot puisse bien travailler. Commencez par le premier en orange.`
+              ? `${aFaire} chapitre${aFaire > 1 ? "s" : ""} à compléter avant que ${produit === "konnect" ? "le portail" : "le robot"} puisse bien travailler. Commencez par le premier en orange.`
               : "Tout l'essentiel est rempli. Revoyez un chapitre quand vous voulez."}
           </Typography>
         </Box>

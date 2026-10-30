@@ -637,6 +637,9 @@ uniquement, jamais appelées par une brique** :
   registre `src/lib/completude/`. Un client n'y reçoit que les informations dont il est
   propriétaire, le filtrage est côté serveur. Sans `userProductId`, elle renvoie tout le
   parc (admin seul).
+  Depuis le 30/10/2026, la réponse d'un centre porte aussi `tutoriel` : les seules **clés**
+  des manques « admin » dont le tutoriel du client a besoin (`konnect.examens`,
+  `konnect.examens-reservables`), sans leur texte ; le bandeau ne les lit pas.
 
 **Depuis le 15/09/2026, chaque route de session déclare sa page et son niveau.**
 `requirePagePermission(page, 'read' | 'write')` (`src/lib/authGuards.ts`) est appelée par
