@@ -352,11 +352,11 @@ export default function InstallationKonnect() {
             </Select>
             <Button
               component={Link}
-              href="/admin/nouveau-centre"
+              href="/admin/nouveau-centre-konnect"
               startIcon={<IconPlus size={16} />}
               sx={{ whiteSpace: "nowrap" }}
             >
-              Nouveau centre
+              Nouveau portail
             </Button>
           </Stack>
 

@@ -221,6 +221,14 @@ export const AdminMenuitems: SidebarItem[] = [
     href: "/admin/nouveau-centre",
   },
   {
+    // Le pendant Konnect, plus court, qui part de la fiche d'ouverture Konnect
+    // (30/10/2026, plan 2026-10-onboarding-konnect-fiche-et-assistant.md).
+    id: uniqueId(),
+    title: "Nouveau portail Konnect",
+    icon: IconUserPlus,
+    href: "/admin/nouveau-centre-konnect",
+  },
+  {
     // Le pack de configuration : exporter un centre entier dans un classeur, le faire
     // remplir hors ligne, puis l'appliquer (lot 4D, 15/09/2026). Sert aussi a ouvrir un
     // centre frere : on prend le pack d'un centre modele et on substitue l'identite.
