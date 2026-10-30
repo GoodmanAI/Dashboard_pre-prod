@@ -34,11 +34,11 @@ import { IconDownload, IconUpload } from "@tabler/icons-react";
  * voir ce qui va changer avant que ça change. La validation serveur reste le dernier
  * mot ; ce qui est fait ici l'anticipe pour donner un message utile plus tôt.
  *
- * ⚠️ ET ELLE N'EST PAS LA MÊME DES DEUX CÔTÉS. Les deux routes refusent un code
- * NEURACORP en double ; seul le `PUT` de `/api/konnect-examens` refuse qu'un code RIS
- * serve à deux examens, parce que son catalogue en fait l'identité de l'examen
- * réservable. Chez LyraeTalk c'est le modèle normal, et ce contrôle y bloquait l'import
- * de dix centres. D'où la prop `codeRisUnique`, réclamée par l'appelant.
+ * Les deux routes refusent un code NEURACORP en double, et aucune ne refuse qu'un
+ * code RIS serve à plusieurs examens : c'est le modèle du RIS (`MAIN` pour la main
+ * droite, la main gauche, les deux). Konnect a refusé ce partage jusqu'au 30/10/2026,
+ * par une prop `codeRisUnique` de ce composant ; son catalogue regroupe par code
+ * depuis C-CAT.1 (26/10), la règle n'avait plus de raison.
  *
  * `POST /api/configuration/mapping` n'avait, lui, aucune validation jusqu'au
  * 14/09/2026 : il écrivait ce qu'on lui donnait.
@@ -142,7 +142,6 @@ type Rapport = {
   modifiees: number;
   inchangees: number;
   inconnues: string[];
-  conflits: string[];
   colonnesManquantes: string[];
 };
 
@@ -184,34 +183,11 @@ export default function ImportExportMapping<T extends LigneMappingImportable>({
   lignes,
   champs,
   onAppliquer,
-  codeRisUnique = false,
 }: {
   lignes: T[];
   /** Les colonnes de CE produit. Voir `CHAMPS_KONNECT` / `CHAMPS_TALK`. */
   champs: readonly ChampMapping<T>[];
   onAppliquer: (lignes: T[]) => void;
-  /**
-   * Un code RIS ne peut-il servir qu'à UN examen, chez ce produit ?
-   *
-   * ⚠️ `true` pour LyraeKonnect **uniquement**, et le défaut `false` est délibéré :
-   * une règle de ce genre doit être réclamée par l'appelant qui la connaît, pas
-   * héritée par un composant partagé.
-   *
-   * Konnect émet le code RIS comme `examen_code`, c'est-à-dire comme l'IDENTITÉ de
-   * l'examen réservable : deux lignes sur le même code y produisent deux entrées de
-   * catalogue indistinguables. LyraeTalk lit dans l'autre sens, `codeExamen` →
-   * `codeExamenClient`, et **plusieurs examens y partagent légitimement un code RIS** :
-   * relevé du 14/09/2026 en production, 223 groupes chez dix centres, `MAIN` servant à
-   * cinq examens chez Pontivy. Le code RIS désigne l'examen générique, la latéralité
-   * vit ailleurs.
-   *
-   * Ce contrôle était appliqué aux deux produits jusqu'au 14/09/2026, sur la foi d'un
-   * commentaire qui disait « le robot se retrouve avec deux examens indiscernables au
-   * téléphone ». C'est faux : sa clé de lecture est le code NEURACORP. La conséquence
-   * était concrète, l'import CSV refusant d'appliquer quoi que ce soit chez ces dix
-   * centres, y compris le simple réimport du fichier qu'on venait d'exporter.
-   */
-  codeRisUnique?: boolean;
 }) {
   const champFichier = useRef<HTMLInputElement>(null);
   const [rapport, setRapport] = useState<Rapport | null>(null);
@@ -297,35 +273,6 @@ export default function ImportExportMapping<T extends LigneMappingImportable>({
 
       const fusionnees = lignes.map((l) => misAJour.get(l.codeExamen) ?? l);
 
-      // DEUX EXAMENS SUR LE MÊME CODE RIS, là où le produit ne saurait pas lequel
-      // appliquer. Le dire ICI vaut mieux qu'au moment d'enregistrer : l'utilisateur ne
-      // saurait plus quelle ligne du fichier l'a causé.
-      //
-      // ⚠️ SEULEMENT SI L'APPELANT LE DEMANDE (`codeRisUnique`). Voir le commentaire de
-      // la prop : chez LyraeTalk le partage est le modèle normal, et ce contrôle y
-      // bloquait l'import chez dix centres. Le défaut est donc « pas de contrôle ».
-      //
-      // Le code RIS et « attribué » sont les deux seuls champs qu'il suppose, et les
-      // deux produits les ont. On les lit par leur description plutôt que par un nom en
-      // dur, faute de quoi ce bloc rendrait le composant à nouveau spécifique.
-      const cleCodeRis = codeRisUnique
-        ? champs.find((c) => c.colonne === "Code RIS")?.cle
-        : undefined;
-      const cleAttribue = champs.find((c) => c.type === "booleen")?.cle;
-      const vus = new Map<string, string>();
-      const conflits: string[] = [];
-      if (cleCodeRis) {
-        for (const l of fusionnees) {
-          const c = String(l[cleCodeRis] ?? "").trim();
-          // Un examen non attribué ne part pas au RIS : deux d'entre eux peuvent
-          // porter le même code sans conséquence.
-          if (!c || (cleAttribue && !l[cleAttribue])) continue;
-          const premier = vus.get(c);
-          if (premier !== undefined) conflits.push(`${c} (${premier} et ${l.codeExamen})`);
-          else vus.set(c, l.codeExamen);
-        }
-      }
-
       const modifiees = fusionnees.filter(
         (l, i) => JSON.stringify(l) !== JSON.stringify(lignes[i])
       ).length;
@@ -335,14 +282,12 @@ export default function ImportExportMapping<T extends LigneMappingImportable>({
         modifiees,
         inchangees: misAJour.size - modifiees,
         inconnues,
-        conflits,
         colonnesManquantes,
       });
 
       // Rien n'est enregistré : l'écran passe en « modifications non enregistrées »,
-      // et l'utilisateur relit avant de valider. Un import en conflit n'est pas
-      // appliqué du tout, sinon on lui laisserait un état qu'il ne peut pas sauver.
-      if (conflits.length === 0) onAppliquer(fusionnees);
+      // et l'utilisateur relit avant de valider.
+      onAppliquer(fusionnees);
     } catch {
       setErreur("Fichier illisible. Attendu : un classeur .xlsx ou un .csv.");
     }
@@ -404,31 +349,15 @@ export default function ImportExportMapping<T extends LigneMappingImportable>({
                 {rapport.lues > 1 ? "s" : ""} dans le fichier.
               </Typography>
 
-              {rapport.conflits.length > 0 ? (
-                <Alert severity="error">
-                  <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.5 }}>
-                    Rien n&apos;a été appliqué.
-                  </Typography>
-                  Le même code RIS est attribué à deux examens différents. Corrigez le
-                  fichier et réimportez-le.
-                  <Typography sx={{ fontSize: 12.5, mt: 1 }}>
-                    {rapport.conflits.slice(0, 5).join(" · ")}
-                    {rapport.conflits.length > 5
-                      ? ` et ${rapport.conflits.length - 5} autre(s)`
-                      : ""}
-                  </Typography>
-                </Alert>
-              ) : (
-                <Alert severity={rapport.modifiees > 0 ? "success" : "info"}>
-                  {rapport.modifiees > 0
-                    ? `${rapport.modifiees} examen${
-                        rapport.modifiees > 1 ? "s" : ""
-                      } modifié${rapport.modifiees > 1 ? "s" : ""}, ${
-                        rapport.inchangees
-                      } déjà à jour. Rien n'est encore enregistré : relisez le tableau, puis cliquez sur Enregistrer.`
-                    : "Aucune différence avec ce qui est déjà en place."}
-                </Alert>
-              )}
+              <Alert severity={rapport.modifiees > 0 ? "success" : "info"}>
+                {rapport.modifiees > 0
+                  ? `${rapport.modifiees} examen${
+                      rapport.modifiees > 1 ? "s" : ""
+                    } modifié${rapport.modifiees > 1 ? "s" : ""}, ${
+                      rapport.inchangees
+                    } déjà à jour. Rien n'est encore enregistré : relisez le tableau, puis cliquez sur Enregistrer.`
+                  : "Aucune différence avec ce qui est déjà en place."}
+              </Alert>
 
               {rapport.inconnues.length > 0 && (
                 <Alert severity="warning">
