@@ -30,7 +30,8 @@ export async function GET(req: NextRequest) {
     db.query<{ userProductId: number; jour: string; cle: string; valeur: number }>(
       `SELECT "userProductId", to_char("jour", 'YYYY-MM-DD') AS jour, "cle", "valeur"
          FROM "KonnectStatJour"
-        WHERE "jour" >= $1::date AND ("cle" LIKE 'ocr%' OR "cle" = 'demandes_deposees')
+        WHERE "jour" >= $1::date
+          AND ("cle" LIKE 'ocr%' OR "cle" LIKE 'lecture.%' OR "cle" = 'demandes_deposees')
         ORDER BY "jour"`,
       [depuis]
     ),

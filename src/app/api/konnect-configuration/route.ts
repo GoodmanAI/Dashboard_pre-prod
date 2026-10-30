@@ -227,7 +227,13 @@ export async function PUT(req: NextRequest) {
   // parce qu'il a réémis la valeur déjà en base.
   const estAdmin =
     auth.session.user.role === "ADMIN" || auth.session.user.role === "SUPER_ADMIN";
-  if (config.cloudOcrActif !== actuelle.cloudOcrActif && !estAdmin) {
+  // Même règle pour la façon de lire (OCR v2) : elle peut envoyer une image chez le
+  // prestataire, c'est donc un réglage de l'exploitant, jamais du client.
+  if (
+    (config.cloudOcrActif !== actuelle.cloudOcrActif ||
+      config.ocrStrategy !== actuelle.ocrStrategy) &&
+    !estAdmin
+  ) {
     return NextResponse.json(
       {
         error:
