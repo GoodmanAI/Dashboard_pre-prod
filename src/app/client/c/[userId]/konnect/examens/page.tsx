@@ -358,21 +358,23 @@ export default function MappingExamensKonnect() {
   );
 
   /**
-   * Deux lignes qui visent le même code : le portail ne saurait pas laquelle
-   * réserver. Marqué ici sur les lignes fautives, et refusé par l'API.
+   * Plusieurs examens peuvent partager un code du logiciel du centre (30/10/2026).
+   * Konnect les fond en un seul examen réservable (C-CAT.1), en ligne seulement si
+   * tous le sont : un désaccord sur la case se signale, sans bloquer.
    */
-  const codesEnDouble = useMemo(() => {
-    const compte = new Map<string, number>();
+  const codesEnDesaccord = useMemo(() => {
+    const parCode = new Map<string, Set<boolean>>();
     lignes.forEach((l) => {
       const c = l.codeExamenClient.trim();
       if (!c || !l.performed) return;
-      compte.set(c, (compte.get(c) ?? 0) + 1);
+      const vus = parCode.get(c) ?? new Set<boolean>();
+      vus.add(l.reservableEnLigne);
+      parCode.set(c, vus);
     });
-    return new Set(
-      Array.from(compte.entries())
-        .filter(([, n]) => n > 1)
-        .map(([c]) => c),
-    );
+    return Array.from(parCode.entries())
+      .filter(([, vus]) => vus.size > 1)
+      .map(([c]) => c)
+      .sort();
   }, [lignes]);
 
   /** Une entrée par examen, indexée sur le code NEURACORP, qui ne change jamais. */
@@ -668,16 +670,11 @@ export default function MappingExamensKonnect() {
             {/* Remplir 266 codes à la main est le vrai coût de l'installation.
                 L'import ne fait que préparer l'état de l'écran : c'est le bouton
                 « Enregistrer » du bas qui écrit, comme pour une saisie manuelle. */}
-            {/* `codeRisUnique` : le catalogue de Konnect porte le code RIS comme
-                identité de l'examen réservable, deux lignes sur le même code y sont
-                indistinguables. C'est propre à ce produit, LyraeTalk partage les
-                siens. Voir la prop du composant. */}
             <Box id="classeur_examens" sx={{ borderRadius: 2 }}>
               <ImportExportMapping
                 lignes={lignes}
                 champs={CHAMPS_KONNECT}
                 onAppliquer={setLignes}
-                codeRisUnique
               />
             </Box>
             {/* A droite quand la place le permet, sur leur propre ligne sinon. */}
@@ -726,8 +723,6 @@ export default function MappingExamensKonnect() {
             /* Écran étroit : une fiche par examen, tous ses champs visibles. */
             <Stack spacing={1.25} sx={{ p: 1.5 }}>
               {visibles.map((l) => {
-                const enDouble =
-                  l.performed && codesEnDouble.has(l.codeExamenClient.trim());
                 const inactif = !l.performed;
                 return (
                   <CarteMapping
@@ -746,8 +741,6 @@ export default function MappingExamensKonnect() {
                         onCode={(v) => maj(l.codeExamen, "codeExamenClient", v)}
                         onLibelle={(v) => maj(l.codeExamen, "libelleClient", v)}
                         disabled={inactif}
-                        erreurCode={enDouble}
-                        messageErreur="Code en double"
                       />
                     </RangeeChamp>
 
@@ -873,8 +866,6 @@ export default function MappingExamensKonnect() {
               </TableHead>
               <TableBody>
                 {visibles.map((l) => {
-                  const enDouble =
-                    l.performed && codesEnDouble.has(l.codeExamenClient.trim());
                   return (
                     <TableRow
                       key={l.codeExamen}
@@ -916,8 +907,6 @@ export default function MappingExamensKonnect() {
                             maj(l.codeExamen, "libelleClient", v)
                           }
                           disabled={!l.performed}
-                          erreurCode={enDouble}
-                          messageErreur="Code en double"
                         />
                       </TableCell>
 
@@ -997,10 +986,18 @@ export default function MappingExamensKonnect() {
           />
         </TableContainer>
 
-        {codesEnDouble.size > 0 && (
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            Un même code est attribué à plusieurs examens. Le portail ne saurait
-            pas lequel réserver : chaque code doit être unique.
+        {codesEnDesaccord.length > 0 && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Ces codes servent à plusieurs examens, mais « Réservable en ligne »
+            n&apos;est pas coché pour tous. Le portail les traite comme un seul
+            examen : le patient demandera à être rappelé. Cochez la case pour tous
+            si l&apos;examen se réserve en ligne.
+            <Typography sx={{ fontSize: 12.5, mt: 1, fontFamily: "monospace" }}>
+              {codesEnDesaccord.slice(0, 8).join(", ")}
+              {codesEnDesaccord.length > 8
+                ? ` … et ${codesEnDesaccord.length - 8} autre(s)`
+                : ""}
+            </Typography>
           </Alert>
         )}
         {erreur && (
@@ -1016,11 +1013,7 @@ export default function MappingExamensKonnect() {
           onAnnuler={amorce ? undefined : () => setLignes(initial)}
           blocage={
             raisonLectureSeule ??
-            (codesEnDouble.size > 0
-              ? "Un même code est attribué à plusieurs examens."
-              : lignes.length === 0
-                ? "Aucun examen à enregistrer."
-                : null)
+            (lignes.length === 0 ? "Aucun examen à enregistrer." : null)
           }
           libelle="Enregistrer le mapping"
         />

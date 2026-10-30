@@ -881,7 +881,8 @@ Quatre points à connaître :
   snake_case à un appel par clé (seulement les lignes `performed` avec un code RIS).
   Même principe que `/api/configuration/get/mapping` pour LyraeTalk.
 - **Le `PUT` remplace l'ensemble**, il ne modifie pas ligne à ligne : un examen retiré
-  disparaît réellement, et le mapping n'est jamais à moitié écrit.
+  disparaît réellement, et le mapping n'est jamais à moitié écrit. Il refuse un code
+  NEURACORP en double, jamais un code RIS partagé par plusieurs examens (30/10/2026).
 - **L'ETag est calculé, non stocké** (`count` + `max(updatedAt)`) : une modification
   déplace `updatedAt`, une suppression change `count`. Un référentiel de plusieurs
   centaines de lignes ne transite que lorsqu'il a réellement changé.
@@ -971,17 +972,20 @@ Deux états restent possibles, et le robot doit continuer à les traiter :
 - **Un examen `performed: true` sans code RIS.** C'est l'état de départ de tout centre
   neuf, dont les 287 lignes arrivent à `true` sans code : le refuser interdirait le
   premier enregistrement. La route le compte et l'écran le dit, elle ne le bloque pas.
-- ⚠️ **Plusieurs examens sur un même code RIS, et c'est voulu.** `PUT
-  /api/konnect-examens` l'interdit ; cette route l'a interdit aussi pendant une heure,
-  par symétrie, et l'audit de production a montré que la règle cassait dix centres :
+- ⚠️ **Plusieurs examens sur un même code RIS, et c'est voulu.** Cette route l'a
+  interdit pendant une heure le 14/09/2026, et l'audit de production a montré que la
+  règle cassait dix centres :
   **223 groupes de lignes partagent un code RIS**, `MAIN` en servant cinq chez Pontivy
   (main droite, main gauche, les deux…). Le code RIS désigne l'examen générique, la
   latéralité vit ailleurs.
 
-  La règle est juste chez Konnect parce que le sens de lecture y est inverse : son
-  catalogue porte le code RIS comme **identité** de l'examen réservable, et le portail
-  demande le côté séparément. LyraeTalk lit `codeExamen` → `codeExamenClient`, une
-  entrée par clé, aucune ambiguïté. **Ne pas « uniformiser » cette règle.**
+  `PUT /api/konnect-examens` a gardé le refus jusqu'au 30/10/2026, parce que le
+  catalogue de Konnect porte le code RIS comme **identité** de l'examen réservable.
+  Konnect regroupe désormais ce catalogue par code (C-CAT.1, 26/10) et garde le
+  rattachement de chacun de nos examens : les deux produits acceptent le partage. Les
+  lignes d'un même code n'en font qu'un examen réservable, en ligne seulement si toutes
+  le sont ; l'écran signale ce désaccord sans bloquer. LyraeTalk lit `codeExamen` →
+  `codeExamenClient`, une entrée par clé, aucune ambiguïté.
 
   Corollaire à connaître sur `POST /api/configuration/get/mapping/getLibelle`, la seule
   lecture en sens inverse : elle rend le **premier** examen trouvé pour un code RIS.
