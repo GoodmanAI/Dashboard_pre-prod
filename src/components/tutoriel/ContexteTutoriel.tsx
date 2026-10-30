@@ -187,6 +187,29 @@ export function TutorielProvider({ children }: { children: React.ReactNode }) {
     demarrer(chapitres[0].cle);
   }, [disponible, etat, agir, demarrer, chapitres]);
 
+  // `?tutoriel=1` à l'accueil d'un produit ouvre la liste des chapitres : c'est ainsi
+  // que la page « Mon profil », qui vit hors d'un écran de centre (le tutoriel n'y est
+  // pas disponible), y mène (30/10/2026). Le paramètre est retiré aussitôt, pour qu'un
+  // rechargement ne rouvre pas la liste. `window.location` plutôt que
+  // `useSearchParams`, qui forcerait une frontière Suspense autour de toute l'application.
+  const demandeLue = useRef(false);
+  useEffect(() => {
+    if (!disponible) {
+      demandeLue.current = false;
+      return;
+    }
+    const url = new URL(window.location.href);
+    if (demandeLue.current || url.searchParams.get("tutoriel") !== "1") return;
+    demandeLue.current = true;
+    url.searchParams.delete("tutoriel");
+    router.replace(url.pathname + url.search);
+    // Compte qui n'a jamais vu la visite de bienvenue : elle démarre d'elle-même
+    // (effet ci-dessus), la liste par-dessus ferait deux fenêtres à la fois.
+    if (etat && !etat.masque && !etat.visite) return;
+    void lireManques();
+    setChoixOuvert(true);
+  }, [disponible, etat, router, lireManques]);
+
   const valeur: Tutoriel = {
     disponible,
     chapitres,
