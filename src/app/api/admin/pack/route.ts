@@ -166,7 +166,12 @@ async function lireKonnect(userProductId: number): Promise<PackKonnect> {
   // ⚠️ Le consentement à la lecture des ordonnances par un prestataire ne quitte pas
   // la base. Il se donne par un cabinet, pour lui-même ; un tableur qui le porterait
   // ferait consentir un centre à la place d'un autre.
-  const { cloudOcrActif: _consentement, ...sansConsentement } = config as Record<string, unknown>;
+  // La façon de lire suit le consentement : un réglage de l'exploitant, qui ne se recopie pas.
+  const {
+    cloudOcrActif: _consentement,
+    ocrStrategy: _strategie,
+    ...sansConsentement
+  } = config as Record<string, unknown>;
 
   const parDomaine: Record<string, Record<string, unknown>> = {};
   for (const l of domaines.rows) parDomaine[l.domaine] = objet(l.valeur);
