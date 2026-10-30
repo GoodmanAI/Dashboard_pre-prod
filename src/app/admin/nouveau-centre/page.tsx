@@ -573,11 +573,13 @@ export default function NouveauCentrePage() {
         const r = await fetch(
           `/api/completude?userProductId=${p.userProductId}`,
         );
+        // Une lecture ratée n'est PAS « rien ne manque » : le produit reste absent de
+        // `parProduit`, et le récapitulatif dit qu'il n'a pas pu vérifier.
         if (!r.ok) continue;
         const d = await r.json();
-        parProduit[p.userProductId] = d?.manques ?? [];
+        if (Array.isArray(d?.manques)) parProduit[p.userProductId] = d.manques;
       } catch {
-        /* on affiche ce qu'on a */
+        /* idem : non vérifié */
       }
     }
     setManques(parProduit);
@@ -1579,7 +1581,21 @@ export default function NouveauCentrePage() {
               </Typography>
 
               {produitsCrees.map((p) => {
+                const lu = p.userProductId in manques;
                 const liste = manques[p.userProductId] ?? [];
+                if (!lu) {
+                  return (
+                    <Alert
+                      key={p.userProductId}
+                      severity="warning"
+                      sx={{ fontSize: 13 }}
+                    >
+                      {p.libelle} : le registre de complétude n&apos;a pas
+                      répondu, rien n&apos;a pu être vérifié. Rechargez la page,
+                      ou consultez le parc clients.
+                    </Alert>
+                  );
+                }
                 return (
                   <Box
                     key={p.userProductId}
