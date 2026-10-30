@@ -96,12 +96,12 @@ export function TutorielProvider({ children }: { children: React.ReactNode }) {
         cache: "no-store",
       });
       const d = r.ok ? await r.json() : null;
+      // Lecture ratée : état inconnu (null), jamais « tout est rempli ». Les textes
+      // retombent alors sur leur version qui insiste.
       setManques(
-        new Set(
-          Array.isArray(d?.manques)
-            ? d.manques.map((m: { cle: string }) => m.cle)
-            : [],
-        ),
+        Array.isArray(d?.manques)
+          ? new Set(d.manques.map((m: { cle: string }) => m.cle))
+          : null,
       );
     } catch {
       setManques(null);
