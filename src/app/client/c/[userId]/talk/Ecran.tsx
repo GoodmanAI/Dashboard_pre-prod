@@ -41,7 +41,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import ClientLayout from "./ClientLayout";
-import CartePremiersPas from "@/components/premiersPas/CartePremiersPas";
+import SommaireTutoriel from "@/components/tutoriel/SommaireTutoriel";
 
 interface IntentConfig {
   value: string;
@@ -367,7 +367,7 @@ export default function TalkPage({ params }: TalkPageProps) {
             title="Vue d'ensemble"
             subtitle="Service vocal · 24 dernières heures"
           />
-          <CartePremiersPas id="premiers_pas" />
+          <SommaireTutoriel id="premiers_pas" />
 
           {erreurAppels && (
             <Alert severity="error" sx={{ mb: 2 }}>

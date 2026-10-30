@@ -87,7 +87,6 @@ import {
   type Salle,
   type SallesParType,
 } from "@/lib/sallesExamen";
-import EncartEtape from "@/components/premiersPas/EncartEtape";
 
 /**
  * Correspondance des examens (refonte design 2026-08-06).
@@ -577,10 +576,9 @@ export default function MappingExam({ params }: TalkPageProps) {
         </Alert>
       )}
 
-      <EncartEtape chemin="parametrage/mapping_exam" />
-
       {/* -------- Sticky Toolbar (recherche + filtres + KPIs) -------- */}
       <Box
+        id="outils_mapping"
         sx={{
           position: "sticky",
           top: 0,
@@ -889,41 +887,41 @@ export default function MappingExam({ params }: TalkPageProps) {
               >
                 <TableHead>
                   <TableRow>
-                    <EnTeteMapping
+                    <EnTeteMapping id="col_attribue"
                       aide="Le centre confie cet examen au robot. Décoché, le robot ne le propose pas au téléphone."
                       largeur={80}
                       align="center"
                     >
                       Attribué à Lyrae
                     </EnTeteMapping>
-                    <EnTeteMapping aide="Notre référentiel : modalité, libellé et code internes.">
+                    <EnTeteMapping id="col_examen" aide="Notre référentiel : modalité, libellé et code internes.">
                       Examen
                     </EnTeteMapping>
-                    <EnTeteMapping
+                    <EnTeteMapping id="col_code"
                       aide="Le code de cet examen dans votre logiciel de gestion, et en dessous ce que le robot annonce au patient. Sans le code, l'examen n'est pas réservable."
                       largeur={220}
                     >
                       Code / Libellé patient
                     </EnTeteMapping>
-                    <EnTeteMapping
+                    <EnTeteMapping id="col_type"
                       aide="Le type dans votre logiciel. La liste propose ceux que vous avez déjà saisis. Facultatif."
                       largeur={130}
                     >
                       Type
                     </EnTeteMapping>
-                    <EnTeteMapping
+                    <EnTeteMapping id="col_injecte"
                       aide="Examen avec produit de contraste, scanners et IRM seulement. Cochez pour saisir le code de la version injectée."
                       largeur={150}
                     >
                       Injecté
                     </EnTeteMapping>
-                    <EnTeteMapping
+                    <EnTeteMapping id="col_horaire"
                       aide="Une consigne d'horaire annoncée avec le créneau."
                       largeur={220}
                     >
                       Créneau horaire
                     </EnTeteMapping>
-                    <EnTeteMapping
+                    <EnTeteMapping id="col_salles"
                       aide="Les salles où se fait cet examen. Le robot ne propose que leurs créneaux. Rien de choisi : toutes les salles."
                       largeur={180}
                     >

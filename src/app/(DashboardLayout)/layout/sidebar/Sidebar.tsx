@@ -102,7 +102,7 @@ const MSidebar = ({ isMobileSidebarOpen, onSidebarClose, isSidebarOpen }: ItemTy
   // ----- Affichage desktop (Drawer permanent) -----
   if (lgUp) {
     return (
-      <Box sx={{ width: sidebarWidth, flexShrink: 0 }}>
+      <Box id="tuto_menu" sx={{ width: sidebarWidth, flexShrink: 0 }}>
         <Drawer
           anchor="left"
           open={isSidebarOpen}

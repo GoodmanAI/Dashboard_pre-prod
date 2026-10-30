@@ -41,9 +41,9 @@ model User {
   /// Ignore pour SUPER_ADMIN / ADMIN (acces total quel que soit le contenu).
   permissions Json?
 
-  /// Premiers pas d'un nouveau client (plan `2026-10-onboarding-dashboard-talk.md`).
-  /// null = jamais ouverts : la carte de l'accueil s'affiche.
-  /// { "masque": bool, "lus": ["talk.doubles"], "phrases": ["talk.stats_appel"] }
+  /// Tutoriel du client (plan `2026-10-tutoriel-client-talk.md`).
+  /// null = jamais ouvert : sommaire visible, visite de bienvenue au premier login.
+  /// { "masque": bool, "visite": bool, "chapitres": ["correspondance"] }
   /// Colonne posée par `manual/2026_10_29_premiers_pas.sql`.
   premiersPas Json?
 

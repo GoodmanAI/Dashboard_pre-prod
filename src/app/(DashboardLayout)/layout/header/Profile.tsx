@@ -14,12 +14,9 @@ import {
   ListItemIcon,
   ListItemText,
 } from "@mui/material";
-import { IconListCheck, IconUser } from "@tabler/icons-react";
+import { IconSchool, IconUser } from "@tabler/icons-react";
 import { useProduitActif } from "@/hooks/useProduitActif";
-import { useCentreProduit } from "@/hooks/useCentreProduit";
-import { usePremiersPas } from "@/hooks/usePremiersPas";
-import { cheminCentre } from "@/lib/cheminsCentre";
-import { etapesDuProduit } from "@/lib/premiersPas";
+import { useTutoriel } from "@/components/tutoriel/ContexteTutoriel";
 
 /**
  * Composant Profil
@@ -45,21 +42,8 @@ const Profile = () => {
   // Router client-side pour la navigation
   const router = useRouter();
 
-  // Premiers pas rangés : le menu permet de les rouvrir, sur l'accueil du produit regardé.
-  const centre = useCentreProduit();
-  const premiersPas = usePremiersPas();
-  const peutRevoir =
-    !premiersPas.admin &&
-    premiersPas.etat?.masque === true &&
-    centre.userId !== null &&
-    etapesDuProduit(centre.produit).length > 0;
-
-  const handleRevoirPremiersPas = async () => {
-    setAnchorEl(null);
-    if (centre.userId === null || !centre.produit) return;
-    await premiersPas.agir({ masque: false });
-    router.push(`${cheminCentre(centre.userId, centre.produit)}#premiers_pas`);
-  };
+  // Le tutoriel du client : la liste des chapitres, à rouvrir à tout moment.
+  const tutoriel = useTutoriel();
 
   // Ouvre le menu de profil
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -96,6 +80,7 @@ const Profile = () => {
     <Box>
       {/* Bouton Avatar — déclenche l’ouverture du menu de profil */}
       <IconButton
+        id="tuto_profil"
         size="large"
         aria-label="profile options"
         color="inherit"
@@ -132,12 +117,17 @@ const Profile = () => {
           <ListItemText primary="My Profile" />
         </MenuItem>
 
-        {peutRevoir && (
-          <MenuItem onClick={() => void handleRevoirPremiersPas()}>
+        {tutoriel?.disponible && (
+          <MenuItem
+            onClick={() => {
+              setAnchorEl(null);
+              tutoriel.ouvrirChoix();
+            }}
+          >
             <ListItemIcon>
-              <IconListCheck width={20} />
+              <IconSchool width={20} />
             </ListItemIcon>
-            <ListItemText primary="Revoir les premiers pas" />
+            <ListItemText primary="Tutoriel" />
           </MenuItem>
         )}
 

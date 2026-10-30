@@ -87,7 +87,6 @@ import {
 } from "@/lib/csvExport";
 import { IconDownload } from "@tabler/icons-react";
 import { MENU_FILTRE } from "@/lib/menuFiltre";
-import PhraseStatistiques from "@/components/premiersPas/PhraseStatistiques";
 
 /* =========================================================
    Types & utils
@@ -1627,10 +1626,6 @@ export default function StatsAppelPage({ params }: any) {
         title="Statistiques d'appels"
         subtitle="Ce que LyraeTalk a fait des appels du centre, sur la période de votre choix."
         retour={{ libelle: "Retour à LyraeTalk", href: basePath }}
-      />
-      <PhraseStatistiques
-        cle="talk.stats_appel"
-        texte="Cette page montre les statistiques de vos appels. Vous n'avez rien à y remplir."
       />
       {/* Barre d'outils : période et export */}
       <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
