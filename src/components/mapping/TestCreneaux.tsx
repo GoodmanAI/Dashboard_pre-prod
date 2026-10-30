@@ -73,10 +73,14 @@ export function useTestCreneaux(userProductId: number) {
           body: JSON.stringify({ userProductId, codeExamen }),
         });
         if (r.status === 429) {
+          const corps = await r.json().catch(() => ({}));
           setEtat({
             phase: "erreur",
             libelle,
-            message: "Vous avez lancé 5 tests en une minute. Attendez un peu avant le suivant.",
+            message:
+              corps?.plafond === "centre"
+                ? "Votre centre a lancé beaucoup de tests en une minute. Attendez quelques secondes, puis relancez."
+                : "Vous avez lancé 5 tests en une minute. Attendez quelques secondes, puis relancez.",
           });
         } else if (!r.ok) {
           setEtat({
