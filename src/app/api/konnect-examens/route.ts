@@ -393,20 +393,11 @@ export async function PUT(req: NextRequest) {
     vus.add(l.codeExamen);
   }
 
-  // Deux lignes ne peuvent pas viser le même code RIS : Konnect ne saurait pas
-  // laquelle appliquer, et la réservation deviendrait imprévisible.
-  const codesRis = new Set<string>();
-  for (const l of lignes) {
-    const c = l.codeExamenClient.trim();
-    if (!c || !l.performed) continue;
-    if (codesRis.has(c)) {
-      return NextResponse.json(
-        { error: `Le code RIS « ${c} » est attribué à deux examens différents.` },
-        { status: 400 }
-      );
-    }
-    codesRis.add(c);
-  }
+  // Plusieurs examens peuvent partager un code RIS (30/10/2026) : le centre range
+  // genou, genou droit et genou gauche sous `MRGEN-`. Konnect regroupe son catalogue
+  // par code depuis C-CAT.1 (26/10) et garde le rattachement fin de chaque examen.
+  // L'écran signale seulement un désaccord sur « Réservable en ligne », que Konnect
+  // tranche vers le rappel.
 
   const client = await db.connect();
   try {

@@ -120,28 +120,24 @@ function contradictions(lignes: LigneEnvoyee[]): string | null {
   /**
    * ⚠️ IL N'Y A PAS DE SECONDE RÈGLE, ET C'EST LE POINT À NE PAS « CORRIGER ».
    *
-   * `PUT /api/konnect-examens` refuse qu'un même code RIS soit attribué à deux
-   * examens. Cette route l'a refusé aussi pendant une heure, le 14/09/2026, par
-   * symétrie. **C'était faux, et l'audit de production l'a montré avant la mise en
-   * service** : 223 groupes de lignes partagent un code RIS chez les centres en
+   * Cette route a refusé qu'un même code RIS serve à deux examens pendant une heure,
+   * le 14/09/2026. **C'était faux, et l'audit de production l'a montré avant la mise
+   * en service** : 223 groupes de lignes partagent un code RIS chez les centres en
    * service. Ce n'est pas de la donnée sale, c'est le modèle du RIS. Pontivy attribue
    * `MAIN` à cinq examens (main droite, main gauche, les deux…), `PIED` à cinq,
    * `AVTBRAS` à deux : le code RIS désigne l'examen générique, la latéralité vit
    * ailleurs.
    *
-   * POURQUOI LA RÈGLE EST JUSTE CHEZ KONNECT ET FAUSSE ICI. Ce n'est pas une question
-   * de rigueur, c'est le SENS DE LA LECTURE :
+   * LyraeTalk lit `codeExamen` → `codeExamenClient` (`getExamCodes.js` :
+   * `data[rdv.internal_code]`). La clé est le code NEURACORP, l'entrée est unique,
+   * et le partage d'un code RIS ne crée aucune ambiguïté.
    *
-   * - LyraeTalk lit `codeExamen` → `codeExamenClient` (`getExamCodes.js` :
-   *   `data[rdv.internal_code]`). La clé est le code NEURACORP, l'entrée est unique,
-   *   et le partage d'un code RIS ne crée aucune ambiguïté.
-   * - Konnect lit dans l'autre sens : `versCatalogueKonnect` émet le code RIS comme
-   *   `examen_code`, c'est-à-dire comme l'IDENTITÉ de l'examen réservable. Deux lignes
-   *   sur le même code y produisent deux entrées de catalogue indistinguables, et le
-   *   portail demande le côté séparément.
+   * `PUT /api/konnect-examens` a gardé ce refus jusqu'au 30/10/2026, parce que
+   * `versCatalogueKonnect` émet le code RIS comme `examen_code`, l'identité de l'examen
+   * réservable. Konnect regroupe désormais son catalogue par code (C-CAT.1, 26/10) :
+   * les deux produits acceptent le partage.
    *
-   * Deux produits, deux façons de porter la latéralité, donc une règle qui ne se
-   * partage pas. La seule lecture inverse côté Talk est
+   * La seule lecture inverse côté Talk est
    * `POST /api/configuration/get/mapping/getLibelle` (code RIS → libellé, premier
    * trouvé), et son ambiguïté est inhérente : le RIS ne rend que `MAIN`, aucune
    * configuration ne peut lui faire rendre « main droite ».
