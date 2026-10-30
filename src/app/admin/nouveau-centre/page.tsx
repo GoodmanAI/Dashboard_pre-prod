@@ -24,7 +24,23 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { IconArrowLeft, IconArrowRight, IconCheck, IconCopy, IconRefresh } from "@tabler/icons-react";
+import {
+  IconArrowLeft,
+  IconArrowRight,
+  IconCheck,
+  IconCopy,
+  IconRefresh,
+  IconUpload,
+} from "@tabler/icons-react";
+import {
+  blocTalkSite,
+  lireFiche,
+  preremplissage,
+  sitesDuCompte,
+  unCompteParSite,
+  type Fiche,
+} from "@/lib/ficheOuverture";
+import { estNumeroEntrant } from "@/lib/completude/validateurs";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
 import Horaires from "@/components/admin/nouveau-centre/Horaires";
@@ -88,18 +104,24 @@ const BOUTON_ACTION = {
 };
 
 /**
- * Sept étapes, dont six à remplir.
+ * Huit étapes, dont sept à remplir.
  *
- * La demande était « max 5-6 pages ». La septième ne pose aucune question : elle dit ce
+ * La demande était « max 5-6 pages ». La dernière ne pose aucune question : elle dit ce
  * qui reste. La barre d'avancement ne la compte donc pas.
+ *
+ * **La première lit la fiche d'ouverture** (30/10/2026, plan
+ * `2026-10-onboarding-admin-depuis-la-fiche.md`) : le client l'a remplie avant qu'on
+ * crée son compte, elle préremplit les pages suivantes et la configuration du robot.
+ * Sans fiche, l'assistant se remplit à la main comme avant.
  */
 const ETAPES = [
+  "La fiche",
   "Identité",
   "Le centre",
   "Les examens",
   "Les horaires",
   "Le robot",
-  "Raccordement",
+  "Sites et téléphone",
   "Récapitulatif",
 ];
 
@@ -120,7 +142,20 @@ function genererMotDePasse(): string {
   return base.sort(() => Math.random() - 0.5).join("");
 }
 
-type ProduitCree = { slug: SlugProduit; userProductId: number; libelle: string };
+type ProduitCree = {
+  slug: SlugProduit;
+  userProductId: number;
+  libelle: string;
+};
+
+/** L'organisation des sites choisie dans la fiche (partie 3), dite en une ligne. */
+const LIBELLE_SCHEMA: Record<string, string> = {
+  A: "un seul site, un code site",
+  B: "plusieurs lieux sous un seul code site",
+  C: "plusieurs codes sites dans un seul compte",
+  D: "un compte par site",
+  Autre: "organisation à voir ensemble",
+};
 
 export default function NouveauCentrePage() {
   const { data: session, status } = useSession();
@@ -131,12 +166,22 @@ export default function NouveauCentrePage() {
   const [message, setMessage] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
 
+  // Page 0 : la fiche d'ouverture, lue dans le navigateur
+  const [fiche, setFiche] = useState<Fiche | null>(null);
+  const [nomFichier, setNomFichier] = useState("");
+  /** Organisation D (un compte par site) : le site que porte CE compte. */
+  const [indexSite, setIndexSite] = useState<number | null>(null);
+
   // Page 1
   const [nom, setNom] = useState("");
   const [identifiant, setIdentifiant] = useState("");
   const [motDePasse, setMotDePasse] = useState(genererMotDePasse);
-  const [produitsChoisis, setProduitsChoisis] = useState<SlugProduit[]>(["talk"]);
-  const [catalogue, setCatalogue] = useState<{ id: number; slug: SlugProduit }[]>([]);
+  const [produitsChoisis, setProduitsChoisis] = useState<SlugProduit[]>([
+    "talk",
+  ]);
+  const [catalogue, setCatalogue] = useState<
+    { id: number; slug: SlugProduit }[]
+  >([]);
   /**
    * Le catalogue a-t-il fini d'être lu ?
    *
@@ -154,6 +199,8 @@ export default function NouveauCentrePage() {
 
   // Page 6
   const [codesCentres, setCodesCentres] = useState("");
+  /** Le numéro Lyrae que composent les patients. Absent de la fiche : seul l'admin le connaît. */
+  const [numeroEntrant, setNumeroEntrant] = useState("");
   /** Attribué par le Dashboard à l'affiliation (lot 4E). Affiché, jamais saisi. */
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [risBaseUrl, setRisBaseUrl] = useState("");
@@ -172,7 +219,7 @@ export default function NouveauCentrePage() {
         for (const slug of ORDRE_PRODUITS) {
           const p = (Array.isArray(liste) ? liste : []).find(
             (x: { name?: string }) =>
-              (x.name ?? "").toLowerCase() === PRODUITS[slug].nom.toLowerCase()
+              (x.name ?? "").toLowerCase() === PRODUITS[slug].nom.toLowerCase(),
           );
           if (p?.id) trouves.push({ id: Number(p.id), slug });
         }
@@ -209,14 +256,14 @@ export default function NouveauCentrePage() {
         setOccupe(false);
       }
     },
-    []
+    [],
   );
 
   const konnect = produitsCrees.find((p) => p.slug === "konnect") ?? null;
   const talk = produitsCrees.find((p) => p.slug === "talk") ?? null;
   const acceptes = useMemo(
     () => EXAMENS.filter((e) => rep.examsAccepted[e.cle]),
-    [rep.examsAccepted]
+    [rep.examsAccepted],
   );
 
   /**
@@ -241,11 +288,73 @@ export default function NouveauCentrePage() {
         "/api/configuration",
         "POST",
         { userProductId: talk.userProductId, reconnaissance: false, ...champs },
-        succes
+        succes,
       );
     },
-    [talk, appeler]
+    [talk, appeler],
   );
+
+  /** Les sites que porte ce compte d'après la fiche (vide sans fiche). */
+  const sitesFiche = useMemo(
+    () => (fiche ? sitesDuCompte(fiche, indexSite) : []),
+    [fiche, indexSite],
+  );
+
+  /** Ce que la fiche permet d'écrire dans la configuration du robot (`talk.site`). */
+  const blocFiche = useMemo(
+    () =>
+      talk
+        ? blocTalkSite(
+            sitesFiche,
+            fiche?.robot.examens ?? [],
+            talk.userProductId,
+          )
+        : {},
+    [sitesFiche, talk, fiche],
+  );
+
+  /**
+   * Page 0 : préremplit les pages suivantes avec la fiche. Rien n'est écrit ici : chaque
+   * page enregistre ce qu'on y voit, comme sans fiche, et l'admin peut tout corriger.
+   */
+  const appliquerFiche = (f: Fiche, index: number | null) => {
+    const sites = sitesDuCompte(f, index);
+    const p = preremplissage(f, sites, reponsesVides());
+    setNom(p.nom);
+    setRep(p.reponses);
+    setCodesCentres(
+      sites
+        .map((s) => s.codeSite)
+        .filter(Boolean)
+        .join(", "),
+    );
+    if (identifiant.trim() === "") {
+      // Une suggestion : l'identifiant doit rester lisible au téléphone.
+      setIdentifiant(
+        p.nom
+          .normalize("NFD")
+          .replace(/[̀-ͯ]/g, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, ""),
+      );
+    }
+  };
+
+  const lireLeFichier = async (fichier: File) => {
+    setErreur(null);
+    try {
+      const f = lireFiche(await fichier.text());
+      setFiche(f);
+      setNomFichier(fichier.name);
+      const index = unCompteParSite(f) ? 0 : null;
+      setIndexSite(index);
+      appliquerFiche(f, index);
+    } catch (e: any) {
+      setFiche(null);
+      setErreur(e?.message ?? "Le fichier n'a pas pu être lu.");
+    }
+  };
 
   /** Page 1 : le compte et ses produits. Tout le reste en dépend. */
   const creerLeCompte = async () => {
@@ -266,7 +375,7 @@ export default function NouveauCentrePage() {
           assignedAt: new Date().toISOString(),
         })),
       },
-      "Compte créé."
+      "Compte créé.",
     );
     if (!d?.user?.id) return;
 
@@ -282,15 +391,16 @@ export default function NouveauCentrePage() {
           slug: x.slug as SlugProduit,
           userProductId: x.userProductId as number,
           libelle: x.libelle as string,
-        }))
+        })),
     );
     // L'identifiant du cabinet est attribué par le Dashboard au moment de
     // l'affiliation : on le relève ici, on ne le demande plus.
     setTenantId(
-      (liste.rows ?? []).find((x: any) => x.slug === "konnect")?.tenantId ?? null
+      (liste.rows ?? []).find((x: any) => x.slug === "konnect")?.tenantId ??
+        null,
     );
     setRep((p) => ({ ...p, centerName: nom.trim() }));
-    setEtape(1);
+    setEtape(2);
   };
 
   /** Page 2 : les coordonnées, ce que le robot dit au patient qui demande où venir. */
@@ -305,17 +415,17 @@ export default function NouveauCentrePage() {
         centerMail: rep.centerMail.trim(),
         centerWebsite: rep.centerWebsite.trim() || null,
       },
-      "Coordonnées enregistrées."
+      "Coordonnées enregistrées.",
     );
     if (konnect) {
       await appeler(
         `/api/konnect-configuration?userProductId=${konnect.userProductId}`,
         "PUT",
         { telephoneSecretariat: rep.centerPhone.trim() || null },
-        "Téléphone du portail enregistré."
+        "Téléphone du portail enregistré.",
       );
     }
-    setEtape(2);
+    setEtape(3);
   };
 
   /** Page 3 : les examens pris, et la conduite quand le planning est complet. */
@@ -324,13 +434,16 @@ export default function NouveauCentrePage() {
     // examen décoché laisserait une consigne qui ne s'applique à rien.
     const notes: Record<string, ConduitePlanning> = {};
     for (const e of acceptes) {
-      notes[e.cle] = rep.fullPlanningNotes[e.cle] ?? { type: "fin_appel", message: "" };
+      notes[e.cle] = rep.fullPlanningNotes[e.cle] ?? {
+        type: "fin_appel",
+        message: "",
+      };
     }
     await ecrireTalk(
       { examsAccepted: rep.examsAccepted, fullPlanningNotes: notes },
-      "Examens enregistrés."
+      "Examens enregistrés.",
     );
-    setEtape(3);
+    setEtape(4);
   };
 
   /** Page 4 : les horaires, qui vivent dans une AUTRE table et ont leur propre route. */
@@ -340,10 +453,10 @@ export default function NouveauCentrePage() {
         "/api/configuration/informationnel/horaires",
         "POST",
         { userProductId: talk.userProductId, weeklyHours: rep.weeklyHours },
-        "Horaires enregistrés."
+        "Horaires enregistrés.",
       );
     }
-    setEtape(4);
+    setEtape(5);
   };
 
   /**
@@ -358,10 +471,13 @@ export default function NouveauCentrePage() {
     if (talk) {
       let optionsActuelles: Record<string, unknown> = {};
       try {
-        const r = await fetch(`/api/configuration?userProductId=${talk.userProductId}`);
+        const r = await fetch(
+          `/api/configuration?userProductId=${talk.userProductId}`,
+        );
         if (r.ok) {
           const d = await r.json();
-          if (d?.options && typeof d.options === "object") optionsActuelles = d.options;
+          if (d?.options && typeof d.options === "object")
+            optionsActuelles = d.options;
         }
       } catch {
         /* centre neuf : rien à préserver */
@@ -375,7 +491,7 @@ export default function NouveauCentrePage() {
             menstruations: rep.menstruations,
           },
         },
-        "Questions au patient enregistrées."
+        "Questions au patient enregistrées.",
       );
 
       // Les doubles examens ont leur propre route, et son corps devient l'objet entier.
@@ -384,22 +500,53 @@ export default function NouveauCentrePage() {
           `/api/configuration/mapping/double_exam?userProductId=${talk.userProductId}`,
           "POST",
           rep.multiExamMapping,
-          "Doubles examens enregistrés."
+          "Doubles examens enregistrés.",
         );
       }
     }
-    setEtape(5);
+    setEtape(6);
   };
 
   /** Page 6 : ce qui relie le centre au reste de l'écosystème. */
   const enregistrerRaccordement = async () => {
     if (talk) {
-      for (const code of codesCentres.split(",").map((c) => c.trim()).filter(Boolean)) {
+      for (const code of codesCentres
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean)) {
         await appeler(
           "/api/external-center-mapping",
           "POST",
           { userProductId: talk.userProductId, externalCenterCode: code },
-          `Code ${code} rattaché.`
+          `Code ${code} rattaché.`,
+        );
+      }
+      if (userId !== null && numeroEntrant.trim() !== "") {
+        await appeler(
+          `/api/admin/number/${userId}`,
+          "POST",
+          { number: numeroEntrant.replace(/[\s.\-()/]/g, "") },
+          "Numéro des patients ajouté.",
+        );
+      }
+      if (Object.keys(blocFiche).length > 0) {
+        // `PUT` remplace la valeur ENTIÈRE : on relit ce qui existe et on y pose les clés
+        // de la fiche. Sur un centre neuf il n'y a rien, mais une reprise de l'assistant
+        // sur un centre déjà réglé ne doit rien effacer.
+        let actuelle: Record<string, unknown> = {};
+        try {
+          const r = await fetch(
+            `/api/product-config?userProductId=${talk.userProductId}&domaine=talk.site`,
+          );
+          if (r.ok) actuelle = (await r.json())?.valeur ?? {};
+        } catch {
+          /* rien à préserver */
+        }
+        await appeler(
+          `/api/product-config?userProductId=${talk.userProductId}&domaine=talk.site`,
+          "PUT",
+          { valeur: { ...actuelle, ...blocFiche } },
+          "Configuration du robot enregistrée (sites, salles, secrétariat).",
         );
       }
     }
@@ -413,17 +560,19 @@ export default function NouveauCentrePage() {
             code_site: risCodeSite.trim(),
           },
         },
-        "Logiciel du centre rattaché."
+        "Logiciel du centre rattaché.",
       );
     }
-    setEtape(6);
+    setEtape(7);
   };
 
   const chargerManques = useCallback(async () => {
     const parProduit: Record<number, Manque[]> = {};
     for (const p of produitsCrees) {
       try {
-        const r = await fetch(`/api/completude?userProductId=${p.userProductId}`);
+        const r = await fetch(
+          `/api/completude?userProductId=${p.userProductId}`,
+        );
         if (!r.ok) continue;
         const d = await r.json();
         parProduit[p.userProductId] = d?.manques ?? [];
@@ -435,7 +584,7 @@ export default function NouveauCentrePage() {
   }, [produitsCrees]);
 
   useEffect(() => {
-    if (etape === 6) void chargerManques();
+    if (etape === 7) void chargerManques();
   }, [etape, chargerManques]);
 
   const passerEnProduction = async () => {
@@ -444,15 +593,18 @@ export default function NouveauCentrePage() {
         "/api/centre-statut",
         "PUT",
         { userProductId: p.userProductId, statut: "production" },
-        `${p.libelle} passé en production.`
+        `${p.libelle} passé en production.`,
       );
     }
     await chargerManques();
   };
 
   const bloquants = useMemo(
-    () => Object.values(manques).flat().filter((m) => m.criticite === "bloquant"),
-    [manques]
+    () =>
+      Object.values(manques)
+        .flat()
+        .filter((m) => m.criticite === "bloquant"),
+    [manques],
   );
 
   /** Les combinaisons dont les DEUX membres sont pratiqués par ce centre. */
@@ -482,17 +634,20 @@ export default function NouveauCentrePage() {
   }
 
   return (
-    <PageContainer title="Nouveau centre" description="Mettre un client en service">
+    <PageContainer
+      title="Nouveau centre"
+      description="Mettre un client en service"
+    >
       <Box>
         <SectionHeader
           title="Nouveau centre"
-          subtitle="Six pages, pas une de plus. Chacune s'enregistre seule, et vous pouvez en passer."
+          subtitle="On part de la fiche d'ouverture du client. Chaque page s'enregistre seule, et vous pouvez en passer."
         />
 
         {!estSuperAdmin && (
           <Alert severity="warning" sx={{ mb: 2, maxWidth: 880 }}>
-            Créer un compte client demande un accès super administrateur. Vous pouvez suivre
-            les étapes, mais la création échouera.
+            Créer un compte client demande un accès super administrateur. Vous
+            pouvez suivre les étapes, mais la création échouera.
           </Alert>
         )}
 
@@ -529,17 +684,188 @@ export default function NouveauCentrePage() {
         </Box>
 
         {erreur && (
-          <Alert severity="error" sx={{ mb: 2, maxWidth: 880 }} onClose={() => setErreur(null)}>
+          <Alert
+            severity="error"
+            sx={{ mb: 2, maxWidth: 880 }}
+            onClose={() => setErreur(null)}
+          >
             {erreur}
           </Alert>
         )}
 
         <Card sx={{ p: 3, border: `1px solid ${BORDER}`, maxWidth: 880 }}>
-          {/* ───────────────────────────── 1. Identité ───────────────────────────── */}
+          {/* ───────────────────────────── 0. La fiche ───────────────────────────── */}
           {etape === 0 && (
+            <Stack spacing={2.5} sx={{ maxWidth: 680 }}>
+              <Box>
+                <Typography sx={{ fontSize: 15, fontWeight: 700, color: INK }}>
+                  La fiche d&apos;ouverture du client
+                </Typography>
+                <Typography sx={{ fontSize: 13, color: INK_MUTED }}>
+                  Déposez la fiche que le client vous a renvoyée remplie. Elle
+                  préremplit les pages suivantes et la configuration du robot
+                  (sites, salles, secrétariat). Vous vérifiez et corrigez à
+                  chaque page, rien n&apos;est écrit avant.
+                </Typography>
+              </Box>
+
+              <Box>
+                <Button
+                  component="label"
+                  variant="outlined"
+                  startIcon={<IconUpload size={16} />}
+                  sx={{ textTransform: "none" }}
+                >
+                  {fiche
+                    ? "Déposer une autre fiche"
+                    : "Déposer la fiche remplie"}
+                  <input
+                    hidden
+                    type="file"
+                    accept=".html,.htm,text/html"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void lireLeFichier(f);
+                      e.target.value = "";
+                    }}
+                  />
+                </Button>
+              </Box>
+
+              {fiche && (
+                <Box
+                  sx={{ border: `1px solid ${BORDER}`, borderRadius: 2, p: 2 }}
+                >
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ alignItems: "center", mb: 1 }}
+                  >
+                    <IconCheck size={18} color="#186A3B" />
+                    <Typography
+                      sx={{ fontSize: 14, fontWeight: 700, color: INK }}
+                    >
+                      {fiche.centre.nom || "Fiche sans nom de centre"}
+                    </Typography>
+                  </Stack>
+                  <Typography sx={{ fontSize: 13, color: INK_MUTED }}>
+                    {nomFichier}
+                    {fiche.rempliPar && ` · remplie par ${fiche.rempliPar}`}
+                    {fiche.rempliLe && ` le ${fiche.rempliLe}`}
+                  </Typography>
+                  <Typography sx={{ fontSize: 13, color: INK, mt: 1 }}>
+                    {fiche.sites.length} site{fiche.sites.length > 1 ? "s" : ""}{" "}
+                    ·{" "}
+                    {LIBELLE_SCHEMA[fiche.organisation.schema] ??
+                      "organisation non précisée"}
+                  </Typography>
+                  {fiche.xplore.version === "Plus ancienne que 8.2" && (
+                    <Alert severity="warning" sx={{ mt: 1.5, fontSize: 13 }}>
+                      Xplore est plus ancien que la version 8.2 : le robot ne
+                      pourra pas réserver avant la mise à jour.
+                    </Alert>
+                  )}
+
+                  {unCompteParSite(fiche) && (
+                    <Box sx={{ mt: 1.5 }}>
+                      <Typography
+                        sx={{ fontSize: 13, fontWeight: 600, color: INK }}
+                      >
+                        Un compte par site : lequel créez-vous maintenant ?
+                      </Typography>
+                      <RadioGroup
+                        value={String(indexSite ?? 0)}
+                        onChange={(_, v) => {
+                          setIndexSite(Number(v));
+                          appliquerFiche(fiche, Number(v));
+                        }}
+                      >
+                        {fiche.sites.map((s, i) => (
+                          <FormControlLabel
+                            key={i}
+                            value={String(i)}
+                            control={<Radio size="small" />}
+                            label={
+                              <Typography sx={{ fontSize: 13 }}>
+                                {s.nom || `Site ${i + 1}`}
+                                {s.codeSite && ` (${s.codeSite})`}
+                              </Typography>
+                            }
+                          />
+                        ))}
+                      </RadioGroup>
+                      <Typography sx={{ fontSize: 12, color: INK_MUTED }}>
+                        Relancez l&apos;assistant avec la même fiche pour chacun
+                        des autres sites.
+                      </Typography>
+                    </Box>
+                  )}
+
+                  <Typography
+                    sx={{ fontSize: 13, color: INK, mt: 1.5, fontWeight: 600 }}
+                  >
+                    Préremplis pour ce compte
+                  </Typography>
+                  <Box
+                    component="ul"
+                    sx={{ m: 0, mt: 0.5, pl: 2.5, fontSize: 13, color: INK }}
+                  >
+                    <li>Nom du compte : {nom || "à saisir"}</li>
+                    <li>
+                      Coordonnées du centre :{" "}
+                      {rep.address
+                        ? `${rep.address}, ${rep.address2}`
+                        : "à saisir"}
+                    </li>
+                    <li>
+                      Examens confiés au robot :{" "}
+                      {EXAMENS.filter((e) => rep.examsAccepted[e.cle])
+                        .map((e) => e.libelle)
+                        .join(", ") || "aucun coché"}
+                    </li>
+                    <li>Codes sites : {codesCentres || "aucun"}</li>
+                    <li>
+                      Salles ouvertes au robot :{" "}
+                      {sitesFiche
+                        .flatMap((s) => s.salles)
+                        .filter((l) => l.robot && l.poste).length || "aucune"}
+                    </li>
+                  </Box>
+                </Box>
+              )}
+
+              <Stack
+                direction="row"
+                spacing={1.5}
+                sx={{ justifyContent: "flex-end" }}
+              >
+                {!fiche && (
+                  <Button
+                    sx={{ textTransform: "none" }}
+                    onClick={() => setEtape(1)}
+                  >
+                    Continuer sans fiche
+                  </Button>
+                )}
+                <Button
+                  variant="contained"
+                  disabled={!fiche}
+                  endIcon={<IconArrowRight size={16} />}
+                  sx={BOUTON_ACTION}
+                  onClick={() => setEtape(1)}
+                >
+                  Continuer
+                </Button>
+              </Stack>
+            </Stack>
+          )}
+
+          {/* ───────────────────────────── 1. Identité ───────────────────────────── */}
+          {etape === 1 && (
             <Stack spacing={2.5} sx={{ maxWidth: 560 }}>
               <Typography sx={{ fontSize: 13, color: INK_MUTED }}>
-                Le compte existe dès cette page. Les suivantes ne font que le compléter.
+                Le compte existe dès cette page. Les suivantes ne font que le
+                compléter.
               </Typography>
               <TextField
                 label="Nom du centre"
@@ -582,14 +908,18 @@ export default function NouveauCentrePage() {
                   <Button
                     size="small"
                     startIcon={<IconCopy size={14} />}
-                    onClick={() => void navigator.clipboard?.writeText(motDePasse)}
+                    onClick={() =>
+                      void navigator.clipboard?.writeText(motDePasse)
+                    }
                   >
                     Copier
                   </Button>
                 </Stack>
               </Box>
               <Box>
-                <Typography sx={{ fontSize: 13, fontWeight: 600, color: INK, mb: 0.5 }}>
+                <Typography
+                  sx={{ fontSize: 13, fontWeight: 600, color: INK, mb: 0.5 }}
+                >
                   Produits
                 </Typography>
                 {ORDRE_PRODUITS.map((slug) => (
@@ -600,7 +930,7 @@ export default function NouveauCentrePage() {
                         checked={produitsChoisis.includes(slug)}
                         onChange={(_, v) =>
                           setProduitsChoisis((p) =>
-                            v ? [...p, slug] : p.filter((s) => s !== slug)
+                            v ? [...p, slug] : p.filter((s) => s !== slug),
                           )
                         }
                       />
@@ -610,7 +940,8 @@ export default function NouveauCentrePage() {
                 ))}
                 {catalogueLu && catalogue.length === 0 && (
                   <Typography sx={{ fontSize: 12, color: "#B3261E" }}>
-                    Le catalogue des produits n&apos;a pas pu être lu. La création échouera.
+                    Le catalogue des produits n&apos;a pas pu être lu. La
+                    création échouera.
                   </Typography>
                 )}
               </Box>
@@ -620,21 +951,25 @@ export default function NouveauCentrePage() {
                 onRetour={() => setEtape((e) => Math.max(0, e - 1))}
                 onSuivant={() => void creerLeCompte()}
                 libelle="Créer le compte"
-                actif={catalogueLu && nom.trim() !== "" && identifiant.trim().length >= 3}
+                actif={
+                  catalogueLu &&
+                  nom.trim() !== "" &&
+                  identifiant.trim().length >= 3
+                }
               />
             </Stack>
           )}
 
           {/* ───────────────────────────── 2. Le centre ──────────────────────────── */}
-          {etape === 1 && (
+          {etape === 2 && (
             <Stack spacing={2.5} sx={{ maxWidth: 620 }}>
               <Box>
                 <Typography sx={{ fontSize: 15, fontWeight: 700, color: INK }}>
                   Les informations du centre
                 </Typography>
                 <Typography sx={{ fontSize: 13, color: INK_MUTED }}>
-                  C&apos;est ce que le robot dira au patient qui demande où se rendre. Tout
-                  est obligatoire, sauf le site web.
+                  C&apos;est ce que le robot dira au patient qui demande où se
+                  rendre. Tout est obligatoire, sauf le site web.
                 </Typography>
               </Box>
               <TextField
@@ -642,21 +977,27 @@ export default function NouveauCentrePage() {
                 size="small"
                 required
                 value={rep.centerName}
-                onChange={(e) => setRep((p) => ({ ...p, centerName: e.target.value }))}
+                onChange={(e) =>
+                  setRep((p) => ({ ...p, centerName: e.target.value }))
+                }
               />
               <TextField
                 label="Adresse"
                 size="small"
                 required
                 value={rep.address}
-                onChange={(e) => setRep((p) => ({ ...p, address: e.target.value }))}
+                onChange={(e) =>
+                  setRep((p) => ({ ...p, address: e.target.value }))
+                }
               />
               <TextField
                 label="Code postal et ville"
                 size="small"
                 required
                 value={rep.address2}
-                onChange={(e) => setRep((p) => ({ ...p, address2: e.target.value }))}
+                onChange={(e) =>
+                  setRep((p) => ({ ...p, address2: e.target.value }))
+                }
                 helperText="Les deux dans le même champ, par exemple : 56300 Pontivy"
               />
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
@@ -666,8 +1007,12 @@ export default function NouveauCentrePage() {
                   fullWidth
                   required
                   value={rep.centerPhone}
-                  onChange={(e) => setRep((p) => ({ ...p, centerPhone: e.target.value }))}
-                  error={rep.centerPhone !== "" && !numeroValide(rep.centerPhone)}
+                  onChange={(e) =>
+                    setRep((p) => ({ ...p, centerPhone: e.target.value }))
+                  }
+                  error={
+                    rep.centerPhone !== "" && !numeroValide(rep.centerPhone)
+                  }
                   helperText="Dix chiffres, par exemple 0298952121"
                 />
                 <TextField
@@ -676,7 +1021,9 @@ export default function NouveauCentrePage() {
                   fullWidth
                   required
                   value={rep.centerMail}
-                  onChange={(e) => setRep((p) => ({ ...p, centerMail: e.target.value }))}
+                  onChange={(e) =>
+                    setRep((p) => ({ ...p, centerMail: e.target.value }))
+                  }
                   error={rep.centerMail !== "" && !mailValide(rep.centerMail)}
                 />
               </Stack>
@@ -684,7 +1031,9 @@ export default function NouveauCentrePage() {
                 label="Site web"
                 size="small"
                 value={rep.centerWebsite}
-                onChange={(e) => setRep((p) => ({ ...p, centerWebsite: e.target.value }))}
+                onChange={(e) =>
+                  setRep((p) => ({ ...p, centerWebsite: e.target.value }))
+                }
                 helperText="Facultatif."
               />
               <Suite
@@ -692,21 +1041,34 @@ export default function NouveauCentrePage() {
                 occupe={occupe}
                 onRetour={() => setEtape((e) => Math.max(0, e - 1))}
                 onSuivant={() => void enregistrerLeCentre()}
-                onPasser={() => setEtape(2)}
+                onPasser={() => setEtape(3)}
                 actif={centreComplet}
               />
             </Stack>
           )}
 
           {/* ───────────────────────────── 3. Les examens ────────────────────────── */}
-          {etape === 2 && (
+          {etape === 3 && (
             <Stack spacing={2.5} sx={{ maxWidth: 680 }}>
+              <RappelFiche
+                titre="La fiche dit"
+                lignes={[
+                  fiche?.telephone.dedies &&
+                    `Numéros dédiés : ${fiche.telephone.dedies}`,
+                  ...sitesFiche.map(
+                    (s) =>
+                      s.examens.length > 0 &&
+                      `${s.nom || s.codeSite} fait : ${s.examens.join(", ")}`,
+                  ),
+                ]}
+              />
               <Box>
                 <Typography sx={{ fontSize: 15, fontWeight: 700, color: INK }}>
                   Quels examens le centre confie-t-il au robot ?
                 </Typography>
                 <Typography sx={{ fontSize: 13, color: INK_MUTED, mb: 1 }}>
-                  Le robot ne prendra de rendez-vous que pour les examens cochés.
+                  Le robot ne prendra de rendez-vous que pour les examens
+                  cochés.
                 </Typography>
                 <Stack direction="row" sx={{ flexWrap: "wrap" }}>
                   {EXAMENS.map((e) => (
@@ -733,29 +1095,45 @@ export default function NouveauCentrePage() {
                 <>
                   <Divider />
                   <Box>
-                    <Typography sx={{ fontSize: 15, fontWeight: 700, color: INK }}>
+                    <Typography
+                      sx={{ fontSize: 15, fontWeight: 700, color: INK }}
+                    >
                       Et quand il n&apos;y a plus de créneau ?
                     </Typography>
-                    <Typography sx={{ fontSize: 13, color: INK_MUTED, mb: 1.5 }}>
-                      Ce que le robot fait quand le planning est complet, examen par examen.
+                    <Typography
+                      sx={{ fontSize: 13, color: INK_MUTED, mb: 1.5 }}
+                    >
+                      Ce que le robot fait quand le planning est complet, examen
+                      par examen.
                     </Typography>
                     <Stack spacing={1.5}>
                       {acceptes.map((e) => {
-                        const c: ConduitePlanning = rep.fullPlanningNotes[e.cle] ?? {
+                        const c: ConduitePlanning = rep.fullPlanningNotes[
+                          e.cle
+                        ] ?? {
                           type: "fin_appel",
                           message: "",
                         };
                         const majConduite = (v: ConduitePlanning) =>
                           setRep((p) => ({
                             ...p,
-                            fullPlanningNotes: { ...p.fullPlanningNotes, [e.cle]: v },
+                            fullPlanningNotes: {
+                              ...p.fullPlanningNotes,
+                              [e.cle]: v,
+                            },
                           }));
                         return (
                           <Box
                             key={e.cle}
-                            sx={{ border: `1px solid ${BORDER}`, borderRadius: 1.5, p: 1.5 }}
+                            sx={{
+                              border: `1px solid ${BORDER}`,
+                              borderRadius: 1.5,
+                              p: 1.5,
+                            }}
                           >
-                            <Typography sx={{ fontSize: 13, fontWeight: 600, color: INK }}>
+                            <Typography
+                              sx={{ fontSize: 13, fontWeight: 600, color: INK }}
+                            >
                               {e.libelle}
                             </Typography>
                             <RadioGroup
@@ -768,7 +1146,7 @@ export default function NouveauCentrePage() {
                                 majConduite(
                                   v === "redirection"
                                     ? { type: "redirection", phone: "" }
-                                    : { type: "fin_appel", message: "" }
+                                    : { type: "fin_appel", message: "" },
                                 )
                               }
                             >
@@ -798,7 +1176,10 @@ export default function NouveauCentrePage() {
                                 label="Numéro de transfert"
                                 value={c.phone}
                                 onChange={(ev) =>
-                                  majConduite({ type: "redirection", phone: ev.target.value })
+                                  majConduite({
+                                    type: "redirection",
+                                    phone: ev.target.value,
+                                  })
                                 }
                                 error={c.phone !== "" && !numeroValide(c.phone)}
                                 helperText="Dix chiffres."
@@ -812,7 +1193,10 @@ export default function NouveauCentrePage() {
                                 label="Ce que le robot dit avant de raccrocher"
                                 value={c.message}
                                 onChange={(ev) =>
-                                  majConduite({ type: "fin_appel", message: ev.target.value })
+                                  majConduite({
+                                    type: "fin_appel",
+                                    message: ev.target.value,
+                                  })
                                 }
                               />
                             )}
@@ -829,22 +1213,29 @@ export default function NouveauCentrePage() {
                 occupe={occupe}
                 onRetour={() => setEtape((e) => Math.max(0, e - 1))}
                 onSuivant={() => void enregistrerLesExamens()}
-                onPasser={() => setEtape(3)}
+                onPasser={() => setEtape(4)}
                 actif={acceptes.length > 0}
               />
             </Stack>
           )}
 
           {/* ───────────────────────────── 4. Les horaires ───────────────────────── */}
-          {etape === 3 && (
+          {etape === 4 && (
             <Stack spacing={2} sx={{ maxWidth: 720 }}>
+              <RappelFiche
+                titre="Horaires donnés dans la fiche"
+                lignes={sitesFiche.map(
+                  (s) => s.horaires && `${s.nom || s.codeSite} : ${s.horaires}`,
+                )}
+              />
               <Box>
                 <Typography sx={{ fontSize: 15, fontWeight: 700, color: INK }}>
                   Les horaires d&apos;ouverture
                 </Typography>
                 <Typography sx={{ fontSize: 13, color: INK_MUTED }}>
-                  Remplissez le lundi, puis reportez-le jusqu&apos;au vendredi d&apos;un
-                  clic. Chaque jour reste modifiable après, pour le samedi matin par exemple.
+                  Remplissez le lundi, puis reportez-le jusqu&apos;au vendredi
+                  d&apos;un clic. Chaque jour reste modifiable après, pour le
+                  samedi matin par exemple.
                 </Typography>
               </Box>
               <Horaires
@@ -856,16 +1247,29 @@ export default function NouveauCentrePage() {
                 occupe={occupe}
                 onRetour={() => setEtape((e) => Math.max(0, e - 1))}
                 onSuivant={() => void enregistrerLesHoraires()}
-                onPasser={() => setEtape(4)}
+                onPasser={() => setEtape(5)}
               />
             </Stack>
           )}
 
           {/* ───────────────────────────── 5. Le robot ───────────────────────────── */}
-          {etape === 4 && (
+          {etape === 5 && (
             <Stack spacing={2.5} sx={{ maxWidth: 680 }}>
+              <RappelFiche
+                titre="La fiche dit"
+                lignes={[
+                  fiche?.robot.depassements &&
+                    `Dépassements d'honoraires à annoncer : ${fiche.robot.depassements}${
+                      fiche.robot.depassementsDetail
+                        ? ` (${fiche.robot.depassementsDetail})`
+                        : ""
+                    }`,
+                ]}
+              />
               <Box>
-                <Typography sx={{ fontSize: 15, fontWeight: 700, color: INK, mb: 1 }}>
+                <Typography
+                  sx={{ fontSize: 15, fontWeight: 700, color: INK, mb: 1 }}
+                >
                   Ce que le robot demande au patient
                 </Typography>
                 <Stack spacing={1.25}>
@@ -885,7 +1289,9 @@ export default function NouveauCentrePage() {
                     titre="La date des dernières règles, pour une mammographie"
                     aide="Permet de proposer un créneau à une période moins douloureuse."
                     actif={rep.menstruations}
-                    onChange={(v) => setRep((p) => ({ ...p, menstruations: v }))}
+                    onChange={(v) =>
+                      setRep((p) => ({ ...p, menstruations: v }))
+                    }
                     desactive={!rep.examsAccepted.mammo}
                     raisonDesactive="Le centre ne fait pas de mammographie."
                   />
@@ -898,13 +1304,14 @@ export default function NouveauCentrePage() {
                   Les examens pris dans la même visite
                 </Typography>
                 <Typography sx={{ fontSize: 13, color: INK_MUTED, mb: 1 }}>
-                  Cochez les paires que le centre accepte d&apos;enchaîner pour un même
-                  patient. Seules les combinaisons qu&apos;il pratique sont proposées.
+                  Cochez les paires que le centre accepte d&apos;enchaîner pour
+                  un même patient. Seules les combinaisons qu&apos;il pratique
+                  sont proposées.
                 </Typography>
                 {combosPossibles.length === 0 ? (
                   <Typography sx={{ fontSize: 13, color: INK_MUTED }}>
-                    Il faut au moins deux examens cochés à la page précédente pour
-                    qu&apos;une combinaison soit possible.
+                    Il faut au moins deux examens cochés à la page précédente
+                    pour qu&apos;une combinaison soit possible.
                   </Typography>
                 ) : (
                   <Stack spacing={0.25}>
@@ -913,7 +1320,9 @@ export default function NouveauCentrePage() {
                         key={c.cle}
                         control={
                           <Checkbox
-                            checked={Boolean(rep.multiExamMapping[c.cle]?.enabled)}
+                            checked={Boolean(
+                              rep.multiExamMapping[c.cle]?.enabled,
+                            )}
                             onChange={(_, coche) =>
                               setRep((p) => ({
                                 ...p,
@@ -931,16 +1340,21 @@ export default function NouveauCentrePage() {
                             }
                           />
                         }
-                        label={<Typography sx={{ fontSize: 13 }}>{libelleCombo(c)}</Typography>}
+                        label={
+                          <Typography sx={{ fontSize: 13 }}>
+                            {libelleCombo(c)}
+                          </Typography>
+                        }
                       />
                     ))}
                   </Stack>
                 )}
                 {combosPossibles.length > 0 && (
                   <Typography sx={{ fontSize: 12, color: INK_MUTED, mt: 1 }}>
-                    Une paire cochée est enregistrée en un seul rendez-vous avec un
-                    commentaire. Pour qu&apos;elle crée deux rendez-vous distincts dans le
-                    logiciel du centre, changez le mode sur l&apos;écran des multi-examens.
+                    Une paire cochée est enregistrée en un seul rendez-vous avec
+                    un commentaire. Pour qu&apos;elle crée deux rendez-vous
+                    distincts dans le logiciel du centre, changez le mode sur
+                    l&apos;écran des multi-examens.
                   </Typography>
                 )}
               </Box>
@@ -950,30 +1364,91 @@ export default function NouveauCentrePage() {
                 occupe={occupe}
                 onRetour={() => setEtape((e) => Math.max(0, e - 1))}
                 onSuivant={() => void enregistrerLeRobot()}
-                onPasser={() => setEtape(5)}
+                onPasser={() => setEtape(6)}
               />
             </Stack>
           )}
 
           {/* ───────────────────────────── 6. Raccordement ───────────────────────── */}
-          {etape === 5 && (
+          {etape === 6 && (
             <Stack spacing={2.5} sx={{ maxWidth: 620 }}>
               <Box>
                 <Typography sx={{ fontSize: 15, fontWeight: 700, color: INK }}>
-                  Le raccordement
+                  Sites et téléphone
                 </Typography>
                 <Typography sx={{ fontSize: 13, color: INK_MUTED }}>
-                  Ce qui relie le centre au reste : son logiciel de gestion, et son portail.
+                  Ce qui relie le centre au reste : son logiciel de gestion, le
+                  numéro que composent ses patients, et son portail.
                 </Typography>
               </Box>
               {talk && (
-                <TextField
-                  label="Codes centres du robot"
-                  size="small"
-                  value={codesCentres}
-                  onChange={(e) => setCodesCentres(e.target.value)}
-                  helperText="Séparés par des virgules. Ce sont les codes que le logiciel du centre emploie."
-                />
+                <>
+                  <TextField
+                    label="Codes centres du robot"
+                    size="small"
+                    value={codesCentres}
+                    onChange={(e) => setCodesCentres(e.target.value)}
+                    helperText="Séparés par des virgules. Ce sont les codes sites que le logiciel du centre emploie."
+                  />
+                  <TextField
+                    label="Numéro que composent les patients"
+                    size="small"
+                    value={numeroEntrant}
+                    onChange={(e) => setNumeroEntrant(e.target.value)}
+                    error={
+                      numeroEntrant.trim() !== "" &&
+                      !estNumeroEntrant(numeroEntrant)
+                    }
+                    helperText={
+                      numeroEntrant.trim() !== "" &&
+                      !estNumeroEntrant(numeroEntrant)
+                        ? "Forme internationale attendue, par exemple +33251000000."
+                        : "Le numéro Lyrae attribué au centre, en forme internationale. Laissez vide s'il n'est pas encore attribué."
+                    }
+                  />
+                  <Alert severity="warning" sx={{ fontSize: 13 }}>
+                    Le robot reconnaît ce numéro par une table écrite dans le
+                    code de LyraeTalk (<code>phoneToUserProductId</code>).
+                    Ajoutez-le avec le numéro de compte{" "}
+                    <strong>{talk.userProductId}</strong>, puis déployez sur la
+                    VM 2184-1.
+                  </Alert>
+                  {Object.keys(blocFiche).length > 0 && (
+                    <Box
+                      sx={{
+                        border: `1px solid ${BORDER}`,
+                        borderRadius: 1.5,
+                        p: 1.5,
+                        bgcolor: "#FAFBFC",
+                      }}
+                    >
+                      <Typography
+                        sx={{ fontSize: 13, fontWeight: 600, color: INK }}
+                      >
+                        Configuration du robot tirée de la fiche
+                      </Typography>
+                      <Typography
+                        sx={{ fontSize: 12, color: INK_MUTED, mb: 1 }}
+                      >
+                        Écrite à l&apos;enregistrement de cette page. Elle se
+                        relit et se corrige ensuite dans « Configuration du
+                        robot ».
+                      </Typography>
+                      <Box
+                        component="pre"
+                        sx={{
+                          m: 0,
+                          fontSize: 12,
+                          maxHeight: 260,
+                          overflow: "auto",
+                          whiteSpace: "pre-wrap",
+                        }}
+                      >
+                        {JSON.stringify(blocFiche, null, 2)}
+                      </Box>
+                    </Box>
+                  )}
+                </>
               )}
               {konnect && (
                 <>
@@ -992,17 +1467,27 @@ export default function NouveauCentrePage() {
                       bgcolor: "#FAFBFC",
                     }}
                   >
-                    <Typography sx={{ fontSize: 13, fontWeight: 600, color: INK }}>
+                    <Typography
+                      sx={{ fontSize: 13, fontWeight: 600, color: INK }}
+                    >
                       Identifiant du cabinet dans le portail
                     </Typography>
                     <Typography
-                      sx={{ fontSize: 13, fontFamily: "monospace", color: INK, mt: 0.5 }}
+                      sx={{
+                        fontSize: 13,
+                        fontFamily: "monospace",
+                        color: INK,
+                        mt: 0.5,
+                      }}
                     >
                       {tenantId ?? "pas encore attribué"}
                     </Typography>
-                    <Typography sx={{ fontSize: 12, color: INK_MUTED, mt: 0.5 }}>
-                      Attribué automatiquement. Le portail crée le cabinet de son côté à sa
-                      prochaine synchronisation, vous n&apos;avez rien à saisir.
+                    <Typography
+                      sx={{ fontSize: 12, color: INK_MUTED, mt: 0.5 }}
+                    >
+                      Attribué automatiquement. Le portail crée le cabinet de
+                      son côté à sa prochaine synchronisation, vous n&apos;avez
+                      rien à saisir.
                     </Typography>
                   </Box>
                   <TextField
@@ -1018,9 +1503,9 @@ export default function NouveauCentrePage() {
                     onChange={(e) => setRisCodeSite(e.target.value)}
                   />
                   <Alert severity="info" sx={{ fontSize: 13 }}>
-                    Le portail ne se connectera au logiciel du centre qu&apos;une fois son
-                    identifiant de connexion renseigné dans son espace technique. Ce secret
-                    ne passe pas par ici.
+                    Le portail ne se connectera au logiciel du centre
+                    qu&apos;une fois son identifiant de connexion renseigné dans
+                    son espace technique. Ce secret ne passe pas par ici.
                   </Alert>
                 </>
               )}
@@ -1029,32 +1514,39 @@ export default function NouveauCentrePage() {
                 occupe={occupe}
                 onRetour={() => setEtape((e) => Math.max(0, e - 1))}
                 onSuivant={() => void enregistrerRaccordement()}
-                onPasser={() => setEtape(6)}
+                onPasser={() => setEtape(7)}
                 libelle="Enregistrer et terminer"
               />
             </Stack>
           )}
 
           {/* ───────────────────────────── 7. Récapitulatif ──────────────────────── */}
-          {etape === 6 && (
+          {etape === 7 && (
             <Stack spacing={2} sx={{ maxWidth: 780 }}>
+              {fiche && <ResteDeLaFiche fiche={fiche} />}
               <Alert severity="info" icon={false}>
                 <Typography sx={{ fontSize: 14, fontWeight: 700, mb: 0.75 }}>
-                  Deux choses restent à faire, et l&apos;assistant ne peut pas les faire à
-                  votre place.
+                  Deux choses restent à faire, et l&apos;assistant ne peut pas
+                  les faire à votre place.
                 </Typography>
                 <Typography sx={{ fontSize: 13, mb: 0.75 }}>
-                  <strong>Le mapping des examens.</strong> Saisissez en face de chaque ligne
-                  le code que le logiciel du centre emploie. Sans lui, le robot annonce au
-                  patient un examen qu&apos;il ne sait pas réserver. La liste se télécharge
-                  en tableur et se réimporte, pour la faire remplir par le secrétariat.
+                  <strong>Le mapping des examens.</strong> Saisissez en face de
+                  chaque ligne le code que le logiciel du centre emploie. Sans
+                  lui, le robot annonce au patient un examen qu&apos;il ne sait
+                  pas réserver. La liste se télécharge en tableur et se
+                  réimporte, pour la faire remplir par le secrétariat.
                 </Typography>
                 <Typography sx={{ fontSize: 13 }}>
-                  <strong>Le module informationnel.</strong> Les questions fréquentes, la
-                  préparation des examens, les tarifs. Sans lui, le robot ne saura répondre à
-                  aucune question d&apos;information.
+                  <strong>Le module informationnel.</strong> Les questions
+                  fréquentes, la préparation des examens, les tarifs. Sans lui,
+                  le robot ne saura répondre à aucune question
+                  d&apos;information.
                 </Typography>
-                <Stack direction="row" spacing={1} sx={{ mt: 1.5, flexWrap: "wrap", gap: 1 }}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{ mt: 1.5, flexWrap: "wrap", gap: 1 }}
+                >
                   {produitsCrees.map((p) => (
                     <Button
                       key={p.userProductId}
@@ -1082,8 +1574,8 @@ export default function NouveauCentrePage() {
               </Alert>
 
               <Typography sx={{ fontSize: 13, color: INK_MUTED }}>
-                Et voici ce que le registre de complétude signale encore. C&apos;est le même
-                verdict que celui affiché au client.
+                Et voici ce que le registre de complétude signale encore.
+                C&apos;est le même verdict que celui affiché au client.
               </Typography>
 
               {produitsCrees.map((p) => {
@@ -1091,13 +1583,27 @@ export default function NouveauCentrePage() {
                 return (
                   <Box
                     key={p.userProductId}
-                    sx={{ border: `1px solid ${BORDER}`, borderRadius: 2, p: 2 }}
+                    sx={{
+                      border: `1px solid ${BORDER}`,
+                      borderRadius: 2,
+                      p: 2,
+                    }}
                   >
-                    <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
-                      <Typography sx={{ fontWeight: 700, color: INK }}>{p.libelle}</Typography>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      sx={{ alignItems: "center", mb: 1 }}
+                    >
+                      <Typography sx={{ fontWeight: 700, color: INK }}>
+                        {p.libelle}
+                      </Typography>
                       <Chip
                         size="small"
-                        label={liste.length === 0 ? "Rien ne manque" : `${liste.length} à faire`}
+                        label={
+                          liste.length === 0
+                            ? "Rien ne manque"
+                            : `${liste.length} à faire`
+                        }
                         color={liste.length === 0 ? "success" : "default"}
                       />
                     </Stack>
@@ -1121,14 +1627,25 @@ export default function NouveauCentrePage() {
                                 mt: 0.8,
                                 borderRadius: "50%",
                                 flex: "0 0 auto",
-                                bgcolor: m.criticite === "bloquant" ? "#B3261E" : "#F5A623",
+                                bgcolor:
+                                  m.criticite === "bloquant"
+                                    ? "#B3261E"
+                                    : "#F5A623",
                               }}
                             />
                             <Box sx={{ minWidth: 0, flex: 1 }}>
-                              <Typography sx={{ fontSize: 13, fontWeight: 600, color: INK }}>
+                              <Typography
+                                sx={{
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  color: INK,
+                                }}
+                              >
                                 {m.libelle}
                               </Typography>
-                              <Typography sx={{ fontSize: 12, color: INK_MUTED }}>
+                              <Typography
+                                sx={{ fontSize: 12, color: INK_MUTED }}
+                              >
                                 {m.manque}
                               </Typography>
                             </Box>
@@ -1157,7 +1674,7 @@ export default function NouveauCentrePage() {
                 <Button
                   disabled={occupe}
                   startIcon={<IconArrowLeft size={15} />}
-                  onClick={() => setEtape(5)}
+                  onClick={() => setEtape(6)}
                 >
                   Retour
                 </Button>
@@ -1171,13 +1688,11 @@ export default function NouveauCentrePage() {
                 >
                   Passer en production
                 </Button>
-                <Button href="/admin/comptes">
-                  Voir la fiche du client
-                </Button>
+                <Button href="/admin/comptes">Voir la fiche du client</Button>
               </Stack>
               <Typography sx={{ fontSize: 12, color: INK_MUTED }}>
-                Tant qu&apos;un centre est en intégration, les informations manquantes ne
-                déclenchent aucune alerte chez le client.
+                Tant qu&apos;un centre est en intégration, les informations
+                manquantes ne déclenchent aucune alerte chez le client.
               </Typography>
             </Stack>
           )}
@@ -1201,6 +1716,112 @@ export default function NouveauCentrePage() {
  * dans le corps du rendu est une nouvelle référence à chaque frappe : React démonte et
  * remonte l'arbre, ce qui fait perdre le focus au champ en cours de saisie.
  */
+/**
+ * Ce que la fiche dit d'utile pour la page, sans rien écrire : des réponses en texte libre
+ * (horaires, numéros dédiés, dépassements) que l'admin traduit en réglages. Rien à dire,
+ * rien d'affiché : sans fiche, l'assistant reste celui d'avant.
+ */
+function RappelFiche({
+  titre,
+  lignes,
+}: {
+  titre: string;
+  lignes: (string | false | null | undefined | "")[];
+}) {
+  const utiles = lignes.filter(
+    (l): l is string => typeof l === "string" && l.trim() !== "",
+  );
+  if (utiles.length === 0) return null;
+  return (
+    <Alert severity="info" icon={false} sx={{ fontSize: 13 }}>
+      <Typography sx={{ fontSize: 13, fontWeight: 700, mb: 0.5 }}>
+        {titre}
+      </Typography>
+      {utiles.map((l, i) => (
+        <Typography key={i} sx={{ fontSize: 13 }}>
+          {l}
+        </Typography>
+      ))}
+    </Alert>
+  );
+}
+
+/**
+ * Le récapitulatif de la fiche : ce qu'elle dit et que l'assistant n'écrit nulle part.
+ * Contacts, Xplore, téléphone, services souhaités, comptes à créer, remarques.
+ */
+function ResteDeLaFiche({ fiche }: { fiche: Fiche }) {
+  const lignes: [string, string][] = [
+    [
+      "Suit le projet",
+      [
+        fiche.contact.nom,
+        fiche.contact.fonction,
+        fiche.contact.mail,
+        fiche.contact.tel,
+      ]
+        .filter(Boolean)
+        .join(", "),
+    ],
+    [
+      "Informatique",
+      [fiche.informatique.nom, fiche.informatique.mail, fiche.informatique.tel]
+        .filter(Boolean)
+        .join(", "),
+    ],
+    [
+      "Xplore",
+      [fiche.xplore.version, fiche.xplore.versionPrecise]
+        .filter(Boolean)
+        .join(", "),
+    ],
+    ["Passerelle Xplore", fiche.xplore.hebergement],
+    ["Ouvre l'accès réseau", fiche.xplore.acces],
+    ["Le robot répond", fiche.telephone.mode],
+    [
+      "Opérateur téléphonique",
+      [fiche.telephone.operateur, fiche.telephone.contact]
+        .filter(Boolean)
+        .join(", "),
+    ],
+    ["Numéros des patients", fiche.organisation.numeros],
+    ["Ce que fait le robot", fiche.robot.actions.join(", ")],
+    ["Services souhaités", fiche.robot.services.join(", ")],
+    ["Organisation", fiche.organisation.remarque],
+    ["Remarques", fiche.remarques],
+  ];
+  const remplies = lignes.filter(([, v]) => v.trim() !== "");
+  return (
+    <Box sx={{ border: `1px solid ${BORDER}`, borderRadius: 2, p: 2 }}>
+      <Typography sx={{ fontSize: 14, fontWeight: 700, color: INK, mb: 0.5 }}>
+        Ce que la fiche dit encore
+      </Typography>
+      <Typography sx={{ fontSize: 13, color: INK_MUTED, mb: 1 }}>
+        Rien de ceci n&apos;a été enregistré : c&apos;est à traiter à la main.
+      </Typography>
+      {remplies.map(([libelle, v]) => (
+        <Typography key={libelle} sx={{ fontSize: 13, color: INK }}>
+          <strong>{libelle} :</strong> {v}
+        </Typography>
+      ))}
+      {fiche.comptes.length > 0 && (
+        <>
+          <Typography
+            sx={{ fontSize: 13, fontWeight: 700, color: INK, mt: 1.5 }}
+          >
+            Comptes à créer dans « Clients et comptes »
+          </Typography>
+          {fiche.comptes.map((c, i) => (
+            <Typography key={i} sx={{ fontSize: 13, color: INK }}>
+              {[c.nom, c.mail, c.acces, c.site].filter(Boolean).join(", ")}
+            </Typography>
+          ))}
+        </>
+      )}
+    </Box>
+  );
+}
+
 function Suite({
   etape,
   occupe,
@@ -1279,7 +1900,11 @@ function Reglage({
     >
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography
-          sx={{ fontSize: 13, fontWeight: 600, color: desactive ? INK_MUTED : INK }}
+          sx={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: desactive ? INK_MUTED : INK,
+          }}
         >
           {titre}
         </Typography>
