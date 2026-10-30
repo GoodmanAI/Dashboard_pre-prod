@@ -122,24 +122,27 @@ export const PAGE_GROUPS: { titre: string; pages: PageKey[] }[] = [
   },
 ];
 
-/** Metadata affichee dans l'UI de gestion des sous-comptes. */
+/**
+ * Le nom de chaque écran, tel que le menu le donne (aligné le 30/10/2026) : affiché dans
+ * l'écran de gestion des sous-comptes et dans « Mon profil » d'un sous-compte.
+ */
 export const PAGE_LABELS: Record<PageKey, string> = {
-  [PAGES.DASHBOARD]: "Dashboard",
-  [PAGES.PARAMETRAGE]: "Parametrage",
-  [PAGES.MAPPING_EXAM]: "Mapping examens",
-  [PAGES.QUESTIONS_EXAM]: "Questions examens",
-  [PAGES.PLANNING_COMPLET]: "Planning complet",
-  [PAGES.INFORMATIONNEL]: "Informationnel",
-  [PAGES.ORDONNANCES]: "Ordonnances",
-  [PAGES.CALLS]: "Appels",
+  [PAGES.DASHBOARD]: "Vue d'ensemble",
+  [PAGES.PARAMETRAGE]: "Paramètres généraux",
+  [PAGES.MAPPING_EXAM]: "Correspondance des examens",
+  [PAGES.QUESTIONS_EXAM]: "Questions par examen",
+  [PAGES.PLANNING_COMPLET]: "Examens non couverts",
+  [PAGES.INFORMATIONNEL]: "Questions fréquentes",
+  [PAGES.ORDONNANCES]: "Ordonnances manquantes",
+  [PAGES.CALLS]: "Liste des appels",
   [PAGES.STATS]: "Statistiques",
-  [PAGES.STATS_APPEL]: "Stats appels",
-  [PAGES.STATS_NO_SHOW]: "Stats no-show",
+  [PAGES.STATS_APPEL]: "Statistiques d'appels",
+  [PAGES.STATS_NO_SHOW]: "Rendez-vous non honorés",
   [PAGES.INCIDENTS]: "Incidents",
 
   [PAGES.KONNECT_DASHBOARD]: "Accueil Konnect",
   [PAGES.KONNECT_PARAMETRAGE]: "Paramètres du portail",
-  [PAGES.KONNECT_EXAMENS]: "Mapping d'examens",
+  [PAGES.KONNECT_EXAMENS]: "Correspondance des examens",
   [PAGES.KONNECT_SITES]: "Sites",
   [PAGES.KONNECT_ENTONNOIR]: "Ordre de l'entonnoir",
   [PAGES.KONNECT_REGLES_FUSION]: "Règles de fusion",
@@ -154,7 +157,7 @@ export const PAGE_LABELS: Record<PageKey, string> = {
   [PAGES.KONNECT_QUESTIONNAIRES]: "Questionnaires des patients",
   [PAGES.KONNECT_FILE_ATTENTE]: "Liste d'attente",
 
-  [PAGES.TICKETS]: "Support (tickets)",
+  [PAGES.TICKETS]: "Support",
 };
 
 /** Toute page de `PAGES` doit appartenir a exactement un groupe. */

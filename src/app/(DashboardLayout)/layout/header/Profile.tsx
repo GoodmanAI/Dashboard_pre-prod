@@ -114,7 +114,7 @@ const Profile = () => {
           <ListItemIcon>
             <IconUser width={20} />
           </ListItemIcon>
-          <ListItemText primary="My Profile" />
+          <ListItemText primary="Mon profil" />
         </MenuItem>
 
         {tutoriel?.disponible && (
@@ -146,7 +146,7 @@ const Profile = () => {
               },
             }}
           >
-            Logout
+            Se déconnecter
           </Button>
         </Box>
       </Menu>
