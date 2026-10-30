@@ -23,6 +23,10 @@ export const MOTIFS_RAPPEL = {
   // logiciel du centre. Pas un rappel du patient : la secrétaire télécharge l'ordonnance
   // par le lien et l'attache à la main. Même file, parce que c'est la seule.
   ordonnance_a_rattacher: { libelle: "Ordonnance à rattacher au logiciel", urgent: false },
+  // 30/10/2026 (C-OCRV2.8.1 de Konnect) : la lecture a classé l'ordonnance pour le
+  // secrétariat (examen sensible, deux côtés contradictoires, plus de trois examens).
+  // Aucun créneau n'a été proposé ; l'ordonnance est jointe par le lien.
+  ordonnance_a_verifier: { libelle: "Ordonnance à vérifier avant le rendez-vous", urgent: true },
 } as const;
 
 export type MotifRappel = keyof typeof MOTIFS_RAPPEL;

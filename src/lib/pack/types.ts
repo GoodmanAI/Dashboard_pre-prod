@@ -13,6 +13,7 @@
  * |---|---|
  * | Tout secret, clé ou jeton | Un tableur circule par mail |
  * | `cloudOcrActif` | C'est un consentement du cabinet à ce qu'une ordonnance sorte vers un prestataire. Il se donne, il ne se recopie pas. |
+ * | `ocrStrategy` | La façon de lire suit ce consentement et l'habilitation de l'exploitant (30/10/2026). |
  * | L'identifiant de cabinet du portail | Il désigne un cabinet et un seul |
  * | Le rattachement au logiciel du centre | Adresse et code site identifient une installation |
  * | Les codes du centre, le numéro entrant | Même raison |
@@ -118,7 +119,7 @@ export type PackTalk = {
 
 export type PackKonnect = {
   userProductId: number;
-  /** `ConfigKonnect` en camelCase, **sans** `cloudOcrActif`. */
+  /** `ConfigKonnect` en camelCase, **sans** `cloudOcrActif` ni `ocrStrategy`. */
   parametres: Record<string, unknown>;
   sites: { siteId: string; libelle: string; codePostal: string; adresse: string }[];
   examens: LignePackExamen[];

@@ -23,6 +23,7 @@ import PageContainer from "@/app/(DashboardLayout)/components/container/PageCont
 import { cheminCentre } from "@/lib/cheminsCentre";
 import SectionHeader from "@/components/admin/SectionHeader";
 import SallesPortailKonnect from "@/components/konnect/SallesPortailKonnect";
+import LectureOrdonnancesKonnect from "@/components/konnect/LectureOrdonnancesKonnect";
 import type { Manque } from "@/lib/completude/types";
 import type { StatutCentre } from "@/lib/centreStatut";
 import { INK, INK_MUTED, BORDER, SURFACE_MUTED, OK, MANQUE } from "@/lib/jetons";
@@ -521,6 +522,12 @@ export default function InstallationKonnect() {
                 </Alert>
               )}
             </Paper>
+
+            {/* La façon de lire (OCR v2, 30/10/2026) : sous l'accord, dont elle dépend. */}
+            <LectureOrdonnancesKonnect
+              userProductId={centre.userProductId}
+              accordEnregistre={cloudOcrEnregistre}
+            />
 
             {/* Engagement commercial, comme l'accord ci-dessus : le portail se facture
                 par salle, et seule l'équipe ouvre une salle (26/10/2026). */}

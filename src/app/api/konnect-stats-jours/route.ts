@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
       WHERE "userProductId" = $1
         AND "jour" >= $2::date
         AND "cle" NOT LIKE 'ocr%'
+        AND "cle" NOT LIKE 'lecture.%'
       ORDER BY "jour"`,
     [userProductId, depuis]
   );
