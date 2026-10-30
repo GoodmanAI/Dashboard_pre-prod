@@ -1423,12 +1423,13 @@
       "phrase": "Par où je commence ?",
       "attendu": {
         "destinations": [
-          "talk#premiers_pas"
+          "talk#premiers_pas",
+          "konnect#premiers_pas"
         ],
         "filtres": {}
       },
       "lot": "premiers-pas",
-      "note": "Carte Premiers pas de l accueil Talk (plan 2026-10-onboarding-dashboard-talk.md)."
+      "note": "Tutoriel du produit regardé (Talk ou Konnect)."
     },
     {
       "id": "pp02",
@@ -1436,12 +1437,26 @@
       "phrase": "Je voudrais revoir le tutoriel",
       "attendu": {
         "destinations": [
-          "talk#premiers_pas"
+          "talk#premiers_pas",
+          "konnect#premiers_pas"
         ],
         "filtres": {}
       },
       "lot": "premiers-pas",
-      "note": "Carte Premiers pas de l accueil Talk (plan 2026-10-onboarding-dashboard-talk.md)."
+      "note": "Tutoriel du produit regardé (Talk ou Konnect)."
+    },
+    {
+      "id": "pp03",
+      "source": "brouillon",
+      "phrase": "Je veux revoir le tutoriel du portail",
+      "attendu": {
+        "destinations": [
+          "konnect#premiers_pas"
+        ],
+        "filtres": {}
+      },
+      "lot": "premiers-pas",
+      "note": "Tutoriel de LyraeKonnect (plan 2026-10-tutoriel-client-talk.md)."
     }
   ]
 }

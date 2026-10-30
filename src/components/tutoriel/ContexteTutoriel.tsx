@@ -84,8 +84,14 @@ export function TutorielProvider({ children }: { children: React.ReactNode }) {
     () => chapitresDuProduit(produit).filter((c) => peutLire(c.page)),
     [produit, peutLire],
   );
+  // `userProductId` : le compte a VRAIMENT ce produit. Sans lui, l'URL désigne un
+  // produit que le centre n'a pas (« Ce centre n'a pas LyraeTalk ») : pas de visite.
   const disponible =
-    !!etat && !admin && userId !== null && chapitres.length > 0;
+    !!etat &&
+    !admin &&
+    userId !== null &&
+    userProductId !== null &&
+    chapitres.length > 0;
 
   // L'état des chapitres vient du registre de complétude, relu à chaque ouverture du
   // choix ou de la visite : une correspondance remplie entre-temps passe « à vérifier ».
@@ -98,9 +104,14 @@ export function TutorielProvider({ children }: { children: React.ReactNode }) {
       const d = r.ok ? await r.json() : null;
       // Lecture ratée : état inconnu (null), jamais « tout est rempli ». Les textes
       // retombent alors sur leur version qui insiste.
+      // `tutoriel` : les manques réservés à l'admin que le tutoriel doit connaître
+      // (catalogue Konnect vide), sans qu'ils paraissent dans le bandeau du client.
       setManques(
         Array.isArray(d?.manques)
-          ? new Set(d.manques.map((m: { cle: string }) => m.cle))
+          ? new Set([
+              ...d.manques.map((m: { cle: string }) => m.cle),
+              ...(Array.isArray(d?.tutoriel) ? d.tutoriel : []),
+            ])
           : null,
       );
     } catch {

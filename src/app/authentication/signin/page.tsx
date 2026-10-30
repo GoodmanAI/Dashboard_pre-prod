@@ -16,6 +16,7 @@ import {
 import { IconEye, IconEyeOff } from "@tabler/icons-react";
 import { getFirstAccessiblePath } from "@/lib/pageAccess";
 import { trouverProduit } from "@/lib/produits";
+import { cheminCentre } from "@/lib/cheminsCentre";
 
 /**
  * Page de connexion
@@ -104,6 +105,15 @@ export default function SignIn() {
       ? trouverProduit<any>(data, "talk")
       : null;
     const talkId: number | null = product?.id ?? null;
+
+    // Un centre qui n'a que LyraeKonnect atterrissait sur l'accueil LyraeTalk (« Ce
+    // centre n'a pas LyraeTalk »), son tutoriel compris : il va sur son portail.
+    const konnect: any = Array.isArray(data) ? trouverProduit<any>(data, "konnect") : null;
+    if (!talkId && konnect && userId) {
+      router.push(cheminCentre(Number(userId), "konnect"));
+      router.refresh();
+      return;
+    }
 
     const target = getFirstAccessiblePath(session?.user as any, (session?.user as any)?.id ?? null);
     router.push(target ?? "/client");

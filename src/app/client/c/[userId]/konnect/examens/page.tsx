@@ -27,7 +27,9 @@ import {
 import { useSession } from "next-auth/react";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
-import ExamTypeBadge, { EXAM_TYPE_SHORT } from "@/components/shared/ExamTypeBadge";
+import ExamTypeBadge, {
+  EXAM_TYPE_SHORT,
+} from "@/components/shared/ExamTypeBadge";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
 
 import { useDroitPage } from "@/hooks/useDroitPage";
@@ -144,7 +146,6 @@ type FiltreChemin = "tous" | "bout_en_bout" | "rappel";
 const LARGEUR_TABLEAU = 1240;
 
 export default function MappingExamensKonnect() {
-
   // Lecture seule : l'ecran doit le DIRE, pas laisser decouvrir le refus
   // apres la saisie. La garde serveur reste seule responsable du refus reel.
   const { raisonLectureSeule } = useDroitPage(PAGES.KONNECT_EXAMENS);
@@ -197,9 +198,14 @@ export default function MappingExamensKonnect() {
 
   // Préfiltre de la recherche centrale (panneau ou lien « Ouvrir l'écran complet »).
   const filtresRecherche = useFiltresRecherche();
-  const [recherche, setRecherche] = useState(() => precisionExamen(filtresRecherche.examen));
-  const [filtreType, setFiltreType] = useState(() => filtresRecherche.type ?? "tous");
-  const [filtreAttribution, setFiltreAttribution] = useState<FiltreAttribution>("tous");
+  const [recherche, setRecherche] = useState(() =>
+    precisionExamen(filtresRecherche.examen),
+  );
+  const [filtreType, setFiltreType] = useState(
+    () => filtresRecherche.type ?? "tous",
+  );
+  const [filtreAttribution, setFiltreAttribution] =
+    useState<FiltreAttribution>("tous");
   const [filtreChemin, setFiltreChemin] = useState<FiltreChemin>("tous");
   const [page, setPage] = useState(0);
   // Salles ouvertes au portail par l'équipe (26/10/2026), en lecture seule ici.
@@ -231,15 +237,22 @@ export default function MappingExamensKonnect() {
     let annule = false;
     (async () => {
       try {
-        const r = await fetch(`/api/konnect-examens?userProductId=${userProductId}`);
+        const r = await fetch(
+          `/api/konnect-examens?userProductId=${userProductId}`,
+        );
         if (!r.ok) throw new Error("Chargement impossible.");
         const data = await r.json();
         if (annule) return;
-        const chargees: Ligne[] = (Array.isArray(data.examens) ? data.examens : []).map(
-          (l: Ligne) => ({ ...l, postes: Array.isArray(l.postes) ? l.postes : [] })
-        );
+        const chargees: Ligne[] = (
+          Array.isArray(data.examens) ? data.examens : []
+        ).map((l: Ligne) => ({
+          ...l,
+          postes: Array.isArray(l.postes) ? l.postes : [],
+        }));
         setSallesOuvertes(
-          data.sallesOuvertes && typeof data.sallesOuvertes === "object" ? data.sallesOuvertes : {}
+          data.sallesOuvertes && typeof data.sallesOuvertes === "object"
+            ? data.sallesOuvertes
+            : {},
         );
         setTypesFermes(Array.isArray(data.typesFermes) ? data.typesFermes : []);
         setLignes(chargees);
@@ -250,7 +263,7 @@ export default function MappingExamensKonnect() {
         if (data.source === "indisponible") {
           setAvertissement(
             data.motif ??
-              "Le référentiel d'examens n'a pas pu être chargé. Contactez l'équipe technique."
+              "Le référentiel d'examens n'a pas pu être chargé. Contactez l'équipe technique.",
           );
         }
 
@@ -258,7 +271,9 @@ export default function MappingExamensKonnect() {
         // il ne le conditionne pas. Un portail qui n'a rien remonte ne doit pas
         // empecher de saisir son mapping.
         try {
-          const rEtat = await fetch(`/api/konnect-remontee?userProductId=${userProductId}`);
+          const rEtat = await fetch(
+            `/api/konnect-remontee?userProductId=${userProductId}`,
+          );
           if (rEtat.ok) {
             const dEtat = await rEtat.json();
             const c = dEtat?.charge?.catalogue;
@@ -280,7 +295,9 @@ export default function MappingExamensKonnect() {
 
   function maj(codeExamen: string, champ: keyof Ligne, valeur: any) {
     setLignes((prev) =>
-      prev.map((l) => (l.codeExamen === codeExamen ? { ...l, [champ]: valeur } : l))
+      prev.map((l) =>
+        l.codeExamen === codeExamen ? { ...l, [champ]: valeur } : l,
+      ),
     );
   }
 
@@ -318,23 +335,26 @@ export default function MappingExamensKonnect() {
       if (filtreChemin === "rappel" && l.reservableEnLigne) return false;
       if (!q) return true;
       return contientTousLesMots(
-        [l.codeExamen, l.libelle, l.codeExamenClient, l.libelleClient].filter(Boolean).join(" "),
-        q
+        [l.codeExamen, l.libelle, l.codeExamenClient, l.libelleClient]
+          .filter(Boolean)
+          .join(" "),
+        q,
       );
     });
   }, [lignes, recherche, filtreType, filtreAttribution, filtreChemin]);
 
   const attribues = useMemo(
     () => lignes.filter((l) => l.performed && l.codeExamenClient.trim()).length,
-    [lignes]
+    [lignes],
   );
 
   /** Parmi les examens proposés, ceux qui passent par un rappel du centre. */
   const surRappel = useMemo(
     () =>
-      lignes.filter((l) => l.performed && l.codeExamenClient.trim() && !l.reservableEnLigne)
-        .length,
-    [lignes]
+      lignes.filter(
+        (l) => l.performed && l.codeExamenClient.trim() && !l.reservableEnLigne,
+      ).length,
+    [lignes],
   );
 
   /**
@@ -351,7 +371,7 @@ export default function MappingExamensKonnect() {
     return new Set(
       Array.from(compte.entries())
         .filter(([, n]) => n > 1)
-        .map(([c]) => c)
+        .map(([c]) => c),
     );
   }, [lignes]);
 
@@ -362,7 +382,10 @@ export default function MappingExamensKonnect() {
     return out;
   }, [lignes]);
 
-  const { modifications, marquerEnregistre } = useSuiviModifications(etatSuivi, !chargement);
+  const { modifications, marquerEnregistre } = useSuiviModifications(
+    etatSuivi,
+    !chargement,
+  );
 
   // Sur une amorce, rien n'est encore en base : tout le tableau est à enregistrer.
   const aEnregistrer = amorce ? lignes.length : modifications;
@@ -371,11 +394,14 @@ export default function MappingExamensKonnect() {
     setErreur(null);
     setEnregistrement(true);
     try {
-      const r = await fetch(`/api/konnect-examens?userProductId=${userProductId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ examens: lignes }),
-      });
+      const r = await fetch(
+        `/api/konnect-examens?userProductId=${userProductId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ examens: lignes }),
+        },
+      );
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error ?? "Enregistrement refusé.");
       setInitial(lignes);
@@ -391,7 +417,10 @@ export default function MappingExamensKonnect() {
 
   if (chargement) {
     return (
-      <PageContainer title="Correspondance des examens" description="Correspondance avec votre RIS">
+      <PageContainer
+        title="Correspondance des examens"
+        description="Correspondance avec votre RIS"
+      >
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress sx={{ color: BRAND }} />
         </Box>
@@ -402,37 +431,44 @@ export default function MappingExamensKonnect() {
   const visibles = filtrees.slice(page * PAR_PAGE, page * PAR_PAGE + PAR_PAGE);
 
   return (
-    <PageContainer title="Correspondance des examens" description="Correspondance avec votre RIS">
+    <PageContainer
+      title="Correspondance des examens"
+      description="Correspondance avec votre RIS"
+    >
       <Box>
         <SectionHeader
           title="Correspondance des examens"
           subtitle={
             <>
               À gauche, notre référentiel. À droite, les codes de{" "}
-              <strong>votre logiciel de gestion</strong> : ce sont eux qui servent à créer
-              le rendez-vous, ils doivent correspondre exactement. Un examen sans code
-              n&apos;est pas proposé au patient.
+              <strong>votre logiciel de gestion</strong> : ce sont eux qui
+              servent à créer le rendez-vous, ils doivent correspondre
+              exactement. Un examen sans code n&apos;est pas proposé au patient.
             </>
           }
         />
 
         <Alert severity="info" icon={false} sx={{ mb: 2.5 }}>
-          <Typography sx={{ fontSize: 13, fontWeight: 600, color: INK, mb: 0.5 }}>
+          <Typography
+            sx={{ fontSize: 13, fontWeight: 600, color: INK, mb: 0.5 }}
+          >
             Trois cases, trois décisions
           </Typography>
           <Typography sx={{ fontSize: 13, color: INK_MUTED }}>
-            <strong>Pratiqué</strong> : vous faites cet examen, le portail le reconnaît.
-            Décoché, le patient qui le demande voit votre numéro de téléphone.
+            <strong>Pratiqué</strong> : vous faites cet examen, le portail le
+            reconnaît. Décoché, le patient qui le demande voit votre numéro de
+            téléphone.
             <br />
-            <strong>Réservable en ligne</strong> : parmi ceux que vous pratiquez, ceux
-            que le patient réserve seul. Décoché, aucun créneau ne lui est proposé, on
-            lui offre de laisser son numéro et vous retrouvez sa demande dans
-            « Demandes de rappel ».
+            <strong>Réservable en ligne</strong> : parmi ceux que vous
+            pratiquez, ceux que le patient réserve seul. Décoché, aucun créneau
+            ne lui est proposé, on lui offre de laisser son numéro et vous
+            retrouvez sa demande dans « Demandes de rappel ».
             <br />
-            <strong>File d&apos;attente</strong> : pour un examen réservable en ligne. Quand il
-            n&apos;a plus de créneau, le patient s&apos;inscrit en liste d&apos;attente au lieu
-            d&apos;être rappelé, et reçoit par SMS la première place qui se libère. Vous le
-            retrouvez dans « Liste d&apos;attente ».
+            <strong>File d&apos;attente</strong> : pour un examen réservable en
+            ligne. Quand il n&apos;a plus de créneau, le patient s&apos;inscrit
+            en liste d&apos;attente au lieu d&apos;être rappelé, et reçoit par
+            SMS la première place qui se libère. Vous le retrouvez dans « Liste
+            d&apos;attente ».
           </Typography>
         </Alert>
 
@@ -450,12 +486,12 @@ export default function MappingExamensKonnect() {
           <Alert severity="error" sx={{ mb: 2 }}>
             <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.5 }}>
               {ecarts.nb_codes_inconnus} code
-              {ecarts.nb_codes_inconnus > 1 ? "s" : ""} que votre logiciel ne reconnaît
-              pas
+              {ecarts.nb_codes_inconnus > 1 ? "s" : ""} que votre logiciel ne
+              reconnaît pas
             </Typography>
-            Ces examens ne seront jamais proposés au patient : votre logiciel ne les
-            ouvre pas à la prise de rendez-vous en ligne, ou le code est différent.
-            Vérifiez-les chez vous, puis corrigez-les ici.
+            Ces examens ne seront jamais proposés au patient : votre logiciel ne
+            les ouvre pas à la prise de rendez-vous en ligne, ou le code est
+            différent. Vérifiez-les chez vous, puis corrigez-les ici.
             <Typography sx={{ fontSize: 12.5, mt: 1, fontFamily: "monospace" }}>
               {ecarts.codes_inconnus.join(", ")}
               {ecarts.nb_codes_inconnus > ecarts.codes_inconnus.length
@@ -472,9 +508,9 @@ export default function MappingExamensKonnect() {
               {ecarts.nb_types_incoherents > 1 ? "s" : ""} qui ne correspond
               {ecarts.nb_types_incoherents > 1 ? "ent" : ""} pas
             </Typography>
-            Le portail cherche les créneaux avec le couple type + code. Quand le type
-            ne correspond pas, aucun créneau n&apos;est trouvé et le patient croit que
-            vous êtes complet.
+            Le portail cherche les créneaux avec le couple type + code. Quand le
+            type ne correspond pas, aucun créneau n&apos;est trouvé et le
+            patient croit que vous êtes complet.
             <Box component="ul" sx={{ m: 0, mt: 1, pl: 2.5 }}>
               {ecarts.types_incoherents.map((t) => (
                 <li key={t.code}>
@@ -492,12 +528,12 @@ export default function MappingExamensKonnect() {
           <Alert severity="info" sx={{ mb: 2 }}>
             <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.5 }}>
               {ecarts.nb_absents_du_mapping} examen
-              {ecarts.nb_absents_du_mapping > 1 ? "s" : ""} que vous ouvrez en ligne
-              sans l&apos;avoir renseigné ici
+              {ecarts.nb_absents_du_mapping > 1 ? "s" : ""} que vous ouvrez en
+              ligne sans l&apos;avoir renseigné ici
             </Typography>
-            Votre logiciel les accepte à la réservation, mais aucune ligne ne porte
-            leur code : le portail ne les propose pas. Si ce sont des examens que vous
-            pratiquez, complétez la ligne correspondante.
+            Votre logiciel les accepte à la réservation, mais aucune ligne ne
+            porte leur code : le portail ne les propose pas. Si ce sont des
+            examens que vous pratiquez, complétez la ligne correspondante.
             <Typography sx={{ fontSize: 12.5, mt: 1, fontFamily: "monospace" }}>
               {ecarts.absents_du_mapping.join(", ")}
               {ecarts.nb_absents_du_mapping > ecarts.absents_du_mapping.length
@@ -518,15 +554,18 @@ export default function MappingExamensKonnect() {
           <Alert severity="warning" sx={{ mb: 2 }}>
             <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.5 }}>
               {ecarts.nb_hors_entonnoir} code
-              {(ecarts.nb_hors_entonnoir ?? 0) > 1 ? "s" : ""} que le patient ne voit pas
+              {(ecarts.nb_hors_entonnoir ?? 0) > 1 ? "s" : ""} que le patient ne
+              voit pas
             </Typography>
-            Ces lignes ont un code, et votre logiciel les accepte. Pourtant le portail
-            ne les propose pas, parce que leur code ne correspond à aucun examen qu&apos;il
-            connaît. Le plus souvent, le même examen existe sous un autre code : vérifiez
-            qu&apos;un doublon ne se cache pas derrière.
+            Ces lignes ont un code, et votre logiciel les accepte. Pourtant le
+            portail ne les propose pas, parce que leur code ne correspond à
+            aucun examen qu&apos;il connaît. Le plus souvent, le même examen
+            existe sous un autre code : vérifiez qu&apos;un doublon ne se cache
+            pas derrière.
             <Typography sx={{ fontSize: 12.5, mt: 1, fontFamily: "monospace" }}>
               {(ecarts.hors_entonnoir ?? []).join(", ")}
-              {(ecarts.nb_hors_entonnoir ?? 0) > (ecarts.hors_entonnoir ?? []).length
+              {(ecarts.nb_hors_entonnoir ?? 0) >
+              (ecarts.hors_entonnoir ?? []).length
                 ? ` … et ${(ecarts.nb_hors_entonnoir ?? 0) - (ecarts.hors_entonnoir ?? []).length} autre(s)`
                 : ""}
             </Typography>
@@ -534,8 +573,15 @@ export default function MappingExamensKonnect() {
         )}
 
         <Paper
+          id="outils_mapping"
           variant="outlined"
-          sx={{ p: 2, mb: 2, borderColor: BORDER, borderRadius: 2, bgcolor: SURFACE }}
+          sx={{
+            p: 2,
+            mb: 2,
+            borderColor: BORDER,
+            borderRadius: 2,
+            bgcolor: SURFACE,
+          }}
         >
           {/*
             BARRE REPLIABLE (14/09/2026). Quatre filtres, deux boutons d'import et
@@ -582,7 +628,9 @@ export default function MappingExamensKonnect() {
                 <MenuItem key={t} value={t}>
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <ExamTypeBadge type={t} variant="compact" />
-                    <Typography variant="body2">{EXAM_TYPE_SHORT[t] ?? t}</Typography>
+                    <Typography variant="body2">
+                      {EXAM_TYPE_SHORT[t] ?? t}
+                    </Typography>
                   </Stack>
                 </MenuItem>
               ))}
@@ -624,12 +672,14 @@ export default function MappingExamensKonnect() {
                 identité de l'examen réservable, deux lignes sur le même code y sont
                 indistinguables. C'est propre à ce produit, LyraeTalk partage les
                 siens. Voir la prop du composant. */}
-            <ImportExportMapping
-              lignes={lignes}
-              champs={CHAMPS_KONNECT}
-              onAppliquer={setLignes}
-              codeRisUnique
-            />
+            <Box id="classeur_examens" sx={{ borderRadius: 2 }}>
+              <ImportExportMapping
+                lignes={lignes}
+                champs={CHAMPS_KONNECT}
+                onAppliquer={setLignes}
+                codeRisUnique
+              />
+            </Box>
             {/* A droite quand la place le permet, sur leur propre ligne sinon. */}
             <Stack
               direction="row"
@@ -646,7 +696,10 @@ export default function MappingExamensKonnect() {
                 sx={{
                   fontWeight: 600,
                   color: attribues > 0 ? BRAND_DARK : INK_MUTED,
-                  bgcolor: attribues > 0 ? "rgba(var(--accent-rgb), 0.12)" : SURFACE_MUTED,
+                  bgcolor:
+                    attribues > 0
+                      ? "rgba(var(--accent-rgb), 0.12)"
+                      : SURFACE_MUTED,
                 }}
               />
               {surRappel > 0 && (
@@ -663,6 +716,7 @@ export default function MappingExamensKonnect() {
             `overflow-x: auto`. En fiches il n'y a rien a faire defiler, la regle est
             donc inerte, et un second conteneur n'apporterait rien. */}
         <TableContainer
+          id="correspondance_examens"
           ref={refConteneur}
           component={Paper}
           variant="outlined"
@@ -701,7 +755,9 @@ export default function MappingExamensKonnect() {
                       <CelluleType
                         valeur={l.typeExamenClient}
                         options={typesClient}
-                        onChange={(v) => maj(l.codeExamen, "typeExamenClient", v)}
+                        onChange={(v) =>
+                          maj(l.codeExamen, "typeExamenClient", v)
+                        }
                         disabled={inactif}
                       />
                     </RangeeChamp>
@@ -711,7 +767,9 @@ export default function MappingExamensKonnect() {
                         injecte={l.examenInjecte}
                         code={l.codeExamenInjection ?? ""}
                         onInjecte={(v) => maj(l.codeExamen, "examenInjecte", v)}
-                        onCode={(v) => maj(l.codeExamen, "codeExamenInjection", v)}
+                        onCode={(v) =>
+                          maj(l.codeExamen, "codeExamenInjection", v)
+                        }
                         disabled={inactif}
                       />
                     </RangeeChamp>
@@ -722,7 +780,9 @@ export default function MappingExamensKonnect() {
                       <CaseMapping
                         coche={l.reservableEnLigne}
                         disabled={inactif}
-                        onChange={(v) => maj(l.codeExamen, "reservableEnLigne", v)}
+                        onChange={(v) =>
+                          maj(l.codeExamen, "reservableEnLigne", v)
+                        }
                       />
                     </RangeeChamp>
 
@@ -748,153 +808,179 @@ export default function MappingExamensKonnect() {
               )}
             </Stack>
           ) : (
-          <Table size="small" sx={{ minWidth: LARGEUR_TABLEAU }}>
-            <TableHead>
-              <TableRow>
-                <EnTeteMapping
-                  aide="Le centre fait cet examen. Décoché, le portail ne le reconnaît pas et le patient qui le demande voit votre numéro de téléphone."
-                  largeur={80}
-                  align="center"
-                >
-                  Pratiqué
-                </EnTeteMapping>
-                <EnTeteMapping aide="Notre référentiel : modalité, libellé et code internes.">
-                  Examen
-                </EnTeteMapping>
-                <EnTeteMapping
-                  aide="Le code de cet examen dans votre logiciel de gestion, et en dessous ce que lit le patient. Sans le code, l'examen n'est pas réservable. Libellé laissé vide, notre libellé est utilisé."
-                  largeur={220}
-                >
-                  Code / Libellé patient
-                </EnTeteMapping>
-                <EnTeteMapping
-                  aide="Le type dans votre logiciel. La liste propose ceux que vous avez déjà saisis. Facultatif."
-                  largeur={130}
-                >
-                  Type
-                </EnTeteMapping>
-                <EnTeteMapping
-                  aide="Examen avec produit de contraste. Déclenche le questionnaire d'injection. Cochez pour saisir le code de la version injectée, si votre logiciel en a un distinct."
-                  largeur={150}
-                >
-                  Injecté
-                </EnTeteMapping>
-                <EnTeteMapping
-                  aide="Les salles où le portail cherche les créneaux de cet examen, parmi celles ouvertes au portail. Rien de choisi : toutes les salles ouvertes de ce type."
-                  largeur={160}
-                >
-                  Salles
-                </EnTeteMapping>
-                <EnTeteMapping
-                  aide="Le patient choisit son créneau et le rendez-vous est posé. Décoché, aucun créneau ne lui est proposé : on lui offre de laisser son numéro et vous le rappelez."
-                  largeur={130}
-                  align="center"
-                >
-                  Réservable en ligne
-                </EnTeteMapping>
-                <EnTeteMapping
-                  aide="Pour un examen réservable en ligne. Sans créneau, le patient s'inscrit en liste d'attente au lieu d'être rappelé, et reçoit par SMS la première place qui se libère."
-                  largeur={110}
-                  align="center"
-                >
-                  File d&apos;attente
-                </EnTeteMapping>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {visibles.map((l) => {
-                const enDouble = l.performed && codesEnDouble.has(l.codeExamenClient.trim());
-                return (
-                  <TableRow
-                    key={l.codeExamen}
-                    hover
-                    sx={{
-                      "&:nth-of-type(odd)": { bgcolor: "#FBFDFC" },
-                      "&:hover": { bgcolor: SURFACE_HOVER + " !important" },
-                      "& > td": { borderBottom: `1px solid ${BORDER}`, py: 1 },
-                      opacity: l.performed ? 1 : 0.45,
-                    }}
+            <Table size="small" sx={{ minWidth: LARGEUR_TABLEAU }}>
+              <TableHead>
+                <TableRow>
+                  <EnTeteMapping
+                    id="col_pratique"
+                    aide="Le centre fait cet examen. Décoché, le portail ne le reconnaît pas et le patient qui le demande voit votre numéro de téléphone."
+                    largeur={80}
+                    align="center"
                   >
-                    <TableCell align="center">
-                      <CaseMapping
-                        coche={l.performed}
-                        onChange={(v) => maj(l.codeExamen, "performed", v)}
-                      />
-                    </TableCell>
+                    Pratiqué
+                  </EnTeteMapping>
+                  <EnTeteMapping
+                    id="col_examen"
+                    aide="Notre référentiel : modalité, libellé et code internes."
+                  >
+                    Examen
+                  </EnTeteMapping>
+                  <EnTeteMapping
+                    id="col_code"
+                    aide="Le code de cet examen dans votre logiciel de gestion, et en dessous ce que lit le patient. Sans le code, l'examen n'est pas réservable. Libellé laissé vide, notre libellé est utilisé."
+                    largeur={220}
+                  >
+                    Code / Libellé patient
+                  </EnTeteMapping>
+                  <EnTeteMapping
+                    id="col_type"
+                    aide="Le type dans votre logiciel. La liste propose ceux que vous avez déjà saisis. Facultatif."
+                    largeur={130}
+                  >
+                    Type
+                  </EnTeteMapping>
+                  <EnTeteMapping
+                    id="col_injecte"
+                    aide="Examen avec produit de contraste. Déclenche le questionnaire d'injection. Cochez pour saisir le code de la version injectée, si votre logiciel en a un distinct."
+                    largeur={150}
+                  >
+                    Injecté
+                  </EnTeteMapping>
+                  <EnTeteMapping
+                    id="col_salles"
+                    aide="Les salles où le portail cherche les créneaux de cet examen, parmi celles ouvertes au portail. Rien de choisi : toutes les salles ouvertes de ce type."
+                    largeur={160}
+                  >
+                    Salles
+                  </EnTeteMapping>
+                  <EnTeteMapping
+                    id="col_reservable"
+                    aide="Le patient choisit son créneau et le rendez-vous est posé. Décoché, aucun créneau ne lui est proposé : on lui offre de laisser son numéro et vous le rappelez."
+                    largeur={130}
+                    align="center"
+                  >
+                    Réservable en ligne
+                  </EnTeteMapping>
+                  <EnTeteMapping
+                    id="col_attente"
+                    aide="Pour un examen réservable en ligne. Sans créneau, le patient s'inscrit en liste d'attente au lieu d'être rappelé, et reçoit par SMS la première place qui se libère."
+                    largeur={110}
+                    align="center"
+                  >
+                    File d&apos;attente
+                  </EnTeteMapping>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {visibles.map((l) => {
+                  const enDouble =
+                    l.performed && codesEnDouble.has(l.codeExamenClient.trim());
+                  return (
+                    <TableRow
+                      key={l.codeExamen}
+                      hover
+                      sx={{
+                        "&:nth-of-type(odd)": { bgcolor: "#FBFDFC" },
+                        "&:hover": { bgcolor: SURFACE_HOVER + " !important" },
+                        "& > td": {
+                          borderBottom: `1px solid ${BORDER}`,
+                          py: 1,
+                        },
+                        opacity: l.performed ? 1 : 0.45,
+                      }}
+                    >
+                      <TableCell align="center">
+                        <CaseMapping
+                          coche={l.performed}
+                          onChange={(v) => maj(l.codeExamen, "performed", v)}
+                        />
+                      </TableCell>
 
-                    <TableCell>
-                      <CelluleExamen
-                        typeExamen={l.typeExamen}
-                        libelle={l.libelle}
-                        codeExamen={l.codeExamen}
-                      />
-                    </TableCell>
+                      <TableCell>
+                        <CelluleExamen
+                          typeExamen={l.typeExamen}
+                          libelle={l.libelle}
+                          codeExamen={l.codeExamen}
+                        />
+                      </TableCell>
 
-                    <TableCell>
-                      <CelluleCodeLibelle
-                        code={l.codeExamenClient}
-                        libelle={l.libelleClient}
-                        placeholderLibelle={l.libelle ?? ""}
-                        onCode={(v) => maj(l.codeExamen, "codeExamenClient", v)}
-                        onLibelle={(v) => maj(l.codeExamen, "libelleClient", v)}
-                        disabled={!l.performed}
-                        erreurCode={enDouble}
-                        messageErreur="Code en double"
-                      />
-                    </TableCell>
+                      <TableCell>
+                        <CelluleCodeLibelle
+                          code={l.codeExamenClient}
+                          libelle={l.libelleClient}
+                          placeholderLibelle={l.libelle ?? ""}
+                          onCode={(v) =>
+                            maj(l.codeExamen, "codeExamenClient", v)
+                          }
+                          onLibelle={(v) =>
+                            maj(l.codeExamen, "libelleClient", v)
+                          }
+                          disabled={!l.performed}
+                          erreurCode={enDouble}
+                          messageErreur="Code en double"
+                        />
+                      </TableCell>
 
-                    <TableCell>
-                      <CelluleType
-                        valeur={l.typeExamenClient}
-                        options={typesClient}
-                        onChange={(v) => maj(l.codeExamen, "typeExamenClient", v)}
-                        disabled={!l.performed}
-                      />
-                    </TableCell>
+                      <TableCell>
+                        <CelluleType
+                          valeur={l.typeExamenClient}
+                          options={typesClient}
+                          onChange={(v) =>
+                            maj(l.codeExamen, "typeExamenClient", v)
+                          }
+                          disabled={!l.performed}
+                        />
+                      </TableCell>
 
-                    <TableCell>
-                      <CelluleInjection
-                        injecte={l.examenInjecte}
-                        code={l.codeExamenInjection ?? ""}
-                        onInjecte={(v) => maj(l.codeExamen, "examenInjecte", v)}
-                        onCode={(v) => maj(l.codeExamen, "codeExamenInjection", v)}
-                        disabled={!l.performed}
-                      />
-                    </TableCell>
+                      <TableCell>
+                        <CelluleInjection
+                          injecte={l.examenInjecte}
+                          code={l.codeExamenInjection ?? ""}
+                          onInjecte={(v) =>
+                            maj(l.codeExamen, "examenInjecte", v)
+                          }
+                          onCode={(v) =>
+                            maj(l.codeExamen, "codeExamenInjection", v)
+                          }
+                          disabled={!l.performed}
+                        />
+                      </TableCell>
 
-                    <TableCell>{salles(l)}</TableCell>
+                      <TableCell>{salles(l)}</TableCell>
 
-                    <TableCell align="center">
-                      <CaseMapping
-                        coche={l.reservableEnLigne}
-                        disabled={!l.performed}
-                        onChange={(v) => maj(l.codeExamen, "reservableEnLigne", v)}
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      {/* Un examen à rappel n'a pas de file : la case ne se coche pas. */}
-                      <CaseMapping
-                        coche={l.reservableEnLigne && l.fileAttente === true}
-                        disabled={!l.performed || !l.reservableEnLigne}
-                        onChange={(v) => maj(l.codeExamen, "fileAttente", v)}
-                      />
+                      <TableCell align="center">
+                        <CaseMapping
+                          coche={l.reservableEnLigne}
+                          disabled={!l.performed}
+                          onChange={(v) =>
+                            maj(l.codeExamen, "reservableEnLigne", v)
+                          }
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        {/* Un examen à rappel n'a pas de file : la case ne se coche pas. */}
+                        <CaseMapping
+                          coche={l.reservableEnLigne && l.fileAttente === true}
+                          disabled={!l.performed || !l.reservableEnLigne}
+                          onChange={(v) => maj(l.codeExamen, "fileAttente", v)}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {filtrees.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                      <Typography variant="body2" sx={{ color: INK_MUTED }}>
+                        {lignes.length === 0
+                          ? "Aucun examen au référentiel."
+                          : "Aucun examen ne correspond à ces filtres."}
+                      </Typography>
                     </TableCell>
                   </TableRow>
-                );
-              })}
-              {filtrees.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
-                    <Typography variant="body2" sx={{ color: INK_MUTED }}>
-                      {lignes.length === 0
-                        ? "Aucun examen au référentiel."
-                        : "Aucun examen ne correspond à ces filtres."}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                )}
+              </TableBody>
+            </Table>
           )}
           <TablePagination
             component="div"
@@ -904,15 +990,17 @@ export default function MappingExamensKonnect() {
             rowsPerPage={PAR_PAGE}
             rowsPerPageOptions={[PAR_PAGE]}
             labelRowsPerPage="Par page"
-            labelDisplayedRows={({ from, to, count }) => `${from} à ${to} sur ${count}`}
+            labelDisplayedRows={({ from, to, count }) =>
+              `${from} à ${to} sur ${count}`
+            }
             sx={{ borderTop: `1px solid ${BORDER}`, color: INK_MUTED }}
           />
         </TableContainer>
 
         {codesEnDouble.size > 0 && (
           <Alert severity="warning" sx={{ mt: 2 }}>
-            Un même code est attribué à plusieurs examens. Le portail ne saurait pas
-            lequel réserver : chaque code doit être unique.
+            Un même code est attribué à plusieurs examens. Le portail ne saurait
+            pas lequel réserver : chaque code doit être unique.
           </Alert>
         )}
         {erreur && (
@@ -926,19 +1014,25 @@ export default function MappingExamensKonnect() {
           enregistrement={enregistrement}
           onEnregistrer={enregistrer}
           onAnnuler={amorce ? undefined : () => setLignes(initial)}
-          blocage={raisonLectureSeule ?? (
-            codesEnDouble.size > 0
+          blocage={
+            raisonLectureSeule ??
+            (codesEnDouble.size > 0
               ? "Un même code est attribué à plusieurs examens."
               : lignes.length === 0
                 ? "Aucun examen à enregistrer."
-                : null
-          )}
+                : null)
+          }
           libelle="Enregistrer le mapping"
         />
 
         <Retour
           ouvert={succes}
-          message={<>Mapping enregistré. Le portail patient l&apos;appliquera dans la minute.</>}
+          message={
+            <>
+              Mapping enregistré. Le portail patient l&apos;appliquera dans la
+              minute.
+            </>
+          }
           gravite={"success"}
           onFermer={() => setSucces(false)}
         />
