@@ -58,6 +58,18 @@ const SCORES: [string, string][] = [
   ["date_naissance", "Score de la date de naissance"],
 ];
 
+// OCR v2 (C-OCRV2.8.3 de Konnect) : issues et moteurs de la lecture, en compteurs du jour.
+const ISSUES_LECTURE: [string, string][] = [
+  ["lecture.issue.prerempli", "Prérempli"],
+  ["lecture.issue.a_verifier", "À vérifier par le patient"],
+  ["lecture.issue.entonnoir", "Recherche guidée"],
+  ["lecture.issue.secretariat", "Secrétariat (demande de rappel)"],
+  ["lecture.issue.reprise_photo", "Photo à reprendre"],
+  ["lecture.moteur.pdf_natif", "Servi par le texte du PDF"],
+  ["lecture.moteur.tesseract", "Servi par nos serveurs"],
+  ["lecture.moteur.vision", "Servi par le prestataire"],
+];
+
 function total(lignes: Ligne[], cle: string): number {
   return lignes.reduce((n, l) => (l.cle === cle ? n + l.valeur : n), 0);
 }
@@ -272,6 +284,42 @@ export default function KonnectOcrAdmin() {
                   </Box>
                 );
               })}
+            </Bloc>
+
+            <Bloc
+              titre="Issue de la lecture et moteurs"
+              aide="OCR v2 : une ligne par lecture. Prérempli et à vérifier sont servis par un moteur ; l'entonnoir est la recherche guidée ; le secrétariat part en demande de rappel."
+            >
+              {total(courante, "lecture.lectures") === 0 ? (
+                <Typography sx={{ fontSize: 12.5, color: INK_MUTED }}>
+                  Aucune lecture OCR v2 sur la période.
+                </Typography>
+              ) : (
+                <Table size="small" sx={{ maxWidth: 520 }}>
+                  <TableBody>
+                    {ISSUES_LECTURE.map(([cle, libelle]) => {
+                      const n = total(courante, cle);
+                      const lectures = total(courante, "lecture.lectures");
+                      const avant = total(precedente, "lecture.lectures");
+                      return (
+                        <TableRow key={cle}>
+                          <TableCell sx={CELLULE}>{libelle}</TableCell>
+                          <TableCell sx={CELLULE}>{n}</TableCell>
+                          <TableCell sx={{ ...CELLULE, fontWeight: 600 }}>
+                            {pourcent(lectures ? n / lectures : null)}
+                          </TableCell>
+                          <TableCell sx={CELLULE}>
+                            <Ecart
+                              avant={avant ? total(precedente, cle) / avant : null}
+                              apres={lectures ? n / lectures : null}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
             </Bloc>
 
             <Bloc titre="Chemins de lecture" aide="Texte natif d'un PDF, ou OCR de l'image.">

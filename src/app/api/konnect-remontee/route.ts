@@ -61,7 +61,11 @@ import { PAGES } from "@/lib/permissions";
  * se contente de dire ce qui ne colle pas. Poussée une fois par nuit par un job cron,
  * seul morceau du pont qui appelle le RIS.
  */
-const SECTIONS = new Set(["messagerie", "funnel", "catalogue"]);
+const SECTIONS = new Set(["messagerie", "funnel", "catalogue", "ocr"]);
+// `ocr` (30/10/2026, OCR v2 de Konnect, GATE_4 § 4.4) : l'état courant de la lecture des
+// ordonnances, sans valeur patient : stratégie configurée et effective, motif d'une
+// restriction, consentement, fournisseur, disjoncteur de la vision, coût du mois. Affiché
+// dans la page admin d'installation. Les compteurs, eux, passent par `jours`.
 
 /**
  * `jours` (29/10/2026, C-STAT.1 de Konnect) : les compteurs quotidiens de ses 14 derniers
