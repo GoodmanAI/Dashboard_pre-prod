@@ -9,7 +9,8 @@ import { requireApiKey } from "@/lib/auth-helpers";
  *
  * Lot 0 de `plans/2026-10-amelioration-continue-lyraetalk.md` (workspace). Lecture
  * seule, tout le parc : clé API SEULE, jamais une session (un compte client verrait
- * les signalements des autres centres). La clé n'ouvre aucune autre route.
+ * les signalements des autres centres). La clé n'ouvre qu'une autre route,
+ * `/api/konnect-stats-hebdo` (agrégats de Konnect, 29/10/2026).
  *
  * Le filtre porte sur la date du SIGNALEMENT (`flaggedAt`), pas sur celle de l'appel :
  * un appel de lundi signalé mercredi remonte mercredi. `callId` est le `callId` des

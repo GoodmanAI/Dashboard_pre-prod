@@ -263,7 +263,9 @@ Le 18/09/2026, le corps gagne deux champs optionnels. `motif` : une valeur parmi
 `examen_non_trouve`, `aucun_creneau`, `incident_reservation`, `contre_indication`, et
 depuis le 23/09/2026 `ordonnance_a_rattacher` (le rendez-vous est pris, l'ordonnance n'a
 pas pu être rattachée au logiciel du centre : la secrétaire l'attache à la main par le
-lien) ; un motif inconnu est refusé en 400. Ce sont des énumérations : en ajouter, jamais en renommer
+lien), et depuis le 30/10/2026 `ordonnance_a_verifier` (OCR v2, C-OCRV2.8.1 de Konnect : la
+lecture a classé l'ordonnance pour le secrétariat, aucun créneau n'a été proposé, le lien vers
+l'ordonnance est joint ; priorité haute) ; un motif inconnu est refusé en 400. Ce sont des énumérations : en ajouter, jamais en renommer
 (`src/lib/konnectDemandesRappel.ts`). La priorité est déduite par le Dashboard
 (`contre_indication` passe en tête de file), jamais fournie par Konnect. `lienOrdonnance` :
 une adresse https vers l'ordonnance dans Konnect, à durée de vie limitée ; le fichier reste
@@ -329,7 +331,13 @@ ici et ce que le logiciel du centre déclare ouvert à la réservation en ligne
 (`nb_codes_inconnus`, `nb_types_incoherents`, `nb_absents_du_mapping`, plus les
 listes tronquées à 40). **Ce sont des constats, jamais des corrections** : la saisie
 du client fait autorité, et rien de cette section n'écrit dans `KonnectExamens`.
-Les trois sections ont des rythmes différents (quinze minutes, six heures, une fois
+Une quatrième, `ocr` (30/10/2026, OCR v2 de Konnect), porte l'**état courant** de la
+lecture des ordonnances : `strategie_configuree`, `strategie_effective`, `motif_restriction`,
+`consentement_cloud`, `fournisseur_vision`, `disjoncteur_vision`, `mois`,
+`cout_vision_mois_centimes`. Aucune valeur patient ; affichée dans la page admin
+d'installation. Les compteurs de lecture (`lecture.*`), eux, passent par `jours` et sont
+écartés de la route du centre comme les clés `ocr*` (D4).
+Les sections ont des rythmes différents (quinze minutes, six heures, une fois
 par nuit) et la fusion se fait section par section : une remontée partielle
 n'efface pas le reste. Le `POST` est réservé à la clé,
 le `GET` à une session. Stocké dans `KonnectRemontee`, une ligne par centre, fusionnée
@@ -452,7 +460,11 @@ sans traduction. Renommer une de ces clés casse le portail patient en silence. 
 camelCase ↔ snake_case est dans `src/lib/konnectConfig.ts`, et nulle part ailleurs.
 
 **18 champs depuis le 18/09/2026.** Les 14 d'origine, les deux couleurs, les deux noms
-d'expéditeur.
+d'expéditeur. **Depuis le 30/10/2026, `ocr_strategy`** (`tesseract_only`, `vision_shadow`,
+`vision_first` ou `null`) : la façon de lire de Konnect, réglée par un ADMIN dans la page
+d'installation comme `cloud_ocr_actif` (403 pour un client), colonne `KonnectSettings.ocrStrategy`
+(`prisma/migrations/manual/2026_10_30_konnect_ocr_strategy.sql`). `null` : Konnect garde la
+stratégie en place. Exclue du pack de configuration, comme le consentement.
 
 **Quatre champs ont été retirés le 18/09/2026** : `rappels_actifs`, `annulation_directe`,
 `sms_rappel_mode` et `code_caracteristique_confirmation_xplore`. Ils pilotaient la
@@ -537,6 +549,13 @@ callId, anonymise }] }`. `callId` = `stats.callId` posé par LyraeTalk depuis la
 saisi par le client au signalement (`PATCH /api/calls/[id]/flag` reçoit `flagComment`) ; il
 peut porter une donnée patient, n'est jamais journalisé et s'efface avec la transcription
 (`anonymise_appels.sh`). Ni transcription ni numéro ne sortent par cette route.
+
+**Pour le rapport hebdomadaire de Konnect** — même clé `DAILY_REPORT_API_KEY` (29/10/2026,
+lot 4 de `plans/2026-10-konnect-stats-surveillance-ocr.md`) : `GET /api/konnect-stats-hebdo?depuis=AAAA-MM-JJ&jusqua=AAAA-MM-JJ`
+(`jusqua` exclu, 63 jours au plus), lecture seule, tous centres, clé seule. Réponse `{ depuis,
+jusqua, lignes: [{ userProductId, jour, cle, valeur }], centres: [{ userProductId, nom,
+dernierRecu }] }` : toutes les clés de `KonnectStatJour`, **OCR compris** (la route du centre
+les écarte, D4). Des agrégats seuls, aucune donnée patient.
 
 **Pour les sondes de déploiement** — header `x-api-key: DEPLOY_PROBE_API_KEY` :
 `POST /api/deployments` (écriture, appelée par `deploy/deployment-probe.js` des VMs
@@ -904,6 +923,7 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 | **Grafana** | format des logs d'audit |
 | **daily-report** | `GET /api/deployments` — section « Déploiement » du mail quotidien. Dégradation gracieuse de son côté : si la route tombe, la section disparaît, le mail part quand même |
 | **daily-report** (lot 1, à venir) | `GET /api/incidents-signales` (`DAILY_REPORT_API_KEY`) : signalements des clients de la veille, rattachés à Loki par `callId` |
+| **daily-report** (rapport hebdomadaire de Konnect) | `GET /api/konnect-stats-hebdo` (`DAILY_REPORT_API_KEY`) : compteurs quotidiens de Konnect, tous centres, OCR compris |
 | **Sondes de déploiement** (3 VMs) | `POST /api/deployments` toutes les 15 min |
 
 **Je n'appelle jamais Konnect, et je ne le pourrai pas** : il passe derrière un VPN, je

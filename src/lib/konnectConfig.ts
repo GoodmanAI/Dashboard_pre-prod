@@ -65,7 +65,17 @@ export type ConfigKonnect = {
   poidsMaxScannerKg: number | null;
   // Interne technique
   cloudOcrActif: boolean;
+  /**
+   * Façon de lire les ordonnances (OCR v2, C-OCRV2.8.2 de Konnect). `null` : le cabinet
+   * suit le défaut de la plateforme (`tesseract_only`). Les deux stratégies vision ne
+   * s'appliquent que si le consentement est donné ET si l'exploitant a habilité le
+   * cabinet (`KONNECT_VISION_TENANTS`) : sinon Konnect retombe sur `tesseract_only`.
+   */
+  ocrStrategy: StrategieOcr | null;
 };
+
+export type StrategieOcr = "tesseract_only" | "vision_shadow" | "vision_first";
+export const STRATEGIES_OCR: StrategieOcr[] = ["tesseract_only", "vision_shadow", "vision_first"];
 
 /** Défauts *fail-closed*, alignés sur `cabinet_parametres` de Konnect. */
 export const KONNECT_DEFAUTS: ConfigKonnect = {
@@ -87,6 +97,7 @@ export const KONNECT_DEFAUTS: ConfigKonnect = {
   poidsMaxIrmKg: null,
   poidsMaxScannerKg: null,
   cloudOcrActif: false,
+  ocrStrategy: null,
 };
 
 /**
@@ -117,6 +128,7 @@ export const COLONNES_KONNECT = [
   "poidsMaxIrmKg",
   "poidsMaxScannerKg",
   "cloudOcrActif",
+  "ocrStrategy",
 ] as const;
 
 const MODES_SAISIE: ModeSaisieExamen[] = ["traditionnel", "anatomique"];
@@ -269,7 +281,18 @@ export function normaliserConfigKonnect(
     poidsMaxIrmKg: versSeuil(brut.poidsMaxIrmKg, "poidsMaxIrmKg", strict),
     poidsMaxScannerKg: versSeuil(brut.poidsMaxScannerKg, "poidsMaxScannerKg", strict),
     cloudOcrActif: versBooleen(brut.cloudOcrActif, KONNECT_DEFAUTS.cloudOcrActif),
+    ocrStrategy: versStrategieOcr(brut.ocrStrategy, strict),
   };
+}
+
+/** `null` ou une stratégie connue ; une valeur inconnue est refusée à l'écriture, oubliée à la lecture. */
+function versStrategieOcr(valeur: unknown, strict: boolean): StrategieOcr | null {
+  if (valeur === undefined || valeur === null || valeur === "") return null;
+  if (typeof valeur === "string" && STRATEGIES_OCR.includes(valeur as StrategieOcr)) {
+    return valeur as StrategieOcr;
+  }
+  if (strict) throw new Error(`ocrStrategy doit valoir ${STRATEGIES_OCR.join(", ")} ou rien.`);
+  return null;
 }
 
 /**
@@ -297,5 +320,8 @@ export function versPayloadKonnect(config: ConfigKonnect) {
     poids_max_irm_kg: config.poidsMaxIrmKg,
     poids_max_scanner_kg: config.poidsMaxScannerKg,
     cloud_ocr_actif: config.cloudOcrActif,
+    // `null` : Konnect garde la stratégie en place (C-OCRV2.4.18). Pour revenir au défaut,
+    // l'admin choisit `tesseract_only`.
+    ocr_strategy: config.ocrStrategy,
   };
 }
