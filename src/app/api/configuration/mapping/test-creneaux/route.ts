@@ -32,22 +32,34 @@ export const dynamic = "force-dynamic";
  * pas enregistrée.
  *
  * Aucun cache, voulu (T10) : la secrétaire reteste juste après sa correction dans
- * Xplore. La charge est tenue par 5 tests par minute et par centre.
+ * Xplore. La charge est tenue par deux plafonds : 5 tests par minute et par personne,
+ * 15 par centre. Le plafond par centre seul (5) bloquait une secrétaire quand ses
+ * collègues testaient en même temps (Pontivy, 30/10).
  */
 
-const PAR_MINUTE = 5;
-const tests = new Map<number, number[]>();
+const PAR_PERSONNE = 5;
+const PAR_CENTRE = 15;
+const parPersonne = new Map<string, number[]>();
+const parCentre = new Map<number, number[]>();
 
-/** Compteur en mémoire du processus : le Dashboard tourne en un seul processus PM2. */
-function tropDeTests(userProductId: number, now = Date.now()): boolean {
-  const recents = (tests.get(userProductId) ?? []).filter((t) => now - t < 60000);
-  if (recents.length >= PAR_MINUTE) {
-    tests.set(userProductId, recents);
-    return true;
-  }
-  recents.push(now);
-  tests.set(userProductId, recents);
-  return false;
+function recents<K>(compteur: Map<K, number[]>, cle: K, now: number): number[] {
+  const liste = (compteur.get(cle) ?? []).filter((t) => now - t < 60000);
+  compteur.set(cle, liste);
+  return liste;
+}
+
+/**
+ * Compteurs en mémoire du processus : le Dashboard tourne en un seul processus PM2.
+ * Rend le plafond atteint, sinon compte le test et rend `null`.
+ */
+function plafondAtteint(userId: string, userProductId: number, now = Date.now()): "personne" | "centre" | null {
+  const personne = recents(parPersonne, `${userProductId}:${userId}`, now);
+  if (personne.length >= PAR_PERSONNE) return "personne";
+  const centre = recents(parCentre, userProductId, now);
+  if (centre.length >= PAR_CENTRE) return "centre";
+  personne.push(now);
+  centre.push(now);
+  return null;
 }
 
 /** L'écran demande d'abord si la fonction est allumée : sinon, pas de bouton. */
@@ -77,8 +89,15 @@ export async function POST(req: NextRequest) {
   const ownershipErr = await assertUserProductOwnership(session, userProductId);
   if (ownershipErr) return ownershipErr;
 
-  if (tropDeTests(userProductId)) {
-    return NextResponse.json({ error: "trop_de_tests" }, { status: 429 });
+  const plafond = plafondAtteint(String(session.user.id), userProductId);
+  if (plafond) {
+    auditLog("data", "test-creneaux", {
+      actor: { id: session.user.id, email: session.user.email, role: session.user.role, ip: extractIpFromRequest(req) },
+      target: { type: "userProduct", id: userProductId, label: codeExamen },
+      success: false,
+      errorReason: `trop_de_tests:${plafond}`,
+    });
+    return NextResponse.json({ error: "trop_de_tests", plafond }, { status: 429 });
   }
 
   const reponse = await tester(userProductId, codeExamen);
