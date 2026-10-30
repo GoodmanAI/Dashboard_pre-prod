@@ -61,30 +61,53 @@ export default function Visite({ cheminVoulu }: { cheminVoulu: string }) {
   const surLaBonnePage = pathname === cheminVoulu;
 
   // Retrouver l'élément de l'étape, une fois sur la bonne page.
+  //
+  // Pendant la recherche, la bulle reste cachée (mais mesurée) et le cadre de l'étape
+  // précédente reste en place : il glisse ensuite jusqu'au nouvel élément, et la bulle
+  // apparaît directement au bon endroit. Sans cela, la bulle s'affichait au centre puis
+  // sautait vers l'élément une demi-seconde plus tard (vu par Enzo le 30/10).
   useEffect(() => {
-    setCadre(null);
-    cible.current = null;
     if (!etape || !surLaBonnePage) return;
+    setCherche(true);
     if (!etape.cible) {
+      cible.current = null;
+      setCadre(null);
       setCherche(false);
       return;
     }
-    setCherche(true);
+    const minuteries: number[] = [];
     let essais = 0;
-    const id = window.setInterval(() => {
+    const chercher = () => {
       const el = document.querySelector<HTMLElement>(etape.cible!);
-      if (!el && ++essais < 40) return;
-      window.clearInterval(id);
-      setCherche(false);
-      if (!el) return;
+      if (!el) {
+        if (++essais < 40) minuteries.push(window.setTimeout(chercher, 200));
+        else {
+          // Absent de l'écran (téléphone, liste vide) : bulle au centre, sans cadre.
+          cible.current = null;
+          setCadre(null);
+          setCherche(false);
+        }
+        return;
+      }
       ouvrirAccordeon(el);
       cible.current = el;
-      window.setTimeout(() => {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        window.setTimeout(mesurer, 350);
-      }, 200);
-    }, 200);
-    return () => window.clearInterval(id);
+      const montrer = () => {
+        mesurer();
+        setCherche(false);
+      };
+      // Laisse à un accordéon le temps de s'ouvrir avant de juger de la position.
+      minuteries.push(
+        window.setTimeout(() => {
+          const r = el.getBoundingClientRect();
+          const visible = r.top >= 64 && r.bottom <= window.innerHeight - 16;
+          if (visible) return montrer();
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          minuteries.push(window.setTimeout(montrer, 450));
+        }, 150),
+      );
+    };
+    chercher();
+    return () => minuteries.forEach((m) => window.clearTimeout(m));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [etape, surLaBonnePage]);
 
@@ -213,6 +236,10 @@ export default function Visite({ cheminVoulu }: { cheminVoulu: string }) {
           p: 2.25,
           borderRadius: 2.5,
           ...position,
+          // Cachée mais mesurée pendant la recherche : elle apparaît à sa place.
+          visibility: cherche ? "hidden" : "visible",
+          opacity: cherche ? 0 : 1,
+          transition: "opacity .15s ease",
         }}
       >
         <Stack
@@ -242,7 +269,7 @@ export default function Visite({ cheminVoulu }: { cheminVoulu: string }) {
         <Typography
           sx={{ fontSize: 14, color: INK, mt: 0.75, lineHeight: 1.55 }}
         >
-          {cherche && etape.cible ? "…" : texteEtape(etape, etat)}
+          {texteEtape(etape, etat)}
         </Typography>
         {visite.chapitre.primordial &&
           etat === "a_faire" &&
