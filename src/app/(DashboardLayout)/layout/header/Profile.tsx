@@ -14,8 +14,9 @@ import {
   ListItemIcon,
   ListItemText,
 } from "@mui/material";
-import { IconUser } from "@tabler/icons-react";
+import { IconSchool, IconUser } from "@tabler/icons-react";
 import { useProduitActif } from "@/hooks/useProduitActif";
+import { useTutoriel } from "@/components/tutoriel/ContexteTutoriel";
 
 /**
  * Composant Profil
@@ -40,6 +41,9 @@ const Profile = () => {
 
   // Router client-side pour la navigation
   const router = useRouter();
+
+  // Le tutoriel du client : la liste des chapitres, à rouvrir à tout moment.
+  const tutoriel = useTutoriel();
 
   // Ouvre le menu de profil
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -76,6 +80,7 @@ const Profile = () => {
     <Box>
       {/* Bouton Avatar — déclenche l’ouverture du menu de profil */}
       <IconButton
+        id="tuto_profil"
         size="large"
         aria-label="profile options"
         color="inherit"
@@ -111,6 +116,20 @@ const Profile = () => {
           </ListItemIcon>
           <ListItemText primary="My Profile" />
         </MenuItem>
+
+        {tutoriel?.disponible && (
+          <MenuItem
+            onClick={() => {
+              setAnchorEl(null);
+              tutoriel.ouvrirChoix();
+            }}
+          >
+            <ListItemIcon>
+              <IconSchool width={20} />
+            </ListItemIcon>
+            <ListItemText primary="Tutoriel" />
+          </MenuItem>
+        )}
 
         {/* Action de déconnexion */}
         <Box mt={1} py={1} px={2}>

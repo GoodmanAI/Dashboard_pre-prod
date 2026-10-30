@@ -217,8 +217,12 @@ export default function MappingExam({ params }: TalkPageProps) {
   // Filtres UI
   // Préfiltre de la recherche centrale (panneau ou lien « Ouvrir l'écran complet »).
   const filtresRecherche = useFiltresRecherche();
-  const [search, setSearch] = useState(() => precisionExamen(filtresRecherche.examen));
-  const [typeFilter, setTypeFilter] = useState<string>(() => filtresRecherche.type ?? "all");
+  const [search, setSearch] = useState(() =>
+    precisionExamen(filtresRecherche.examen),
+  );
+  const [typeFilter, setTypeFilter] = useState<string>(
+    () => filtresRecherche.type ?? "all",
+  );
   const [attribFilter, setAttribFilter] = useState<AttribFilter>("all");
   const [codeRisFilter, setCodeRisFilter] = useState<CodeRisFilter>("all");
   const [page, setPage] = useState(0);
@@ -398,7 +402,9 @@ export default function MappingExam({ params }: TalkPageProps) {
    * attend l'enregistrement, car le test relit la ligne en base (T3 du plan).
    */
   const lignesModifiees = useMemo(() => {
-    const avant = new Map(originalData.map((r) => [r.codeExamen, JSON.stringify(r)]));
+    const avant = new Map(
+      originalData.map((r) => [r.codeExamen, JSON.stringify(r)]),
+    );
     return new Set(
       data
         .filter((r) => avant.get(r.codeExamen) !== JSON.stringify(r))
@@ -572,6 +578,7 @@ export default function MappingExam({ params }: TalkPageProps) {
 
       {/* -------- Sticky Toolbar (recherche + filtres + KPIs) -------- */}
       <Box
+        id="outils_mapping"
         sx={{
           position: "sticky",
           top: 0,
@@ -716,11 +723,13 @@ export default function MappingExam({ params }: TalkPageProps) {
           </ToggleButtonGroup>
 
           {!readOnly && (
-            <ImportExportMapping
-              lignes={data}
-              champs={CHAMPS_TALK}
-              onAppliquer={setData}
-            />
+            <Box id="classeur_examens" sx={{ borderRadius: 2 }}>
+              <ImportExportMapping
+                lignes={data}
+                champs={CHAMPS_TALK}
+                onAppliquer={setData}
+              />
+            </Box>
           )}
         </Stack>
 
@@ -843,6 +852,7 @@ export default function MappingExam({ params }: TalkPageProps) {
       {/* -------- Table -------- */}
       {!loading && filtered.length > 0 && (
         <Box
+          id="correspondance_examens"
           ref={refConteneur}
           sx={{
             mt: 3,
@@ -870,44 +880,48 @@ export default function MappingExam({ params }: TalkPageProps) {
             </Stack>
           ) : (
             <TableContainer sx={{ maxHeight: "none" }}>
-              <Table stickyHeader size="small" sx={{ minWidth: LARGEUR_TABLEAU }}>
+              <Table
+                stickyHeader
+                size="small"
+                sx={{ minWidth: LARGEUR_TABLEAU }}
+              >
                 <TableHead>
                   <TableRow>
-                    <EnTeteMapping
+                    <EnTeteMapping id="col_attribue"
                       aide="Le centre confie cet examen au robot. Décoché, le robot ne le propose pas au téléphone."
                       largeur={80}
                       align="center"
                     >
                       Attribué à Lyrae
                     </EnTeteMapping>
-                    <EnTeteMapping aide="Notre référentiel : modalité, libellé et code internes.">
+                    <EnTeteMapping id="col_examen" aide="Notre référentiel : modalité, libellé et code internes.">
                       Examen
                     </EnTeteMapping>
-                    <EnTeteMapping
+                    <EnTeteMapping id="col_code"
                       aide="Le code de cet examen dans votre logiciel de gestion, et en dessous ce que le robot annonce au patient. Sans le code, l'examen n'est pas réservable."
                       largeur={220}
                     >
                       Code / Libellé patient
                     </EnTeteMapping>
-                    <EnTeteMapping
+                    <EnTeteMapping id="col_type"
                       aide="Le type dans votre logiciel. La liste propose ceux que vous avez déjà saisis. Facultatif."
                       largeur={130}
                     >
                       Type
                     </EnTeteMapping>
-                    <EnTeteMapping
+                    <EnTeteMapping id="col_injecte"
                       aide="Examen avec produit de contraste, scanners et IRM seulement. Cochez pour saisir le code de la version injectée."
                       largeur={150}
                     >
                       Injecté
                     </EnTeteMapping>
-                    <EnTeteMapping
+                    <EnTeteMapping id="col_horaire"
                       aide="Une consigne d'horaire annoncée avec le créneau."
                       largeur={220}
                     >
                       Créneau horaire
                     </EnTeteMapping>
-                    <EnTeteMapping
+                    <EnTeteMapping id="col_salles"
                       aide="Les salles où se fait cet examen. Le robot ne propose que leurs créneaux. Rien de choisi : toutes les salles."
                       largeur={180}
                     >

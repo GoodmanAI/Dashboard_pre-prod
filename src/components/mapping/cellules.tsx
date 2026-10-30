@@ -59,14 +59,18 @@ export function EnTeteMapping({
   aide,
   largeur,
   align = "left",
+  id,
 }: {
   children: React.ReactNode;
   aide?: string;
+  /** Ancre du tutoriel (`col_code`…), qui désigne la colonne. */
+  id?: string;
   largeur?: number | string;
   align?: "left" | "center";
 }) {
   const cellule = (
     <TableCell
+      id={id}
       align={align}
       sx={{
         bgcolor: P.surfaceMuted,
@@ -179,7 +183,12 @@ export function CelluleExamen({
           {libelle || codeExamen}
         </Typography>
         <Typography
-          sx={{ fontSize: 11, color: P.inkMuted, fontFamily: "monospace", mt: 0.25 }}
+          sx={{
+            fontSize: 11,
+            color: P.inkMuted,
+            fontFamily: "monospace",
+            mt: 0.25,
+          }}
         >
           {codeExamen}
         </Typography>
@@ -231,7 +240,9 @@ export function CelluleCodeLibelle({
         disabled={disabled}
       />
       {erreurCode && messageErreur && (
-        <Typography sx={{ fontSize: 11, color: P.danger }}>{messageErreur}</Typography>
+        <Typography sx={{ fontSize: 11, color: P.danger }}>
+          {messageErreur}
+        </Typography>
       )}
     </Stack>
   );
@@ -285,7 +296,10 @@ export function CelluleType({
           "&.Mui-focused fieldset": { borderColor: P.brand, borderWidth: 1.5 },
           "&.Mui-disabled": { bgcolor: P.surfaceDisabled },
         },
-        "& .MuiOutlinedInput-input": { py: "6px !important", px: "8px !important" },
+        "& .MuiOutlinedInput-input": {
+          py: "6px !important",
+          px: "8px !important",
+        },
       }}
       renderInput={(params) => <TextField {...params} placeholder="Ex : RX" />}
     />
@@ -584,7 +598,11 @@ export function CarteMapping({
     >
       <Stack direction="row" alignItems="flex-start" spacing={1}>
         <Box sx={{ mt: -0.5, ml: -0.5 }}>
-          <CaseMapping coche={performed} onChange={onPerformed} disabled={disabled} />
+          <CaseMapping
+            coche={performed}
+            onChange={onPerformed}
+            disabled={disabled}
+          />
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <CelluleExamen
