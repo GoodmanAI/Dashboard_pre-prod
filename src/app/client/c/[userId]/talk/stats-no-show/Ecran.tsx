@@ -25,7 +25,6 @@ import { plageDePeriode } from "@/lib/recherche/periode";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import { EXAM_TYPE_KEYS, ExamTypeKey } from "@/lib/smsConfirmationConfig";
-import PhraseStatistiques from "@/components/premiersPas/PhraseStatistiques";
 
 /* =============================================================================
    Page Stats No-Show
@@ -261,10 +260,6 @@ export default function StatsNoShowPage({ params }: Props) {
           title="Rendez-vous non honorés"
           subtitle="Rappels SMS envoyés et leur conversion en confirmation / annulation, par type d'examen"
           actions={loading ? <Chip size="small" label="chargement…" variant="outlined" /> : undefined}
-        />
-        <PhraseStatistiques
-          cle="talk.stats_no_show"
-          texte="Cette page montre les statistiques des rendez-vous non honorés. Vous n'avez rien à y remplir."
         />
 
         {configLoading ? (

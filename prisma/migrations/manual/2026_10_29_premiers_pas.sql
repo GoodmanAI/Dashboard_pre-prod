@@ -14,10 +14,13 @@
 -- que dans le navigateur : un client change de poste, la question ne doit pas
 -- revenir à chaque fois.
 --
---   null                                   jamais ouvertes : la carte s'affiche
---   { "masque": true }                     carte rangée (« Masquer »)
---   { "lus": ["talk.doubles"] }            étape sans verdict, marquée lue
---   { "phrases": ["talk.stats_appel"] }    phrase d'une page de stats fermée
+--   null                                   jamais ouvert : sommaire et visite de bienvenue
+--   { "masque": true }                     sommaire rangé (« Masquer »), pas de visite seule
+--   { "visite": true }                     visite de bienvenue déjà lancée
+--   { "chapitres": ["correspondance"] }    chapitres du tutoriel vus jusqu'au bout
+--
+-- 30/10 : la carte à quatre étapes devient le tutoriel en chapitres
+-- (`plans/2026-10-tutoriel-client-talk.md`), même colonne.
 --
 -- **LES COMPTES EXISTANTS SONT MARQUÉS « MASQUÉ ».** Sans cela, les clients en
 -- production (Menton, Cognac, Pontivy…) verraient surgir demain une carte qui

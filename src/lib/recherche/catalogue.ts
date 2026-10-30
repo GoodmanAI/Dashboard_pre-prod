@@ -269,12 +269,12 @@ export const CATALOGUE: Fiche[] = [
     filtres: ["texte"],
   },
 
-  // ── LyraeTalk : premiers pas (plan 2026-10-onboarding-dashboard-talk.md) ───
+  // ── LyraeTalk : tutoriel (plan 2026-10-tutoriel-client-talk.md) ────────────
   {
     cle: "talk#premiers_pas",
     produit: "talk",
     page: "parametrage",
-    libelle: "Premiers pas",
+    libelle: "Tutoriel",
     genre: "reglage",
     termes: [
       "premiers pas", "par ou commencer", "par ou je commence", "comment commencer",

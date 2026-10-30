@@ -775,8 +775,8 @@ volontaire, et reclasser un centre en intégration éteint ses alertes sans red�
 Administrée par `/api/centre-statut` (session NextAuth, admin — **pas** machine-à-machine).
 
 `User.premiersPas` (JSONB, 29/10/2026, `manual/2026_10_29_premiers_pas.sql`) garde, par
-utilisateur, ce qu'il a fait du guide de première connexion : carte rangée, étape sans
-verdict marquée lue, phrases des statistiques fermées. **Interne, aucune brique ne la
+utilisateur, ce qu'il a fait du tutoriel (30/10, `src/components/tutoriel/`) : sommaire
+rangé (`masque`), visite de bienvenue déjà lancée (`visite`), chapitres vus (`chapitres`). **Interne, aucune brique ne la
 lit.** Lue et écrite par `GET|PATCH /api/premiers-pas` (session NextAuth, chacun sa
 seule ligne ; un administrateur ne lit ni n'écrit rien). Le SQL marque « masqué » tous
 les comptes existants : seuls les comptes créés après voient la carte d'eux-mêmes.

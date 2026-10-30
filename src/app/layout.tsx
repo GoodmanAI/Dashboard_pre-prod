@@ -17,6 +17,7 @@ import localFont from 'next/font/local'
 import { CentreProvider } from "./context/CentreContext";
 import PageAccessGuard from "@/components/permissions/PageAccessGuard";
 import BandeauCompletude from "@/components/completude/BandeauCompletude";
+import { TutorielProvider } from "@/components/tutoriel/ContexteTutoriel";
 
 /**
  * Layout racine de l’espace applicatif (hors pages d’authentification).
@@ -97,6 +98,8 @@ export default function RootLayout({
           <ThemeProvider theme={baselightTheme}>
             <CssBaseline />
             <CentreProvider>
+              {/* Le tutoriel du client : la visite survit aux changements de page. */}
+              <TutorielProvider>
               <MainWrapper className="mainwrapper">
                 {/* Barre latérale persistante (navigation principale). */}
                 <Sidebar
@@ -131,6 +134,7 @@ export default function RootLayout({
                     </Box>
                 </PageWrapper>
               </MainWrapper>
+              </TutorielProvider>
             </CentreProvider>
           </ThemeProvider>
           </>

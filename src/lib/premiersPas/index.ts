@@ -1,59 +1,36 @@
 import type { SlugProduit } from "@/lib/produits";
-import { ETAPES_TALK } from "./talk";
+import type { Chapitre } from "@/lib/tutoriel/types";
+import { CHAPITRES_TALK } from "@/lib/tutoriel/talk";
 
 /**
- * Premiers pas d'un nouveau client (plan `2026-10-onboarding-dashboard-talk.md`).
+ * Ce que chaque utilisateur a fait de son tutoriel (`User.premiersPas`, plans
+ * `2026-10-onboarding-dashboard-talk.md` puis `2026-10-tutoriel-client-talk.md`).
  *
- * Deux choses vivent ici, et seulement deux :
- *   - la forme de `User.premiersPas` et sa lecture défensive (la colonne est du JSON
- *     libre : une valeur abîmée ne doit jamais casser l'accueil) ;
- *   - la liste des étapes par produit, déclarée dans `talk.ts` (et demain `konnect.ts`).
- *     Le composant ne connaît aucune étape : ajouter Konnect ne le touche pas.
+ * La colonne est du JSON libre : la lecture est défensive, une valeur abîmée ne doit
+ * jamais casser l'accueil. Les chapitres eux-mêmes vivent dans `src/lib/tutoriel/`.
  *
- * **L'état « fait » d'une étape ne se stocke pas.** Il vient du registre de
- * complétude, recalculé à chaque lecture : un mapping vidé plus tard redevient « à
- * faire ». Seule une étape sans verdict possible (les doubles examens) se marque lue.
+ * **L'état « à faire / à vérifier » d'un chapitre ne se stocke pas.** Il vient du
+ * registre de complétude, recalculé à chaque lecture.
  */
 
 export type EtatPremiersPas = {
-  /** Carte rangée par la personne (« Masquer »), ou compte antérieur à la fonction. */
-  masque: boolean;
-  /** Étapes sans verdict de complétude, marquées « J'ai compris ». */
-  lus: string[];
-  /** Phrases des pages de statistiques déjà fermées. */
-  phrases: string[];
-};
-
-export type EtapePremiersPas = {
-  /** Clé stable, écrite en base dans `lus` : ne jamais la renommer. */
-  cle: string;
-  titre: string;
-  /** Deux lignes au plus. Le détail champ par champ reste dans les écrans. */
-  texte: string;
-  /** Ce que l'encart dit sur la page d'arrivée. */
-  consigne: string;
-  /** Sous-chemin de l'écran, relatif au produit (`parametrage/mapping_exam`). */
-  chemin: string;
-  /** `id` de l'élément à amener et entourer sur la page d'arrivée. */
-  ancre: string;
   /**
-   * Clés du registre de complétude qui doivent être sans manque. Vide : aucune
-   * vérification possible, l'étape se coche par « J'ai compris ».
+   * Sommaire de l'accueil rangé (« Masquer »). Le SQL du 29/10 le pose aussi sur tous
+   * les comptes antérieurs : eux ne voient ni le sommaire ni la visite automatique.
    */
-  completude: string[];
+  masque: boolean;
+  /** La visite de bienvenue a déjà été lancée une fois : elle ne repart plus seule. */
+  visite: boolean;
+  /** Chapitres parcourus jusqu'au bout. */
+  chapitres: string[];
 };
 
-/** Paramètre d'URL qui porte le numéro d'étape vers la page d'arrivée. */
-export const PARAM_ETAPE = "premiers_pas";
-
-export const ETAPES: Partial<Record<SlugProduit, EtapePremiersPas[]>> = {
-  talk: ETAPES_TALK,
+export const CHAPITRES: Partial<Record<SlugProduit, Chapitre[]>> = {
+  talk: CHAPITRES_TALK,
 };
 
-export function etapesDuProduit(
-  produit: SlugProduit | null,
-): EtapePremiersPas[] {
-  return (produit && ETAPES[produit]) || [];
+export function chapitresDuProduit(produit: SlugProduit | null): Chapitre[] {
+  return (produit && CHAPITRES[produit]) || [];
 }
 
 function listeDeTextes(v: unknown): string[] {
@@ -62,7 +39,7 @@ function listeDeTextes(v: unknown): string[] {
     : [];
 }
 
-/** `null` (jamais ouverts) donne une carte visible ; tout le reste est lu sans confiance. */
+/** `null` (jamais ouverts) : sommaire visible, visite à lancer. */
 export function lireEtat(brut: unknown): EtatPremiersPas {
   const o =
     brut && typeof brut === "object" && !Array.isArray(brut)
@@ -70,14 +47,14 @@ export function lireEtat(brut: unknown): EtatPremiersPas {
       : {};
   return {
     masque: o.masque === true,
-    lus: listeDeTextes(o.lus),
-    phrases: listeDeTextes(o.phrases),
+    visite: o.visite === true,
+    chapitres: listeDeTextes(o.chapitres),
   };
 }
 
 /** Ce que le navigateur peut demander. Une seule action à la fois. */
 export type ActionPremiersPas =
-  { masque: boolean } | { lu: string } | { phrase: string };
+  { masque: boolean } | { visite: true } | { chapitre: string };
 
 const CLE = /^[a-z_.-]{1,60}$/;
 
@@ -89,25 +66,11 @@ export function appliquer(
   if (!action || typeof action !== "object") return null;
   const a = action as Record<string, unknown>;
   if (typeof a.masque === "boolean") return { ...etat, masque: a.masque };
-  if (typeof a.lu === "string" && CLE.test(a.lu)) {
-    return etat.lus.includes(a.lu)
+  if (a.visite === true) return { ...etat, visite: true };
+  if (typeof a.chapitre === "string" && CLE.test(a.chapitre)) {
+    return etat.chapitres.includes(a.chapitre)
       ? etat
-      : { ...etat, lus: [...etat.lus, a.lu] };
-  }
-  if (typeof a.phrase === "string" && CLE.test(a.phrase)) {
-    return etat.phrases.includes(a.phrase)
-      ? etat
-      : { ...etat, phrases: [...etat.phrases, a.phrase] };
+      : { ...etat, chapitres: [...etat.chapitres, a.chapitre] };
   }
   return null;
-}
-
-/** Une étape est faite si la personne l'a lue, ou si aucune de ses clés ne manque. */
-export function etapeFaite(
-  etape: EtapePremiersPas,
-  etat: EtatPremiersPas,
-  manques: ReadonlySet<string>,
-): boolean {
-  if (etape.completude.length === 0) return etat.lus.includes(etape.cle);
-  return etape.completude.every((c) => !manques.has(c));
 }
