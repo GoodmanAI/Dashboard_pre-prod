@@ -153,7 +153,7 @@ import { trouverProduit } from "@/lib/produits";
 
           {/* Recherche centrale : petite barre, Ctrl+K, et le panneau commun aux deux barres */}
           {rechercheUserId !== null && (
-            <Box sx={{ ml: { xs: 0.5, md: 2 } }}>
+            <Box id="tuto_recherche" sx={{ ml: { xs: 0.5, md: 2 } }}>
               <BarreRecherche variante="entete" />
             </Box>
           )}

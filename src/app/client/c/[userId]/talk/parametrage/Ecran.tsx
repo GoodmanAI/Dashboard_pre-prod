@@ -855,7 +855,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
             : undefined
         }
       />
-
       {readOnly && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {raisonLectureSeule}

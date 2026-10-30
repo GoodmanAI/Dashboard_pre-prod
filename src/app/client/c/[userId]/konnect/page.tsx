@@ -1,7 +1,14 @@
 "use client";
 
 import React from "react";
-import { Box, Card, CardActionArea, Grid, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  Card,
+  CardActionArea,
+  Grid,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { useRouter } from "next/navigation";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import { cheminCentre } from "@/lib/cheminsCentre";
@@ -13,6 +20,7 @@ import {
 } from "@tabler/icons-react";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
+import SommaireTutoriel from "@/components/tutoriel/SommaireTutoriel";
 
 /**
  * Accueil du produit LyraeKonnect.
@@ -67,6 +75,7 @@ export default function AccueilKonnect() {
           title="Bienvenue"
           subtitle="Votre portail de prise de rendez-vous en ligne"
         />
+        <SommaireTutoriel id="premiers_pas" />
 
         <Grid container spacing={2}>
           {RACCOURCIS.map(({ titre, description, chemin, Icone }) => (
@@ -83,7 +92,8 @@ export default function AccueilKonnect() {
               >
                 <CardActionArea
                   onClick={() =>
-                    userId !== null && router.push(cheminCentre(userId, "konnect", chemin))
+                    userId !== null &&
+                    router.push(cheminCentre(userId, "konnect", chemin))
                   }
                   sx={{ p: 2.5, height: "100%" }}
                 >
@@ -110,7 +120,10 @@ export default function AccueilKonnect() {
                         {description}
                       </Typography>
                     </Box>
-                    <IconChevronRight size={18} style={{ opacity: 0.4, flexShrink: 0 }} />
+                    <IconChevronRight
+                      size={18}
+                      style={{ opacity: 0.4, flexShrink: 0 }}
+                    />
                   </Stack>
                 </CardActionArea>
               </Card>
@@ -135,7 +148,11 @@ export default function AccueilKonnect() {
               <IconChartLine size={22} />
             </Box>
             <Box>
-              <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
+              <Typography
+                variant="subtitle2"
+                fontWeight={700}
+                color="text.secondary"
+              >
                 Suivi de l&apos;activité
               </Typography>
               <Typography variant="body2" color="text.secondary">

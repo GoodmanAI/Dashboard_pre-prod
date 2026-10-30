@@ -656,6 +656,9 @@ uniquement, jamais appelées par une brique** :
   registre `src/lib/completude/`. Un client n'y reçoit que les informations dont il est
   propriétaire, le filtrage est côté serveur. Sans `userProductId`, elle renvoie tout le
   parc (admin seul).
+  Depuis le 30/10/2026, la réponse d'un centre porte aussi `tutoriel` : les seules **clés**
+  des manques « admin » dont le tutoriel du client a besoin (`konnect.examens`,
+  `konnect.examens-reservables`), sans leur texte ; le bandeau ne les lit pas.
 
 **Depuis le 15/09/2026, chaque route de session déclare sa page et son niveau.**
 `requirePagePermission(page, 'read' | 'write')` (`src/lib/authGuards.ts`) est appelée par
@@ -792,6 +795,14 @@ robot répond ou transfère, réversible à la minute) et `DeploymentStatus` (l'
 **L'absence de ligne vaut `integration`**, donc silence : le classement est un geste
 volontaire, et reclasser un centre en intégration éteint ses alertes sans redéploiement.
 Administrée par `/api/centre-statut` (session NextAuth, admin — **pas** machine-à-machine).
+
+`User.premiersPas` (JSONB, 29/10/2026, `manual/2026_10_29_premiers_pas.sql`) garde, par
+utilisateur, ce qu'il a fait du tutoriel (30/10, `src/components/tutoriel/`) : sommaire
+rangé (`masque`), visite de bienvenue déjà lancée (`visite`), chapitres vus (`chapitres`). **Interne, aucune brique ne la
+lit.** Lue et écrite par `GET|PATCH /api/premiers-pas` (session NextAuth, chacun sa
+seule ligne ; un administrateur ne lit ni n'écrit rien). Le SQL marque « masqué » tous
+les comptes existants : seuls les comptes créés après voient la carte d'eux-mêmes.
+Plan workspace `2026-10-onboarding-dashboard-talk.md`.
 
 `ReferentielExamens` (11/09/2026) porte la **nomenclature d'examens commune à tous les
 centres**, et amorce le mapping d'un centre jamais configuré, LyraeTalk comme

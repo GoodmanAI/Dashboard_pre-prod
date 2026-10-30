@@ -5,6 +5,12 @@ import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { compteDansLesIncomplets } from "@/lib/centreStatut";
 import { lireEtEvaluer } from "@/lib/completude/lecture";
 
+/** Manques « admin » dont le tutoriel du client a besoin de connaître l'existence. */
+const CLES_POUR_LE_TUTORIEL = new Set([
+  "konnect.examens",
+  "konnect.examens-reservables",
+]);
+
 /**
  * Ce qui manque à un centre pour fonctionner (lot 2 du plan
  * `2026-09-completude-config-centres.md`).
@@ -44,7 +50,7 @@ export async function GET(req: NextRequest) {
     if (!estAdmin) {
       return NextResponse.json(
         { error: "Précisez le centre à évaluer." },
-        { status: 400 }
+        { status: 400 },
       );
     }
     const lignes = await lireEtEvaluer();
@@ -69,7 +75,10 @@ export async function GET(req: NextRequest) {
   // ── Détail d'un centre ─────────────────────────────────────────────────────
   const userProductId = Number(brut);
   if (!Number.isInteger(userProductId) || userProductId <= 0) {
-    return NextResponse.json({ error: "userProductId invalide." }, { status: 400 });
+    return NextResponse.json(
+      { error: "userProductId invalide." },
+      { status: 400 },
+    );
   }
 
   if (!estAdmin) {
@@ -81,7 +90,7 @@ export async function GET(req: NextRequest) {
   if (!ligne) {
     return NextResponse.json(
       { error: "Ce centre n'existe pas ou n'est plus rattaché à ce produit." },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
@@ -100,9 +109,17 @@ export async function GET(req: NextRequest) {
       (l) =>
         l.userProductId !== userProductId &&
         compteDansLesIncomplets(l.statut) &&
-        l.completude.bloquants > 0
+        l.completude.bloquants > 0,
     ).length;
   }
+
+  // Le tutoriel du client doit savoir si son catalogue Konnect est vide, pour insister
+  // ou faire relire. Ces manques restent à l'admin (décision du 09/09 : pas de bandeau
+  // rouge sur un travail qui nous incombe) : on n'en donne que la clé, et seul le
+  // tutoriel la lit, jamais le bandeau.
+  const tutoriel = ligne.completude.manques
+    .filter((m) => CLES_POUR_LE_TUTORIEL.has(m.cle))
+    .map((m) => m.cle);
 
   return NextResponse.json({
     userProductId: ligne.userProductId,
@@ -110,6 +127,7 @@ export async function GET(req: NextRequest) {
     produit: ligne.produit,
     statut: ligne.statut,
     manques,
+    tutoriel,
     bloquants: manques.filter((m) => m.criticite === "bloquant").length,
     degrades: manques.filter((m) => m.criticite === "degrade").length,
     total: ligne.completude.total,
