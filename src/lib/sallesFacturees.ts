@@ -161,6 +161,125 @@ export function sallesKonnect(lignes: readonly LigneSalle[]): SallesKonnect {
   };
 }
 
+// ── Tout cocher (première mise en production) ───────────────────────────────
+
+/** Une salle lue dans `GetInfos` d'un site, son type deviné d'après son code. */
+export type SalleReleveeSite = {
+  codeSite: string;
+  poste: string;
+  libelle: string;
+  type: ExamType | null;
+};
+
+/**
+ * Ce que « Tout cocher » fait d'un produit :
+ *   absent       le client n'a pas le produit ;
+ *   deja_regle   au moins une case est déjà cochée : on ne touche à rien ;
+ *   coche        toutes les salles sont cochées ;
+ *   laisse       Talk seulement : une modalité acceptée aujourd'hui n'a aucune salle
+ *                relevée, la cocher fermerait cette modalité au robot ;
+ *   a_voir       Konnect seulement : des salles étaient déclarées sans aucune ouverte
+ *                (tout au rappel), ce que la table ne sait pas dire ;
+ *   sans_salle   rien n'a été relevé ni déclaré.
+ * Hors `coche`, le produit garde son comportement d'avant (règle de transition).
+ */
+export type IssueCocherTout = "absent" | "deja_regle" | "coche" | "laisse" | "a_voir" | "sans_salle";
+
+export type PlanCocherTout = {
+  salles: SalleEcrite[];
+  ajoutees: string[];
+  /** Postes relevés dont le code ne dit pas la modalité : à saisir à la main. */
+  sansModalite: string[];
+  talk: IssueCocherTout;
+  konnect: IssueCocherTout;
+  /** Talk `laisse` : les modalités acceptées qui n'ont aucune salle relevée. */
+  modalitesSansSalle: ExamType[];
+};
+
+/**
+ * Première mise en production (Enzo, 02/11/2026) : toutes les salles relevées dans
+ * Xplore sont cochées, pour chaque produit du client. Le centre garde ainsi l'effet
+ * d'avant le chantier (toutes ses salles servent) et la facturation part de là ; l'admin
+ * décochera ensuite, client par client.
+ *
+ * Deux gardes pour que rien ne change au passage :
+ *   - Talk : cocher ferme toute modalité sans salle. Si une modalité que le robot
+ *     accepte aujourd'hui n'a aucune salle relevée, Talk reste décoché (`laisse`).
+ *   - Un produit déjà réglé (une case cochée, dont l'ouverture de Konnect reprise du
+ *     26/10) garde son réglage.
+ */
+export function planCocherTout(e: {
+  lignes: readonly LigneSalle[];
+  releve: readonly SalleReleveeSite[];
+  produits: { talk: boolean; konnect: boolean };
+  examsAccepted: unknown;
+  /** `konnect.salles` déclarait des salles sans en ouvrir aucune. */
+  konnectFermeAvant: boolean;
+}): PlanCocherTout {
+  const salles: SalleEcrite[] = e.lignes.map((l) => ({
+    codeSite: l.codeSite,
+    poste: l.poste,
+    typeExamen: l.typeExamen,
+    libelle: l.libelle,
+    talk: l.talk,
+    konnect: l.konnect,
+  }));
+  const ajoutees: string[] = [];
+  const sansModalite: string[] = [];
+  for (const r of e.releve) {
+    const poste = normaliserPoste(r.poste);
+    if (!poste || salles.some((s) => s.poste === poste)) continue;
+    if (!r.type) {
+      if (!sansModalite.includes(poste)) sansModalite.push(poste);
+      continue;
+    }
+    salles.push({
+      codeSite: r.codeSite,
+      poste,
+      typeExamen: r.type,
+      libelle: (r.libelle.trim() || poste).slice(0, LIBELLE_SALLE_MAX),
+      talk: false,
+      konnect: false,
+    });
+    ajoutees.push(poste);
+  }
+
+  const vide = salles.length === 0;
+  let talk: IssueCocherTout;
+  let modalitesSansSalle: ExamType[] = [];
+  if (!e.produits.talk) talk = "absent";
+  else if (produitActif(e.lignes, "talk")) talk = "deja_regle";
+  else if (vide) talk = "sans_salle";
+  else {
+    const types = new Set(salles.map((s) => s.typeExamen));
+    const acceptes =
+      e.examsAccepted && typeof e.examsAccepted === "object"
+        ? (e.examsAccepted as Record<string, unknown>)
+        : {};
+    // Le robot n'accepte une modalité que si sa clé est vraie (`bookableExams?.[type]`).
+    modalitesSansSalle = EXAM_TYPES.filter((t) => Boolean(acceptes[CLE_EXAMS_ACCEPTED[t]]) && !types.has(t));
+    talk = modalitesSansSalle.length > 0 ? "laisse" : "coche";
+  }
+
+  let konnect: IssueCocherTout;
+  if (!e.produits.konnect) konnect = "absent";
+  else if (produitActif(e.lignes, "konnect")) konnect = "deja_regle";
+  else if (e.konnectFermeAvant) konnect = "a_voir";
+  else if (vide) konnect = "sans_salle";
+  else konnect = "coche";
+
+  for (const s of salles) {
+    if (talk === "coche") s.talk = true;
+    if (konnect === "coche") s.konnect = true;
+  }
+  return { salles, ajoutees, sansModalite, talk, konnect, modalitesSansSalle };
+}
+
+/** Le plan change-t-il quelque chose en base ? */
+export function planAEcrire(p: PlanCocherTout): boolean {
+  return p.ajoutees.length > 0 || p.talk === "coche" || p.konnect === "coche";
+}
+
 // ── Facturation ─────────────────────────────────────────────────────────────
 
 export type LigneFacture = {

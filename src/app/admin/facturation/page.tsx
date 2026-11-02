@@ -22,6 +22,7 @@ import SectionHeader from "@/components/admin/SectionHeader";
 import TuileChiffre from "@/components/shared/TuileChiffre";
 import Retour from "@/components/shared/Retour";
 import SallesDuClient from "@/components/salles/SallesDuClient";
+import CocherToutesLesSalles from "@/components/salles/CocherToutesLesSalles";
 import { euros, type Tarifs } from "@/lib/sallesFacturees";
 import { BORDER, INK, INK_MUTED, OK, WARNING } from "@/lib/jetons";
 
@@ -193,6 +194,11 @@ export default function FacturationPage() {
                 </Button>
               </Stack>
             </Paper>
+
+            <CocherToutesLesSalles
+              clients={[...new Map(donnees.lignes.map((l) => [l.userId, { userId: l.userId, nom: l.nom }])).values()]}
+              onApplique={() => void charger()}
+            />
 
             <Paper id="facturation-clients" variant="outlined" sx={{ borderColor: BORDER, borderRadius: 2, mb: 2, overflowX: "auto" }}>
               <Table size="small">
