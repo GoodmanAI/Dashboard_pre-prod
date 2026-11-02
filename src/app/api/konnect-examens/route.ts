@@ -5,7 +5,12 @@ import { db } from "@/lib/db";
 import { requireAuthOrApiKey, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { PRODUITS } from "@/lib/produits";
-import { amorcerMapping } from "@/lib/referentielExamens";
+import {
+  amorcerMapping,
+  referentielEnBase,
+  signatureReferentiel,
+} from "@/lib/referentielExamens";
+import { completerKonnectAvecReferentiel } from "@/lib/referentielRepli";
 import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 import {
@@ -224,7 +229,16 @@ export async function GET(req: NextRequest) {
   }
 
   const salles = await sallesDuPortail(userProductId);
-  const etag = await signature(userProductId, salles.version);
+  // L'écran fusionne le référentiel à la lecture (02/11/2026) : son ETag doit bouger
+  // quand un examen y est ajouté, sinon un navigateur qui revalide recevrait un 304 et
+  // garderait l'ancien tableau. Celui de Konnect ne change pas : son catalogue ne porte
+  // que les lignes enregistrées, pratiquées et avec code RIS.
+  const etag = auth.bot
+    ? await signature(userProductId, salles.version)
+    : (await signature(userProductId, salles.version)).replace(
+        /"$/,
+        `-r${await signatureReferentiel()}"`
+      );
   if (req.headers.get("if-none-match") === etag) {
     return new NextResponse(null, { status: 304, headers: { ETag: etag } });
   }
@@ -252,13 +266,27 @@ export async function GET(req: NextRequest) {
   // nouveau centre — et, quand le client a déjà Talk, lui évite de tout ressaisir.
   if ((res.rowCount ?? 0) === 0) {
     const amorce = await amorcerMapping(userProductId);
+    let examens = amorce.lignes.map((l) => ({
+      ...l,
+      postes: [] as string[],
+      fileAttente: false,
+    }));
+    // Amorce reprise du mapping LyraeTalk : elle ne porte que les examens que Talk a
+    // enregistrés. Les autres lignes du référentiel arrivent non pratiquées, avec le
+    // repli sur leurs parents, comme chez un centre déjà configuré.
+    if (amorce.source === "talk") {
+      examens = completerKonnectAvecReferentiel(
+        examens,
+        await referentielEnBase()
+      );
+    }
     return NextResponse.json(
       {
         userProductId,
         amorce: true,
         source: amorce.source,
         motif: amorce.motif,
-        examens: amorce.lignes.map((l) => ({ ...l, postes: [], fileAttente: false })),
+        examens,
         sallesOuvertes: sallesOuvertesParType(salles.config),
         typesFermes: typesSansSalleOuverte(salles.config),
       },
@@ -271,7 +299,12 @@ export async function GET(req: NextRequest) {
       userProductId,
       amorce: false,
       source: "enregistre",
-      examens: res.rows,
+      // Le mapping enregistré, complété par les examens du référentiel qu'il n'a pas
+      // (02/11/2026) : non pratiqués, avec le code RIS, les salles et les cases
+      // « Réservable en ligne » et « Ordonnance obligatoire » de leur parent quand ils
+      // en ont un (`repliSur`). Le `PUT` les enregistre quand le client enregistre.
+      // Avant, un centre déjà configuré ne voyait jamais un examen ajouté.
+      examens: completerKonnectAvecReferentiel(res.rows, await referentielEnBase()),
       // Les salles que l'équipe a ouvertes, par type, en lecture seule : le centre
       // choisit parmi elles. Le domaine `konnect.salles` lui est fermé.
       sallesOuvertes: sallesOuvertesParType(salles.config),
