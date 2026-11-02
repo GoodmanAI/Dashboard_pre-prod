@@ -135,6 +135,20 @@ export const CATALOGUE: Fiche[] = [
     filtres: ["type"],
   },
   {
+    cle: "talk/parametrage#examens_fermes_au_robot",
+    produit: "talk",
+    page: "parametrage",
+    libelle: "Ce que dit le robot pour un examen qu'il ne prend pas",
+    genre: "reglage",
+    termes: [
+      "examen non pris", "examens non pris", "examen que le robot ne prend pas",
+      "examens que le robot ne prend pas", "on ne fait pas cet examen", "ne fait pas cet examen",
+      "on ne fait pas", "ne fait pas d'", "ou prendre rendez-vous", "osteodensitometrie",
+      "phrase de fin", "examen ferme", "examens fermes au robot",
+    ],
+    filtres: ["type"],
+  },
+  {
     cle: "talk/parametrage#apres_reservation",
     produit: "talk",
     page: "parametrage",

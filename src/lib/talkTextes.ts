@@ -12,6 +12,9 @@
  *     smsDepotGabarit?: string,                 // SMS de dépôt d'ordonnance (lot 4)
  *     smsDepotAvantConfirmation?: true,         // dépôt envoyé avant la confirmation
  *     questionsExamen?: { MR?: {…}, CT?: {…} }, // questions IRM et scanner (15/10)
+ *     examenFermeAuRobot?: {                    // examens fermés au robot (02/11)
+ *       [codeRobot | codeExamen]: { reponse, texte?, telephone? }
+ *     },
  *   }
  *
  * Une seule implémentation pour l'écran (aperçu, compteur) et pour la route
@@ -22,12 +25,15 @@
  * variables, le rendu et la translittération GSM-7 doivent y rester identiques.
  */
 
-export const CLE_CONSIGNE = "rdvInstructionSentence";
+import { estNumeroSortant } from "./completude/validateurs";
+
+export const CLE_CONSIGNE ="rdvInstructionSentence";
 export const CLE_CONSIGNE_PAR_EXAMEN = "rdvInstructionParExamen";
 export const CLE_GABARIT_SMS = "smsConfirmationGabarit";
 export const CLE_GABARIT_DEPOT = "smsDepotGabarit";
 export const CLE_DEPOT_AVANT = "smsDepotAvantConfirmation";
 export const CLE_QUESTIONS = "questionsExamen";
+export const CLE_EXAMEN_FERME = "examenFermeAuRobot";
 
 /** Codes robot (jamais les diminutifs), dans l'ordre de l'écran. */
 export const EXAMENS_CONSIGNE: {
@@ -398,6 +404,7 @@ export type TextesTalk = {
   smsDepotGabarit?: string;
   smsDepotAvantConfirmation?: true;
   questionsExamen?: Record<string, QuestionsExamen>;
+  examenFermeAuRobot?: Record<string, ExamenFerme>;
 };
 
 function erreurConsigne(texte: string, ou: string): string | null {
@@ -524,6 +531,11 @@ export function validerTextes(
   if ("erreur" in questions) return questions;
   if (questions.valeur) sortie[CLE_QUESTIONS] = questions.valeur;
   else delete sortie[CLE_QUESTIONS];
+
+  const fermes = validerExamensFermes(valeur[CLE_EXAMEN_FERME]);
+  if ("erreur" in fermes) return fermes;
+  if (fermes.valeur) sortie[CLE_EXAMEN_FERME] = fermes.valeur;
+  else delete sortie[CLE_EXAMEN_FERME];
 
   return { valeur: sortie };
 }
@@ -675,6 +687,211 @@ function validerQuestions(
     if (r.injection === false && si === "avec")
       r.siInjectionNonDemandee = "avec";
     if (Object.keys(r).length) propres[code] = r;
+  }
+  return { valeur: Object.keys(propres).length ? propres : null };
+}
+
+// ─── Examens fermés au robot (02/11/2026) ────────────────────────────────────
+// Plan `lyrae/plans/2026-11-examens-fermes-au-robot.md`, § 4. Pour un examen que le
+// centre ne confie pas au robot (type décoché dans « Examens acceptés », code
+// « non réservable » ou absent de la correspondance), ce que le robot répond au
+// patient. Clé : code robot (`RX`, `US`, `MG`, `CT`, `MR`, jamais les diminutifs)
+// ou `codeExamen` NEURACORP (`N01MR141`) pour un examen précis ; le code prime sur
+// le type (côté robot). Clé absente = `transferer`, le comportement d'avant.
+//
+// Le réglage ne joue que pour un examen demandé seul : dans une demande à plusieurs
+// examens, un examen fermé transfère toujours (Enzo, 02/11). Hors français, le robot
+// dit sa phrase fixe traduite, avec le numéro s'il y en a un, sinon il transfère.
+//
+// **Recopié côté robot** (`v2/examenFerme.js`, lot 6c) : les trois valeurs de
+// `reponse`, les phrases fixes et l'ordre texte puis numéro.
+
+export type ReponseExamenFerme = "transferer" | "orienter" | "non_fait";
+
+export type ExamenFerme = {
+  reponse: ReponseExamenFerme;
+  /** Phrase du centre, dite telle quelle (seule variable : `{examen}`). */
+  texte?: string;
+  /** Numéro dit au patient, en forme internationale (`+33…`). */
+  telephone?: string;
+};
+
+export const REPONSES_EXAMEN_FERME: {
+  valeur: ReponseExamenFerme;
+  libelle: string;
+}[] = [
+  { valeur: "transferer", libelle: "Passer l'appel au secrétariat" },
+  { valeur: "orienter", libelle: "Dire au patient où prendre rendez-vous" },
+  { valeur: "non_fait", libelle: "Dire que le centre ne fait pas cet examen" },
+];
+
+export const VARIABLES_EXAMEN_FERME: VariableTexte[] = [
+  { nom: "examen", aide: "la mammographie, l'IRM du genou…" },
+];
+
+export const MAX_TEXTE_EXAMEN_FERME = 300;
+
+export const ERREUR_ORIENTER_VIDE =
+  "Écrivez la phrase que le robot dira, ou donnez un numéro.";
+export const ERREUR_NUMERO_FERME =
+  "Ce numéro n'est pas valide. Écrivez ses dix chiffres, par exemple 01 23 45 67 89.";
+
+/** `codeExamen` NEURACORP : `N01MR141`, `N01US012`… */
+const CODE_EXAMEN_PRECIS = /^N\d{2}[A-Z]{2,5}\d{2,4}$/;
+
+/** La clé est-elle un code robot ou un code d'examen précis ? */
+export function estCleExamenFerme(cle: string): boolean {
+  return CODES_EXAMEN.includes(cle) || CODE_EXAMEN_PRECIS.test(cle);
+}
+
+/** `01 23 45 67 89` ou `+33 1 23…` vers `+33123456789`. `null` si le numéro n'est pas valide. */
+export function numeroEnInternational(brut: string): string | null {
+  if (!estNumeroSortant(brut)) return null;
+  const n = brut.trim().replace(/[\s.\-()/]/g, "");
+  return n.startsWith("0") ? `+33${n.slice(1)}` : n;
+}
+
+/** `+33123456789` vers `01 23 45 67 89`, la forme lue par une secrétaire. */
+export function numeroLisible(telephone: string): string {
+  const n = telephone.replace(/^\+33/, "0").replace(/\D/g, "");
+  return n.length === 10 ? n.replace(/(\d{2})(?=\d)/g, "$1 ") : telephone;
+}
+
+/** Erreur du texte d'un examen fermé, ou `null`. */
+export function erreurTexteFerme(texte: string): string | null {
+  if (texte.length > MAX_TEXTE_EXAMEN_FERME) {
+    return `La phrase fait ${texte.length} caractères. Raccourcissez-la à ${MAX_TEXTE_EXAMEN_FERME} au plus.`;
+  }
+  return erreurGabarit(texte, VARIABLES_EXAMEN_FERME);
+}
+
+/**
+ * L'examen avec son article, comme `catalogue.avecArticle` du robot
+ * (`v2/catalogue.js`) : « la mammographie », « l'IRM du genou », « le scanner ».
+ */
+export function examenAvecArticle(libelle: string): string {
+  const l = libelle.trim();
+  if (!l) return "";
+  let corps = /^irm/i.test(l)
+    ? "IRM" + l.slice(3)
+    : l.charAt(0).toLowerCase() + l.slice(1);
+  corps = corps.replace(/^echo/, "écho");
+  if (/^[aeiouyhéèêàâîïôû]/i.test(corps)) return `l'${corps}`;
+  if (
+    /^(radiographie|mammographie|radio|mammo|densitometrie|densitométrie)/i.test(
+      corps,
+    )
+  )
+    return `la ${corps}`;
+  return `le ${corps}`;
+}
+
+/**
+ * La phrase que le patient entend, pour l'aperçu de l'écran. Les phrases fixes
+ * sont celles du plan (§ 4) ; le robot dit le numéro chiffre par chiffre.
+ */
+export function phraseExamenFerme(reglage: ExamenFerme, examen: string): string {
+  const ex = examen || "cet examen";
+  const texte = reglage.texte?.trim()
+    ? rendreConsigne(reglage.texte, { examen: ex, centre: "" })
+    : "";
+  const tel = reglage.telephone ? numeroLisible(reglage.telephone) : "";
+  const finir = (s: string) => (/[.!?]$/.test(s) ? s : `${s}.`);
+  if (reglage.reponse === "orienter") {
+    if (!texte && tel)
+      return `Pour ${ex}, appelez le ${tel}, c'est là que se prend le rendez-vous. Bonne journée.`;
+    return [texte ? finir(texte) : "", tel ? `${tel}.` : "", "Bonne journée."]
+      .filter(Boolean)
+      .join(" ");
+  }
+  if (reglage.reponse === "non_fait") {
+    return [
+      `Je suis désolée, notre centre ne fait pas ${ex}.`,
+      texte ? finir(texte) : "",
+      "Bonne journée.",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+  return `Pour ${ex}, c'est le secrétariat qui prend le rendez-vous. Je vous le passe.`;
+}
+
+/**
+ * Valide et normalise `examenFermeAuRobot`. Seul ce qui sert est gardé : pas de
+ * texte ni de numéro pour `transferer`, pas de numéro pour `non_fait`. Une valeur
+ * vide retire la clé.
+ */
+export function validerExamensFermes(
+  brut: unknown,
+): { valeur: Record<string, ExamenFerme> | null } | { erreur: string } {
+  if (brut === undefined || brut === null) return { valeur: null };
+  if (typeof brut !== "object" || Array.isArray(brut)) {
+    return {
+      erreur: "Les réponses des examens fermés au robot sont mal formées.",
+    };
+  }
+  const propres: Record<string, ExamenFerme> = {};
+  for (const [cleBrute, v] of Object.entries(brut as Record<string, unknown>)) {
+    const cle = cleBrute.trim().toUpperCase();
+    if (!estCleExamenFerme(cle)) {
+      return {
+        erreur: `L'examen ${cleBrute} n'est pas reconnu. Choisissez un type (${CODES_EXAMEN.join(", ")}) ou un examen de la correspondance.`,
+      };
+    }
+    if (v === null || v === undefined) continue;
+    if (typeof v !== "object" || Array.isArray(v)) {
+      return { erreur: `La réponse pour ${cle} est mal formée.` };
+    }
+    const r = v as Record<string, unknown>;
+    const nom = EXAMENS_CONSIGNE.find((x) => x.code === cle)?.libelle ?? cle;
+    const reponse = r.reponse;
+    if (
+      reponse !== "transferer" &&
+      reponse !== "orienter" &&
+      reponse !== "non_fait"
+    ) {
+      return {
+        erreur: `Pour ${nom}, choisissez ce que dit le robot : passer l'appel, dire où prendre rendez-vous, ou dire que le centre ne fait pas l'examen.`,
+      };
+    }
+    if (r.texte !== undefined && r.texte !== null && typeof r.texte !== "string") {
+      return { erreur: `La phrase pour ${nom} doit être un texte.` };
+    }
+    if (
+      r.telephone !== undefined &&
+      r.telephone !== null &&
+      typeof r.telephone !== "string"
+    ) {
+      return { erreur: `Le numéro pour ${nom} doit être un texte.` };
+    }
+    const texte = typeof r.texte === "string" ? r.texte.trim() : "";
+    const telBrut = typeof r.telephone === "string" ? r.telephone.trim() : "";
+
+    if (reponse === "transferer") {
+      propres[cle] = { reponse };
+      continue;
+    }
+    if (texte) {
+      const e = erreurTexteFerme(texte);
+      if (e) return { erreur: `${nom} : ${e}` };
+    }
+    if (reponse === "non_fait") {
+      propres[cle] = texte ? { reponse, texte } : { reponse };
+      continue;
+    }
+    // orienter : la phrase du centre, le numéro, ou les deux.
+    let telephone: string | null = null;
+    if (telBrut) {
+      telephone = numeroEnInternational(telBrut);
+      if (!telephone) return { erreur: `${nom} : ${ERREUR_NUMERO_FERME}` };
+    }
+    if (!texte && !telephone)
+      return { erreur: `${nom} : ${ERREUR_ORIENTER_VIDE}` };
+    propres[cle] = {
+      reponse,
+      ...(texte ? { texte } : {}),
+      ...(telephone ? { telephone } : {}),
+    };
   }
   return { valeur: Object.keys(propres).length ? propres : null };
 }

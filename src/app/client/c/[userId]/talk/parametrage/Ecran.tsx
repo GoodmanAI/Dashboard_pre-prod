@@ -60,6 +60,7 @@ import SmsConfirmationConfigCard from "./SmsConfirmationConfigCard";
 import SmsBookingConfirmationCard from "./SmsBookingConfirmationCard";
 import ConsigneApresReservationCard from "./ConsigneApresReservationCard";
 import QuestionsExamenCard from "./QuestionsExamenCard";
+import ExamensFermesAuRobotCard from "./ExamensFermesAuRobotCard";
 import PrescriptionConfigCard, {
   type PrescriptionConfigHandle,
 } from "./PrescriptionConfigCard";
@@ -1392,6 +1393,15 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
             </Typography>
           </AccordionDetails>
         </Accordion>
+
+        {/* Ce que dit le robot pour un examen fermé (talk.textes, 02/11) */}
+        <Box id="examens_fermes_au_robot">
+          <ExamensFermesAuRobotCard
+            userProductId={Number(params.id)}
+            readOnly={readOnly}
+            examsAccepted={settings.examsAccepted ?? {}}
+          />
+        </Box>
 
         {/* Consigne dite après la réservation (domaine talk.textes) */}
         <Box id="apres_reservation">

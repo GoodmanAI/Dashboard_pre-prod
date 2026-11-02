@@ -20,7 +20,8 @@ export const dynamic = "force-dynamic";
  *    → Indicateur d'action #1 : codes candidats à ajouter au mapping du site.
  *
  *  CAS B — Type entier non réalisé :
- *    transferReason === 'exam_type' OU stats.exam_not_bookable === true
+ *    transferReason === 'exam_type' ou 'exam_closed_to_bot' (02/11/2026), OU
+ *    stats.exam_not_bookable === true
  *    avec stats.exam_not_bookable_type (RX/US/MG/CT/MR).
  *    → Validation cohérence config : type volontairement refusé ou erreur ?
  *
@@ -188,9 +189,11 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      // --- Cas B : exam_type ou exam_not_bookable === true ---
+      // --- Cas B : exam_type, exam_closed_to_bot ou exam_not_bookable === true ---
       const isBookableRefuse =
-        reason === "exam_type" || stats.exam_not_bookable === true;
+        reason === "exam_type" ||
+        reason === "exam_closed_to_bot" ||
+        stats.exam_not_bookable === true;
       if (isBookableRefuse) {
         const rawType = stats.exam_not_bookable_type;
         const type =
