@@ -67,15 +67,20 @@ export type ConfigKonnect = {
   cloudOcrActif: boolean;
   /**
    * Façon de lire les ordonnances (OCR v2, C-OCRV2.8.2 de Konnect). `null` : le cabinet
-   * suit le défaut de la plateforme (`tesseract_only`). Les deux stratégies vision ne
+   * suit le défaut de la plateforme (`tesseract_only`). Les stratégies vision ne
    * s'appliquent que si le consentement est donné ET si l'exploitant a habilité le
    * cabinet (`KONNECT_VISION_TENANTS`) : sinon Konnect retombe sur `tesseract_only`.
    */
   ocrStrategy: StrategieOcr | null;
 };
 
-export type StrategieOcr = "tesseract_only" | "vision_shadow" | "vision_first";
-export const STRATEGIES_OCR: StrategieOcr[] = ["tesseract_only", "vision_shadow", "vision_first"];
+export type StrategieOcr = "tesseract_only" | "vision_shadow" | "vision_first" | "vision_rattrapage";
+export const STRATEGIES_OCR: StrategieOcr[] = [
+  "tesseract_only",
+  "vision_shadow",
+  "vision_first",
+  "vision_rattrapage",
+];
 
 /** Défauts *fail-closed*, alignés sur `cabinet_parametres` de Konnect. */
 export const KONNECT_DEFAUTS: ConfigKonnect = {

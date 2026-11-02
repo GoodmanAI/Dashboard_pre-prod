@@ -464,7 +464,12 @@ d'expéditeur. **Depuis le 30/10/2026, `ocr_strategy`** (`tesseract_only`, `visi
 `vision_first` ou `null`) : la façon de lire de Konnect, réglée par un ADMIN dans la page
 d'installation comme `cloud_ocr_actif` (403 pour un client), colonne `KonnectSettings.ocrStrategy`
 (`prisma/migrations/manual/2026_10_30_konnect_ocr_strategy.sql`). `null` : Konnect garde la
-stratégie en place. Exclue du pack de configuration, comme le consentement.
+stratégie en place. Exclue du pack de configuration, comme le consentement. **Depuis le
+02/11/2026, `vision_rattrapage`** en plus (valeur ajoutée, aucune renommée) : Tesseract lit,
+le prestataire vision ne relit que l'ordonnance où aucun examen n'est reconnu (Konnect
+C-OCRV2.10, migration 0102 ; contrainte élargie par
+`prisma/migrations/manual/2026_11_02_konnect_ocr_rattrapage.sql`). Un Konnect antérieur à
+la 0102 la ramène à `tesseract_only` : déployer Konnect avant de la choisir.
 
 **Quatre champs ont été retirés le 18/09/2026** : `rappels_actifs`, `annulation_directe`,
 `sms_rappel_mode` et `code_caracteristique_confirmation_xplore`. Ils pilotaient la
