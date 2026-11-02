@@ -47,6 +47,12 @@ export type LigneReferentiel = {
   reservableEnLigne: boolean;
   ordoOblig: boolean;
   examenInjecte: boolean;
+  /**
+   * Parents d'un examen ajouté au référentiel, dans l'ordre (02/11/2026). Rempli
+   * seulement par `referentielEnBase()` ; vide pour les autres sources. Voir
+   * `src/lib/referentielRepli.ts`.
+   */
+  repliSur?: string[];
 };
 
 export type Referentiel = {
@@ -222,19 +228,41 @@ function safeParse(s: string): unknown {
  * pas eu lieu (`scripts/data-provisioning/2026_09_11_semer_referentiel_examens.sql`),
  * ce qui fait retomber l'appelant sur le blob : la bascule est donc sans risque même
  * si le déploiement du code précède celui de la donnée.
+ *
+ * `repliSur` (02/11/2026, `prisma/migrations/manual/2026_11_02_referentiel_repli.sql`) :
+ * même philosophie. Tant que la colonne n'existe pas, la lecture retombe sur les trois
+ * colonnes d'origine et chaque ligne porte `repliSur: []`. Le code peut donc partir
+ * avant la migration.
  */
 export async function referentielEnBase(): Promise<LigneReferentiel[]> {
-  const res = await db.query<{
+  type Brut = {
     codeExamen: string;
     typeExamen: string | null;
     libelle: string | null;
-  }>(
-    `SELECT "codeExamen", "typeExamen", "libelle"
-       FROM "ReferentielExamens"
-      ORDER BY "typeExamen" NULLS LAST, "libelle" ASC`,
-  );
+    repliSur?: string[] | null;
+  };
+  let rows: Brut[];
+  try {
+    rows = (
+      await db.query<Brut>(
+        `SELECT "codeExamen", "typeExamen", "libelle", "repliSur"
+           FROM "ReferentielExamens"
+          ORDER BY "typeExamen" NULLS LAST, "libelle" ASC`,
+      )
+    ).rows;
+  } catch (err: any) {
+    // 42703 = colonne inconnue : la migration du 02/11 n'est pas encore passée.
+    if (err?.code !== "42703") throw err;
+    rows = (
+      await db.query<Brut>(
+        `SELECT "codeExamen", "typeExamen", "libelle"
+           FROM "ReferentielExamens"
+          ORDER BY "typeExamen" NULLS LAST, "libelle" ASC`,
+      )
+    ).rows;
+  }
 
-  return res.rows.map((r) => ({
+  return rows.map((r) => ({
     codeExamen: r.codeExamen,
     typeExamen: r.typeExamen,
     libelle: r.libelle,
@@ -249,7 +277,22 @@ export async function referentielEnBase(): Promise<LigneReferentiel[]> {
     reservableEnLigne: true,
     ordoOblig: false,
     examenInjecte: false,
+    repliSur: Array.isArray(r.repliSur) ? r.repliSur : [],
   }));
+}
+
+/**
+ * Empreinte du référentiel (`count` + dernier `importeLe`), pour un ETag qui bouge
+ * quand un examen y est ajouté. Sert l'écran de mapping de Konnect, qui fusionne
+ * désormais le référentiel à la lecture.
+ */
+export async function signatureReferentiel(): Promise<string> {
+  const res = await db.query<{ n: string; dernier: Date | null }>(
+    `SELECT COUNT(*)::text AS n, MAX("importeLe") AS dernier
+       FROM "ReferentielExamens"`,
+  );
+  const { n, dernier } = res.rows[0];
+  return `${n}-${dernier ? dernier.getTime() : 0}`;
 }
 
 /**
