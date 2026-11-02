@@ -177,6 +177,19 @@ déjà :
   contreIndications?: false (MR seulement), grossesse?: false }`. Seul « pas posée »
   (`false`) est stocké ; une clé absente = question posée, comme avant. `injection: false`
   sans `siInjectionNonDemandee` = examen réservé sans injection.
+- `site.examenFermeAuRobot` (02/11/2026, plan `plans/2026-11-examens-fermes-au-robot.md`,
+  lu par LyraeTalk à partir du lot 6c, `V2_EXAMEN_FERME_REGLE`) : ce que le robot répond pour
+  un examen que le centre ne lui confie pas (type décoché, code non réservable ou non
+  pratiqué). `{ [cle]: { reponse, texte?, telephone? } }`, `cle` = code robot (`RX`, `US`,
+  `MG`, `CT`, `MR`) ou `codeExamen` NEURACORP (`N01MR141`, format `N\d{2}[A-Z]{2,5}\d{2,4}`),
+  le code primant sur le type côté robot. `reponse` : `transferer` (seul, comportement
+  d'avant), `orienter` (`texte` et/ou `telephone`, au moins l'un), `non_fait` (`texte`
+  facultatif, ajouté à la phrase fixe). `texte` : 300 caractères au plus, seule variable
+  `{examen}`. `telephone` : forme internationale `+33…`, normalisée à l'écriture (refusé :
+  numéro invalide ou provisoire, `estNumeroSortant`). Clé absente = `transferer`. Ne joue
+  que pour un examen demandé seul (une demande à plusieurs examens transfère toujours).
+  Exemple : `{ "MG": { "reponse": "orienter", "texte": "Les mammographies se prennent au
+  centre du Parc.", "telephone": "+33145678912" }, "N01RX140": { "reponse": "non_fait" } }`.
 
 Validation au `PUT /api/product-config` (`src/lib/talkTextes.ts`) : variable inconnue,
 accolade orpheline, code d'examen inconnu, `{lien}` ou `{code}` absent du SMS de dépôt,
@@ -608,6 +621,9 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   `estExamenNonPris` (`src/lib/transferReasons.ts`) : catégorie `examen_non_traitable` ou
   `stats.exam_not_bookable`. Avant, `transferReason === "exam_type"` seul : l'écran client,
   la tuile admin « Non traités » et ce filtre comptaient trois choses différentes.
+  Depuis le 02/11/2026, `exam_closed_to_bot` (« Examen fermé au robot par le centre »,
+  posé par LyraeTalk à partir du lot 6c) en fait partie, et `GET /api/exam-non-pris/aggregate`
+  le range avec `exam_type` (cas B, par `exam_not_bookable_type`).
 - **`status=transfer:all` et `status=hung_up`** (21/10/2026) : un transfert, c'est
   `end_reason` à `transfer` **ou** `end_bridge_not_responsed` (le robot a transféré, le
   secrétariat n'a pas décroché), selon `estUnTransfert` (`src/lib/transferReasons.ts`).

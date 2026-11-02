@@ -1457,6 +1457,34 @@
       },
       "lot": "premiers-pas",
       "note": "Tutoriel de LyraeKonnect (plan 2026-10-tutoriel-client-talk.md)."
+    },
+    {
+      "id": "ef01",
+      "source": "brouillon",
+      "phrase": "Je veux que le robot dise qu'on ne fait pas d'ostéodensitométrie",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#examens_fermes_au_robot"
+        ],
+        "filtres": {}
+      },
+      "lot": "examens-fermes",
+      "note": "Carte « Examens que le robot ne prend pas » (plan 2026-11-examens-fermes-au-robot.md, lot 6b)."
+    },
+    {
+      "id": "ef02",
+      "source": "brouillon",
+      "phrase": "Pour les mammographies, le robot doit dire où prendre rendez-vous",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#examens_fermes_au_robot"
+        ],
+        "filtres": {
+          "type": "MG"
+        }
+      },
+      "lot": "examens-fermes",
+      "note": "Réponse « Dire au patient où prendre rendez-vous » (orienter)."
     }
   ]
 }

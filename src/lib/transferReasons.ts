@@ -110,6 +110,10 @@ export const TRANSFER_REASON_META: Record<string, TransferMeta> = {
   // ===== examen_non_traitable =====
   exam_type: { label: "Examen que le robot ne prend pas", category: "examen_non_traitable" },
   exam_not_practiced: { label: "Examen non pratiqué par le centre", category: "examen_non_traitable" },
+  // Robot v2.79.0 (02/11/2026) : type décoché ou code « non réservable » au mapping. Avant,
+  // ces appels portaient `exam_type`, mêlés aux vrais échecs de compréhension. Ce que le robot
+  // a répondu est dans `stats.examen_ferme.reponse` (plan `2026-11-examens-fermes-au-robot.md`).
+  exam_closed_to_bot: { label: "Examen fermé au robot par le centre", category: "examen_non_traitable" },
   exam_interv: { label: "Examen de radiologie interventionnelle", category: "examen_non_traitable" },
   exam_mult: { label: "Plusieurs examens dans le même appel", category: "examen_non_traitable" },
   doppler_off_catalog: { label: "Doppler absent du catalogue du centre", category: "examen_non_traitable" },
