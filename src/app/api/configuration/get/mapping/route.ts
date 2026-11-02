@@ -14,8 +14,8 @@ import {
   type LigneNomenclature,
 } from "@/lib/referentielRepli";
 import { versionMapping, EN_TETE_VERSION_MAPPING } from "@/lib/versionMapping";
-import { postesValides, type SallesParType } from "@/lib/sallesExamen";
-import { sallesDuCentre } from "@/lib/sallesExamenLecture";
+import { postesTalk, type SallesTalk } from "@/lib/sallesFacturees";
+import { sallesTalkDuCentre } from "@/lib/sallesExamenLecture";
 
 type Exam = Record<string, any>;
 type ExamMap = Record<string, Exam>;
@@ -96,9 +96,13 @@ export async function GET(req: NextRequest) {
     // Une lecture en échec rend `{}`, donc des `postes` vides : le robot cherche
     // alors dans toutes les salles, comme avant le chantier. Mieux vaut un créneau
     // dans une salle discutable que plus de mapping du tout pendant un appel.
-    let salles: SallesParType = {};
+    //
+    // Salles payées (02/11/2026, plan `2026-11-salles-facturees-talk-konnect`) : quand
+    // le client a au moins une salle cochée pour Talk, un examen sans salle choisie
+    // reçoit toutes les salles payées de son type, jamais « aucun filtre ».
+    let salles: SallesTalk = { sallesParType: {}, actif: false };
     try {
-      salles = await sallesDuCentre(Number(userProductId));
+      salles = await sallesTalkDuCentre(Number(userProductId));
     } catch (e) {
       console.error("[get/mapping] salles illisibles, aucun filtre :", e);
     }
@@ -130,7 +134,7 @@ export async function GET(req: NextRequest) {
               codeExamenClient: exam.codeExamenClient || "",
               horaireMapping: exam.horaire ?? null,
               codeExamenClientInject: exam.codeExamenClientInject ?? null,
-              postes: postesValides(exam.postes, salles, exam.typeExamen),
+              postes: postesTalk(exam.postes, salles, exam.typeExamen),
             };
           }
         });
@@ -151,7 +155,7 @@ export async function GET(req: NextRequest) {
               codeExamenClient: exam.codeExamenClient || "",
               horaireMapping: exam.horaire ?? null,
               codeExamenClientInject: exam.codeExamenClientInject ?? null,
-              postes: postesValides(exam.postes, salles, exam.typeExamen),
+              postes: postesTalk(exam.postes, salles, exam.typeExamen),
             };
           },
         );
@@ -237,6 +241,9 @@ export async function GET(req: NextRequest) {
     // `horaire` n'est jamais réglé sur une ligne venue de la nomenclature.
     for (const code of Array.from(ajoutables)) {
       examsMap[code].horaireMapping = null;
+      // Jamais réglée par ce centre : aucun filtre, sauf salles payées (02/11/2026) :
+      // alors celles de son type. Une ligne repliée garde les salles de son parent.
+      examsMap[code].postes = postesTalk(examsMap[code].postes, salles, examsMap[code].typeExamen);
     }
 
     // 🔍 Filtre par codeExamen si demandé

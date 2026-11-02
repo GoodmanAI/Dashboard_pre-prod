@@ -23,6 +23,11 @@ import {
   typeSallesExamen,
   type SallesKonnect,
 } from "@/lib/konnectSalles";
+import { sallesKonnect } from "@/lib/sallesFacturees";
+import {
+  sallesDuUserProduct,
+  versionSallesDuUserProduct,
+} from "@/lib/sallesFactureesLecture";
 
 /**
  * Mapping d'examens LyraeKonnect d'un centre (lot C).
@@ -86,10 +91,25 @@ const COLONNES = `"codeExamen", "typeExamen", "libelle", "codeExamenClient",
                   "performed", "reservableEnLigne", "ordoOblig", "examenInjecte",
                   "postes", "fileAttente"`;
 
-/** Les salles du portail (`konnect.salles`) et la version du domaine, 0 si absent. */
+/**
+ * Les salles du portail et leur version (pour l'ETag).
+ *
+ * Depuis le 02/11/2026 (plan `2026-11-salles-facturees-talk-konnect`), la table
+ * `Salle` du client, case Konnect. Tant que le client n'y a aucune salle (ou que la
+ * table n'existe pas encore), l'ancien domaine `konnect.salles` : rien ne change pour un
+ * centre pas encore réglé. La version de la table est préfixée `t` pour ne jamais
+ * retomber sur une version de l'ancien domaine.
+ */
 async function sallesDuPortail(
   userProductId: number
-): Promise<{ config: SallesKonnect; version: number }> {
+): Promise<{ config: SallesKonnect; version: number | string }> {
+  const lignes = await sallesDuUserProduct(userProductId);
+  if (lignes && lignes.length > 0) {
+    return {
+      config: sallesKonnect(lignes),
+      version: `t${await versionSallesDuUserProduct(userProductId)}`,
+    };
+  }
   const res = await db.query<{ valeur: unknown; version: number }>(
     `SELECT "valeur", "version" FROM "ProductConfig"
       WHERE "userProductId" = $1 AND "domaine" = $2 LIMIT 1`,
@@ -127,7 +147,10 @@ function lireUserProductId(req: NextRequest): number | null {
  * change les `postes` du catalogue sans toucher une ligne de `KonnectExamens`. Sans
  * elle, Konnect recevrait un 304 et garderait l'ancien filtre.
  */
-async function signature(userProductId: number, versionSalles: number): Promise<string> {
+async function signature(
+  userProductId: number,
+  versionSalles: number | string
+): Promise<string> {
   const res = await db.query<{ n: string; dernier: Date | null }>(
     `SELECT COUNT(*)::text AS n, MAX("updatedAt") AS dernier
        FROM "KonnectExamens" WHERE "userProductId" = $1`,

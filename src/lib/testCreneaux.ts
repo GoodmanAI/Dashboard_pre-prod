@@ -17,7 +17,8 @@
  * (`getExamMinDelay.js`) et la préférence de centre.
  */
 
-import { normaliserPoste, postesValides, sallesDuType, typePourSalles, type SallesParType } from "@/lib/sallesExamen";
+import { postesTalk } from "@/lib/sallesFacturees";
+import { normaliserPoste, sallesDuType, typePourSalles, type SallesParType } from "@/lib/sallesExamen";
 
 export type LigneMapping = {
   codeExamen?: unknown;
@@ -98,13 +99,15 @@ export function sitesDuType(
 export function sallesRetenues(
   ligne: LigneMapping,
   salles: SallesParType,
-  exceptions: { codeExamen: string; poste: string }[]
+  exceptions: { codeExamen: string; poste: string }[],
+  /** Salles payées actives (02/11/2026) : un choix vide vaut toutes les salles payées du type, comme pour le robot. */
+  actif = false
 ): { postes: string[]; imposee: string | null } {
   const code = texte(ligne.codeExamen);
   const regle = exceptions.find((e) => e.codeExamen === code);
   const imposee = regle ? normaliserPoste(regle.poste) || null : null;
   if (imposee) return { postes: [imposee], imposee };
-  return { postes: postesValides(ligne.postes, salles, ligne.typeExamen), imposee: null };
+  return { postes: postesTalk(ligne.postes, { sallesParType: salles, actif }, ligne.typeExamen), imposee: null };
 }
 
 /** `{ CHKRX2: "R2" }` : le nom que le centre donne à ses salles du type. */
