@@ -469,7 +469,12 @@ stratégie en place. Exclue du pack de configuration, comme le consentement. **D
 le prestataire vision ne relit que l'ordonnance où aucun examen n'est reconnu (Konnect
 C-OCRV2.10, migration 0102 ; contrainte élargie par
 `prisma/migrations/manual/2026_11_02_konnect_ocr_rattrapage.sql`). Un Konnect antérieur à
-la 0102 la ramène à `tesseract_only` : déployer Konnect avant de la choisir.
+la 0102 la ramène à `tesseract_only` : déployer Konnect avant de la choisir. **Depuis
+C-OCRV2.11 (même jour, décision d'Enzo)**, `vision_rattrapage` est la lecture de tous les
+centres, sans accord ni réglage : la page d'installation ne montre plus l'accord ni la façon
+de lire. Les deux champs descendent toujours (contrat inchangé), mais Konnect ne lit plus
+`cloud_ocr_actif` pour le rattrapage, et n'écoute `ocr_strategy` que pour un essai de
+l'exploitant (`vision_first`, `vision_shadow`).
 
 **Quatre champs ont été retirés le 18/09/2026** : `rappels_actifs`, `annulation_directe`,
 `sms_rappel_mode` et `code_caracteristique_confirmation_xplore`. Ils pilotaient la
