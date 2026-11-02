@@ -28,7 +28,8 @@ import {
   validerExceptionsSalles,
   validerPrioriteSalles,
 } from "@/lib/sallesExamen";
-import { sallesDuCentre } from "@/lib/sallesExamenLecture";
+import { sallesDuCentre, sallesTalkDuCentre } from "@/lib/sallesExamenLecture";
+import { examsAcceptesEffectifs, type SallesTalk } from "@/lib/sallesFacturees";
 import { documentsParType } from "@/lib/piecesAttendues";
 
 /**
@@ -139,6 +140,21 @@ export async function GET(req: NextRequest) {
         ? (siteCfgRes.rows[0].valeur as Record<string, unknown>)
         : null;
 
+    // Les salles du centre pour Talk (02/11/2026, plan
+    // `2026-11-salles-facturees-talk-konnect`) : la table `Salle` du client, ou
+    // l'ancienne `talk.site.sallesParType` tant qu'il n'y en a aucune. Une lecture en
+    // échec retombe sur l'ancienne déclaration, sans fermer aucune modalité : mieux vaut
+    // un appel qui se passe comme hier qu'un robot qui transfère tout.
+    let sallesTalkCentre: SallesTalk = {
+      sallesParType: lireSallesParType(siteBrut?.sallesParType),
+      actif: false,
+    };
+    try {
+      sallesTalkCentre = await sallesTalkDuCentre(userProductId);
+    } catch (err) {
+      console.error("[configuration] salles illisibles, ancienne déclaration :", err);
+    }
+
     // ── UNE SEULE SOURCE PAR INFORMATION ──────────────────────────────────────
     //
     // Sept champs de `site` désignent la même chose qu'un champ servi à la
@@ -213,7 +229,7 @@ export async function GET(req: NextRequest) {
         if (cle === "sallesParType") {
           // Relu sous sa forme normalisée : une valeur enregistrée avant la
           // validation (ou à la main en base) ne doit pas descendre mal formée.
-          site[cle] = lireSallesParType(valeur);
+          site[cle] = sallesTalkCentre.sallesParType;
           continue;
         }
         site[cle] = valeur;
@@ -373,7 +389,7 @@ export async function GET(req: NextRequest) {
     // `options.exceptionsSalles` (07/10/2026), même principe : une salle imposée
     // dont l'examen a quitté la correspondance, ou dont la salle n'est plus
     // déclarée pour son type, ne descend plus.
-    const sallesDeclarees = lireSallesParType(siteBrut?.sallesParType);
+    const sallesDeclarees = sallesTalkCentre.sallesParType;
     let options: unknown = settings.options;
     if (
       optionsBrutes &&
@@ -406,7 +422,12 @@ export async function GET(req: NextRequest) {
         // emergencyOutOfHours: settings.emergencyOutOfHours,
         // callMode: settings.callMode,
         fullPlanningNotes: settings.fullPlanningNotes,
-        examsAccepted: settings.examsAccepted,
+        // Pour le ROBOT seulement, les modalités sans salle payée sont fermées : il
+        // transfère (motif `exam_type`). L'écran du centre lit et réécrit son propre
+        // réglage : le forcer ici le ferait enregistrer pour de bon.
+        examsAccepted: auth.bot
+          ? examsAcceptesEffectifs(settings.examsAccepted, sallesTalkCentre)
+          : settings.examsAccepted,
         examQuestions: settings.examQuestions,
         // specificNotes: settings.specificNotes,
         // reconnaissance: settings.reconnaissance,

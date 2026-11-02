@@ -155,7 +155,7 @@ export const SECTIONS_SITE: SectionSite[] = [
         type: "json",
         proprietaire: "admin",
         defautRobot: "Aucune salle déclarée, aucun filtre",
-        aide: "Les salles du centre, par type d'examen (US, MG, RX, MR, CT). `poste` est le numéro de poste du logiciel de gestion, tel qu'il revient dans les créneaux ; `libelle` est le nom que le centre emploie (40 caractères au plus). Un code faux vide les créneaux de l'examen sans aucune alerte : relevez-le dans les créneaux avant de le saisir.",
+        aide: "ANCIENNE SAISIE : depuis le 02/11/2026, les salles se règlent dans le bloc « Salles facturées » (Installation Talk, Installation Konnect, Facturation). Ce champ n'est plus lu dès que le client y a une salle. Les salles du centre, par type d'examen (US, MG, RX, MR, CT). `poste` est le numéro de poste du logiciel de gestion, tel qu'il revient dans les créneaux ; `libelle` est le nom que le centre emploie (40 caractères au plus). Un code faux vide les créneaux de l'examen sans aucune alerte : relevez-le dans les créneaux avant de le saisir.",
         exemple: `{
   "RX": [
     { "poste": "CHKRX2", "libelle": "R2" },

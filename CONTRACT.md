@@ -397,6 +397,13 @@ sans salle déclarée). Aucune salle ouverte pour l'examen : `reservable_en_lign
 (rappel). L'ETag du catalogue intègre la version de `konnect.salles`. Konnect ne lit pas
 ce domaine. Plan : `lyrae/plans/2026-10-salles-ouvertes-konnect.md`.
 
+**Depuis le 02/11/2026, les salles viennent de la table `Salle`** (une liste par client,
+partagée avec Talk, case `konnect` = ouverte ; SQL `2026_11_02_salles_facturees.sql`, plan
+`lyrae/plans/2026-11-salles-facturees-talk-konnect.md`). Tant que le client n'y a aucune
+salle, le domaine `konnect.salles` reste lu. Aucune case Konnect cochée = aucun filtre
+(`postes: []` partout), même si des salles sont déclarées pour Talk. La version de l'ETag
+devient `-st<horodatage>` quand la table sert. La forme du catalogue ne change pas.
+
 **4. File d'attente (27/10/2026)**, le quatrième flux montant, décidé le 27/10
 (`lyrae/DECISIONS.md`, plan `lyrae/plans/2026-10-file-attente-konnect.md`). Clé `KONNECT_API_KEY` :
 
@@ -1000,6 +1007,16 @@ avec `codeExamen`, et lignes de complétion par la nomenclature, toujours `[]`).
 dans l'ordre de la déclaration. `[]` = **aucun filtre**, toutes les salles. Une lecture
 en échec des salles rend `[]` partout (pas de 500 pendant un appel). Les deux formes de la
 réponse ne changent pas : LyraeTalk lit toujours `data[internal_code]`.
+
+**Salles payées (02/11/2026, additif de sens, aucune clé ajoutée).** Les salles se lisent
+dans la table `Salle` du client (case `talk`), sinon dans `site.sallesParType`. Quand au
+moins une salle a la case Talk, `postes` d'un examen n'est **jamais** vide pour un type qui
+a des salles payées : un choix vide (ou sans salle payée) devient toutes les salles payées
+du type, lignes de la nomenclature comprises. Et `GET /api/configuration`, **appelé par le
+robot** (`BOT_API_KEY`), sert `examsAccepted` avec chaque modalité sans salle payée à
+`false` : le robot transfère (`exam_type`) par son chemin existant. Un appel par session
+(l'écran du centre) reçoit le réglage tel qu'enregistré. Aucune case Talk cochée : rien ne
+change. Plan `lyrae/plans/2026-11-salles-facturees-talk-konnect.md`.
 
 Les salles déclarées ne sont **pas** dans cette réponse. L'écran les lit par
 `GET /api/configuration/salles?userProductId=NN` (session seule, lecture de « Mapping

@@ -22,7 +22,7 @@ import Link from "next/link";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import { cheminCentre } from "@/lib/cheminsCentre";
 import SectionHeader from "@/components/admin/SectionHeader";
-import SallesPortailKonnect from "@/components/konnect/SallesPortailKonnect";
+import SallesDuClient from "@/components/salles/SallesDuClient";
 import LectureOrdonnancesKonnect from "@/components/konnect/LectureOrdonnancesKonnect";
 import type { Manque } from "@/lib/completude/types";
 import type { StatutCentre } from "@/lib/centreStatut";
@@ -530,8 +530,9 @@ export default function InstallationKonnect() {
             />
 
             {/* Engagement commercial, comme l'accord ci-dessus : le portail se facture
-                par salle, et seule l'équipe ouvre une salle (26/10/2026). */}
-            <SallesPortailKonnect userProductId={centre.userProductId} />
+                par salle, et seule l'équipe ouvre une salle (26/10/2026). Depuis le
+                02/11/2026, une liste par client partagée avec Talk. */}
+            <SallesDuClient userId={centre.userId} />
 
             <Typography sx={{ fontSize: 12.5, color: INK_MUTED, mt: 3, mb: 1.5 }}>
               Ce qui suit appartient au client et se règle dans son espace. Affiché ici

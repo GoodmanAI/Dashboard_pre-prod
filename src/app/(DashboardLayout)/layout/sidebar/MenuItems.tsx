@@ -19,6 +19,7 @@ import {
   IconRocket,
   IconChecklist,
   IconListDetails,
+  IconReceipt,
   IconUserPlus,
   IconFileSpreadsheet,
   IconUsers,
@@ -262,6 +263,13 @@ export const AdminMenuitems: SidebarItem[] = [
     title: "Parc clients",
     icon: IconListDetails,
     href: "/admin/parc",
+  },
+  {
+    // Talk et Konnect se facturent à la salle (02/11/2026).
+    id: uniqueId(),
+    title: "Facturation",
+    icon: IconReceipt,
+    href: "/admin/facturation",
   },
   {
     id: uniqueId(),
