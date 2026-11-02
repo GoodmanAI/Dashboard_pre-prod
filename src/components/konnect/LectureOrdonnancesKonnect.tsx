@@ -34,6 +34,12 @@ const CHOIX: { valeur: StrategieOcr; titre: string; detail: string }[] = [
       "Aucune image ne sort. La lecture reconnaît bien les ordonnances imprimées, moins bien les photos difficiles et le manuscrit.",
   },
   {
+    valeur: "vision_rattrapage",
+    titre: "Nos serveurs d'abord, le prestataire en renfort",
+    detail:
+      "Nos serveurs lisent l'ordonnance. S'ils n'y trouvent aucun examen, le prestataire la relit et le patient voit sa lecture. Environ une ordonnance sur quatre part chez le prestataire. C'est le réglage conseillé.",
+  },
+  {
     valeur: "vision_shadow",
     titre: "Essai du prestataire, sans effet pour le patient",
     detail:
