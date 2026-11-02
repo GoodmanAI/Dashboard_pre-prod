@@ -489,8 +489,14 @@ export default function ExamensFermesAuRobotCard({
                     <Typography variant="caption" color="text.secondary">
                       Ce que le patient entend
                     </Typography>
-                    <Typography variant="body2" sx={{ lineHeight: 1.7 }}>
-                      {phraseExamenFerme(versStocke(s), l.parle)}
+                    <Typography
+                      variant="body2"
+                      color={e.texte || e.telephone ? "text.secondary" : undefined}
+                      sx={{ lineHeight: 1.7 }}
+                    >
+                      {e.texte || e.telephone
+                        ? "Corrigez la réponse ci-dessus pour voir la phrase."
+                        : phraseExamenFerme(versStocke(s), l.parle)}
                     </Typography>
                   </Box>
                 </Box>
