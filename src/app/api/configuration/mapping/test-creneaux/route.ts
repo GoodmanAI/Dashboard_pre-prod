@@ -5,7 +5,9 @@ import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { requirePagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 import { auditLog, extractIpFromRequest } from "@/lib/auditLog";
-import { examensDuCentre, lireExceptionsSalles, lireSallesParType } from "@/lib/sallesExamen";
+import { examensDuCentre, lireExceptionsSalles, lireSallesParType, typePourSalles } from "@/lib/sallesExamen";
+import { sallesTalkDuCentre } from "@/lib/sallesExamenLecture";
+import { typesFermesTalk, type SallesTalk } from "@/lib/sallesFacturees";
 import { postAi2x, tunnelActif } from "@/lib/ai2xTunnel";
 import {
   codesEnvoyes,
@@ -152,10 +154,23 @@ async function tester(userProductId: number, codeExamen: string): Promise<Repons
   if (!sites) return { etat: "sans_site", examen };
   if ("ferme" in sites) return { etat: "type_ferme", examen };
 
-  const salles = lireSallesParType(site?.sallesParType ?? null);
+  // Les salles telles que le robot les lit (02/11/2026) : payées si le client en a
+  // coché pour Talk, sinon l'ancienne déclaration. Une modalité sans salle payée est
+  // fermée au robot : le test le dit au lieu de montrer des créneaux qu'il ne prendra pas.
+  let sallesTalkCentre: SallesTalk;
+  try {
+    sallesTalkCentre = await sallesTalkDuCentre(userProductId);
+  } catch {
+    sallesTalkCentre = { sallesParType: lireSallesParType(site?.sallesParType ?? null), actif: false };
+  }
+  const typeSalles = typePourSalles(ligne.typeExamen);
+  if (typeSalles && typesFermesTalk(sallesTalkCentre).includes(typeSalles)) {
+    return { etat: "type_ferme", examen };
+  }
+  const salles = sallesTalkCentre.sallesParType;
   const options = settings?.options && typeof settings.options === "object" ? (settings.options as any) : {};
   const exceptions = lireExceptionsSalles(options.exceptionsSalles, examensDuCentre(settings?.exams ?? null), salles);
-  const retenues = sallesRetenues(ligne, salles, exceptions);
+  const retenues = sallesRetenues(ligne, salles, exceptions, sallesTalkCentre.actif);
   const sallesInfo = { ...retenues, libelles: libellesDesSalles(salles, ligne.typeExamen) };
 
   let ai2x: ResultatAi2x;
