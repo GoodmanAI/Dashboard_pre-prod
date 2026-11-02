@@ -8,6 +8,11 @@ import {
   assertUserProductOwnership,
 } from "@/lib/auth-helpers";
 import { referentielEnBase } from "@/lib/referentielExamens";
+import {
+  completerAvecReferentiel,
+  lireListe,
+  type LigneNomenclature,
+} from "@/lib/referentielRepli";
 import { versionMapping, EN_TETE_VERSION_MAPPING } from "@/lib/versionMapping";
 import { postesValides, type SallesParType } from "@/lib/sallesExamen";
 import { sallesDuCentre } from "@/lib/sallesExamenLecture";
@@ -17,18 +22,9 @@ type ExamMap = Record<string, Exam>;
 
 export const runtime = "nodejs";
 
-function parseInterrogatoire(value: any): string[] {
-  if (Array.isArray(value)) return value;
-  if (typeof value !== "string" || value.trim() === "") return [];
-
-  try {
-    // Parse un tableau JS stocké sous forme de string
-    return Function('"use strict"; return (' + value + ")")();
-  } catch (e) {
-    console.error("Interrogatoire invalide :", value);
-    return [];
-  }
-}
+// Ancien `parseInterrogatoire`, déplacé dans `referentielRepli.ts` (02/11/2026) pour
+// être partagé avec l'écran Questions examens.
+const parseInterrogatoire = lireListe;
 
 async function streamToBuffer(readableStream?: NodeJS.ReadableStream | null) {
   if (!readableStream) return Buffer.alloc(0);
@@ -38,6 +34,20 @@ async function streamToBuffer(readableStream?: NodeJS.ReadableStream | null) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
   return Buffer.concat(chunks);
+}
+
+/** Une ligne du classeur, ramenée à la forme de la nomenclature (sans repli). */
+function depuisLeBlob(row: any): LigneNomenclature {
+  return {
+    codeExamen: row.codeExamen || row["codeExamen NEURACORP"] || "",
+    typeExamen: row.typeExamen ?? "",
+    libelle: row.libelle ?? "",
+    Synonymes: row.Synonymes,
+    Interrogatoire: row.Interrogatoire,
+    Commentaire: row.Commentaire,
+    performed: row.performed,
+    repliSur: [],
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -163,10 +173,11 @@ export async function GET(req: NextRequest) {
 
     // Repli sur le blob tant que la table n'est pas semée : le déploiement du code peut
     // ainsi précéder celui de la donnée sans rien casser.
-    let rows: any[] = referentiel.map((l) => ({
+    let rows: LigneNomenclature[] = referentiel.map((l) => ({
       codeExamen: l.codeExamen,
       typeExamen: l.typeExamen ?? "",
       libelle: l.libelle ?? "",
+      repliSur: l.repliSur ?? [],
     }));
 
     if (rows.length === 0) {
@@ -196,12 +207,12 @@ export async function GET(req: NextRequest) {
           header: true,
           skipEmptyLines: true,
         });
-        rows = parsed.data as any[];
+        rows = (parsed.data as any[]).map(depuisLeBlob);
       } else {
         const workbook = XLSX.read(buffer, { type: "buffer" });
-        rows = XLSX.utils.sheet_to_json(
-          workbook.Sheets[workbook.SheetNames[0]],
-        );
+        rows = XLSX.utils
+          .sheet_to_json<any>(workbook.Sheets[workbook.SheetNames[0]])
+          .map(depuisLeBlob);
       }
     }
 
@@ -209,44 +220,24 @@ export async function GET(req: NextRequest) {
     // ici, et donc ce que le robot en fait.
     const centreDejaConfigure = Object.keys(examsMap).length > 0;
 
-    rows.forEach((row: any) => {
-      const code = row.codeExamen || row["codeExamen NEURACORP"];
-      if (!code) return;
-
-      if (!examsMap[code]) {
-        examsMap[code] = {
-          typeExamen: row.typeExamen || "",
-          codeExamen: code,
-          libelle: row.libelle || "",
-          Synonymes: row.Synonymes || [],
-          Interrogatoire: parseInterrogatoire(row.Interrogatoire),
-          Commentaire: row.Commentaire || "",
-          // ⚠️ `false` QUAND LE CENTRE A DÉJÀ UN MAPPING, ET C'EST UNE GARDE.
-          //
-          // Le robot lit `performed` : à `true` il ANNONCE l'examen au patient et tente
-          // la réservation (`confirmExam` : « Examen non bookable (performed=false) →
-          // redirection »). Or une ligne venue de la nomenclature n'a, par définition,
-          // jamais été configurée par ce centre : elle n'a aucun code RIS, donc aucun
-          // rendez-vous possible.
-          //
-          // Le référentiel est passé de 264 (blob) à 287 entrées le 11/09/2026. Sans
-          // cette distinction, 21 examens seraient soudain annoncés « pratiqués » chez
-          // chacun des clients en service, et le robot promettrait au téléphone des
-          // rendez-vous qu'il ne sait pas prendre.
-          //
-          // SUR UN CENTRE VIERGE, `true` reste le bon défaut : le client décoche ce
-          // qu'il ne pratique pas, ce qui est plus rapide que de tout cocher. C'est le
-          // choix d'origine, et il ne change pas.
-          performed: centreDejaConfigure ? false : (row.performed ?? true),
-          typeExamenClient: row.typeExamenClient || "",
-          libelleClient: row.libelleClient || "",
-          horaireMapping: null,
-          codeExamenClientInject: null,
-          // Ligne venue de la nomenclature : jamais réglée par ce centre, aucun filtre.
-          postes: [],
-        };
-      }
-    });
+    // Complétion, repli des examens ajoutés sur leurs parents et `repliSur` sur
+    // chaque ligne : `src/lib/referentielRepli.ts` (02/11/2026).
+    //
+    // ⚠️ Une ligne ajoutée arrive `performed: false` chez un centre déjà configuré, et
+    // c'est une garde. Le robot lit `performed` : à `true` il ANNONCE l'examen au
+    // patient et tente la réservation (`confirmExam` : « Examen non bookable
+    // (performed=false) → redirection »). Le référentiel est passé de 264 (blob) à 287
+    // entrées le 11/09/2026 : sans cette distinction, 21 examens seraient soudain
+    // annoncés « pratiqués » chez chaque client en service. SUR UN CENTRE VIERGE,
+    // `true` reste le bon défaut : le client décoche ce qu'il ne pratique pas.
+    const ajoutables = new Set(
+      rows.map((r) => r.codeExamen).filter((c) => c && !examsMap[c]),
+    );
+    completerAvecReferentiel(examsMap, rows, { centreDejaConfigure });
+    // `horaire` n'est jamais réglé sur une ligne venue de la nomenclature.
+    for (const code of Array.from(ajoutables)) {
+      examsMap[code].horaireMapping = null;
+    }
 
     // 🔍 Filtre par codeExamen si demandé
     if (codeExamen) {

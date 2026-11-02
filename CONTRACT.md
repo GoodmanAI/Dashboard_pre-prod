@@ -756,7 +756,7 @@ une erreur de rendu laisse une page blanche au patient et aucune trace côté se
 | **Fonction Azure `recherche_dashboard`** (depuis le 29/10/2026) | Étage 2 de la recherche centrale, seulement quand le catalogue doute (`SEUIL_SUR`). `RECHERCHE_FONCTION_URL` (vide = étage 2 coupé) et `RECHERCHE_FONCTION_CLE` en `x-functions-key`, délai 6 s. Envoie la phrase, les produits du centre, le catalogue complet et les valeurs des filtres ; aucune ligne de la base. La sortie est revalidée contre les droits du compte (`etage2.ts`). Plan `plans/2026-10-recherche-llm-et-voix.md` |
 | **Deepgram** `api.deepgram.com/v1/listen` (depuis le 29/10/2026) | Dictée de la recherche centrale, relayée par `POST /api/recherche/voix` (session) : `nova-3`, français, `DEEPGRAM_API_KEY` (vide = pas de micro), `DEEPGRAM_MODEL`. Ni l'audio ni le texte ne sont gardés ni journalisés. Même compte que LyraeTalk. Le micro n'est permis que sous `/client` (`Permissions-Policy`, `next.config.js`) |
 | **Brevo** | `api.brevo.com/v3/smtp/email` (URL en dur) |
-| **Azure Blob `neuracorp-exams`** | `/api/data/exams`, `/api/configuration/exam` — **partagé avec les Azure Functions, couplage non identifié jusqu'ici [?] Q3**. `/api/configuration/get/mapping` ne le lit plus (11/09/2026) : la nomenclature vient de `ReferentielExamens`, le blob n'étant qu'un repli tant que la table est vide |
+| **Azure Blob `neuracorp-exams`** | `/api/data/exams`, `/api/configuration/exam` (en repli seulement depuis le 02/11/2026, quand `ReferentielExamens` est vide) — **partagé avec les Azure Functions, couplage non identifié jusqu'ici [?] Q3**. `/api/configuration/get/mapping` ne le lit plus (11/09/2026) : la nomenclature vient de `ReferentielExamens`, le blob n'étant qu'un repli tant que la table est vide |
 | **ClamAV** | socket Unix local |
 | **SMTP nodemailer** | uniquement `api/files/validation` — legacy |
 | **PostgreSQL** | `DATABASE_URL` |
@@ -886,6 +886,13 @@ Quatre points à connaître :
 - **L'ETag est calculé, non stocké** (`count` + `max(updatedAt)`) : une modification
   déplace `updatedAt`, une suppression change `count`. Un référentiel de plusieurs
   centaines de lignes ne transite que lorsqu'il a réellement changé.
+- **Le mapping de l'écran est complété par le référentiel** (02/11/2026) : un examen du
+  référentiel absent de `KonnectExamens` arrive non pratiqué, avec `repliSur` et, s'il
+  a un parent avec code RIS, le code RIS, le code injecté, le type client, les salles,
+  « Réservable en ligne » et « Ordonnance obligatoire » de ce parent (jamais
+  l'injection ni la file). Le `PUT` l'enregistre quand le client enregistre. Le
+  **catalogue de Konnect ne change pas** (lignes enregistrées, pratiquées, avec code
+  RIS) et son ETag non plus ; celui de l'écran porte en plus l'empreinte du référentiel.
 
 Côté Konnect, `cabinet_examen` en devient le **cache**, remplacé en bloc — une panne ne
 le vide jamais.
@@ -1008,6 +1015,24 @@ et rien d'autre de `talk.site` : `examens` = les examens de la correspondance do
 type a des salles (`{ codeExamen, libelle, typeExamen }`, libellé du centre d'abord),
 `exceptionsSalles` = les salles imposées, nettoyées comme au `GET /api/configuration`.
 Aucune clé d'API n'y entre.
+
+**`repliSur`, les parents d'un examen ajouté** (02/11/2026, additif, plan
+`lyrae/plans/2026-11-ajout-examen-au-referentiel.md`). Chaque examen servi porte
+`repliSur: string[]` : la liste **ordonnée** des parents de l'examen, lue dans
+`ReferentielExamens."repliSur"` (SQL `2026_11_02_referentiel_repli.sql`), `[]` pour
+tout examen sans repli. Jamais saisie par le client, jamais enregistrée : recalculée à
+chaque lecture. Présente dans la réponse complète comme dans `?codeExamen=`.
+Une ligne **non paramétrée** (ajoutée par la complétion, ou enregistrée
+`performed: false` sans code RIS) qui a un `repliSur` reprend du **premier parent qui a
+un code RIS** chez le centre : `codeExamenClient`, `codeExamenClientInject`,
+`typeExamenClient`, `postes`, et `Interrogatoire` si elle n'en a pas. Jamais
+`libelleClient`, jamais `performed` : elle reste non pratiquée. Exemple, N01MR141 chez
+un centre qui a l'IRM lombaire sous `IRMLOMB` :
+`{ "codeExamen": "N01MR141", "typeExamen": "MR", "libelle": "IRM du rachis dorso-lombaire", "performed": false, "codeExamenClient": "IRMLOMB", "codeExamenClientInject": null, "typeExamenClient": "", "postes": [], "repliSur": ["N01MR044", "N01MR043"], … }`.
+LyraeTalk (`V2_REPLI_PARENT`) remplace un code non réservable par ce parent ; un robot
+plus ancien ignore le champ. Même complétion pour l'écran Questions examens
+(`/api/configuration/exam`), qui ne lit plus le blob qu'en repli d'une table vide, et
+n'écrit plus les colonnes héritées d'une ligne qu'il n'avait pas en base.
 
 Écriture : `POST /api/configuration/mapping` normalise `postes` (majuscules, sans
 doublon) ; un poste non déclaré pour le type de l'examen répond **400** en nommant les
