@@ -25,6 +25,7 @@ import Link from "next/link";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import { cheminCentre } from "@/lib/cheminsCentre";
 import SectionHeader from "@/components/admin/SectionHeader";
+import SallesDuClient from "@/components/salles/SallesDuClient";
 import type { Manque } from "@/lib/completude/types";
 import { STATUTS, type StatutCentre } from "@/lib/centreStatut";
 import { INK, INK_MUTED, BORDER, SURFACE_MUTED, OK, MANQUE } from "@/lib/jetons";
@@ -523,6 +524,11 @@ export default function InstallationTalk() {
                 </Button>
               </Stack>
             </Bloc>
+
+            {/* Engagement commercial : Talk se facture à la salle, et le robot ne prend
+                de RDV que dans les salles payées (02/11/2026). Bloc partagé avec
+                l'installation de Konnect : une salle est déclarée une fois. */}
+            <SallesDuClient userId={centre.userId} />
 
             <Typography sx={{ fontSize: 12.5, color: INK_MUTED, mt: 3, mb: 1.5 }}>
               Ce qui suit appartient au client et se règle dans son espace. Affiché ici
