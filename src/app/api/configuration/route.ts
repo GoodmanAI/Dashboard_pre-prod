@@ -31,6 +31,7 @@ import {
 import { sallesDuCentre, sallesTalkDuCentre } from "@/lib/sallesExamenLecture";
 import { examsAcceptesEffectifs, type SallesTalk } from "@/lib/sallesFacturees";
 import { documentsParType } from "@/lib/piecesAttendues";
+import { medecinsNommesPourRobot } from "@/lib/medecinsAnnuaire";
 
 /**
  * GET /api/configuration?userProductId=XX
@@ -262,6 +263,16 @@ export async function GET(req: NextRequest) {
         site = site ?? {};
         site[cle] = valeur;
       }
+    }
+    // 2️⃣.f — Les médecins que le robot peut nommer (03/11/2026, plan
+    // `2026-10-questions-sur-le-rdv-lyraetalk.md` §7) : seulement les nommés, case
+    // cochée. Une panne de lecture (table pas encore créée) ne doit pas priver le
+    // robot du reste de sa configuration : champ absent = case décochée côté robot.
+    try {
+      site = site ?? {};
+      site.medecinsNommes = await medecinsNommesPourRobot(userProductId);
+    } catch (e) {
+      console.warn(`[configuration] upid=${userProductId} medecinsNommes illisible :`, (e as Error).message);
     }
     if (site && Object.keys(site).length === 0) site = null;
 
