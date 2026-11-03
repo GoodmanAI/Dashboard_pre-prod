@@ -1485,6 +1485,32 @@
       },
       "lot": "examens-fermes",
       "note": "Réponse « Dire au patient où prendre rendez-vous » (orienter)."
+    },
+    {
+      "id": "md01",
+      "source": "brouillon",
+      "phrase": "Je veux que le robot dise aux patients avec quel médecin ils ont rendez-vous",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#nom_du_medecin"
+        ],
+        "filtres": {}
+      },
+      "lot": "nom-du-medecin",
+      "note": "Carte « Nom du médecin » (plan 2026-10-questions-sur-le-rdv-lyraetalk.md, §7)."
+    },
+    {
+      "id": "md02",
+      "source": "brouillon",
+      "phrase": "Retirer un radiologue de la liste des médecins",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#nom_du_medecin"
+        ],
+        "filtres": {}
+      },
+      "lot": "nom-du-medecin",
+      "note": "Interrupteur par médecin."
     }
   ]
 }

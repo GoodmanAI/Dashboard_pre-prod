@@ -61,6 +61,7 @@ import SmsBookingConfirmationCard from "./SmsBookingConfirmationCard";
 import ConsigneApresReservationCard from "./ConsigneApresReservationCard";
 import QuestionsExamenCard from "./QuestionsExamenCard";
 import ExamensFermesAuRobotCard from "./ExamensFermesAuRobotCard";
+import MedecinsNommesCard from "./MedecinsNommesCard";
 import PrescriptionConfigCard, {
   type PrescriptionConfigHandle,
 } from "./PrescriptionConfigCard";
@@ -1401,6 +1402,11 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
             readOnly={readOnly}
             examsAccepted={settings.examsAccepted ?? {}}
           />
+        </Box>
+
+        {/* Médecins que le robot peut nommer au patient (talk.medecins, 03/11) */}
+        <Box id="nom_du_medecin">
+          <MedecinsNommesCard userProductId={Number(params.id)} readOnly={readOnly} />
         </Box>
 
         {/* Consigne dite après la réservation (domaine talk.textes) */}
