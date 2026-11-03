@@ -190,6 +190,20 @@ déjà :
   que pour un examen demandé seul (une demande à plusieurs examens transfère toujours).
   Exemple : `{ "MG": { "reponse": "orienter", "texte": "Les mammographies se prennent au
   centre du Parc.", "telephone": "+33145678912" }, "N01RX140": { "reponse": "non_fait" } }`.
+- `site.medecinsNommes` (03/11/2026, plan `plans/2026-10-questions-sur-le-rdv-lyraetalk.md`
+  §7, lu par LyraeTalk à partir de la v2.80.0, `V2_QUESTIONS_RDV`) : les médecins que le
+  robot peut nommer quand le patient demande « avec quel médecin ? ».
+  `{ actif: boolean, medecins: { [code]: { prefixe, prenom, nom } } }`, `code` = l'`id`
+  Xplore porté par `codesMedecins` des créneaux ; `prefixe` en majuscules (`DR`, `MR` ou
+  vide), `prenom` et `nom` déjà en casse normale. **Seulement les médecins nommés**, et
+  `medecins: {}` quand `actif` est faux. Champ toujours présent ; absent (Dashboard plus
+  ancien ou lecture en panne) = case décochée. Source : table `MedecinAnnuaire` (SQL manuel
+  `2026_11_03_medecins_annuaire.sql`) et `ProductConfig` domaine `talk.medecins`
+  (`{ actif, reluLe }`), réglés par le client dans la carte « Nom du médecin » du
+  Paramétrage (`GET`, `PUT`, `POST /api/talk-medecins`, droit Paramétrage). La liste se relit
+  par AI2Xplore `POST /api/test/medecins` (tunnel), à l'ouverture de la carte si elle a plus
+  de 7 jours, ou au bouton « Relire la liste » ; la relecture n'efface rien et ne touche
+  jamais le choix du client.
 
 Validation au `PUT /api/product-config` (`src/lib/talkTextes.ts`) : variable inconnue,
 accolade orpheline, code d'examen inconnu, `{lien}` ou `{code}` absent du SMS de dépôt,

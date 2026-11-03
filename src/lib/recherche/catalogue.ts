@@ -149,6 +149,19 @@ export const CATALOGUE: Fiche[] = [
     filtres: ["type"],
   },
   {
+    cle: "talk/parametrage#nom_du_medecin",
+    produit: "talk",
+    page: "parametrage",
+    libelle: "Nom du médecin donné au patient",
+    genre: "reglage",
+    termes: [
+      "nom du medecin", "quel medecin", "avec quel medecin", "medecin prevu", "nommer les medecins",
+      "liste des medecins", "radiologue", "nom du radiologue", "quel radiologue", "medecins nommes",
+      "docteur", "le robot dit le nom du medecin", "ajouter un medecin", "retirer un medecin",
+    ],
+    filtres: [],
+  },
+  {
     cle: "talk/parametrage#apres_reservation",
     produit: "talk",
     page: "parametrage",
