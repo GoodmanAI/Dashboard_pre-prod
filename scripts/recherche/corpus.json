@@ -1511,6 +1511,90 @@
       },
       "lot": "nom-du-medecin",
       "note": "Interrupteur par médecin."
+    },
+    {
+      "id": "cstat5",
+      "source": "brouillon",
+      "phrase": "Combien de rendez-vous ont été pris hors des heures d'ouverture ce mois-ci",
+      "attendu": {
+        "destinations": [
+          "konnect/statistiques#hors_heures"
+        ],
+        "filtres": {
+          "periode": "ce_mois"
+        }
+      },
+      "lot": 1,
+      "note": "C-STAT.2, refonte de l'écran Statistiques de Konnect (14/11/2026)."
+    },
+    {
+      "id": "cstat6",
+      "source": "brouillon",
+      "phrase": "Les examens les plus demandés sur le portail",
+      "attendu": {
+        "destinations": [
+          "konnect/statistiques#examens"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "C-STAT.2, refonte de l'écran Statistiques de Konnect (14/11/2026)."
+    },
+    {
+      "id": "cstat7",
+      "source": "brouillon",
+      "phrase": "Combien de temps on a gagné au téléphone grâce au portail",
+      "attendu": {
+        "destinations": [
+          "konnect/statistiques#appels_evites"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "C-STAT.2, refonte de l'écran Statistiques de Konnect (14/11/2026)."
+    },
+    {
+      "id": "cstat8",
+      "source": "brouillon",
+      "phrase": "Le délai pour avoir un rendez-vous d'IRM en ligne",
+      "attendu": {
+        "destinations": [
+          "konnect/statistiques#delai_par_type"
+        ],
+        "filtres": {
+          "type": "MR"
+        }
+      },
+      "lot": 1,
+      "note": "C-STAT.2, refonte de l'écran Statistiques de Konnect (14/11/2026)."
+    },
+    {
+      "id": "cstat9",
+      "source": "brouillon",
+      "phrase": "Combien de nouveaux patients sont venus par le portail le mois dernier",
+      "attendu": {
+        "destinations": [
+          "konnect/statistiques#nouveaux_patients"
+        ],
+        "filtres": {
+          "periode": "dernier_mois"
+        }
+      },
+      "lot": 1,
+      "note": "C-STAT.2, refonte de l'écran Statistiques de Konnect (14/11/2026)."
+    },
+    {
+      "id": "cstat10",
+      "source": "brouillon",
+      "phrase": "Le délai de traitement des demandes de rappel du portail",
+      "attendu": {
+        "destinations": [
+          "konnect/statistiques#rappels_attente"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "C-STAT.2, refonte de l'écran Statistiques de Konnect (14/11/2026)."
     }
   ]
 }
