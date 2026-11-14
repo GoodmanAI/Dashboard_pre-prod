@@ -381,7 +381,15 @@ clés `^[a-z0-9_.]{1,40}$`, valeurs finies ; une clé hors forme est écartée. 
 jamais une valeur patient. Lecture : `GET /api/konnect-stats-jours?userProductId=&semaines=`
 (session, droit `konnect_stats`, écran « Statistiques » du centre) **écarte les clés
 `ocr*`** dans la requête (décision D4 du 29/10/2026, l'OCR reste interne) ;
-`GET /api/admin/konnect-ocr` (ADMIN) les lit, tous centres. Un Dashboard antérieur
+`GET /api/admin/konnect-ocr` (ADMIN) les lit, tous centres. Depuis le 14/11/2026 (refonte
+de l'écran, plan workspace `2026-11-statistiques-konnect.md`), l'écran lit
+`GET /api/konnect-statistiques?userProductId=&from=&to=[&prevFrom=&prevTo=]` (session, droit
+`konnect_stats`, dates `AAAA-MM-JJ`, 800 jours au plus) : les lignes de `KonnectStatJour` sans
+`ocr*` ni `lecture.*`, la grille d'ouverture (horaires LyraeTalk du même client, sinon lundi au
+vendredi 8 h à 18 h), les libellés de `KonnectExamens` et `KonnectSites` avec la clé que Konnect
+remonte (`cleCode` : hors `[A-Za-z0-9_]` remplacé par `_`), des comptes de
+`KonnectDemandesRappel` et `KonnectFileAttente` (aucune donnée patient), et le dernier
+`charge.funnel`. `konnect-stats-jours` reste en place, sans lecteur à l'écran. Un Dashboard antérieur
 répond 400 à une charge qui ne porte que `jours` : Konnect la compte « indisponible » et
 renvoie ses 14 jours la nuit suivante, rien ne casse.
 

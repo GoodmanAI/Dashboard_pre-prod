@@ -8,17 +8,14 @@ import {
   Paper,
   Typography,
   Button,
-  Skeleton,
   Popover,
   Select,
   MenuItem,
   Stack,
   Chip,
-  Tooltip as MuiTooltip,
   Tab,
   Tabs,
 } from "@mui/material";
-import { IconTrendingUp, IconTrendingDown } from "@tabler/icons-react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useTalkBasePath } from "@/utils/talkRoutes";
@@ -52,6 +49,13 @@ import { useCentre } from "@/app/context/CentreContext";
 import { subDays, startOfDay, endOfDay } from "date-fns";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import DateRangePresets from "@/components/DateRangePresets";
+import {
+  ChartSkeleton,
+  StatTile,
+  StatTileDouble,
+  StatTileSkeleton,
+} from "@/components/shared/stats/StatTile";
+import { HEATMAP_DAYS_FULL, Heatmap } from "@/components/shared/stats/Heatmap";
 import { useFiltresRecherche } from "@/lib/recherche/integre";
 import { plageDePeriode } from "@/lib/recherche/periode";
 import {
@@ -93,7 +97,7 @@ import { MENU_FILTRE } from "@/lib/menuFiltre";
 ========================================================= */
 
 const NEEDLE_BASE_RADIUS_PX = 5;
-const NEEDLE_COLOR = '#d0d000';
+const NEEDLE_COLOR = "#d0d000";
 
 interface Call {
   id: number;
@@ -113,18 +117,18 @@ interface Call {
 }
 
 const PALETTE = {
-  cyan:   "#37D2D2",
-  green:  "#37D253",
-  blue:   "#1976D2",
+  cyan: "#37D2D2",
+  green: "#37D253",
+  blue: "#1976D2",
   purple: "#6237D2",
-  pink:   "#D237C2",
-  teal:   "#2FB9A6",
-  lime:   "#9AD237",
+  pink: "#D237C2",
+  teal: "#2FB9A6",
+  lime: "#9AD237",
   indigo: "#3F37D2",
   violet: "#9A37D2",
-  coral:  "#D25A37",
-  amber:  "#D2A237",
-  grey:   "#838383",
+  coral: "#D25A37",
+  amber: "#D2A237",
+  grey: "#838383",
 };
 
 const PIE_COLORS = [
@@ -151,13 +155,20 @@ const EXAM_LABELS: Record<string, string> = {
 };
 
 const now = () => new Date();
-const minusDays = (d: Date, days: number) => new Date(d.getTime() - days * 24 * 3600 * 1000);
+const minusDays = (d: Date, days: number) =>
+  new Date(d.getTime() - days * 24 * 3600 * 1000);
 
 function dayKey(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-const RESO_KEYS = ["rdv", "info", "modification", "annulation", "urgence"] as const;
+const RESO_KEYS = [
+  "rdv",
+  "info",
+  "modification",
+  "annulation",
+  "urgence",
+] as const;
 type ResoKey = (typeof RESO_KEYS)[number];
 
 function normalizeReso(call: any): ResoKey | "autre" {
@@ -172,13 +183,13 @@ function normalizeReso(call: any): ResoKey | "autre" {
 
 function getIndice(calls: any[]): number {
   const indice = calls.reduce((acc: any, c: any) => {
-    if (c.stats.error_logic && c.stats.error_logic > 0){
-      return acc + 1
-    } 
+    if (c.stats.error_logic && c.stats.error_logic > 0) {
+      return acc + 1;
+    }
     return acc;
   }, 0);
-  
-  return Math.floor((1 - (indice / calls.length)) * 100);
+
+  return Math.floor((1 - indice / calls.length) * 100);
 }
 
 function sumDurationsSec(calls: any): number {
@@ -206,10 +217,6 @@ function secondsToMinLabel(totalSeconds: number) {
    Heatmap helpers
 ========================================================= */
 
-/** Jours en français, ordre européen (Lun → Dim). */
-const HEATMAP_DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-const HEATMAP_DAYS_FULL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-
 /**
  * Construit une matrice 7×24 [jour][heure] = count, à partir d'un array
  * d'appels et d'un filtre optionnel (pour ne compter que les RDV pris,
@@ -217,7 +224,7 @@ const HEATMAP_DAYS_FULL = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "S
  */
 function buildHeatmap(
   calls: any[],
-  filter?: (call: any) => boolean
+  filter?: (call: any) => boolean,
 ): { matrix: number[][]; max: number; total: number } {
   const matrix: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
   let max = 0;
@@ -235,379 +242,6 @@ function buildHeatmap(
     if (matrix[dayIdx][hour] > max) max = matrix[dayIdx][hour];
   }
   return { matrix, max, total };
-}
-
-/* =========================================================
-   UI components
-========================================================= */
-
-/** Petit badge delta affiché sous la valeur principale d'une StatTile. */
-function DeltaBadge({
-  delta,
-  previousLabel,
-}: {
-  delta: DeltaResult;
-  previousLabel: string;
-}) {
-  // "insufficient" → on n'affiche rien (signal silencieux : période précédente
-  // trop petite pour être statistiquement fiable).
-  if (delta.kind === "insufficient") return null;
-
-  const TONE_COLORS: Record<"positive" | "negative" | "neutral", { color: string; bg: string }> = {
-    positive: { color: "#15803d", bg: "rgba(34,197,94,0.15)" },
-    negative: { color: "#b91c1c", bg: "rgba(239,68,68,0.15)" },
-    neutral: { color: "#4b5563", bg: "rgba(156,163,175,0.18)" },
-  };
-
-  let label: string;
-  let tone: "positive" | "negative" | "neutral" = "neutral";
-  let icon: React.ReactNode = null;
-  let tooltipExtra = "";
-
-  if (delta.kind === "equal") {
-    label = "=";
-    tone = "neutral";
-    tooltipExtra = `Identique à la période précédente (${delta.previous})`;
-  } else if (delta.kind === "new") {
-    label = "Nouveau";
-    tone = "positive";
-    tooltipExtra = `Aucune donnée sur la période précédente (${previousLabel})`;
-  } else {
-    // delta.kind === "delta"
-    const formatted = `${delta.pct > 0 ? "+" : ""}${delta.pct}%`;
-    icon = delta.sign === "up" ? <IconTrendingUp size={12} /> : <IconTrendingDown size={12} />;
-    label = formatted;
-    tone = delta.tone;
-    tooltipExtra = `vs ${delta.previous} ${previousLabel}`;
-  }
-
-  const t = TONE_COLORS[tone];
-  return (
-    <MuiTooltip title={tooltipExtra} arrow placement="top">
-      <Box
-        component="span"
-        sx={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 0.25,
-          mt: 0.25,
-          px: 0.75,
-          py: 0.1,
-          borderRadius: 0.75,
-          bgcolor: t.bg,
-          color: t.color,
-          fontSize: 11,
-          fontWeight: 700,
-          lineHeight: 1.4,
-          cursor: "help",
-        }}
-      >
-        {icon}
-        {label}
-      </Box>
-    </MuiTooltip>
-  );
-}
-
-function StatTile({
-  title,
-  value,
-  icon,
-  delta,
-  previousLabel,
-  subDetail,
-}: {
-  title: string;
-  value: string | number;
-  icon: React.ReactNode;
-  /** Si fourni, affiche un badge "↗ +18%" sous la valeur. */
-  delta?: DeltaResult;
-  /** Suffixe humain pour le tooltip du badge (ex: "sur la semaine précédente"). */
-  previousLabel?: string;
-  /** Ligne de détail sous la valeur (ex: "2 + 8 (Rappel SMS)"). */
-  subDetail?: string;
-}) {
-  return (
-    <Paper
-      sx={{
-        p: 2,
-        display: "flex",
-        alignItems: "center",
-        gap: 2,
-        minHeight: 96,
-      }}
-      elevation={1}
-    >
-      <Box
-        sx={{
-          width: 48,
-          height: 48,
-          borderRadius: "10px",
-          display: "grid",
-          placeItems: "center",
-          bgcolor: "rgba(72,200,175,0.15)",
-          color: "#2a6f64",
-        }}
-      >
-        {icon}
-      </Box>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography variant="body2" color="text.secondary">
-          {title}
-        </Typography>
-        <Typography variant="h5" fontWeight={700} noWrap>
-          {value}
-        </Typography>
-        {subDetail && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: "block", lineHeight: 1.2 }}
-            noWrap
-          >
-            {subDetail}
-          </Typography>
-        )}
-        {delta && <DeltaBadge delta={delta} previousLabel={previousLabel ?? ""} />}
-      </Box>
-    </Paper>
-  );
-}
-
-function StatTileDouble({
-  items,
-  icon,
-}: {
-  items: {
-    title: string;
-    value: string | number;
-    /** Si fourni, badge delta affiché sous la valeur de cet item. */
-    delta?: DeltaResult;
-    previousLabel?: string;
-    /** Ligne de détail sous la valeur (ex: "2 + 8 (Rappel SMS)"). */
-    subDetail?: string;
-  }[];
-  icon: React.ReactNode;
-}) {
-  return (
-    <Paper
-      sx={{
-        p: 2,
-        display: "flex",
-        alignItems: "center",
-        gap: 2,
-        minHeight: 96,
-      }}
-      elevation={1}
-    >
-      <Box
-        sx={{
-          width: 48,
-          height: 48,
-          borderRadius: "10px",
-          display: "grid",
-          placeItems: "center",
-          bgcolor: "rgba(72,200,175,0.15)",
-          color: "#2a6f64",
-          flexShrink: 0,
-        }}
-      >
-        {icon}
-      </Box>
-      <Box sx={{ display: "flex", gap: 3, minWidth: 0, flex: 1 }}>
-        {items.map((item, idx) => (
-          <Box key={idx} sx={{ minWidth: 0 }}>
-            <Typography variant="body2" color="text.secondary" noWrap>
-              {item.title}
-            </Typography>
-            <Typography variant="h5" fontWeight={700} noWrap>
-              {item.value}
-            </Typography>
-            {item.subDetail && (
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: "block", lineHeight: 1.2 }}
-                noWrap
-              >
-                {item.subDetail}
-              </Typography>
-            )}
-            {item.delta && (
-              <DeltaBadge delta={item.delta} previousLabel={item.previousLabel ?? ""} />
-            )}
-          </Box>
-        ))}
-      </Box>
-    </Paper>
-  );
-}
-
-function StatTileSkeleton() {
-  return (
-    <Paper
-      sx={{
-        p: 2,
-        display: "flex",
-        alignItems: "center",
-        gap: 2,
-        height: 96,
-      }}
-      elevation={1}
-    >
-      <Skeleton variant="rounded" width={48} height={48} sx={{ borderRadius: "10px" }} />
-      <Box sx={{ minWidth: 0, flex: 1 }}>
-        <Skeleton variant="text" width={120} height={18} />
-        <Skeleton variant="text" width="60%" height={30} />
-      </Box>
-    </Paper>
-  );
-}
-
-function ChartSkeleton() {
-  return (
-    <Box sx={{ width: "100%", height: 280, display: "grid", placeItems: "center" }}>
-      <Skeleton variant="rounded" width="100%" height="100%" />
-    </Box>
-  );
-}
-
-/**
- * Heatmap 7 jours × 24 heures. Une cellule par créneau, coloration par
- * intensité (clair → foncé) en fonction du max global de la matrice.
- *
- * - `colorRgb` : "R, G, B" — la cellule devient `rgba(R,G,B, 0.15→1)` selon
- *   l'intensité. Cellules vides : gris très clair.
- * - Tooltip au survol avec jour/heure/valeur.
- */
-function Heatmap({
-  matrix,
-  max,
-  colorRgb,
-  metricLabel,
-}: {
-  matrix: number[][];
-  max: number;
-  colorRgb: string;
-  metricLabel: string;
-}) {
-  return (
-    <Box sx={{ overflowX: "auto" }}>
-      <Box sx={{ minWidth: 720, display: "inline-block" }}>
-        {/* Header heures (00 → 23, label 1 sur 2 pour pas surcharger) */}
-        <Box sx={{ display: "flex", gap: "3px", pl: "44px", mb: 0.5 }}>
-          {Array.from({ length: 24 }, (_, h) => (
-            <Box
-              key={h}
-              sx={{
-                width: 24,
-                textAlign: "center",
-                fontSize: 9,
-                color: "#9ca3af",
-                fontWeight: 600,
-              }}
-            >
-              {h % 2 === 0 ? `${String(h).padStart(2, "0")}h` : ""}
-            </Box>
-          ))}
-        </Box>
-
-        {/* Lignes : 7 jours */}
-        {matrix.map((row, dayIdx) => (
-          <Box
-            key={dayIdx}
-            sx={{ display: "flex", alignItems: "center", gap: "3px", mb: "3px" }}
-          >
-            <Box
-              sx={{
-                width: 40,
-                textAlign: "right",
-                pr: 1,
-                fontSize: 11,
-                color: "#374151",
-                fontWeight: 600,
-              }}
-            >
-              {HEATMAP_DAYS[dayIdx]}
-            </Box>
-            {row.map((value, h) => {
-              const intensity = max > 0 ? value / max : 0;
-              const isEmpty = value === 0;
-              const bg = isEmpty
-                ? "rgba(0,0,0,0.04)"
-                : `rgba(${colorRgb}, ${0.18 + intensity * 0.82})`;
-              return (
-                <MuiTooltip
-                  key={h}
-                  arrow
-                  placement="top"
-                  title={
-                    isEmpty
-                      ? `${HEATMAP_DAYS_FULL[dayIdx]} ${String(h).padStart(2, "0")}h : aucun`
-                      : `${HEATMAP_DAYS_FULL[dayIdx]} ${String(h).padStart(2, "0")}h : ${value} ${metricLabel}`
-                  }
-                >
-                  <Box
-                    sx={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: "4px",
-                      bgcolor: bg,
-                      transition: "transform 120ms ease, box-shadow 120ms ease",
-                      cursor: "pointer",
-                      "&:hover": {
-                        transform: "scale(1.4)",
-                        zIndex: 2,
-                        boxShadow: `0 4px 12px rgba(${colorRgb}, 0.4)`,
-                      },
-                    }}
-                  />
-                </MuiTooltip>
-              );
-            })}
-          </Box>
-        ))}
-
-        {/* Légende intensité */}
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            mt: 1.5,
-            pl: "44px",
-          }}
-        >
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
-            Moins
-          </Typography>
-          {[0.18, 0.36, 0.54, 0.72, 1].map((alpha) => (
-            <Box
-              key={alpha}
-              sx={{
-                width: 16,
-                height: 12,
-                borderRadius: "3px",
-                bgcolor: `rgba(${colorRgb}, ${alpha})`,
-              }}
-            />
-          ))}
-          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
-            Plus
-          </Typography>
-          {max > 0 && (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ fontSize: 10, ml: 2 }}
-            >
-              Max sur la période : <strong>{max}</strong>
-            </Typography>
-          )}
-        </Box>
-      </Box>
-    </Box>
-  );
 }
 
 /* =========================================================
@@ -642,7 +276,9 @@ export default function StatsAppelPage({ params }: any) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { centres, selectedUserId } = useCentre();
-  const [selectedExamCode, setSelectedExamCode] = useState<string | "all">("all");
+  const [selectedExamCode, setSelectedExamCode] = useState<string | "all">(
+    "all",
+  );
   const [calls, setCalls] = useState<Call[]>([]);
   /** Appels de la période précédente — pour calcul des deltas sur les KPI. */
   const [previousCalls, setPreviousCalls] = useState<Call[]>([]);
@@ -681,7 +317,7 @@ export default function StatsAppelPage({ params }: any) {
    */
   const previousRange = useMemo(
     () => computePreviousRange(dateRange.from, dateRange.to),
-    [dateRange.from, dateRange.to]
+    [dateRange.from, dateRange.to],
   );
 
   // Un seul appel pour la période et sa période de comparaison, borné aux dates
@@ -731,9 +367,13 @@ export default function StatsAppelPage({ params }: any) {
         if (reqSeqRef.current !== seq) return;
 
         // Tableau simple, ou { data, previous } quand la comparaison est demandée.
-        const courante = Array.isArray(reponse) ? reponse : (reponse?.data ?? []);
+        const courante = Array.isArray(reponse)
+          ? reponse
+          : (reponse?.data ?? []);
         setCalls(Array.isArray(courante) ? courante : []);
-        setPreviousCalls(Array.isArray(reponse?.previous) ? reponse.previous : []);
+        setPreviousCalls(
+          Array.isArray(reponse?.previous) ? reponse.previous : [],
+        );
       } catch (e) {
         if (!isAbortError(e)) {
           console.error("Erreur lors du fetch des appels:", e);
@@ -749,7 +389,9 @@ export default function StatsAppelPage({ params }: any) {
   useEffect(() => {
     (async () => {
       try {
-        const response = await fetch("/api/configuration/mapping/type_exam?userProductId=" + userProductId);
+        const response = await fetch(
+          "/api/configuration/mapping/type_exam?userProductId=" + userProductId,
+        );
         const data = await response.json();
         setMapping(data);
       } catch (err) {
@@ -777,7 +419,7 @@ export default function StatsAppelPage({ params }: any) {
     const t = new Date(dateRange.to);
     const iso = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-        d.getDate()
+        d.getDate(),
       ).padStart(2, "0")}`;
     return { from: iso(f), to: iso(t) };
   }, [dateRange]);
@@ -819,7 +461,7 @@ export default function StatsAppelPage({ params }: any) {
     }
     const iso = (d: Date) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-        d.getDate()
+        d.getDate(),
       ).padStart(2, "0")}`;
     const from = iso(previousRange.from);
     const to = iso(previousRange.to);
@@ -847,7 +489,7 @@ export default function StatsAppelPage({ params }: any) {
     })();
     return () => controller.abort();
   }, [effectiveUserId, userProductId, previousRange]);
-  
+
   /* ========== Stats tuiles ========== */
   const totalAppels = calls.length;
   const nbRDV = useMemo(() => {
@@ -856,8 +498,14 @@ export default function StatsAppelPage({ params }: any) {
       return acc + (Number.isFinite(n) ? n : 0);
     }, 0);
   }, [calls]);
-  const nbUrgence = useMemo(() => calls.filter((c) => normalizeReso(c) === "urgence").length, [calls]);
-  const nbInfo = useMemo(() => calls.filter((c) => normalizeReso(c) === "info").length, [calls]);
+  const nbUrgence = useMemo(
+    () => calls.filter((c) => normalizeReso(c) === "urgence").length,
+    [calls],
+  );
+  const nbInfo = useMemo(
+    () => calls.filter((c) => normalizeReso(c) === "info").length,
+    [calls],
+  );
 
   const indicePerformance = useMemo(() => {
     if (calls.length === 0) return 0;
@@ -869,7 +517,7 @@ export default function StatsAppelPage({ params }: any) {
     return formatHoursFromSeconds(totalSeconds);
   }, [calls]);
 
-  // 2ème ligne 
+  // 2ème ligne
   const annulation = useMemo(() => {
     return calls.reduce((acc, c: any) => {
       const n = Number(c?.stats?.rdv_canceled ?? 0);
@@ -888,7 +536,10 @@ export default function StatsAppelPage({ params }: any) {
   // (exam_type, exam_not_practiced, exam_interv, exam_mult, doppler_*, …),
   // pas seulement exam_type comme avant. Évite la sous-estimation.
   const notPerformed = useMemo(() => {
-    return calls.reduce((acc, c: any) => acc + (estExamenNonPris(c?.stats) ? 1 : 0), 0);
+    return calls.reduce(
+      (acc, c: any) => acc + (estExamenNonPris(c?.stats) ? 1 : 0),
+      0,
+    );
   }, [calls]);
 
   const radioInter = useMemo(() => {
@@ -912,14 +563,23 @@ export default function StatsAppelPage({ params }: any) {
   }, [calls]);
 
   const nbTransferts = useMemo(
-    () => calls.reduce((acc, c: any) => acc + (isCounterTransfer(c?.stats) ? 1 : 0), 0),
-    [calls]
+    () =>
+      calls.reduce(
+        (acc, c: any) => acc + (isCounterTransfer(c?.stats) ? 1 : 0),
+        0,
+      ),
+    [calls],
   );
   const nbResultats = useMemo(
-    () => calls.reduce((acc, c: any) => acc + (estDemandeDeResultats(c?.stats) ? 1 : 0), 0),
-    [calls]
+    () =>
+      calls.reduce(
+        (acc, c: any) => acc + (estDemandeDeResultats(c?.stats) ? 1 : 0),
+        0,
+      ),
+    [calls],
   );
-  const partResultats = nbTransferts > 0 ? Math.round((nbResultats / nbTransferts) * 100) : 0;
+  const partResultats =
+    nbTransferts > 0 ? Math.round((nbResultats / nbTransferts) * 100) : 0;
 
   /* ========== Enrichissement Annulation / Confirmation avec rappels SMS ==========
    * On additionne les compteurs bot LyraeTalk (calculés ci-dessus depuis
@@ -943,33 +603,40 @@ export default function StatsAppelPage({ params }: any) {
       totalAppels: p.length,
       nbRDV: p.reduce(
         (acc, c: any) => acc + (Number(c?.stats?.rdv_booked ?? 0) || 0),
-        0
+        0,
       ),
       nbUrgence: p.filter((c) => normalizeReso(c) === "urgence").length,
       nbInfo: p.filter((c) => normalizeReso(c) === "info").length,
       heuresSec: sumDurationsSec(p),
       annulation: p.reduce(
         (acc, c: any) => acc + (Number(c?.stats?.rdv_canceled ?? 0) || 0),
-        0
+        0,
       ),
       modification: p.reduce(
         (acc, c: any) => acc + (Number(c?.stats?.rdv_modified ?? 0) || 0),
-        0
+        0,
       ),
-      notPerformed: p.reduce((acc, c: any) => acc + (estExamenNonPris(c?.stats) ? 1 : 0), 0),
+      notPerformed: p.reduce(
+        (acc, c: any) => acc + (estExamenNonPris(c?.stats) ? 1 : 0),
+        0,
+      ),
       radioInter: p.reduce(
-        (acc, c: any) => acc + (c.stats?.transferReason === "exam_interv" ? 1 : 0),
-        0
+        (acc, c: any) =>
+          acc + (c.stats?.transferReason === "exam_interv" ? 1 : 0),
+        0,
       ),
       noSlotApi: p.reduce(
         (acc, c: any) => acc + (c?.stats?.no_slot_api_retrieve ? 1 : 0),
-        0
+        0,
       ),
       confirmRDV: p.reduce(
         (acc, c: any) => acc + (c?.stats?.rdv_status === "confirmed" ? 1 : 0),
-        0
+        0,
       ),
-      resultats: p.reduce((acc, c: any) => acc + (estDemandeDeResultats(c?.stats) ? 1 : 0), 0),
+      resultats: p.reduce(
+        (acc, c: any) => acc + (estDemandeDeResultats(c?.stats) ? 1 : 0),
+        0,
+      ),
     };
   }, [previousCalls]);
 
@@ -982,28 +649,48 @@ export default function StatsAppelPage({ params }: any) {
   const deltas = useMemo(() => {
     if (!previousRange) return null;
     return {
-      totalAppels: computeDelta(totalAppels, previousKpis.totalAppels, "higher_is_better"),
+      totalAppels: computeDelta(
+        totalAppels,
+        previousKpis.totalAppels,
+        "higher_is_better",
+      ),
       nbRDV: computeDelta(nbRDV, previousKpis.nbRDV, "higher_is_better"),
       nbUrgence: computeDelta(nbUrgence, previousKpis.nbUrgence, "neutral"),
       nbInfo: computeDelta(nbInfo, previousKpis.nbInfo, "neutral"),
       resultats: computeDelta(nbResultats, previousKpis.resultats, "neutral"),
-      heures: computeDelta(currentHeuresSec, previousKpis.heuresSec, "higher_is_better"),
+      heures: computeDelta(
+        currentHeuresSec,
+        previousKpis.heuresSec,
+        "higher_is_better",
+      ),
       // Annulation & Confirmation : les tuiles affichent le TOTAL (bot + SMS
       // rappel), donc le delta doit comparer total ↔ total N-1 pour rester
       // cohérent avec la valeur affichée.
       annulation: computeDelta(
         totalAnnulation,
         previousKpis.annulation + prevSmsCancelled,
-        "neutral"
+        "neutral",
       ),
-      modification: computeDelta(modification, previousKpis.modification, "neutral"),
-      notPerformed: computeDelta(notPerformed, previousKpis.notPerformed, "lower_is_better"),
+      modification: computeDelta(
+        modification,
+        previousKpis.modification,
+        "neutral",
+      ),
+      notPerformed: computeDelta(
+        notPerformed,
+        previousKpis.notPerformed,
+        "lower_is_better",
+      ),
       radioInter: computeDelta(radioInter, previousKpis.radioInter, "neutral"),
-      noSlotApi: computeDelta(noSlotApi, previousKpis.noSlotApi, "lower_is_better"),
+      noSlotApi: computeDelta(
+        noSlotApi,
+        previousKpis.noSlotApi,
+        "lower_is_better",
+      ),
       confirmRDV: computeDelta(
         totalConfirmRDV,
         previousKpis.confirmRDV + prevSmsConfirmed,
-        "higher_is_better"
+        "higher_is_better",
       ),
     };
   }, [
@@ -1045,15 +732,15 @@ export default function StatsAppelPage({ params }: any) {
   const heatmapRdv = useMemo(
     () =>
       buildHeatmap(calls, (c: any) => Number(c?.stats?.rdv_booked ?? 0) > 0),
-    [calls]
+    [calls],
   );
   const heatmapPlanning = useMemo(
     () => buildHeatmap(calls, (c: any) => !!c?.stats?.no_slot_api_retrieve),
-    [calls]
+    [calls],
   );
   const heatmapTransfer = useMemo(
     () => buildHeatmap(calls, (c: any) => isCounterTransfer(c?.stats)),
-    [calls]
+    [calls],
   );
 
   const heatmapConfig: Record<
@@ -1069,7 +756,8 @@ export default function StatsAppelPage({ params }: any) {
     calls: {
       label: "Appels",
       shortLabel: "appels",
-      description: "Volume total d'appels par créneau, repère les heures de pointe",
+      description:
+        "Volume total d'appels par créneau, repère les heures de pointe",
       colorRgb: "72, 200, 175",
       data: heatmapAll,
     },
@@ -1083,14 +771,16 @@ export default function StatsAppelPage({ params }: any) {
     planning: {
       label: "Planning complet",
       shortLabel: "satur.",
-      description: "Quand les planning complets explosent, signal d'ouvrir des plages",
+      description:
+        "Quand les planning complets explosent, signal d'ouvrir des plages",
       colorRgb: "124, 45, 77",
       data: heatmapPlanning,
     },
     transfer: {
       label: "Transferts secrétariat",
       shortLabel: "transferts",
-      description: "Charge du secrétariat par créneau, anticipation des effectifs",
+      description:
+        "Charge du secrétariat par créneau, anticipation des effectifs",
       colorRgb: "239, 68, 68",
       data: heatmapTransfer,
     },
@@ -1107,7 +797,12 @@ export default function StatsAppelPage({ params }: any) {
 
     // ===== Section : Période =====
     rows.push(["Statistiques d'appels - Export"]);
-    rows.push(["Période du", formatDateFr(dateRange.from), "au", formatDateFr(dateRange.to)]);
+    rows.push([
+      "Période du",
+      formatDateFr(dateRange.from),
+      "au",
+      formatDateFr(dateRange.to),
+    ]);
     if (previousRange) {
       rows.push(["Comparaison avec", previousRange.label]);
     }
@@ -1117,21 +812,64 @@ export default function StatsAppelPage({ params }: any) {
     // ===== Section : Indicateurs principaux =====
     rows.push(["INDICATEURS PRINCIPAUX"]);
     rows.push(["Indicateur", "Valeur", "Évolution"]);
-    rows.push(["Total d'appels", totalAppels, formatDeltaForCsv(deltas?.totalAppels)]);
+    rows.push([
+      "Total d'appels",
+      totalAppels,
+      formatDeltaForCsv(deltas?.totalAppels),
+    ]);
     rows.push(["Prises de RDV", nbRDV, formatDeltaForCsv(deltas?.nbRDV)]);
-    rows.push(["Urgences détectées", nbUrgence, formatDeltaForCsv(deltas?.nbUrgence)]);
+    rows.push([
+      "Urgences détectées",
+      nbUrgence,
+      formatDeltaForCsv(deltas?.nbUrgence),
+    ]);
     rows.push(["Informations", nbInfo, formatDeltaForCsv(deltas?.nbInfo)]);
-    rows.push(["Demandes de résultats", nbResultats, formatDeltaForCsv(deltas?.resultats)]);
-    rows.push(["Demandes de résultats (part des transferts)", `${partResultats}%`]);
-    rows.push(["Heures prises en charge", heuresPrisEnCharge, formatDeltaForCsv(deltas?.heures)]);
-    rows.push(["Annulations (total)", totalAnnulation, formatDeltaForCsv(deltas?.annulation)]);
+    rows.push([
+      "Demandes de résultats",
+      nbResultats,
+      formatDeltaForCsv(deltas?.resultats),
+    ]);
+    rows.push([
+      "Demandes de résultats (part des transferts)",
+      `${partResultats}%`,
+    ]);
+    rows.push([
+      "Heures prises en charge",
+      heuresPrisEnCharge,
+      formatDeltaForCsv(deltas?.heures),
+    ]);
+    rows.push([
+      "Annulations (total)",
+      totalAnnulation,
+      formatDeltaForCsv(deltas?.annulation),
+    ]);
     rows.push(["Annulations (bot LyraeTalk)", annulation]);
     rows.push(["Annulations (rappel SMS)", smsCancelled]);
-    rows.push(["Modifications", modification, formatDeltaForCsv(deltas?.modification)]);
-    rows.push(["Examens non pris en charge", notPerformed, formatDeltaForCsv(deltas?.notPerformed)]);
-    rows.push(["Planning complet", noSlotApi, formatDeltaForCsv(deltas?.noSlotApi)]);
-    rows.push(["Radio interventionnelle", radioInter, formatDeltaForCsv(deltas?.radioInter)]);
-    rows.push(["Confirmations RDV (total)", totalConfirmRDV, formatDeltaForCsv(deltas?.confirmRDV)]);
+    rows.push([
+      "Modifications",
+      modification,
+      formatDeltaForCsv(deltas?.modification),
+    ]);
+    rows.push([
+      "Examens non pris en charge",
+      notPerformed,
+      formatDeltaForCsv(deltas?.notPerformed),
+    ]);
+    rows.push([
+      "Planning complet",
+      noSlotApi,
+      formatDeltaForCsv(deltas?.noSlotApi),
+    ]);
+    rows.push([
+      "Radio interventionnelle",
+      radioInter,
+      formatDeltaForCsv(deltas?.radioInter),
+    ]);
+    rows.push([
+      "Confirmations RDV (total)",
+      totalConfirmRDV,
+      formatDeltaForCsv(deltas?.confirmRDV),
+    ]);
     rows.push(["Confirmations RDV (bot LyraeTalk)", confirmRDV]);
     rows.push(["Confirmations RDV (rappel SMS)", smsConfirmed]);
     rows.push(["Indice de performance", `${indicePerformance}/100`]);
@@ -1188,13 +926,17 @@ export default function StatsAppelPage({ params }: any) {
     }
 
     // ===== Section : Heatmap (jour × heure) — métrique courante =====
-    rows.push([`HEATMAP - ${currentHeatmap.label.toUpperCase()} (jour × heure)`]);
+    rows.push([
+      `HEATMAP - ${currentHeatmap.label.toUpperCase()} (jour × heure)`,
+    ]);
     const heatmapHeader: unknown[] = ["Jour"];
-    for (let h = 0; h < 24; h++) heatmapHeader.push(`${String(h).padStart(2, "0")}h`);
+    for (let h = 0; h < 24; h++)
+      heatmapHeader.push(`${String(h).padStart(2, "0")}h`);
     rows.push(heatmapHeader);
     for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
       const row: unknown[] = [HEATMAP_DAYS_FULL[dayIdx]];
-      for (let h = 0; h < 24; h++) row.push(currentHeatmap.data.matrix[dayIdx][h]);
+      for (let h = 0; h < 24; h++)
+        row.push(currentHeatmap.data.matrix[dayIdx][h]);
       rows.push(row);
     }
 
@@ -1209,7 +951,7 @@ export default function StatsAppelPage({ params }: any) {
   // stockée : voir `src/lib/examLabels.ts`.
   const examLabelMap = useMemo(
     () => construireExamLabelMap(mapping),
-    [mapping]
+    [mapping],
   );
 
   const examPieData = useMemo(() => {
@@ -1276,10 +1018,7 @@ export default function StatsAppelPage({ params }: any) {
       const examCodes = Array.isArray(examCode) ? examCode : [examCode];
 
       // filtre sur le select
-      if (
-        selectedExamCode !== "all" &&
-        !examTypes.includes(selectedExamCode)
-      ) {
+      if (selectedExamCode !== "all" && !examTypes.includes(selectedExamCode)) {
         continue;
       }
 
@@ -1323,20 +1062,32 @@ export default function StatsAppelPage({ params }: any) {
       buckets[meta.category]++;
     }
 
-    const arr = CATEGORY_ORDER.filter((cat) => cat !== "non_transfert").map((cat) => ({
-      key: cat,
-      name: CATEGORY_META[cat].label,
-      value: buckets[cat],
-      color: CATEGORY_META[cat].color,
-    }));
+    const arr = CATEGORY_ORDER.filter((cat) => cat !== "non_transfert").map(
+      (cat) => ({
+        key: cat,
+        name: CATEGORY_META[cat].label,
+        value: buckets[cat],
+        color: CATEGORY_META[cat].color,
+      }),
+    );
 
     const sum = arr.reduce((a, b) => a + b.value, 0);
-    return sum === 0 ? [{ name: "Aucune donnée", value: 1, color: "#9ca3af" }] : arr;
+    return sum === 0
+      ? [{ name: "Aucune donnée", value: 1, color: "#9ca3af" }]
+      : arr;
   }, [calls]);
 
   /* ========== BarChart : top des raisons précises ========== */
   const transferReasonDetail = useMemo(() => {
-    const buckets = new Map<string, { reason: string; label: string; category: TransferCategory; count: number }>();
+    const buckets = new Map<
+      string,
+      {
+        reason: string;
+        label: string;
+        category: TransferCategory;
+        count: number;
+      }
+    >();
     for (const c of calls) {
       const stats = (c as any)?.stats;
       if (!isCounterTransfer(stats)) continue;
@@ -1465,12 +1216,15 @@ export default function StatsAppelPage({ params }: any) {
     if (!active || !payload || !payload.length) return null;
 
     const normal = payload.find((p: any) => p.dataKey === "normal")?.value ?? 0;
-    const redirect = payload.find((p: any) => p.dataKey === "redirect")?.value ?? 0;
+    const redirect =
+      payload.find((p: any) => p.dataKey === "redirect")?.value ?? 0;
     const total = (Number(normal) || 0) + (Number(redirect) || 0);
 
     return (
       <Paper sx={{ p: 1.25 }}>
-        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{label}</Typography>
+        <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+          {label}
+        </Typography>
         <Typography variant="body2">Total : {total}</Typography>
         <Typography variant="body2" sx={{ color: PALETTE.cyan }}>
           Pris en charge : {normal}
@@ -1484,8 +1238,7 @@ export default function StatsAppelPage({ params }: any) {
 
   const nbDays = useMemo(() => {
     const msPerDay = 1000 * 60 * 60 * 24;
-    const diff =
-      (dateRange.to.getTime() - dateRange.from.getTime()) / msPerDay;
+    const diff = (dateRange.to.getTime() - dateRange.from.getTime()) / msPerDay;
 
     return Math.max(1, Math.ceil(diff) + 1);
   }, [dateRange]);
@@ -1628,9 +1381,28 @@ export default function StatsAppelPage({ params }: any) {
         retour={{ libelle: "Retour à LyraeTalk", href: basePath }}
       />
       {/* Barre d'outils : période et export */}
-      <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-          <DateRangePresets range={dateRange} onChange={setDateRange} douzeMois />
+      <Box
+        sx={{
+          mb: 2,
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          flexWrap: "wrap",
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            flexWrap: "wrap",
+          }}
+        >
+          <DateRangePresets
+            range={dateRange}
+            onChange={setDateRange}
+            douzeMois
+          />
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Button
               variant="outlined"
@@ -1734,7 +1506,7 @@ export default function StatsAppelPage({ params }: any) {
               <StatTileSkeleton />
             ) : i === 0 ? (
               <StatTile
-                title="Total d&apos;appels"
+                title="Total d'appels"
                 value={totalAppels}
                 icon={<IconTotal />}
                 delta={deltas?.totalAppels}
@@ -1771,7 +1543,11 @@ export default function StatsAppelPage({ params }: any) {
                 icon={<IconResultats />}
                 delta={deltas?.resultats}
                 previousLabel={previousLabel}
-                subDetail={nbResultats > 0 ? `${partResultats} % des transferts` : undefined}
+                subDetail={
+                  nbResultats > 0
+                    ? `${partResultats} % des transferts`
+                    : undefined
+                }
               />
             ) : (
               <StatTile
@@ -1866,7 +1642,9 @@ export default function StatsAppelPage({ params }: any) {
             >
               {/* Toute la largeur sur un téléphone : en colonne, la boîte prenait la
                   largeur de son contenu et le sous-titre sortait du cadre. */}
-              <Box sx={{ flex: 1, minWidth: 0, width: { xs: "100%", sm: "auto" } }}>
+              <Box
+                sx={{ flex: 1, minWidth: 0, width: { xs: "100%", sm: "auto" } }}
+              >
                 <Typography variant="h6" fontWeight={700}>
                   Heatmap d&apos;activité
                 </Typography>
@@ -1897,14 +1675,20 @@ export default function StatsAppelPage({ params }: any) {
                   },
                 }}
               >
-                {(["calls", "rdv", "planning", "transfer"] as HeatmapMetricKey[]).map((k) => {
+                {(
+                  ["calls", "rdv", "planning", "transfer"] as HeatmapMetricKey[]
+                ).map((k) => {
                   const c = heatmapConfig[k];
                   return (
                     <Tab
                       key={k}
                       value={k}
                       label={
-                        <Stack direction="row" alignItems="center" spacing={0.75}>
+                        <Stack
+                          direction="row"
+                          alignItems="center"
+                          spacing={0.75}
+                        >
                           <span>{c.label}</span>
                           {c.data.total > 0 && (
                             <Chip
@@ -1940,7 +1724,8 @@ export default function StatsAppelPage({ params }: any) {
                 }}
               >
                 <Typography variant="body2" color="text.secondary">
-                  Aucune donnée &laquo; {currentHeatmap.label} &raquo; sur la période.
+                  Aucune donnée &laquo; {currentHeatmap.label} &raquo; sur la
+                  période.
                 </Typography>
               </Box>
             ) : (
@@ -1963,7 +1748,8 @@ export default function StatsAppelPage({ params }: any) {
               Indice de Performance
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Correspond au pourcentage d&apos;appel où l&apos;IA a réussi à diriger le patient
+              Correspond au pourcentage d&apos;appel où l&apos;IA a réussi à
+              diriger le patient
             </Typography>
             {loading ? (
               <ChartSkeleton />
@@ -1995,8 +1781,12 @@ export default function StatsAppelPage({ params }: any) {
                     <XAxis dataKey="name" />
                     <YAxis allowDecimals />
                     <ReTooltip content={<HistogramTooltip />} />
-                    <Bar dataKey="normal"   stackId="calls"  fill={PALETTE.cyan} />
-                    <Bar dataKey="redirect" stackId="calls" fill={PALETTE.pink} />
+                    <Bar dataKey="normal" stackId="calls" fill={PALETTE.cyan} />
+                    <Bar
+                      dataKey="redirect"
+                      stackId="calls"
+                      fill={PALETTE.pink}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
@@ -2025,7 +1815,11 @@ export default function StatsAppelPage({ params }: any) {
                       formatter={(val: number) => [val, "Appels moyens / h"]}
                       labelFormatter={(label: string) => `Heure ${label}`}
                     />
-                    <Bar dataKey="value" name="Appels moyens / h" fill={PALETTE.cyan} />
+                    <Bar
+                      dataKey="value"
+                      name="Appels moyens / h"
+                      fill={PALETTE.cyan}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
@@ -2059,7 +1853,10 @@ export default function StatsAppelPage({ params }: any) {
                       paddingAngle={2}
                     >
                       {transferData.map((d: any, i) => (
-                        <Cell key={i} fill={d.color || PIE_COLORS[i % PIE_COLORS.length]} />
+                        <Cell
+                          key={i}
+                          fill={d.color || PIE_COLORS[i % PIE_COLORS.length]}
+                        />
                       ))}
                     </Pie>
                     <Legend
@@ -2072,7 +1869,7 @@ export default function StatsAppelPage({ params }: any) {
                         paddingLeft: 8,
                         fontSize: 12,
                       }}
-                    />                    
+                    />
                     <ReTooltip />
                   </PieChart>
                 </ResponsiveContainer>
@@ -2094,18 +1891,30 @@ export default function StatsAppelPage({ params }: any) {
             ) : (
               <Box sx={{ width: "100%", height: 280 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={avgByIntentData} layout="vertical" margin={{ left: 32 }}>
+                  <BarChart
+                    data={avgByIntentData}
+                    layout="vertical"
+                    margin={{ left: 32 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" />
                     <YAxis type="category" dataKey="name" />
                     <ReTooltip
-                      formatter={(_val: number, _name: string, payload: any) => {
+                      formatter={(
+                        _val: number,
+                        _name: string,
+                        payload: any,
+                      ) => {
                         const secs = payload?.payload?.avgSec || 0;
                         return [secondsToMinLabel(secs), "Durée moyenne"];
                       }}
                       labelFormatter={() => ""}
                     />
-                    <Bar dataKey="avgMin" name="Durée moyenne" fill={PALETTE.blue} />
+                    <Bar
+                      dataKey="avgMin"
+                      name="Durée moyenne"
+                      fill={PALETTE.blue}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
@@ -2136,7 +1945,10 @@ export default function StatsAppelPage({ params }: any) {
                       paddingAngle={2}
                     >
                       {pieData.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                        <Cell
+                          key={i}
+                          fill={PIE_COLORS[i % PIE_COLORS.length]}
+                        />
                       ))}
                     </Pie>
                     <Legend verticalAlign="bottom" height={24} />
@@ -2157,7 +1969,8 @@ export default function StatsAppelPage({ params }: any) {
               Top des raisons précises de transfert
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Détail des 12 motifs les plus fréquents, couleur selon la catégorie
+              Détail des 12 motifs les plus fréquents, couleur selon la
+              catégorie
             </Typography>
             {loading ? (
               <ChartSkeleton />
@@ -2176,14 +1989,23 @@ export default function StatsAppelPage({ params }: any) {
                 </Typography>
               </Box>
             ) : (
-              <Box sx={{ width: "100%", height: Math.max(220, transferReasonDetail.length * 32) }}>
+              <Box
+                sx={{
+                  width: "100%",
+                  height: Math.max(220, transferReasonDetail.length * 32),
+                }}
+              >
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={transferReasonDetail}
                     layout="vertical"
                     margin={{ top: 8, right: 24, left: 8, bottom: 4 }}
                   >
-                    <CartesianGrid stroke="#f3f4f6" strokeDasharray="3 3" horizontal={false} />
+                    <CartesianGrid
+                      stroke="#f3f4f6"
+                      strokeDasharray="3 3"
+                      horizontal={false}
+                    />
                     <XAxis
                       type="number"
                       tick={{ fontSize: 11, fill: "#6b7280" }}
@@ -2209,8 +2031,10 @@ export default function StatsAppelPage({ params }: any) {
                       }}
                       formatter={(value: any, _name: any, payload: any) => [
                         `${value} appel${(value as number) > 1 ? "s" : ""}`,
-                        CATEGORY_META[(payload?.payload?.category ?? "autre") as TransferCategory]
-                          ?.label ?? "",
+                        CATEGORY_META[
+                          (payload?.payload?.category ??
+                            "autre") as TransferCategory
+                        ]?.label ?? "",
                       ]}
                     />
                     <Bar dataKey="count" radius={[0, 4, 4, 0]}>
@@ -2249,8 +2073,9 @@ export default function StatsAppelPage({ params }: any) {
                 />
               </Stack>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                À quelle étape le patient a-t-il raccroché ? Permet d&apos;expliquer
-                certains abandons (créneaux non adaptés, hésitation finale, etc.).
+                À quelle étape le patient a-t-il raccroché ? Permet
+                d&apos;expliquer certains abandons (créneaux non adaptés,
+                hésitation finale, etc.).
               </Typography>
               <Stack spacing={1.5}>
                 {hangupAnalysis.items.map((ctx) => (
@@ -2271,18 +2096,30 @@ export default function StatsAppelPage({ params }: any) {
                         }}
                       />
                       <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="caption" fontWeight={700} sx={{ display: "block" }}>
+                        <Typography
+                          variant="caption"
+                          fontWeight={700}
+                          sx={{ display: "block" }}
+                        >
                           {ctx.label}
                         </Typography>
                         <Typography
                           variant="caption"
                           color="text.secondary"
-                          sx={{ display: "block", fontSize: 11, lineHeight: 1.35 }}
+                          sx={{
+                            display: "block",
+                            fontSize: 11,
+                            lineHeight: 1.35,
+                          }}
                         >
                           {ctx.description}
                         </Typography>
                       </Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ flexShrink: 0 }}
+                      >
                         {ctx.count} ({Math.round(ctx.pct * 10) / 10}%)
                       </Typography>
                     </Stack>
@@ -2321,7 +2158,8 @@ export default function StatsAppelPage({ params }: any) {
                 Répartition par langue de conversation
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Langue effective en fin d&apos;appel, détection auto ou question explicite
+                Langue effective en fin d&apos;appel, détection auto ou question
+                explicite
               </Typography>
               <Stack spacing={1.5}>
                 {languageData.items.map((lang) => (
@@ -2335,7 +2173,11 @@ export default function StatsAppelPage({ params }: any) {
                       <Typography variant="body2" sx={{ fontSize: 16 }}>
                         {lang.flag}
                       </Typography>
-                      <Typography variant="caption" fontWeight={600} sx={{ flex: 1 }}>
+                      <Typography
+                        variant="caption"
+                        fontWeight={600}
+                        sx={{ flex: 1 }}
+                      >
                         {lang.label}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -2462,7 +2304,10 @@ export default function StatsAppelPage({ params }: any) {
                       paddingAngle={2}
                     >
                       {examCodePieData.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                        <Cell
+                          key={i}
+                          fill={PIE_COLORS[i % PIE_COLORS.length]}
+                        />
                       ))}
                     </Pie>
 
@@ -2474,7 +2319,7 @@ export default function StatsAppelPage({ params }: any) {
                         maxHeight: 200,
                         overflowY: "auto",
                         fontSize: 12,
-                        width: 200
+                        width: 200,
                       }}
                     />
                     <ReTooltip />
