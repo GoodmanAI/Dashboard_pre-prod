@@ -17,8 +17,10 @@ import { BORDER, INK, INK_MUTED, SURFACE } from "@/lib/jetons";
  * examens, paramètres, statistiques), puis ce que le produit veut ajouter (`children`,
  * la ligne du jour de Talk), puis la carte du tutoriel.
  *
- * Écran d'outil ouvert des dizaines de fois par jour : aucune animation d'entrée. Le seul
- * mouvement répond à la main (survol à la souris, appui).
+ * Écran d'outil ouvert des dizaines de fois par jour : aucune animation d'entrée. Seule
+ * exception, voulue par Enzo (16/11/2026) : une bande lente dans la couleur du produit passe
+ * sur le titre et la phrase toutes les 10 s (`.accueil-degrade` de `global.css`), sans rien
+ * déplacer ; coupée quand le système demande moins d'animations.
  */
 
 export type AccesDirect = {
@@ -65,8 +67,8 @@ export default function AccueilProduit({
           <Typography
             id="accueil-titre"
             component="h1"
+            className="accueil-degrade"
             sx={{
-              color: INK,
               fontSize: { xs: 26, md: 34 },
               fontWeight: 600,
               letterSpacing: "-0.025em",
@@ -77,12 +79,12 @@ export default function AccueilProduit({
             Que voulez-vous voir ?
           </Typography>
           <Typography
+            className="accueil-degrade accueil-degrade--doux"
             sx={{
               mt: 1.25,
               mb: { xs: 2.5, md: 3.5 },
               mx: "auto",
               maxWidth: 600,
-              color: INK_MUTED,
               fontSize: { xs: 15, md: 16 },
               lineHeight: 1.5,
               textWrap: "balance",
