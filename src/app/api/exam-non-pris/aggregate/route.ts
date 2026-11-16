@@ -63,14 +63,28 @@ export async function GET(req: NextRequest) {
     // on indexe sur `codeExamen` ET `codeExamenClient` pour maximiser le match
     // (le bot peut envoyer l'un ou l'autre selon la source du RIS).
     const [calls, talkSettings] = await Promise.all([
-      prisma.callConversation.findMany({
-        where: {
-          userProductId,
-          createdAt: { gte: from, lte: to },
-        },
-        select: { id: true, createdAt: true, stats: true },
-        orderBy: { createdAt: "desc" },
-      }),
+      // Les SIX champs lus ici, extraits par PostgreSQL avec leur type JSON (16/11/2026),
+      // au lieu de tout `stats` : même raison que `planning-complet/aggregate` (mesure du
+      // 23/09 : 22 Mo sur 30 jours au plus gros centre, surtout `stats.internal`). Une clé
+      // absente vaut `null`, que la boucle traite comme avant. Bornes en texte ISO castées
+      // en `timestamp`, comme Prisma le faisait en mode ORM.
+      prisma.$queryRaw<{ id: number; createdAt: Date; stats: Record<string, unknown> }[]>`
+        SELECT id,
+               "createdAt",
+               jsonb_build_object(
+                 'transferReason',            stats::jsonb -> 'transferReason',
+                 'exam_not_practiced_code',   stats::jsonb -> 'exam_not_practiced_code',
+                 'exam_not_practiced_type',   stats::jsonb -> 'exam_not_practiced_type',
+                 'exam_not_practiced_label',  stats::jsonb -> 'exam_not_practiced_label',
+                 'exam_not_bookable',         stats::jsonb -> 'exam_not_bookable',
+                 'exam_not_bookable_type',    stats::jsonb -> 'exam_not_bookable_type'
+               ) AS stats
+        FROM "CallConversation"
+        WHERE "userProductId" = ${userProductId}
+          AND "createdAt" >= ${from.toISOString()}::timestamp
+          AND "createdAt" <= ${to.toISOString()}::timestamp
+        ORDER BY "createdAt" DESC
+      `,
       prisma.talkSettings.findUnique({
         where: { userProductId },
         select: { exams: true },

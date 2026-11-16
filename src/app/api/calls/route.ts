@@ -333,10 +333,19 @@ export async function GET(request: NextRequest) {
         indice: number;
       } | null = null;
       if (jourDebut && jourFin) {
-        const duJour = await prisma.callConversation.findMany({
-          where: { userProductId, createdAt: { gte: jourDebut, lte: jourFin } },
-          select: { stats: true },
-        });
+        // Les trois champs lus, extraits par PostgreSQL (16/11/2026), au lieu de tout
+        // `stats` (dont `internal`, les deux tiers du poids) : l'accueil s'ouvre des
+        // dizaines de fois par jour. Bornes en texte ISO castées en `timestamp`.
+        const duJour = await prisma.$queryRaw<{ stats: Record<string, any> }[]>`
+          SELECT jsonb_build_object(
+                   'emergency',   stats::jsonb -> 'emergency',
+                   'rdv_booked',  stats::jsonb -> 'rdv_booked',
+                   'error_logic', stats::jsonb -> 'error_logic'
+                 ) AS stats
+          FROM "CallConversation"
+          WHERE "userProductId" = ${userProductId}
+            AND "createdAt" >= ${jourDebut.toISOString()}::timestamp
+            AND "createdAt" <= ${jourFin.toISOString()}::timestamp`;
         let urgences = 0;
         let rdvPris = 0;
         let enErreur = 0;
@@ -369,7 +378,9 @@ export async function GET(request: NextRequest) {
 
       // Les quatorze derniers jours QUI ONT DES APPELS, comme le faisait l'ecran : un
       // jour sans appel n'y figure pas. Jour calendaire UTC, idem.
-      const parJourBrut = await prisma.$queryRaw<
+      // Sur demande seulement (`parJour=1`, 16/11/2026) : la requete parcourt tout
+      // l'historique du centre, et l'accueil (seul lecteur de ce mode) ne l'affiche plus.
+      const parJourBrut = searchParams.get("parJour") !== "1" ? [] : await prisma.$queryRaw<
         { iso: string; total: number }[]
       >`
         SELECT to_char("createdAt"::date, 'YYYY-MM-DD') AS iso, count(*)::int AS total

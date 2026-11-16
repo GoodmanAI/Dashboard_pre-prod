@@ -667,6 +667,9 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   aucune donnée patient. Mêmes droits et mêmes lignes que `/api/calls` en `champs=stats`.
   `vue=apercu` : la carte d'un centre de `/admin/overview` (chiffres, appels par jour et par
   heure, entonnoir). Consommateurs : l'écran Statistiques d'appels et la vue d'ensemble admin.
+- **`mode=agregat`** (accueil Talk) : depuis le 16/11/2026, `parJour` n'est calculé que sur
+  demande (`parJour=1`, la requête parcourt tout l'historique du centre) ; sinon `[]`. Les
+  appels du jour ne remontent que `emergency`, `rdv_booked` et `error_logic`.
 - **`status=not_performed`** (06/10/2026) : les appels arrêtés par l'examen, selon
   `estExamenNonPris` (`src/lib/transferReasons.ts`) : catégorie `examen_non_traitable` ou
   `stats.exam_not_bookable`. Avant, `transferReason === "exam_type"` seul : l'écran client,
