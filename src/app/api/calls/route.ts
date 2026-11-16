@@ -1,6 +1,7 @@
 // app/api/calls/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { indexerParType, diminutifDuType } from "@/lib/examTypes";
 import {
@@ -85,9 +86,14 @@ async function avecTranscriptions(lignes: any[]): Promise<any[]> {
  * alors passer par une requête SQL unique (`lireAppels`).
  */
 function estPlageSimple(where: any): boolean {
-  const cles = Object.keys(where).sort().join(",");
-  if (cles !== "AND,createdAt,userProductId" && cles !== "AND,userProductId")
+  const cles = Object.keys(where);
+  const permises = ["AND", "createdAt", "userProductId", "anonymiseeLe"];
+  if (!cles.includes("userProductId") || !cles.every((c) => permises.includes(c)))
     return false;
+  // La borne de rétention (`borner`) pose `anonymiseeLe: null` : traduite en SQL.
+  if ("anonymiseeLe" in where && where.anonymiseeLe !== null) return false;
+  const plage = where.createdAt;
+  if (plage && Object.keys(plage).some((k) => k !== "gte" && k !== "lte")) return false;
   if (!Array.isArray(where.AND) || where.AND.length !== 1) return false;
   const seul = where.AND[0];
   return (
@@ -97,6 +103,50 @@ function estPlageSimple(where: any): boolean {
     seul.stats.gt === 15 &&
     Object.keys(seul.stats).length === 2
   );
+}
+
+/**
+ * Conditions SQL de la lecture directe (voir `estPlageSimple`) : centre, plage, durée de
+ * plus de 15 s comparée en jsonb comme le fait Prisma, plus d'un échange, et la borne de
+ * rétention quand `where` la porte. Bornes en texte ISO castées en `timestamp`.
+ */
+function conditionsDirectes(where: any): Prisma.Sql {
+  const depuis: Date = where.createdAt?.gte ?? new Date(0);
+  const jusqua: Date = where.createdAt?.lte ?? new Date();
+  return Prisma.sql`"userProductId" = ${where.userProductId}
+        AND "createdAt" >= ${depuis.toISOString()}::timestamp
+        AND "createdAt" <= ${jusqua.toISOString()}::timestamp
+        AND (stats::jsonb #> '{duration}') > '15'::jsonb
+        AND COALESCE(
+              "nbTours",
+              CASE WHEN jsonb_typeof(steps::jsonb) = 'array' THEN jsonb_array_length(steps::jsonb) ELSE 0 END
+            ) > 1
+        ${where.anonymiseeLe === null ? Prisma.sql`AND "anonymiseeLe" IS NULL` : Prisma.empty}`;
+}
+
+const COLONNES_LISTE = Prisma.sql`id, "userProductId", "centerId", treated, flagged, "flaggedAt", "flagComment",
+             (stats::jsonb - 'internal') AS stats, "createdAt"`;
+
+/**
+ * Une page de la liste des appels, lue par la base (16/11/2026) : le total et les seules
+ * lignes de la page, en parallèle. Avant, chaque page relisait toute la plage et la
+ * découpait en mémoire. Réservé aux listes sans filtre fait en mémoire.
+ */
+async function lirePageDirecte(
+  where: any,
+  skip: number,
+  limit: number,
+): Promise<{ total: number; lignes: any[] }> {
+  const [compte, lignes] = await Promise.all([
+    prisma.$queryRaw<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM "CallConversation" WHERE ${conditionsDirectes(where)}`,
+    prisma.$queryRaw<any[]>`
+      SELECT ${COLONNES_LISTE} FROM "CallConversation"
+      WHERE ${conditionsDirectes(where)}
+      ORDER BY "createdAt" DESC, id DESC
+      LIMIT ${limit} OFFSET ${skip}`,
+  ]);
+  return { total: compte[0]?.n ?? 0, lignes };
 }
 
 async function lireAppels(
@@ -126,17 +176,8 @@ async function lireAppels(
   if (estPlageSimple(where)) {
     try {
       const lignes = await prisma.$queryRaw<any[]>`
-      SELECT id, "userProductId", "centerId", treated, flagged, "flaggedAt", "flagComment",
-             (stats::jsonb - 'internal') AS stats, "createdAt"
-      FROM "CallConversation"
-      WHERE "userProductId" = ${where.userProductId}
-        AND "createdAt" >= ${depuis.toISOString()}::timestamp
-        AND "createdAt" <= ${jusqua.toISOString()}::timestamp
-        AND (stats::jsonb #> '{duration}') > '15'::jsonb
-        AND COALESCE(
-              "nbTours",
-              CASE WHEN jsonb_typeof(steps::jsonb) = 'array' THEN jsonb_array_length(steps::jsonb) ELSE 0 END
-            ) > 1
+      SELECT ${COLONNES_LISTE} FROM "CallConversation"
+      WHERE ${conditionsDirectes(where)}
       ORDER BY "createdAt" DESC`;
       return lignes;
     } catch (err) {
@@ -292,10 +333,19 @@ export async function GET(request: NextRequest) {
         indice: number;
       } | null = null;
       if (jourDebut && jourFin) {
-        const duJour = await prisma.callConversation.findMany({
-          where: { userProductId, createdAt: { gte: jourDebut, lte: jourFin } },
-          select: { stats: true },
-        });
+        // Les trois champs lus, extraits par PostgreSQL (16/11/2026), au lieu de tout
+        // `stats` (dont `internal`, les deux tiers du poids) : l'accueil s'ouvre des
+        // dizaines de fois par jour. Bornes en texte ISO castées en `timestamp`.
+        const duJour = await prisma.$queryRaw<{ stats: Record<string, any> }[]>`
+          SELECT jsonb_build_object(
+                   'emergency',   stats::jsonb -> 'emergency',
+                   'rdv_booked',  stats::jsonb -> 'rdv_booked',
+                   'error_logic', stats::jsonb -> 'error_logic'
+                 ) AS stats
+          FROM "CallConversation"
+          WHERE "userProductId" = ${userProductId}
+            AND "createdAt" >= ${jourDebut.toISOString()}::timestamp
+            AND "createdAt" <= ${jourFin.toISOString()}::timestamp`;
         let urgences = 0;
         let rdvPris = 0;
         let enErreur = 0;
@@ -328,7 +378,9 @@ export async function GET(request: NextRequest) {
 
       // Les quatorze derniers jours QUI ONT DES APPELS, comme le faisait l'ecran : un
       // jour sans appel n'y figure pas. Jour calendaire UTC, idem.
-      const parJourBrut = await prisma.$queryRaw<
+      // Sur demande seulement (`parJour=1`, 16/11/2026) : la requete parcourt tout
+      // l'historique du centre, et l'accueil (seul lecteur de ce mode) ne l'affiche plus.
+      const parJourBrut = searchParams.get("parJour") !== "1" ? [] : await prisma.$queryRaw<
         { iso: string; total: number }[]
       >`
         SELECT to_char("createdAt"::date, 'YYYY-MM-DD') AS iso, count(*)::int AS total
@@ -537,6 +589,45 @@ export async function GET(request: NextRequest) {
             equals: statusParam,
           },
         });
+      }
+    }
+
+    // PAGE LUE PAR LA BASE (16/11/2026) : sans filtre fait en mémoire (statut, téléphone,
+    // mineur, type d'examen), la liste demande à la base le total et les seules lignes
+    // de la page. En cas d'échec, le chemin général prend le relais.
+    const filtreEnMemoire =
+      (statusParam && statusParam !== "all") ||
+      phoneSearchActive ||
+      mineurOnly ||
+      (examTypeId && examTypeId !== "all") ||
+      !!examType;
+    if (mode !== "all" && !filtreEnMemoire && estPlageSimple(whereClause)) {
+      const page = Number(pageParam) || 1;
+      const limit = Number(limitParam) || 10;
+      try {
+        const { total, lignes } = await lirePageDirecte(
+          whereClause,
+          (page - 1) * limit,
+          limit,
+        );
+        return NextResponse.json(
+          {
+            data: await avecTranscriptions(lignes),
+            total,
+            page,
+            limit,
+            conservation: {
+              mois: retentionAppelsMois,
+              depuis: borneConservation.toISOString(),
+            },
+          },
+          { status: 200 },
+        );
+      } catch (err) {
+        console.error(
+          "[calls] page directe en échec, repli sur le chemin général :",
+          err,
+        );
       }
     }
 
