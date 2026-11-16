@@ -125,10 +125,13 @@ export async function GET(req: NextRequest) {
     respondedAt: Date | null;
     attempts: number;
     externalCenterCode: string | null;
+    appointmentDate: Date | null;
     createdAt: Date;
   }>(
+    // `appointmentDate` (16/11/2026) : AI2Xplore distingue une réponse à un RDV passé (rien à
+    // faire) d'une réponse à un RDV à venir dont il a perdu la relance (à reprendre à la main).
     `SELECT "id", "rdvId", "status", "respondedAction",
-            "respondedAt", "attempts", "externalCenterCode", "createdAt"
+            "respondedAt", "attempts", "externalCenterCode", "appointmentDate", "createdAt"
        FROM "AppointmentConfirmation"
       WHERE ${whereClause}
       ORDER BY "createdAt" ASC, "id" ASC
