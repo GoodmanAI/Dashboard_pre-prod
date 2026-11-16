@@ -94,9 +94,9 @@ import {
  * lot F, descend tout en bas et se replie : c'est surtout notre outil, le centre veut
  * d'abord savoir ce que le portail lui rapporte.
  *
- * LA DONNÉE : des comptes par jour que Konnect remonte chaque nuit (`KonnectStatJour`,
- * C-STAT.1 et C-STAT.2), plus ce que le Dashboard sait déjà (demandes de rappel, file
- * d'attente). Tout arrive par `/api/konnect-statistiques`, en une lecture.
+ * LA DONNÉE : des comptes par jour que Konnect remonte toutes les 10 minutes, aujourd'hui
+ * compris (`KonnectStatJour`, C-STAT.1 à C-STAT.3), plus ce que le Dashboard sait déjà
+ * (demandes de rappel, file d'attente). Tout arrive par `/api/konnect-statistiques`, en une lecture.
  *
  * HORS DES HEURES D'OUVERTURE : Konnect remonte l'heure de chaque réservation ; l'écran y
  * applique les horaires de LyraeTalk du centre s'il en a, sinon du lundi au vendredi de
@@ -141,6 +141,8 @@ type Donnees = {
   };
   funnel: Funnel | null;
   recuAt: string | null;
+  /** Dernière section `jours` reçue (toutes les 10 minutes depuis C-STAT.3). */
+  releveAt?: string | null;
 };
 
 const COULEURS = {
@@ -675,8 +677,8 @@ export default function EcranStatistiquesKonnect({
         {!chargement && donnees && donnees.lignes.length === 0 && (
           <Alert severity="info" sx={{ mb: 2 }}>
             Le portail n&apos;a encore rien transmis sur cette période. Les
-            statistiques apparaissent le lendemain des premières demandes en
-            ligne.
+            chiffres arrivent une dizaine de minutes après les premières
+            demandes en ligne.
           </Alert>
         )}
 
@@ -1412,9 +1414,9 @@ export default function EcranStatistiquesKonnect({
         </Grid>
 
         <Typography sx={{ fontSize: 11.5, color: INK_MUTED, mt: 2 }}>
-          {donnees?.recuAt
-            ? `Les chiffres de la veille arrivent chaque nuit. Dernier relevé du portail : ${new Date(donnees.recuAt).toLocaleString("fr-FR")}.`
-            : "Les chiffres de la veille arrivent chaque nuit."}
+          {(donnees?.releveAt ?? donnees?.recuAt)
+            ? `Les chiffres se mettent à jour toutes les 10 minutes. Dernière mise à jour : ${new Date(String(donnees?.releveAt ?? donnees?.recuAt)).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}.`
+            : "Les chiffres se mettent à jour toutes les 10 minutes."}
         </Typography>
       </Box>
     </PageContainer>
