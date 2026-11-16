@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 import { useTalkBasePath } from "@/utils/talkRoutes";
 import Transcription from "@/components/transcription/Transcription";
 import PastilleMineur from "@/components/transcription/PastilleMineur";
+import Pastille, { TONS } from "@/components/shared/Pastille";
 import { useSignalement } from "@/components/shared/DialogSignalement";
 import { apercuConversation } from "@/lib/entitesTranscription";
 import { exporterTranscriptionPdf, formatPhoneFR } from "@/lib/transcriptionPdf";
@@ -290,15 +291,10 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
 
                         <PastilleMineur stats={call.stats} />
 
-                        <Chip
-                          size="small"
-                          icon={<IconFlagFilled size={14} style={{ color: "white" }} />}
-                          label="Incident"
-                          sx={{
-                            backgroundColor: "#ef4444",
-                            color: "white",
-                            fontWeight: 600,
-                          }}
+                        <Pastille
+                          libelle="Incident"
+                          ton={TONS.incident}
+                          icone={<IconFlagFilled size={12} aria-hidden />}
                         />
                       </Box>
 
