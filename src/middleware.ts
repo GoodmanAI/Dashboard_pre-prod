@@ -24,6 +24,7 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   /^\/api\/module-info\/\d+$/,
   // Confirmation de RDV par SMS :
   //  - /api/rdv/init, /api/rdv/pending-events, /api/rdv/ack → API key (handler)
+  //  - /api/rdv/sante → DAILY_REPORT_API_KEY (handler), sonde de Daily Report (16/11/2026)
   //  - /api/rdv/[token], /api/rdv/[token]/respond → public, protégés par le token
   //
   // ⚠️ Ce bloc remplace `/^\/api\/rdv(\/|$)/`, un motif de BRANCHE qui whitelistait
@@ -37,7 +38,7 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // `/api/rdv/<quelque-chose>` sera donc whitelistée par accident. Si tu en
   // ajoutes une, ajoute-la à la liste d'exclusion du `(?!…)`, ou garde-la
   // toi-même dans son handler.
-  /^\/api\/rdv\/(?:init|ack|pending-events|reminder-sent|stats)$/,
+  /^\/api\/rdv\/(?:init|ack|pending-events|reminder-sent|stats|sante)$/,
   /^\/api\/rdv\/(?!dev-seed$)[^/]+$/,
   /^\/api\/rdv\/(?!dev-seed$)[^/]+\/respond$/,
   // Config "envoi SMS par type d'examen" — auth mixte (API key OU session) côté handler.
