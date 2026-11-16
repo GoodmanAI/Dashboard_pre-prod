@@ -373,7 +373,8 @@ Konnect ferait passer une remontée périmée pour fraîche).
 
 Depuis le 29/10/2026 (Konnect C-STAT.1), une quatrième section, `jours`, porte les
 compteurs quotidiens des 14 derniers jours (`{ depuis, jusqu_a, valeurs: { "AAAA-MM-JJ":
-{ cle: nombre } } }`), poussée une fois par nuit par le cron du rollup, seule dans sa
+{ cle: nombre } } }`), poussée par le cron du rollup (la nuit, et toutes les 10 minutes
+depuis le 16/11/2026, C-STAT.3 : aujourd'hui compris, jours de Paris, zéros envoyés), seule dans sa
 charge. **Elle n'entre pas dans `charge`** : la route la verse dans `KonnectStatJour`
 (une ligne par centre, jour et clé, valeur remplacée, jamais additionnée ; SQL
 `2026_10_29_konnect_stat_jour.sql`, **avant** le code). 31 jours et 20 000 lignes au plus,

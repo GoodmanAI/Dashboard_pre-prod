@@ -2,8 +2,9 @@
  * Statistiques de Konnect : calculs partagés entre la route `/api/konnect-statistiques` et
  * l'écran du centre (plan workspace `2026-11-statistiques-konnect.md`, lot 2).
  *
- * La donnée vient de `KonnectStatJour` : des comptes par jour que Konnect remonte chaque
- * nuit (C-STAT.1 et C-STAT.2). Aucune donnée patient.
+ * La donnée vient de `KonnectStatJour` : des comptes par jour (jours de Paris) que Konnect
+ * remonte toutes les 10 minutes, aujourd'hui compris (C-STAT.1 à C-STAT.3). Aucune donnée
+ * patient.
  */
 
 export type LigneJour = { jour: string; cle: string; valeur: number };
