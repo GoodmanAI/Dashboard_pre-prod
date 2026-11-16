@@ -1,4 +1,4 @@
-import { Chip } from "@mui/material";
+import Pastille, { TONS } from "@/components/shared/Pastille";
 
 /*
   « MINEUR » sur l'appel d'un patient de moins de 18 ans. `stats.patient_mineur` est
@@ -12,16 +12,6 @@ export function estPatientMineur(stats: unknown): boolean {
 
 export default function PastilleMineur({ stats }: { stats: unknown }) {
   if (!estPatientMineur(stats)) return null;
-  return (
-    <Chip
-      size="small"
-      label="MINEUR"
-      sx={{
-        backgroundColor: "#ea580c",
-        color: "#fff",
-        fontWeight: 700,
-        letterSpacing: 0.5,
-      }}
-    />
-  );
+  // Pleine, comme toute alerte (`TONS.mineur`, 5,2:1 ; l'ancien orange faisait 3,6:1).
+  return <Pastille libelle="MINEUR" ton={TONS.mineur} />;
 }
