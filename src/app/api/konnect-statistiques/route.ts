@@ -106,9 +106,21 @@ export async function GET(req: NextRequest) {
           ORDER BY "jour"`,
       [userProductId, depuis, to],
     ),
+    // Konnect remonte `rdv_examen.<code>` et `demande_examen.<code>` sous le code du
+    // centre, celui que le catalogue lui envoie (`codeExamenClient`, voir
+    // `konnect-examens`), jamais sous le code du référentiel. Plusieurs examens du
+    // référentiel peuvent partager un code (C-CAT.1) : une ligne par code, l'examen
+    // pratiqué d'abord. Libellé et type du centre, sinon ceux du référentiel.
     db.query<{ examenCode: string; libelle: string; typeCode: string | null }>(
-      `SELECT "examenCode", "libelle", "typeCode" FROM "KonnectExamens"
-          WHERE "userProductId" = $1`,
+      `SELECT DISTINCT ON (btrim("codeExamenClient"))
+              btrim("codeExamenClient") AS "examenCode",
+              coalesce(nullif(btrim("libelleClient"), ''), "libelle",
+                       btrim("codeExamenClient")) AS "libelle",
+              coalesce(nullif(btrim("typeExamenClient"), ''), "typeExamen") AS "typeCode"
+         FROM "KonnectExamens"
+        WHERE "userProductId" = $1
+          AND btrim(coalesce("codeExamenClient", '')) <> ''
+        ORDER BY btrim("codeExamenClient"), "performed" DESC, "libelle"`,
       [userProductId],
     ),
     db.query<{ siteId: string; libelle: string | null }>(
