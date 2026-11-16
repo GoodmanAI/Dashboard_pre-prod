@@ -21,7 +21,6 @@ import {
   SubFunnelData,
   TRACKED_INTENTS,
   causesTriees,
-  computeFunnel,
 } from "@/lib/callFunnel";
 
 /**
@@ -39,10 +38,10 @@ const STAGE_COLOR = "var(--accent)"; // teal brand
 const DROP_ACCENT = "#f97316";
 const DROP_ACCENT_BG = "#fff7ed";
 
-type Props = { calls: unknown[] };
+/** L'entonnoir arrive calculé par le serveur (`/api/stats-appel?vue=apercu`, 16/11/2026). */
+type Props = { funnel: AggregatedFunnel | null };
 
-export default function FunnelMiniChart({ calls }: Props) {
-  const funnel = useMemo(() => computeFunnel(calls), [calls]);
+export default function FunnelMiniChart({ funnel }: Props) {
 
   // Sous-funnels présents (au moins 1 appel), triés par volume décroissant
   // pour que la tab la plus "grosse" soit ouverte par défaut.
