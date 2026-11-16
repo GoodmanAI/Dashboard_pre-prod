@@ -58,7 +58,7 @@ import {
   estSansReponseDuSecretariat,
 } from "@/lib/transferReasons";
 import { getLanguageMeta, isNonDefaultLanguage } from "@/lib/languages";
-import { getHangupContext } from "@/lib/hangupContext";
+import { getHangupContext, isHangup } from "@/lib/hangupContext";
 import { MENU_FILTRE } from "@/lib/menuFiltre";
 import { useFiltresRecherche, useIntegre } from "@/lib/recherche/integre";
 import { plageDePeriode } from "@/lib/recherche/periode";
@@ -167,12 +167,10 @@ export function getCallChips(
 
   // Raccroché, et à quelle étape (`hangupContext.ts`). « Raccrochage indéterminé » et
   // « early_hangup » ne disent rien de plus que « Raccroché ».
-  if (
-    stats.rdv_booked === 0 &&
-    stats.rdv_canceled === 0 &&
-    stats.rdv_modified === 0 &&
-    !estUnTransfert(stats)
-  ) {
+  // Même règle que l'analyse des raccrochages des statistiques (`isHangup`) : un appel
+  // dont l'intention a abouti (prise, modification, annulation, confirmation) n'affiche
+  // pas « Raccroché ».
+  if (isHangup(stats)) {
     contexte.push({ libelle: "Raccroché", ton: TONS.neutre });
     const ctx = getHangupContext(stats);
     if (ctx && ctx.key !== "unknown" && ctx.key !== "early_hangup") {
