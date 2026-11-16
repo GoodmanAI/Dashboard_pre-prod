@@ -21,6 +21,7 @@ import { lireClasseur, telechargerClasseur, type Feuille } from "@/lib/pack/clas
 import { ONGLETS, type Constat, type Ecriture } from "@/lib/pack/domaines";
 import type { Pack } from "@/lib/pack/types";
 import { INK, INK_MUTED, BORDER, BRAND } from "@/lib/jetons";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Le pack de configuration : exporter un centre, le remplir, le rendre (lot 4D).
@@ -232,9 +233,7 @@ export default function PackPage() {
   if (chargement) {
     return (
       <PageContainer title="Pack de configuration" description="Exporter et importer un centre">
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress sx={{ color: BRAND }} />
-        </Box>
+        <Battement hauteur={320} />
       </PageContainer>
     );
   }

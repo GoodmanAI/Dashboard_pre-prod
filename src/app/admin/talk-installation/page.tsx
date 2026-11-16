@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   MenuItem,
   Paper,
   Select,
@@ -30,6 +29,7 @@ import type { Manque } from "@/lib/completude/types";
 import { STATUTS, type StatutCentre } from "@/lib/centreStatut";
 import { INK, INK_MUTED, BORDER, SURFACE_MUTED, OK, MANQUE } from "@/lib/jetons";
 import { RETENTION_MIN_MOIS, RETENTION_MAX_MOIS } from "@/lib/retentionAppels";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Installer un centre LyraeTalk, de bout en bout (lot I2).
@@ -316,9 +316,7 @@ export default function InstallationTalk() {
   if (chargement) {
     return (
       <PageContainer title="Installation Talk" description="Installer un centre">
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress sx={{ color: "var(--accent)" }} />
-        </Box>
+        <Battement hauteur={320} />
       </PageContainer>
     );
   }

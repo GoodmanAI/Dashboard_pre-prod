@@ -11,7 +11,6 @@ import {
   CardContent,
   Checkbox,
   Chip,
-  CircularProgress,
   Divider,
   FormControl,
   FormControlLabel,
@@ -94,6 +93,7 @@ import {
 import { KpiCard, SectionCard } from "./cartes";
 import SectionV2 from "./SectionV2";
 import type { StatsV2 } from "@/lib/statsInternesV2";
+import Battement from "@/components/shared/Battement";
 
 // ---------- Types ----------
 type TimeseriesPoint = {
@@ -329,7 +329,7 @@ function MiniBarChart({
             }}
             labelStyle={{ fontWeight: 600, color: "#2a6f64" }}
           />
-          <Bar dataKey={dataKey} fill={color} radius={[4, 4, 0, 0]} />
+          <Bar isAnimationActive={false} dataKey={dataKey} fill={color} radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </Box>
@@ -378,11 +378,12 @@ function DistributionBars({
             >
               <Box
                 sx={{
-                  width: `${pct}%`,
+                  width: "100%",
                   height: "100%",
                   bgcolor: color,
-                  borderRadius: 4,
-                  transition: "width 400ms ease",
+                  transform: `scaleX(${Math.min(100, Math.max(0, pct)) / 100})`,
+                  transformOrigin: "left",
+                  transition: "transform 220ms cubic-bezier(0.23, 1, 0.32, 1)",
                 }}
               />
             </Box>
@@ -595,10 +596,12 @@ function TransfersSection({
                     >
                       <Box
                         sx={{
-                          width: `${pct}%`,
+                          width: "100%",
                           height: "100%",
                           bgcolor: c.color,
-                          transition: "width 400ms ease",
+                          transform: `scaleX(${Math.min(100, Math.max(0, pct)) / 100})`,
+                          transformOrigin: "left",
+                          transition: "transform 220ms cubic-bezier(0.23, 1, 0.32, 1)",
                         }}
                       />
                     </Box>
@@ -672,7 +675,7 @@ function TransfersSection({
                       "Échecs",
                     ]}
                   />
-                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                  <Bar isAnimationActive={false} dataKey="count" radius={[0, 4, 4, 0]}>
                     {topFailedSteps.map((s, i) => {
                       const intensity = maxStep > 0 ? s.count / maxStep : 0;
                       const fill =
@@ -739,7 +742,7 @@ function TransfersSection({
                   formatter={(value: string) => getCategoryUI(value).label}
                 />
                 {activeCategories.map((cat) => (
-                  <Line
+                  <Line isAnimationActive={false}
                     key={cat}
                     type="monotone"
                     dataKey={cat}
@@ -1231,7 +1234,7 @@ function IdentificationSection({
               contentStyle={{ borderRadius: 8, border: "1px solid rgba(239,68,68,0.3)", fontSize: 12, padding: "6px 10px" }}
               labelStyle={{ fontWeight: 600, color: "#b91c1c" }}
             />
-            <Bar dataKey="count" fill="#ef4444" radius={[4, 4, 0, 0]} />
+            <Bar isAnimationActive={false} dataKey="count" fill="#ef4444" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </Box>
@@ -1867,7 +1870,7 @@ function FeatureMonitoringSection({
                             barTooltipLabel,
                           ]}
                         />
-                        <Bar dataKey={barDataKey} radius={[0, 4, 4, 0]}>
+                        <Bar isAnimationActive={false} dataKey={barDataKey} radius={[0, 4, 4, 0]}>
                           {topByBenefit.map((d, i) => (
                             <Cell key={i} fill={dotColor(d.recommendation)} />
                           ))}
@@ -1916,7 +1919,7 @@ function FeatureMonitoringSection({
                       }}
                       labelStyle={{ fontWeight: 600, color: "#2a6f64" }}
                     />
-                    <Bar dataKey="count" fill={ACCENT} radius={[4, 4, 0, 0]} />
+                    <Bar isAnimationActive={false} dataKey="count" fill={ACCENT} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
@@ -2253,7 +2256,7 @@ function TimeseriesCard({
                   return [`${formatted}${current.unit ? " " + current.unit : ""}`, current.label];
                 }}
               />
-              <Area
+              <Area isAnimationActive={false}
                 type="monotone"
                 dataKey={metric}
                 stroke={current.color}
@@ -2438,9 +2441,7 @@ const AnalyticsInternalPage = () => {
 
   if (status === "loading") {
     return (
-      <Box sx={{ display: "grid", placeItems: "center", minHeight: "50vh" }}>
-        <CircularProgress />
-      </Box>
+      <Battement hauteur="50vh" />
     );
   }
 
@@ -3094,7 +3095,7 @@ const AnalyticsInternalPage = () => {
                             }}
                             labelStyle={{ fontWeight: 600, color: "#2a6f64" }}
                           />
-                          <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                          <Bar isAnimationActive={false} dataKey="count" radius={[4, 4, 0, 0]}>
                             {data.slot.iterationsDistribution.map((d, i) => {
                               const colors = ["#22c55e", "#48C8AF", "#f59e0b", "#ef4444"];
                               return <Cell key={i} fill={colors[i] ?? ACCENT} />;

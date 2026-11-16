@@ -10,13 +10,13 @@ import {
   Card,
   CardActionArea,
   Chip,
-  CircularProgress,
 } from "@mui/material";
 import { IconArrowRight } from "@tabler/icons-react";
 import SectionHeader from "@/components/admin/SectionHeader";
 import BarreRecherche from "@/components/recherche/BarreRecherche";
 import { produitDepuisNom } from "@/lib/produits";
 import { cheminCentre, PRODUITS_MIGRES } from "@/lib/cheminsCentre";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Types de données échangées avec l’API / structure locale.
@@ -74,9 +74,7 @@ const ClientHomePage = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-        <CircularProgress sx={{ "& .MuiCircularProgress-svg": { color: "var(--accent)" } }} />
-      </Box>
+      <Battement hauteur="50vh" />
     );
   }
 

@@ -330,7 +330,7 @@ export default function EditTypeExam({ params }: TalkPageProps) {
                   border: `1px solid ${changed ? BRAND : BORDER}`,
                   borderRadius: 2,
                   bgcolor: SURFACE,
-                  transition: "all 0.15s ease",
+                  transition: "background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease",
                   "&:hover": {
                     borderColor: changed ? BRAND : "#C8D4DB",
                     bgcolor: SURFACE_HOVER,

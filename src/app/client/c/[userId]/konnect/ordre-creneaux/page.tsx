@@ -5,7 +5,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
-  CircularProgress,
   MenuItem,
   Paper,
   Select,
@@ -22,6 +21,7 @@ import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 import { INK, INK_MUTED, BORDER, SURFACE } from "@/lib/jetons";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Ordre de proposition des créneaux (lot E, `cabinet_slot_ranking`).
@@ -164,9 +164,7 @@ export default function OrdreCreneauxKonnect() {
   if (chargement) {
     return (
       <PageContainer title="Ordre des créneaux" description="Comment les horaires sont proposés">
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress sx={{ color: "var(--accent)" }} />
-        </Box>
+        <Battement hauteur={320} />
       </PageContainer>
     );
   }

@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Link as MuiLink,
   MenuItem,
   Paper,
@@ -30,6 +29,7 @@ import SectionHeader from "@/components/admin/SectionHeader";
 import EnTete, { SX_COLLEE_A_DROITE } from "@/components/shared/EnTeteTableau";
 import { MOTIFS_RAPPEL, type MotifRappel } from "@/lib/konnectDemandesRappel";
 import { INK, INK_MUTED, BORDER, SURFACE, SURFACE_MUTED } from "@/lib/jetons";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Demandes de rappel des patients LyraeKonnect
@@ -198,9 +198,7 @@ export default function DemandesRappelKonnect() {
   if (chargement) {
     return (
       <PageContainer title="Demandes de rappel" description="Les patients à rappeler">
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress sx={{ color: "var(--accent)" }} />
-        </Box>
+        <Battement hauteur={320} />
       </PageContainer>
     );
   }

@@ -54,6 +54,7 @@ import {
   type Produit,
 } from "@/components/admin/comptes/briques";
 import { BORDER, BRAND_TEAL, TEXT_MAIN, TEXT_MUTED } from "@/lib/jetons";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Clients et comptes — la vue d'ensemble de l'administration (lot 3, 15/09/2026).
@@ -256,9 +257,7 @@ export default function ComptesPage() {
   if (status === "loading" || chargement) {
     return (
       <PageContainer title="Clients et comptes" description="Vue d'ensemble">
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress sx={{ color: BRAND_TEAL }} />
-        </Box>
+        <Battement hauteur={320} />
       </PageContainer>
     );
   }

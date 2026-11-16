@@ -55,6 +55,7 @@ import {
   WARNING,
   WARNING_SOFT,
 } from "@/lib/jetons";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Mon profil (client).
@@ -224,11 +225,16 @@ function TuileLien({
         borderRadius: 2,
         height: "100%",
         transition: "transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease",
-        "&:hover": {
-          transform: "translateY(-2px)",
-          boxShadow: "0 8px 24px rgba(var(--accent-rgb), 0.15)",
-          borderColor: "rgba(var(--accent-rgb), 0.45)",
+        // Soulèvement au survol : souris seulement (sur une tablette, il resterait collé
+        // après le toucher). L'appui enfonce un peu la carte, au doigt comme à la souris.
+        "@media (hover: hover) and (pointer: fine)": {
+          "&:hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 8px 24px rgba(var(--accent-rgb), 0.15)",
+            borderColor: "rgba(var(--accent-rgb), 0.45)",
+          },
         },
+        "&:active": { transform: "scale(0.98)", transitionDuration: "120ms" },
         "@media (prefers-reduced-motion: reduce)": {
           transition: "border-color 180ms ease",
           "&:hover": { transform: "none" },
@@ -335,9 +341,7 @@ const ProfilePage = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-        <CircularProgress sx={{ "& .MuiCircularProgress-svg": { color: "var(--accent)" } }} />
-      </Box>
+      <Battement hauteur="50vh" />
     );
   }
 

@@ -214,14 +214,18 @@ export default function Visite({ cheminVoulu }: { cheminVoulu: string }) {
             position: "fixed",
             zIndex: Z + 1,
             pointerEvents: "none",
-            top: cadre.top,
-            left: cadre.left,
+            // Le cadre glisse d'un élément à l'autre par `transform` (sans recalcul de la
+            // mise en page) ; seule la taille change par width et height.
+            top: 0,
+            left: 0,
+            transform: `translate(${cadre.left}px, ${cadre.top}px)`,
             width: cadre.width,
             height: cadre.height,
             borderRadius: "10px",
             boxShadow:
               "0 0 0 3px var(--accent), 0 0 0 9999px rgba(15, 42, 63, 0.55)",
-            transition: "all .25s ease",
+            transition:
+              "transform 260ms cubic-bezier(0.23, 1, 0.32, 1), width 260ms cubic-bezier(0.23, 1, 0.32, 1), height 260ms cubic-bezier(0.23, 1, 0.32, 1)",
           }}
         />
       )}

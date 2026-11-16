@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   MenuItem,
   Paper,
   Select,
@@ -24,6 +23,7 @@ import SallesDuClient from "@/components/salles/SallesDuClient";
 import type { Manque } from "@/lib/completude/types";
 import type { StatutCentre } from "@/lib/centreStatut";
 import { INK, INK_MUTED, BORDER, SURFACE_MUTED, OK, MANQUE } from "@/lib/jetons";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Installer un centre LyraeKonnect, de bout en bout (lots G6 et I1).
@@ -257,9 +257,7 @@ export default function InstallationKonnect() {
   if (chargement) {
     return (
       <PageContainer title="Installation Konnect" description="Installer un centre">
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress sx={{ color: "var(--accent)" }} />
-        </Box>
+        <Battement hauteur={320} />
       </PageContainer>
     );
   }

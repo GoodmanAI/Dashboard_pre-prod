@@ -5,7 +5,6 @@ import React, { useEffect, useState } from "react";
 import {
   Alert,
   Box,
-  CircularProgress,
   Paper,
   Stack,
   Switch,
@@ -20,6 +19,7 @@ import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 import { INK, INK_MUTED, BORDER } from "@/lib/jetons";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Règles que le cabinet peut activer (lot B, `konnect.regles-etat`).
@@ -143,9 +143,7 @@ export default function ReglesCliniquesKonnect() {
   if (chargement) {
     return (
       <PageContainer title="Règles" description="Ce que le portail dit au patient">
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress sx={{ color: "var(--accent)" }} />
-        </Box>
+        <Battement hauteur={320} />
       </PageContainer>
     );
   }

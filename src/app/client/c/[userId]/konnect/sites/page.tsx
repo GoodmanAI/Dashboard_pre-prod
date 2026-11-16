@@ -6,7 +6,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   IconButton,
   Paper,
   Stack,
@@ -31,6 +30,7 @@ import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 import { INK, INK_MUTED, BORDER, SURFACE, SURFACE_MUTED, BRAND } from "@/lib/jetons";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Sites d'un centre LyraeKonnect.
@@ -182,9 +182,7 @@ export default function SitesKonnect() {
   if (chargement) {
     return (
       <PageContainer title="Sites" description="Vos lieux d'exercice">
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress sx={{ color: BRAND }} />
-        </Box>
+        <Battement hauteur={320} />
       </PageContainer>
     );
   }
