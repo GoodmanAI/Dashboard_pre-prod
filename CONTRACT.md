@@ -609,6 +609,15 @@ jusqua, lignes: [{ userProductId, jour, cle, valeur }], centres: [{ userProductI
 dernierRecu }] }` : toutes les clés de `KonnectStatJour`, **OCR compris** (la route du centre
 les écarte, D4). Des agrégats seuls, aucune donnée patient.
 
+**Pour la sonde des réponses aux relances SMS** — même clé `DAILY_REPORT_API_KEY` (16/11/2026,
+`plans/2026-11-reponses-sms-vers-xplore.md`) : `GET /api/rdv/sante`, lecture seule (ne fait pas
+expirer les PENDING, contrairement à `pending-events`). Réponse `{ maintenant, attenteMin,
+attente: [{ centre, nombre, plusAncienneMin }], refus: [{ rdvId, centre, statut, erreur, le }] | null,
+dernierAcquittement, reponses24h }`. `attente` : réponses CONFIRMED / CANCELLED non acquittées
+depuis plus de 10 min pour un RDV à venir ; `refus` : lignes `rdv_reminders` (table d'AI2Xplore
+dans cette base) à `xplore_sync_error` des dernières 24 h. Aucun nom ni numéro. Depuis la même
+date, chaque événement de `GET /api/rdv/pending-events` porte aussi `appointmentDate` (ajout).
+
 **Pour les sondes de déploiement** — header `x-api-key: DEPLOY_PROBE_API_KEY` :
 `POST /api/deployments` (écriture, appelée par `deploy/deployment-probe.js` des VMs
 lyraetalk, ai2xplore et dashboard, toutes les 15 min),
@@ -988,6 +997,7 @@ composent : `2026_08_10_deployment_status.sql` (création) et
 | **daily-report** | `GET /api/deployments` — section « Déploiement » du mail quotidien. Dégradation gracieuse de son côté : si la route tombe, la section disparaît, le mail part quand même |
 | **daily-report** (lot 1, à venir) | `GET /api/incidents-signales` (`DAILY_REPORT_API_KEY`) : signalements des clients de la veille, rattachés à Loki par `callId` |
 | **daily-report** (rapport hebdomadaire de Konnect) | `GET /api/konnect-stats-hebdo` (`DAILY_REPORT_API_KEY`) : compteurs quotidiens de Konnect, tous centres, OCR compris |
+| **daily-report** (sonde des réponses SMS, 16/11/2026) | `GET /api/rdv/sante` (`DAILY_REPORT_API_KEY`) : réponses aux relances non appliquées dans Xplore, refus d'Xplore des dernières 24 h |
 | **Sondes de déploiement** (3 VMs) | `POST /api/deployments` toutes les 15 min |
 
 **Je n'appelle jamais Konnect, et je ne le pourrai pas** : il passe derrière un VPN, je
