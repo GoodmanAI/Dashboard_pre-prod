@@ -9,7 +9,6 @@ import {
   Box,
   Grid,
   Typography,
-  CircularProgress,
   Checkbox,
   List,
   ListItem,
@@ -57,6 +56,7 @@ import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import { startOfDay, endOfDay, differenceInCalendarDays } from "date-fns";
 import FunnelMiniChart from "@/components/admin/FunnelMiniChart";
 import { estExamenNonPris, isCounterTransfer, estDemandeDeResultats } from "@/lib/transferReasons";
+import Battement from "@/components/shared/Battement";
 
 type TodayStats = {
   totalCalls: number;
@@ -282,10 +282,15 @@ function CentreTodayCard({
         overflow: "hidden",
         cursor: "pointer",
         transition: "transform 180ms ease, box-shadow 180ms ease",
-        "&:hover": {
-          transform: "translateY(-2px)",
-          boxShadow: "0 8px 24px rgba(72,200,175,0.15)",
+        // Soulèvement au survol : souris seulement (sur une tablette, il resterait collé
+        // après le toucher). L'appui enfonce un peu la carte, au doigt comme à la souris.
+        "@media (hover: hover) and (pointer: fine)": {
+          "&:hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 8px 24px rgba(var(--accent-rgb), 0.15)",
+          },
         },
+        "&:active": { transform: "scale(0.98)", transitionDuration: "120ms" },
       }}
     >
       {refetching && (
@@ -316,7 +321,7 @@ function CentreTodayCard({
           label={periodLabel}
           variant="outlined"
           sx={{
-            transition: "all 250ms ease",
+            transition: "background-color 200ms ease, color 200ms ease, border-color 200ms ease",
           }}
         />
       </Box>
@@ -416,7 +421,7 @@ function CentreTodayCard({
           <Box sx={{ height: 56 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={sparklineData}>
-                <Bar dataKey="count" fill={ACCENT} radius={[2, 2, 0, 0]} />
+                <Bar isAnimationActive={false} dataKey="count" fill={ACCENT} radius={[2, 2, 0, 0]} />
                 <ReTooltip
                   cursor={{ fill: "rgba(72,200,175,0.08)" }}
                   contentStyle={{
@@ -591,7 +596,7 @@ function OverviewSummaryCard({
                 labelStyle={{ fontWeight: 600, color: "#2a6f64" }}
                 formatter={(value: any) => [`${value} appel${value > 1 ? "s" : ""}`, ""]}
               />
-              <Bar dataKey="count" fill={ACCENT} radius={[4, 4, 0, 0]} />
+              <Bar isAnimationActive={false} dataKey="count" fill={ACCENT} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Box>
@@ -793,9 +798,7 @@ const AdminOverviewPage = () => {
 
   if (status === "loading") {
     return (
-      <Box sx={{ display: "grid", placeItems: "center", minHeight: "50vh" }}>
-        <CircularProgress />
-      </Box>
+      <Battement hauteur="50vh" />
     );
   }
 

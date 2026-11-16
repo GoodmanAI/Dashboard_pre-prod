@@ -133,6 +133,24 @@ const baselightTheme = createTheme({
       fontWeight: 400,
     },
   },
+  // Mouvement : mêmes valeurs que les jetons `--ease-*` et `--duree-*` de
+  // `src/app/global.css` (les garder synchronisés). Tout `Collapse`, `Fade`, `Grow`, `Menu`
+  // et `Dialog` de MUI les suit sans réglage local.
+  transitions: {
+    easing: {
+      easeOut: "cubic-bezier(0.23, 1, 0.32, 1)",
+      easeInOut: "cubic-bezier(0.2, 0.7, 0.2, 1)",
+    },
+    duration: {
+      shortest: 120,
+      shorter: 160,
+      short: 200,
+      standard: 220,
+      complex: 280,
+      enteringScreen: 220,
+      leavingScreen: 160,
+    },
+  },
   components: {
     MuiCssBaseline: {
       styleOverrides: {
@@ -140,17 +158,53 @@ const baselightTheme = createTheme({
           boxShadow:
             "rgb(145 158 171 / 30%) 0px 0px 2px 0px, rgb(145 158 171 / 12%) 0px 12px 24px -4px !important",
         },
+        // Chiffres à largeur fixe partout où l'on marque un chiffre (tuiles, compteurs).
+        ".chiffre, [data-chiffre]": { fontVariantNumeric: "tabular-nums" },
+        // Mouvement réduit demandé par le système : l'état final s'applique d'un coup.
+        // MUI ne lit pas cette préférence seul ; cette règle couvre aussi les `sx` locaux.
+        "@media (prefers-reduced-motion: reduce)": {
+          "*, *::before, *::after": {
+            animationDuration: "0.01ms !important",
+            animationIterationCount: "1 !important",
+            transitionDuration: "0.01ms !important",
+            scrollBehavior: "auto !important",
+          },
+        },
+      },
+    },
+    // Menus et listes déroulantes : MUI les fait déjà grandir depuis leur déclencheur
+    // (`transform-origin` calculé sur l'ancre) ; on borne la durée, que `auto` faisait
+    // varier avec la hauteur du menu (jusqu'à 300 ms et plus).
+    MuiMenu: {
+      defaultProps: { transitionDuration: { enter: 200, exit: 140 } },
+    },
+    MuiPopover: {
+      defaultProps: { transitionDuration: { enter: 200, exit: 140 } },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          transition: "background-color 200ms ease, transform 120ms ease-out",
+          "&:active": { transform: "scale(0.94)" },
+        },
       },
     },
     MuiButton: {
       // Pas d'ombre sous un bouton plein : l'ombre est réservée à ce qui flotte.
       defaultProps: { disableElevation: true },
       styleOverrides: {
+        // Appui : le bouton s'enfonce un peu (120 ms), la confirmation que le clic est pris.
+        root: {
+          transition:
+            "background-color 200ms ease, border-color 200ms ease, color 200ms ease, transform 120ms ease-out",
+          "&:active": { transform: "scale(0.97)" },
+        },
         containedPrimary: {
           backgroundColor: "var(--accent)",
           color: "#fff",
           boxShadow: "none",
           "&:hover": { backgroundColor: "var(--accent-press)", boxShadow: "none" },
+          "&:active": { transform: "scale(0.97)" },
         },
         outlinedPrimary: {
           color: "var(--accent-deep)",

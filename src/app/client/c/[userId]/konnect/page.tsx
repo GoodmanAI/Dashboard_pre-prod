@@ -1,168 +1,53 @@
 "use client";
 
-import React from "react";
-import {
-  Box,
-  Card,
-  CardActionArea,
-  Grid,
-  Stack,
-  Typography,
-} from "@mui/material";
-import { useRouter } from "next/navigation";
+import { IconChartBar, IconListDetails, IconSettings } from "@tabler/icons-react";
 import { useCentreProduit } from "@/hooks/useCentreProduit";
 import { cheminCentre } from "@/lib/cheminsCentre";
-import {
-  IconSettings,
-  IconListDetails,
-  IconChevronRight,
-  IconChartLine,
-} from "@tabler/icons-react";
-import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
-import SectionHeader from "@/components/admin/SectionHeader";
-import SommaireTutoriel from "@/components/tutoriel/SommaireTutoriel";
+import AccueilProduit from "@/components/accueil/AccueilProduit";
 
 /**
- * Accueil du produit LyraeKonnect.
- *
- * Remplace la redirection vers le paramétrage : le clic sur le logo doit mener
- * quelque part, pas rebondir. Comme le produit n'a pas encore de pilotage, cette
- * page sert de point de départ et dit ce qui est disponible.
- *
- * Le tableau de bord de suivi viendra à l'étape 7 du chantier multi-produit
- * (chemin *push*, sur le modèle de `calls/summary`) et prendra alors la place des
- * raccourcis, qui redescendront plus bas.
- *
- * Pas de titre de produit ici : le sélecteur du header le porte déjà, et le
- * répéter à deux centimètres de distance n'apprend rien.
+ * Accueil de LyraeKonnect (16/11/2026) : la recherche centrale d'abord, puis trois accès
+ * directs. Même gabarit que l'accueil de Talk (`AccueilProduit`), à la couleur du portail.
  */
 
-type Raccourci = {
-  titre: string;
-  description: string;
-  chemin: string;
-  Icone: React.ElementType;
-};
-
-const RACCOURCIS: Raccourci[] = [
-  {
-    titre: "Mapping d'examens",
-    description:
-      "Les examens que le portail peut proposer, et leur code dans votre logiciel de gestion.",
-    chemin: "examens",
-    Icone: IconListDetails,
-  },
-  {
-    titre: "Paramètres du portail",
-    description:
-      "Consignes affichées au patient, notifications, questionnaire clinique, limites de gabarit.",
-    chemin: "parametrage",
-    Icone: IconSettings,
-  },
+// Phrases que la recherche résout (corpus `scripts/recherche/corpus.json`).
+const EXEMPLES_KONNECT = [
+  "Les demandes de rappel pas encore traitées",
+  "Les statistiques du portail ce mois-ci",
+  "Changer le logo du portail",
 ];
 
 export default function AccueilKonnect() {
-  const router = useRouter();
   const { userId } = useCentreProduit();
+  const chemin = (suite: string) => (userId !== null ? cheminCentre(userId, "konnect", suite) : "#");
 
   return (
-    <PageContainer
-      title="LyraeKonnect"
-      description="Prise de rendez-vous en ligne"
-    >
-      <Box>
-        <SectionHeader
-          title="Bienvenue"
-          subtitle="Votre portail de prise de rendez-vous en ligne"
-        />
-        <SommaireTutoriel id="premiers_pas" />
-
-        <Grid container spacing={2}>
-          {RACCOURCIS.map(({ titre, description, chemin, Icone }) => (
-            <Grid item xs={12} md={6} key={chemin}>
-              <Card
-                variant="outlined"
-                sx={{
-                  borderColor: "#E4EAEE",
-                  borderRadius: 2,
-                  height: "100%",
-                  transition: "border-color .15s",
-                  "&:hover": { borderColor: "var(--accent)" },
-                }}
-              >
-                <CardActionArea
-                  onClick={() =>
-                    userId !== null &&
-                    router.push(cheminCentre(userId, "konnect", chemin))
-                  }
-                  sx={{ p: 2.5, height: "100%" }}
-                >
-                  <Stack direction="row" spacing={2} alignItems="flex-start">
-                    <Box
-                      sx={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 2,
-                        flexShrink: 0,
-                        display: "grid",
-                        placeItems: "center",
-                        color: "var(--accent-deep)",
-                        bgcolor: "rgba(var(--accent-rgb), 0.12)",
-                      }}
-                    >
-                      <Icone size={22} />
-                    </Box>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="subtitle1" fontWeight={700}>
-                        {titre}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {description}
-                      </Typography>
-                    </Box>
-                    <IconChevronRight
-                      size={18}
-                      style={{ opacity: 0.4, flexShrink: 0 }}
-                    />
-                  </Stack>
-                </CardActionArea>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-
-        {/* Ce qui n'existe pas encore, dit franchement plutôt que laissé deviner. */}
-        <Card
-          variant="outlined"
-          sx={{
-            mt: 2,
-            p: 2.5,
-            borderColor: "#E4EAEE",
-            borderRadius: 2,
-            borderStyle: "dashed",
-            bgcolor: "#F7FAFB",
-          }}
-        >
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Box sx={{ color: "text.disabled", display: "flex" }}>
-              <IconChartLine size={22} />
-            </Box>
-            <Box>
-              <Typography
-                variant="subtitle2"
-                fontWeight={700}
-                color="text.secondary"
-              >
-                Suivi de l&apos;activité
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Les rendez-vous pris en ligne, les dossiers à traiter et les
-                statistiques du portail arriveront ici prochainement.
-              </Typography>
-            </Box>
-          </Stack>
-        </Card>
-      </Box>
-    </PageContainer>
+    <AccueilProduit
+      titrePage="LyraeKonnect"
+      descriptionPage="Accueil du portail de prise de rendez-vous en ligne"
+      exemples={EXEMPLES_KONNECT}
+      ancreTutoriel="premiers_pas"
+      placeholder="Ce que vous cherchez"
+      acces={[
+        {
+          titre: "Mapping des examens",
+          description: "Les examens réservables en ligne et leur code dans votre logiciel.",
+          href: chemin("examens"),
+          Icone: IconListDetails,
+        },
+        {
+          titre: "Paramètres du portail",
+          description: "Logo, consignes au patient, notifications, questionnaire clinique.",
+          href: chemin("parametrage"),
+          Icone: IconSettings,
+        },
+        {
+          titre: "Statistiques",
+          description: "Rendez-vous pris en ligne, examens demandés, appels évités.",
+          href: chemin("statistiques"),
+          Icone: IconChartBar,
+        },
+      ]}
+    />
   );
 }

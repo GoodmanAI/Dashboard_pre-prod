@@ -186,10 +186,15 @@ function ExamCard({
         position: "relative",
         overflow: "hidden",
         transition: "transform 180ms ease, box-shadow 180ms ease",
-        "&:hover": {
-          transform: "translateY(-1px)",
-          boxShadow: `0 6px 18px ${accentLight}`,
+        // Soulèvement au survol : souris seulement (sur une tablette, il resterait collé
+        // après le toucher). L'appui enfonce un peu la carte, au doigt comme à la souris.
+        "@media (hover: hover) and (pointer: fine)": {
+          "&:hover": {
+            transform: "translateY(-1px)",
+            boxShadow: `0 6px 18px ${accentLight}`,
+          },
         },
+        "&:active": { transform: "scale(0.98)", transitionDuration: "120ms" },
       }}
     >
       {/* Barre de proportion en arrière-plan */}
@@ -393,7 +398,7 @@ function ModalityCharts({
             <Box sx={{ height: 260, position: "relative" }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
+                  <Pie isAnimationActive={false}
                     data={pieData}
                     dataKey="value"
                     nameKey="name"
@@ -562,7 +567,7 @@ function ModalityCharts({
                       "",
                     ]}
                   />
-                  <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={64}>
+                  <Bar isAnimationActive={false} dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={64}>
                     {activeTypes.map((t, i) => (
                       <Cell key={i} fill={colorForType(t)} />
                     ))}
@@ -611,7 +616,7 @@ function ModalityCharts({
                     formatter={(value: string) => labelForType(value)}
                   />
                   {activeTypes.map((t) => (
-                    <Line
+                    <Line isAnimationActive={false}
                       key={t}
                       type="monotone"
                       dataKey={t}
@@ -1056,7 +1061,7 @@ export default function PlanningCompletPage({ params }: Props) {
                               "",
                             ]}
                           />
-                          <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={80}>
+                          <Bar isAnimationActive={false} dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={80}>
                             <Cell fill={ACCENT} />
                             <Cell fill="#f59e0b" />
                           </Bar>
@@ -1101,7 +1106,7 @@ export default function PlanningCompletPage({ params }: Props) {
                             padding: "6px 10px",
                           }}
                         />
-                        <Area
+                        <Area isAnimationActive={false}
                           type="monotone"
                           dataKey="confirmed"
                           name="Planning complet"
@@ -1110,7 +1115,7 @@ export default function PlanningCompletPage({ params }: Props) {
                           fill="url(#pc-confirmed)"
                           dot={{ r: 2.5, fill: "#48C8AF", strokeWidth: 0 }}
                         />
-                        <Area
+                        <Area isAnimationActive={false}
                           type="monotone"
                           dataKey="toInvestigate"
                           name="À examiner"
@@ -1536,7 +1541,7 @@ export default function PlanningCompletPage({ params }: Props) {
                               "",
                             ]}
                           />
-                          <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={80}>
+                          <Bar isAnimationActive={false} dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={80}>
                             <Cell fill="#4899B5" />
                             <Cell fill="#a855f7" />
                           </Bar>
@@ -1588,7 +1593,7 @@ export default function PlanningCompletPage({ params }: Props) {
                             padding: "6px 10px",
                           }}
                         />
-                        <Area
+                        <Area isAnimationActive={false}
                           type="monotone"
                           dataKey="codes"
                           name="Examens non pratiqués"
@@ -1597,7 +1602,7 @@ export default function PlanningCompletPage({ params }: Props) {
                           fill="url(#enp-codes)"
                           dot={{ r: 2.5, fill: "#4899B5", strokeWidth: 0 }}
                         />
-                        <Area
+                        <Area isAnimationActive={false}
                           type="monotone"
                           dataKey="types"
                           name="Modalités non assurées"
@@ -1677,10 +1682,15 @@ export default function PlanningCompletPage({ params }: Props) {
                             position: "relative",
                             overflow: "hidden",
                             transition: "transform 180ms ease, box-shadow 180ms ease",
-                            "&:hover": {
-                              transform: "translateY(-1px)",
-                              boxShadow: "0 6px 18px rgba(72,155,181,0.25)",
+                            // Soulèvement au survol : souris seulement (sur une tablette, il resterait collé
+                            // après le toucher). L'appui enfonce un peu la carte, au doigt comme à la souris.
+                            "@media (hover: hover) and (pointer: fine)": {
+                              "&:hover": {
+                                transform: "translateY(-1px)",
+                                boxShadow: "0 6px 18px rgba(72,155,181,0.25)",
+                              },
                             },
+                            "&:active": { transform: "scale(0.98)", transitionDuration: "120ms" },
                           }}
                         >
                           <Box
@@ -1825,10 +1835,15 @@ export default function PlanningCompletPage({ params }: Props) {
                             position: "relative",
                             overflow: "hidden",
                             transition: "transform 180ms ease, box-shadow 180ms ease",
-                            "&:hover": {
-                              transform: "translateY(-1px)",
-                              boxShadow: "0 6px 18px rgba(168,85,247,0.25)",
+                            // Soulèvement au survol : souris seulement (sur une tablette, il resterait collé
+                            // après le toucher). L'appui enfonce un peu la carte, au doigt comme à la souris.
+                            "@media (hover: hover) and (pointer: fine)": {
+                              "&:hover": {
+                                transform: "translateY(-1px)",
+                                boxShadow: "0 6px 18px rgba(168,85,247,0.25)",
+                              },
                             },
+                            "&:active": { transform: "scale(0.98)", transitionDuration: "120ms" },
                           }}
                         >
                           <Box

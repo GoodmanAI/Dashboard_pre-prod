@@ -38,9 +38,9 @@ export const CHAPITRES_TALK: Chapitre[] = [
       },
       {
         cible: "#appels_aujourd_hui",
-        titre: "La vue d'ensemble",
+        titre: "La journée en un coup d'œil",
         texte:
-          "L'accueil résume les dernières 24 heures : appels reçus, rendez-vous pris, transferts au secrétariat.",
+          "Sous la recherche, l'accueil rappelle la journée : appels reçus, rendez-vous pris, urgences. « Voir le détail » ouvre les statistiques.",
       },
       {
         cible: "#premiers_pas",

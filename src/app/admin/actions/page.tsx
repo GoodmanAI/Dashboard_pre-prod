@@ -8,7 +8,6 @@ import {
   Grid,
   Card,
   Typography,
-  CircularProgress,
 } from "@mui/material";
 import {
   IconUserPlus,
@@ -19,6 +18,7 @@ import {
 } from "@tabler/icons-react";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Card d'action cliquable : icône teal + titre + description + chevron.
@@ -48,11 +48,16 @@ function ActionCard({
         cursor: "pointer",
         transition: "transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease",
         border: "1px solid transparent",
-        "&:hover": {
-          transform: "translateY(-2px)",
-          boxShadow: "0 8px 24px rgba(var(--accent-rgb), 0.15)",
-          borderColor: "rgba(var(--accent-rgb), 0.4)",
+        // Soulèvement au survol : souris seulement (sur une tablette, il resterait collé
+        // après le toucher). L'appui enfonce un peu la carte, au doigt comme à la souris.
+        "@media (hover: hover) and (pointer: fine)": {
+          "&:hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 8px 24px rgba(var(--accent-rgb), 0.15)",
+            borderColor: "rgba(var(--accent-rgb), 0.4)",
+          },
         },
+        "&:active": { transform: "scale(0.98)", transitionDuration: "120ms" },
       }}
     >
       <Box
@@ -102,9 +107,7 @@ const AdminActionsPage = () => {
 
   if (status === "loading") {
     return (
-      <Box sx={{ display: "grid", placeItems: "center", minHeight: "50vh" }}>
-        <CircularProgress />
-      </Box>
+      <Battement hauteur="50vh" />
     );
   }
 

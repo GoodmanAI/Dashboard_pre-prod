@@ -171,6 +171,9 @@ type Etat =
 
 export default function PanneauRecherche({ userId }: { userId: number | null }) {
   const [ouvert, setOuvert] = useState(false);
+  // Ouvert par `Ctrl+K` : aucune animation (un geste au clavier, des dizaines de fois par
+  // jour, doit répondre tout de suite). Ouvert par la barre : un fondu court.
+  const [auClavier, setAuClavier] = useState(false);
   const [phrase, setPhrase] = useState("");
   const [etat, setEtat] = useState<Etat>({ phase: "vide" });
   const [choix, setChoix] = useState(0);
@@ -212,6 +215,7 @@ export default function PanneauRecherche({ userId }: { userId: number | null }) 
   useEffect(() => {
     const ouvrir = (e: Event) => {
       const p = (e as CustomEvent<{ phrase: string }>).detail?.phrase ?? "";
+      setAuClavier(false);
       setOuvert(true);
       setPhrase(p);
       if (p.trim()) chercher(p);
@@ -227,6 +231,7 @@ export default function PanneauRecherche({ userId }: { userId: number | null }) 
     const touche = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        setAuClavier(true);
         setOuvert(true);
         window.setTimeout(() => champ.current?.select(), 50);
       }
@@ -283,6 +288,7 @@ export default function PanneauRecherche({ userId }: { userId: number | null }) 
         onClose={() => setOuvert(false)}
         fullWidth
         maxWidth="lg"
+        transitionDuration={auClavier ? 0 : { enter: 140, exit: 100 }}
         TransitionProps={{ onEntered: () => champ.current?.focus() }}
         PaperProps={{
           sx: {
