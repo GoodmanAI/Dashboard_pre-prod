@@ -95,6 +95,7 @@ export async function GET(req: NextRequest) {
     file,
     remontee,
     horaires,
+    releve,
   ] = await Promise.all([
     db.query<LigneJour>(
       `SELECT to_char("jour", 'YYYY-MM-DD') AS jour, "cle", "valeur"
@@ -185,6 +186,12 @@ export async function GET(req: NextRequest) {
       [userProductId],
     ),
     horairesTalk(userProductId),
+    // La section `jours` seule ne touche pas `KonnectRemontee.recuAt` : la dernière mise à
+    // jour des chiffres se lit ici (toutes les 10 minutes depuis C-STAT.3).
+    db.query<{ releveAt: Date | null }>(
+      `SELECT max("recuAt") AS "releveAt" FROM "KonnectStatJour" WHERE "userProductId" = $1`,
+      [userProductId],
+    ),
   ]);
 
   const r = rappels.rows[0];
@@ -222,6 +229,7 @@ export async function GET(req: NextRequest) {
     },
     funnel: remontee.rows[0]?.charge?.funnel ?? null,
     recuAt: remontee.rows[0]?.recuAt ?? null,
+    releveAt: releve.rows[0]?.releveAt ?? null,
   });
 }
 
