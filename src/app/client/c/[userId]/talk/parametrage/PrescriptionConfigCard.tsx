@@ -19,6 +19,7 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
+import { signaler } from "@/lib/signaler";
 
 /**
  * Bloc de configuration "Ordonnances" affiche dans la page /parametrage.
@@ -108,7 +109,7 @@ const PrescriptionConfigCard = forwardRef<
         setMessagePatient(data.messagePatient ?? "");
         setDirty(false);
       } catch (err) {
-        console.error("[PrescriptionConfigCard] fetch failed:", err);
+        signaler("[PrescriptionConfigCard] fetch failed:", err);
         if (alive) {
           setSnack({ open: true, msg: "Impossible de charger la configuration.", sev: "error" });
         }
@@ -164,7 +165,7 @@ const PrescriptionConfigCard = forwardRef<
       setSnack({ open: true, msg: "Ordonnances enregistrées.", sev: "success" });
       return true;
     } catch (err) {
-      console.error("[PrescriptionConfigCard] save failed:", err);
+      signaler("[PrescriptionConfigCard] save failed:", err);
       setSnack({
         open: true,
         msg: "Les ordonnances n'ont pas été enregistrées. Réessayez dans un instant.",

@@ -3,10 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { indexerParType, diminutifDuType } from "@/lib/examTypes";
-import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
+import {
+  requirePagePermission,
+  requireAnyPagePermission,
+} from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 import { debutConservation } from "@/lib/retentionAppels";
-import { estExamenNonPris, estDemandeDeResultats, FINS_DE_TRANSFERT_LISTE } from "@/lib/transferReasons";
+import {
+  estExamenNonPris,
+  estDemandeDeResultats,
+  FINS_DE_TRANSFERT_LISTE,
+} from "@/lib/transferReasons";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +59,8 @@ function nbToursDe(ligne: any): number {
  */
 function sansMesuresInternes(ligne: any): any {
   const stats = ligne?.stats;
-  if (!stats || typeof stats !== "object" || !("internal" in stats)) return ligne;
+  if (!stats || typeof stats !== "object" || !("internal" in stats))
+    return ligne;
   const { internal: _internal, ...reste } = stats as Record<string, unknown>;
   return { ...ligne, stats: reste };
 }
@@ -71,7 +79,30 @@ async function avecTranscriptions(lignes: any[]): Promise<any[]> {
   return lignes.map((c) => ({ ...c, steps: parId.get(c.id) ?? {} }));
 }
 
-async function lireAppels(where: any, sansTranscription: boolean): Promise<any[]> {
+/**
+ * Vrai quand `where` ne porte que le centre, la plage et le seul filtre de durée posé par
+ * défaut (aucun statut, aucun signalement, aucune borne de rétention) : la lecture peut
+ * alors passer par une requête SQL unique (`lireAppels`).
+ */
+function estPlageSimple(where: any): boolean {
+  const cles = Object.keys(where).sort().join(",");
+  if (cles !== "AND,createdAt,userProductId" && cles !== "AND,userProductId")
+    return false;
+  if (!Array.isArray(where.AND) || where.AND.length !== 1) return false;
+  const seul = where.AND[0];
+  return (
+    Object.keys(seul).length === 1 &&
+    seul.stats?.path?.length === 1 &&
+    seul.stats.path[0] === "duration" &&
+    seul.stats.gt === 15 &&
+    Object.keys(seul.stats).length === 2
+  );
+}
+
+async function lireAppels(
+  where: any,
+  sansTranscription: boolean,
+): Promise<any[]> {
   if (!sansTranscription) {
     const lignes = await prisma.callConversation.findMany({
       where,
@@ -82,6 +113,40 @@ async function lireAppels(where: any, sansTranscription: boolean): Promise<any[]
 
   const depuis: Date = where.createdAt?.gte ?? new Date(0);
   const jusqua: Date = where.createdAt?.lte ?? new Date();
+
+  // CHEMIN DIRECT (16/11/2026) : une plage sans autre filtre que la durée (écran des
+  // statistiques, liste des appels non filtrée) se lit en UNE requête, et `internal`
+  // est retiré par PostgreSQL. Avant, la base envoyait toute la colonne `stats` à Node
+  // (les mesures internes en font les deux tiers, mesure du 23/09) en deux allers-retours
+  // (les identifiants, puis les lignes par un `IN` de plusieurs milliers d'éléments),
+  // et Node jetait ensuite `internal`.
+  //
+  // Mêmes conditions que le chemin général : la durée comparée en jsonb comme le fait
+  // Prisma (`stats #> '{duration}' > '15'`), plus d'un échange, bornes en texte ISO.
+  if (estPlageSimple(where)) {
+    try {
+      const lignes = await prisma.$queryRaw<any[]>`
+      SELECT id, "userProductId", "centerId", treated, flagged, "flaggedAt", "flagComment",
+             (stats::jsonb - 'internal') AS stats, "createdAt"
+      FROM "CallConversation"
+      WHERE "userProductId" = ${where.userProductId}
+        AND "createdAt" >= ${depuis.toISOString()}::timestamp
+        AND "createdAt" <= ${jusqua.toISOString()}::timestamp
+        AND (stats::jsonb #> '{duration}') > '15'::jsonb
+        AND COALESCE(
+              "nbTours",
+              CASE WHEN jsonb_typeof(steps::jsonb) = 'array' THEN jsonb_array_length(steps::jsonb) ELSE 0 END
+            ) > 1
+      ORDER BY "createdAt" DESC`;
+      return lignes;
+    } catch (err) {
+      // Filet : la lecture repart par le chemin général, plus lent mais éprouvé.
+      console.error(
+        "[calls] chemin direct en échec, repli sur le chemin général :",
+        err,
+      );
+    }
+  }
   // Bornes en TEXTE ISO castées en `timestamp`, jamais en objet `Date` : la colonne
   // est un `timestamp without time zone` qui porte de l'UTC, et PostgreSQL lit un
   // paramètre `Date` dans le fuseau du serveur (Europe/Paris). Sans ce cast, deux
@@ -117,11 +182,14 @@ async function lireAppels(where: any, sansTranscription: boolean): Promise<any[]
           stats: true,
           createdAt: true,
         },
-      }))
+      })),
     );
   }
   return lignes
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
     .map(sansMesuresInternes);
 }
 
@@ -168,7 +236,7 @@ export async function GET(request: NextRequest) {
     if (!userProductIdParam) {
       return NextResponse.json(
         { error: "Paramètre userProductId manquant." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -176,11 +244,14 @@ export async function GET(request: NextRequest) {
     if (!Number.isFinite(userProductId)) {
       return NextResponse.json(
         { error: "Paramètre userProductId invalide." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const ownershipErr = await assertUserProductOwnership(session, userProductId);
+    const ownershipErr = await assertUserProductOwnership(
+      session,
+      userProductId,
+    );
     if (ownershipErr) return ownershipErr;
 
     // ==========================
@@ -200,7 +271,7 @@ export async function GET(request: NextRequest) {
     if (mode === "agregat") {
       const droitAgregatErr = await requireAnyPagePermission(
         [PAGES.DASHBOARD, PAGES.CALLS, PAGES.INCIDENTS, PAGES.STATS_APPEL],
-        "read"
+        "read",
       );
       if (droitAgregatErr) return droitAgregatErr;
 
@@ -214,7 +285,12 @@ export async function GET(request: NextRequest) {
       const depuis = versDate(fromParam);
       const jusqua = versDate(toParam);
 
-      let jour: { total: number; urgences: number; rdvPris: number; indice: number } | null = null;
+      let jour: {
+        total: number;
+        urgences: number;
+        rdvPris: number;
+        indice: number;
+      } | null = null;
       if (jourDebut && jourFin) {
         const duJour = await prisma.callConversation.findMany({
           where: { userProductId, createdAt: { gte: jourDebut, lte: jourFin } },
@@ -243,13 +319,18 @@ export async function GET(request: NextRequest) {
           total: duJour.length,
           urgences,
           rdvPris,
-          indice: duJour.length === 0 ? 0 : Math.floor((1 - enErreur / duJour.length) * 100),
+          indice:
+            duJour.length === 0
+              ? 0
+              : Math.floor((1 - enErreur / duJour.length) * 100),
         };
       }
 
       // Les quatorze derniers jours QUI ONT DES APPELS, comme le faisait l'ecran : un
       // jour sans appel n'y figure pas. Jour calendaire UTC, idem.
-      const parJourBrut = await prisma.$queryRaw<{ iso: string; total: number }[]>`
+      const parJourBrut = await prisma.$queryRaw<
+        { iso: string; total: number }[]
+      >`
         SELECT to_char("createdAt"::date, 'YYYY-MM-DD') AS iso, count(*)::int AS total
         FROM "CallConversation"
         WHERE "userProductId" = ${userProductId}
@@ -263,12 +344,19 @@ export async function GET(request: NextRequest) {
           ? await prisma.callConversation.count({
               where: {
                 userProductId,
-                createdAt: { ...(depuis ? { gte: depuis } : {}), ...(jusqua ? { lte: jusqua } : {}) },
+                createdAt: {
+                  ...(depuis ? { gte: depuis } : {}),
+                  ...(jusqua ? { lte: jusqua } : {}),
+                },
               },
             })
           : null;
 
-      return NextResponse.json({ jour, parJour: [...parJourBrut].reverse(), total });
+      return NextResponse.json({
+        jour,
+        parJour: [...parJourBrut].reverse(),
+        total,
+      });
     }
 
     // TROIS ecrans lisent les LIGNES d'appel : Appels, Incidents et Statistiques
@@ -281,7 +369,7 @@ export async function GET(request: NextRequest) {
     // sous-compte ne lui donne plus les appels du centre.
     const droitErr = await requireAnyPagePermission(
       [PAGES.CALLS, PAGES.INCIDENTS, PAGES.STATS_APPEL],
-      "read"
+      "read",
     );
     if (droitErr) return droitErr;
 
@@ -315,7 +403,7 @@ export async function GET(request: NextRequest) {
       if (!Number.isFinite(callId)) {
         return NextResponse.json(
           { error: "Paramètre call invalide." },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -326,7 +414,7 @@ export async function GET(request: NextRequest) {
       if (!call) {
         return NextResponse.json(
           { error: "Aucun appel trouvé." },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
@@ -452,13 +540,33 @@ export async function GET(request: NextRequest) {
       }
     }
 
-        // La liste des appels n'affiche qu'une page de dix lignes, mais le filtrage se
-        // fait encore en mémoire : on lit toute la plage SANS les transcriptions, et on
-        // ne les charge que pour les lignes retenues (plus bas). Avant le 23/09/2026 la
-        // plage entière partait avec ses transcriptions, et une recherche par téléphone
-        // (cinq ans) en chargeait 14 Mo pour en afficher dix.
-        const modePagine = mode !== "all";
-        let calls: any[] = await lireAppels(whereClause, sansTranscription || modePagine);
+    // La liste des appels n'affiche qu'une page de dix lignes, mais le filtrage se
+    // fait encore en mémoire : on lit toute la plage SANS les transcriptions, et on
+    // ne les charge que pour les lignes retenues (plus bas). Avant le 23/09/2026 la
+    // plage entière partait avec ses transcriptions, et une recherche par téléphone
+    // (cinq ans) en chargeait 14 Mo pour en afficher dix.
+    const modePagine = mode !== "all";
+    // La période précédente (deltas des statistiques) se lit EN MÊME TEMPS que la
+    // période demandée, avec exactement les mêmes filtres : avant le 16/11/2026, les
+    // deux lectures se suivaient et l'attente doublait.
+    let previousWhere: any = null;
+    if (mode === "all" && includePrevious) {
+      previousWhere = {
+        ...whereClause,
+        createdAt: {
+          gte: new Date(previousFromParam!),
+          lte: new Date(previousToParam!),
+        },
+      };
+      borner(previousWhere);
+    }
+    const [callsLus, previousLus] = await Promise.all([
+      lireAppels(whereClause, sansTranscription || modePagine),
+      previousWhere
+        ? lireAppels(previousWhere, sansTranscription)
+        : Promise.resolve(null),
+    ]);
+    let calls: any[] = callsLus;
 
     if (statusParam === "hung_up") {
       calls = calls.filter((c: any) => {
@@ -504,17 +612,9 @@ export async function GET(request: NextRequest) {
       // Si la page demande une comparaison (deltas vs N-1), on fait un 2e
       // fetch sur la période précédente avec EXACTEMENT les mêmes filtres
       // (whereClause cloné + range remplacé + mêmes post-filtres JS).
-      if (includePrevious) {
-        const previousWhere: any = {
-          ...whereClause,
-          createdAt: {
-            gte: new Date(previousFromParam!),
-            lte: new Date(previousToParam!),
-          },
-        };
-        borner(previousWhere);
+      if (includePrevious && previousLus) {
         // Reproduire les filtres post-fetch JS identiquement.
-        let previousCalls: any[] = await lireAppels(previousWhere, sansTranscription);
+        let previousCalls: any[] = previousLus;
         if (statusParam === "hung_up") {
           previousCalls = previousCalls.filter((c: any) => {
             const s = c.stats || {};
@@ -526,17 +626,17 @@ export async function GET(request: NextRequest) {
         }
         if (statusParam === "no_slot_api_retrieve") {
           previousCalls = previousCalls.filter(
-            (c: any) => !!c?.stats?.no_slot_api_retrieve
+            (c: any) => !!c?.stats?.no_slot_api_retrieve,
           );
         }
         if (statusParam === "not_performed") {
-          previousCalls = previousCalls.filter(
-            (c: any) => estExamenNonPris(c?.stats)
+          previousCalls = previousCalls.filter((c: any) =>
+            estExamenNonPris(c?.stats),
           );
         }
         if (statusParam === "resultats") {
-          previousCalls = previousCalls.filter(
-            (c: any) => estDemandeDeResultats(c?.stats)
+          previousCalls = previousCalls.filter((c: any) =>
+            estDemandeDeResultats(c?.stats),
           );
         }
         if (phoneSearchActive) {
@@ -551,7 +651,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json(
           { data: calls, previous: previousCalls },
-          { status: 200 }
+          { status: 200 },
         );
       }
       return NextResponse.json(calls, { status: 200 });
@@ -575,10 +675,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Pour que la liste dise pourquoi elle s'arrête : au-delà, les appels sont effacés.
-    const conservation = { mois: retentionAppelsMois, depuis: borneConservation.toISOString() };
+    const conservation = {
+      mois: retentionAppelsMois,
+      depuis: borneConservation.toISOString(),
+    };
 
     const total = calls.length;
-    const paginatedCalls = await avecTranscriptions(calls.slice(skip, skip + limit));
+    const paginatedCalls = await avecTranscriptions(
+      calls.slice(skip, skip + limit),
+    );
 
     if (examType) {
       // `stats.exam_type_id` porte le code du LOGICIEL DU CENTRE, pas le code
@@ -607,17 +712,17 @@ export async function GET(request: NextRequest) {
         const codes = Array.isArray(id) ? id : [id];
         return codes.some((c: unknown) => codesScannerIrm.has(String(c)));
       });
-      const examPaginatedCalls = await avecTranscriptions(scannersCalls.slice(skip, skip + limit));
-
-      return NextResponse.json(
-        {
-          data: examPaginatedCalls,
-          total: scannersCalls.length,
-          page,
-          limit,
-          conservation,
-        }
+      const examPaginatedCalls = await avecTranscriptions(
+        scannersCalls.slice(skip, skip + limit),
       );
+
+      return NextResponse.json({
+        data: examPaginatedCalls,
+        total: scannersCalls.length,
+        page,
+        limit,
+        conservation,
+      });
     } else {
       return NextResponse.json(
         {
@@ -627,14 +732,14 @@ export async function GET(request: NextRequest) {
           limit,
           conservation,
         },
-        { status: 200 }
+        { status: 200 },
       );
     }
   } catch (error) {
     console.error("Erreur fetching calls:", error);
     return NextResponse.json(
       { error: "Une erreur est survenue." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

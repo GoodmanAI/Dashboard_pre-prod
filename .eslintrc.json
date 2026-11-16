@@ -1,3 +1,23 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "no-console": "error"
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/app/api/**",
+        "src/pages/api/**",
+        "src/lib/**",
+        "src/middleware.ts",
+        "scripts/**",
+        "prisma/**",
+        "src/app/apercu-*/**"
+      ],
+      "excludedFiles": ["src/lib/transferReasons.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
 }

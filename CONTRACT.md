@@ -655,6 +655,10 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   transcription). Pour les écrans qui ne lisent que `createdAt` et `stats` (statistiques
   d'appels, vue d'ensemble admin). Même droit que les lignes. Sans le paramètre, la
   réponse est inchangée.
+- **Lecture directe** (16/11/2026, interne, forme de la réponse inchangée) : une plage
+  sans autre filtre que la durée se lit en une requête SQL, `stats.internal` retiré par
+  PostgreSQL ; avec `previousFrom`/`previousTo`, les deux périodes se lisent en parallèle.
+  En cas d'échec de la requête, repli journalisé sur le chemin général.
 - **`status=not_performed`** (06/10/2026) : les appels arrêtés par l'examen, selon
   `estExamenNonPris` (`src/lib/transferReasons.ts`) : catégorie `examen_non_traitable` ou
   `stats.exam_not_bookable`. Avant, `transferReason === "exam_type"` seul : l'écran client,
