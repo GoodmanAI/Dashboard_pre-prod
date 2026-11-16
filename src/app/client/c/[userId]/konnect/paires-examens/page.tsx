@@ -7,7 +7,6 @@ import {
   Autocomplete,
   Box,
   Button,
-  CircularProgress,
   IconButton,
   MenuItem,
   Paper,
@@ -31,6 +30,7 @@ import { useDroitPage } from "@/hooks/useDroitPage";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 import { PAGES } from "@/lib/permissions";
 import { INK, INK_MUTED, BORDER } from "@/lib/jetons";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Multi examens (18/09/2026) : ce qu'un patient qui a plusieurs examens peut réserver
@@ -246,9 +246,7 @@ export default function MultiExamensKonnect() {
   if (chargement) {
     return (
       <PageContainer title="Multi examens" description="Plusieurs examens pour un même patient">
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress sx={{ color: "var(--accent)" }} />
-        </Box>
+        <Battement hauteur={320} />
       </PageContainer>
     );
   }

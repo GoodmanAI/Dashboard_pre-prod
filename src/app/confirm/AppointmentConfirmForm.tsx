@@ -365,11 +365,16 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
                   boxShadow: "0 4px 12px rgba(var(--accent-rgb), 0.35)",
                   transition:
                     "transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease",
-                  ":hover": {
-                    bgcolor: BRAND_TEAL_DARK,
-                    boxShadow: "0 6px 16px rgba(var(--accent-rgb), 0.45)",
-                    transform: "translateY(-1px)",
+                  // Soulèvement au survol : souris seulement (sur une tablette, il resterait collé
+                  // après le toucher). L'appui enfonce un peu la carte, au doigt comme à la souris.
+                  "@media (hover: hover) and (pointer: fine)": {
+                    "&:hover": {
+                      bgcolor: BRAND_TEAL_DARK,
+                      boxShadow: "0 6px 16px rgba(var(--accent-rgb), 0.45)",
+                      transform: "translateY(-1px)",
+                    },
                   },
+                  "&:active": { transform: "scale(0.98)", transitionDuration: "120ms" },
                   "&.Mui-disabled": {
                     bgcolor: "#C5E9DF",
                     color: "#FFFFFF",
@@ -394,10 +399,15 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
                   py: 1.35,
                   transition:
                     "transform 150ms ease, background-color 150ms ease",
-                  ":hover": {
-                    bgcolor: DANGER_SOFT,
-                    transform: "translateY(-1px)",
+                  // Soulèvement au survol : souris seulement (sur une tablette, il resterait collé
+                  // après le toucher). L'appui enfonce un peu la carte, au doigt comme à la souris.
+                  "@media (hover: hover) and (pointer: fine)": {
+                    "&:hover": {
+                      bgcolor: DANGER_SOFT,
+                      transform: "translateY(-1px)",
+                    },
                   },
+                  "&:active": { transform: "scale(0.98)", transitionDuration: "120ms" },
                   "&.Mui-disabled": {
                     borderColor: "#F1B4B3",
                     color: "#F1B4B3",

@@ -25,6 +25,8 @@ import { plageDePeriode } from "@/lib/recherche/periode";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import { EXAM_TYPE_KEYS, ExamTypeKey } from "@/lib/smsConfirmationConfig";
+import { useRechargement, styleRechargement } from "@/hooks/useRechargement";
+import BarreRechargement from "@/components/shared/stats/BarreRechargement";
 
 /* =============================================================================
    Page Stats No-Show
@@ -250,16 +252,18 @@ export default function StatsNoShowPage({ params }: Props) {
     return rows;
   }, [stats, activeTypes]);
 
+  const { premier: premierChargement, recharge } = useRechargement(loading || !stats);
+
   return (
     <PageContainer
       title="Rendez-vous non honorés"
       description="Impact des rappels SMS sur les confirmations et annulations de RDV"
     >
-      <Box>
+      <Box sx={styleRechargement(recharge)} aria-busy={loading}>
+        <BarreRechargement visible={recharge} />
         <SectionHeader
           title="Rendez-vous non honorés"
           subtitle="Rappels SMS envoyés et leur conversion en confirmation / annulation, par type d'examen"
-          actions={loading ? <Chip size="small" label="chargement…" variant="outlined" /> : undefined}
         />
 
         {configLoading ? (
@@ -314,7 +318,7 @@ export default function StatsNoShowPage({ params }: Props) {
             {/* ---------- Tuiles KPI ---------- */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
               <Grid item xs={12} sm={4} id="sms_envoyes">
-                {loading || !stats ? (
+                {premierChargement || !stats ? (
                   <KpiTileSkeleton />
                 ) : (
                   <KpiTile
@@ -326,7 +330,7 @@ export default function StatsNoShowPage({ params }: Props) {
                 )}
               </Grid>
               <Grid item xs={12} sm={4} id="confirmations_via_rappel">
-                {loading || !stats ? (
+                {premierChargement || !stats ? (
                   <KpiTileSkeleton />
                 ) : (
                   <KpiTile
@@ -338,7 +342,7 @@ export default function StatsNoShowPage({ params }: Props) {
                 )}
               </Grid>
               <Grid item xs={12} sm={4} id="annulations_via_rappel">
-                {loading || !stats ? (
+                {premierChargement || !stats ? (
                   <KpiTileSkeleton />
                 ) : (
                   <KpiTile
@@ -356,7 +360,7 @@ export default function StatsNoShowPage({ params }: Props) {
               <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
                 Détail par type d&apos;examen
               </Typography>
-              {loading || !stats ? (
+              {premierChargement || !stats ? (
                 <Grid container spacing={2}>
                   {[0, 1, 2, 3, 4].map((i) => (
                     <Grid item xs={12} sm={6} md={4} key={i}>

@@ -8,7 +8,6 @@ import {
   Button,
   Checkbox,
   Chip,
-  CircularProgress,
   IconButton,
   ListItemText,
   MenuItem,
@@ -32,6 +31,7 @@ import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 import { INK, INK_MUTED, BORDER, SURFACE } from "@/lib/jetons";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Règles de fusion d'examens (lot E).
@@ -190,9 +190,7 @@ export default function ReglesFusionKonnect() {
   if (chargement) {
     return (
       <PageContainer title="Règles de fusion" description="Examens groupés en un seul">
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress sx={{ color: "var(--accent)" }} />
-        </Box>
+        <Battement hauteur={320} />
       </PageContainer>
     );
   }

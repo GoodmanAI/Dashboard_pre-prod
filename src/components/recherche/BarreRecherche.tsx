@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, ButtonBase, Chip, InputBase, Stack, Typography } from "@mui/material";
 import { IconSearch } from "@tabler/icons-react";
 import { BORDER, INK, INK_MUTED, SURFACE, SURFACE_MUTED } from "@/lib/jetons";
@@ -14,9 +14,32 @@ import BoutonDictee from "./BoutonDictee";
  * - `accueil` : la grande barre au centre de l'accueil client, avec des exemples dessous ;
  * - `entete` : la petite barre de l'en-tête, qui rappelle `Ctrl+K`.
  */
-export default function BarreRecherche({ variante }: { variante: "accueil" | "entete" }) {
+export default function BarreRecherche({
+  variante,
+  exemples,
+  placeholder,
+  focusAuChargement = false,
+  pleineLargeur = false,
+}: {
+  variante: "accueil" | "entete";
+  /** Phrases proposées sous la barre (accueil). Par défaut, les trois premiers `EXEMPLES`. */
+  exemples?: string[];
+  placeholder?: string;
+  /** Curseur dans la barre dès l'arrivée, à la souris seulement (sur téléphone, le clavier
+   * s'ouvrirait et cacherait l'écran). */
+  focusAuChargement?: boolean;
+  /** Occupe toute la colonne (accueil d'un produit) au lieu de 760 px. */
+  pleineLargeur?: boolean;
+}) {
   if (variante === "entete") return <PorteEntete />;
-  return <BarreAccueil />;
+  return (
+    <BarreAccueil
+      exemples={exemples ?? EXEMPLES.slice(0, 3)}
+      placeholder={placeholder ?? "Que cherchez-vous ? « les appels transférés hier »"}
+      focusAuChargement={focusAuChargement}
+      pleineLargeur={pleineLargeur}
+    />
+  );
 }
 
 function PorteEntete() {
@@ -66,11 +89,26 @@ function PorteEntete() {
   );
 }
 
-function BarreAccueil() {
+function BarreAccueil({
+  exemples,
+  placeholder,
+  focusAuChargement,
+  pleineLargeur,
+}: {
+  exemples: string[];
+  placeholder: string;
+  focusAuChargement: boolean;
+  pleineLargeur: boolean;
+}) {
   const [phrase, setPhrase] = useState("");
   const [erreurDictee, setErreurDictee] = useState<string | null>(null);
+  const champ = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!focusAuChargement) return;
+    if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) champ.current?.focus();
+  }, [focusAuChargement]);
   return (
-    <Box sx={{ maxWidth: 760, mx: "auto", mb: 4 }}>
+    <Box sx={{ maxWidth: pleineLargeur ? "none" : 760, mx: "auto", mb: 4 }}>
       <Box
         component="form"
         role="search"
@@ -99,7 +137,8 @@ function BarreAccueil() {
         <InputBase
           value={phrase}
           onChange={(e) => setPhrase(e.target.value)}
-          placeholder="Que cherchez-vous ? « les appels transférés hier »"
+          placeholder={placeholder}
+          inputRef={champ}
           inputProps={{ "aria-label": "Ce que vous cherchez", maxLength: 300 }}
           sx={{ flex: 1, fontSize: { xs: 16, md: 18 }, color: INK }}
         />
@@ -118,14 +157,24 @@ function BarreAccueil() {
         </Typography>
       )}
       <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, mt: 1.5, justifyContent: "center" }}>
-        {EXEMPLES.slice(0, 3).map((p) => (
+        {exemples.map((p) => (
           <Chip
             key={p}
             label={p}
             size="small"
             variant="outlined"
             onClick={() => ouvrirRecherche(p)}
-            sx={{ borderColor: BORDER, color: INK_MUTED }}
+            sx={{
+              height: 30,
+              fontSize: 13,
+              borderColor: BORDER,
+              color: INK_MUTED,
+              bgcolor: SURFACE,
+              transition: "border-color 200ms ease, color 200ms ease",
+              "@media (hover: hover) and (pointer: fine)": {
+                "&:hover": { borderColor: "rgba(var(--accent-rgb), 0.55)", color: INK, bgcolor: SURFACE },
+              },
+            }}
           />
         ))}
       </Stack>

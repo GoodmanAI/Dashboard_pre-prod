@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import {
   Box,
-  CircularProgress,
   List,
   ListItem,
   ListItemButton,
@@ -11,6 +10,7 @@ import {
   Typography,
 } from "@mui/material";
 import Link from "next/link";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Modèle minimal d’un produit tel que renvoyé par l’API publique.
@@ -70,7 +70,7 @@ const ServicesMenuItems: React.FC = () => {
 
   // État de chargement : indicateur visuel compact
   if (loading) {
-    return <CircularProgress size={24} />;
+    return <Battement hauteur={56} libelle="Chargement des services" visible={false} />;
   }
 
   // État d’erreur : message utile pour l’utilisateur

@@ -91,6 +91,8 @@ import {
 } from "@/lib/csvExport";
 import { IconDownload } from "@tabler/icons-react";
 import { MENU_FILTRE } from "@/lib/menuFiltre";
+import { useRechargement, styleRechargement } from "@/hooks/useRechargement";
+import BarreRechargement from "@/components/shared/stats/BarreRechargement";
 
 /* =========================================================
    Types & utils
@@ -283,6 +285,7 @@ export default function StatsAppelPage({ params }: any) {
   /** Appels de la période précédente — pour calcul des deltas sur les KPI. */
   const [previousCalls, setPreviousCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
+  const { premier: premierChargement, recharge } = useRechargement(loading);
 
   // Date range state - CORRIGÉ : déplacé avant les useEffect
   // Période posée par la recherche (panneau ou lien « Ouvrir l'écran complet »).
@@ -1327,7 +1330,10 @@ export default function StatsAppelPage({ params }: any) {
             cx="50%"
             cy="80%"
             stroke="none"
+            // La jauge est la seule figure qui s'anime : un remplissage court, une fois.
             isAnimationActive
+            animationDuration={500}
+            animationEasing="ease-out"
           >
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -1374,7 +1380,8 @@ export default function StatsAppelPage({ params }: any) {
   }
 
   return (
-    <Box>
+    <Box sx={styleRechargement(recharge)} aria-busy={loading}>
+      <BarreRechargement visible={recharge} />
       <SectionHeader
         title="Statistiques d'appels"
         subtitle="Ce que LyraeTalk a fait des appels du centre, sur la période de votre choix."
@@ -1502,7 +1509,7 @@ export default function StatsAppelPage({ params }: any) {
       <Grid container spacing={2} sx={{ mb: 2 }}>
         {[0, 1, 2, 3, 4, 5].map((i) => (
           <Grid item xs={12} sm={6} md={4} lg={2} key={i} id={ANCRES_TUILES[i]}>
-            {loading ? (
+            {premierChargement ? (
               <StatTileSkeleton />
             ) : i === 0 ? (
               <StatTile
@@ -1564,7 +1571,7 @@ export default function StatsAppelPage({ params }: any) {
       <Grid container spacing={2} sx={{ mb: 2 }}>
         {[0, 1, 2, 3, 4].map((i) => (
           <Grid item xs={12} sm={6} md={2.4} key={i} id={ANCRES_TUILES_BAS[i]}>
-            {loading ? (
+            {premierChargement ? (
               <StatTileSkeleton />
             ) : i === 0 ? (
               <StatTileDouble
@@ -1711,7 +1718,7 @@ export default function StatsAppelPage({ params }: any) {
               </Tabs>
             </Stack>
 
-            {loading ? (
+            {premierChargement ? (
               <ChartSkeleton />
             ) : currentHeatmap.data.total === 0 ? (
               <Box
@@ -1751,7 +1758,7 @@ export default function StatsAppelPage({ params }: any) {
               Correspond au pourcentage d&apos;appel où l&apos;IA a réussi à
               diriger le patient
             </Typography>
-            {loading ? (
+            {premierChargement ? (
               <ChartSkeleton />
             ) : (
               <Box sx={{ width: "100%", height: 280 }}>
@@ -1771,7 +1778,7 @@ export default function StatsAppelPage({ params }: any) {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               Nombres d&apos;appels des 7 derniers jours
             </Typography>
-            {loading ? (
+            {premierChargement ? (
               <ChartSkeleton />
             ) : (
               <Box sx={{ width: "100%", height: 280 }}>
@@ -1781,8 +1788,8 @@ export default function StatsAppelPage({ params }: any) {
                     <XAxis dataKey="name" />
                     <YAxis allowDecimals />
                     <ReTooltip content={<HistogramTooltip />} />
-                    <Bar dataKey="normal" stackId="calls" fill={PALETTE.cyan} />
-                    <Bar
+                    <Bar isAnimationActive={false} dataKey="normal" stackId="calls" fill={PALETTE.cyan} />
+                    <Bar isAnimationActive={false}
                       dataKey="redirect"
                       stackId="calls"
                       fill={PALETTE.pink}
@@ -1802,7 +1809,7 @@ export default function StatsAppelPage({ params }: any) {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               Moyenne d&apos;appels par heure
             </Typography>
-            {loading ? (
+            {premierChargement ? (
               <ChartSkeleton />
             ) : (
               <Box sx={{ width: "100%", height: 280 }}>
@@ -1815,7 +1822,7 @@ export default function StatsAppelPage({ params }: any) {
                       formatter={(val: number) => [val, "Appels moyens / h"]}
                       labelFormatter={(label: string) => `Heure ${label}`}
                     />
-                    <Bar
+                    <Bar isAnimationActive={false}
                       dataKey="value"
                       name="Appels moyens / h"
                       fill={PALETTE.cyan}
@@ -1838,13 +1845,13 @@ export default function StatsAppelPage({ params }: any) {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               Sur la période sélectionnée
             </Typography>
-            {loading ? (
+            {premierChargement ? (
               <ChartSkeleton />
             ) : (
               <Box sx={{ width: "100%", height: 280 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
+                    <Pie isAnimationActive={false}
                       data={transferData}
                       dataKey="value"
                       nameKey="name"
@@ -1886,7 +1893,7 @@ export default function StatsAppelPage({ params }: any) {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               Moyenne sur la période sélectionnée
             </Typography>
-            {loading ? (
+            {premierChargement ? (
               <ChartSkeleton />
             ) : (
               <Box sx={{ width: "100%", height: 280 }}>
@@ -1910,7 +1917,7 @@ export default function StatsAppelPage({ params }: any) {
                       }}
                       labelFormatter={() => ""}
                     />
-                    <Bar
+                    <Bar isAnimationActive={false}
                       dataKey="avgMin"
                       name="Durée moyenne"
                       fill={PALETTE.blue}
@@ -1930,13 +1937,13 @@ export default function StatsAppelPage({ params }: any) {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               Sur la période sélectionnée
             </Typography>
-            {loading ? (
+            {premierChargement ? (
               <ChartSkeleton />
             ) : (
               <Box sx={{ width: "100%", height: 280 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
+                    <Pie isAnimationActive={false}
                       data={pieData}
                       dataKey="value"
                       nameKey="name"
@@ -1972,7 +1979,7 @@ export default function StatsAppelPage({ params }: any) {
               Détail des 12 motifs les plus fréquents, couleur selon la
               catégorie
             </Typography>
-            {loading ? (
+            {premierChargement ? (
               <ChartSkeleton />
             ) : transferReasonDetail.length === 0 ? (
               <Box
@@ -2037,7 +2044,7 @@ export default function StatsAppelPage({ params }: any) {
                         ]?.label ?? "",
                       ]}
                     />
-                    <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                    <Bar isAnimationActive={false} dataKey="count" radius={[0, 4, 4, 0]}>
                       {transferReasonDetail.map((d, i) => (
                         <Cell key={i} fill={CATEGORY_META[d.category].color} />
                       ))}
@@ -2133,10 +2140,12 @@ export default function StatsAppelPage({ params }: any) {
                     >
                       <Box
                         sx={{
-                          width: `${ctx.pct}%`,
+                          width: "100%",
                           height: "100%",
                           bgcolor: ctx.color,
-                          transition: "width 400ms ease",
+                          transform: `scaleX(${Math.min(100, Math.max(0, ctx.pct)) / 100})`,
+                          transformOrigin: "left",
+                          transition: "transform 220ms cubic-bezier(0.23, 1, 0.32, 1)",
                         }}
                       />
                     </Box>
@@ -2195,10 +2204,12 @@ export default function StatsAppelPage({ params }: any) {
                     >
                       <Box
                         sx={{
-                          width: `${lang.pct}%`,
+                          width: "100%",
                           height: "100%",
                           bgcolor: lang.color,
-                          transition: "width 400ms ease",
+                          transform: `scaleX(${Math.min(100, Math.max(0, lang.pct)) / 100})`,
+                          transformOrigin: "left",
+                          transition: "transform 220ms cubic-bezier(0.23, 1, 0.32, 1)",
                         }}
                       />
                     </Box>
@@ -2221,13 +2232,13 @@ export default function StatsAppelPage({ params }: any) {
               Pour les prises de rendez-vous
             </Typography>
 
-            {loading ? (
+            {premierChargement ? (
               <ChartSkeleton />
             ) : (
               <Box sx={{ width: "100%", height: 280 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
+                    <Pie isAnimationActive={false}
                       data={examPieData}
                       dataKey="value"
                       nameKey="name"
@@ -2289,13 +2300,13 @@ export default function StatsAppelPage({ params }: any) {
               </Select>
             </Box>
 
-            {loading ? (
+            {premierChargement ? (
               <ChartSkeleton />
             ) : (
               <Box sx={{ width: "100%", height: 240 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
+                    <Pie isAnimationActive={false}
                       data={examCodePieData}
                       dataKey="value"
                       nameKey="name"

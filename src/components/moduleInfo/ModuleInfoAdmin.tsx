@@ -569,7 +569,7 @@ function QRCard({
         borderRadius: 2,
         border: `1px solid ${BORDER}`,
         bgcolor: SURFACE,
-        transition: "all 0.15s ease",
+        transition: "background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, opacity 160ms ease",
         position: "relative",
         overflow: "visible",
         opacity: isDisabled && !isEditing ? 0.62 : 1,

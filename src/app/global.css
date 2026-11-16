@@ -39,3 +39,55 @@
   --accent-press: #0d5099;
   --accent-deep: #10396b;
 }
+
+/* Mouvement — jetons repris du site neuracorp.ai (skill `ambiance-neuracorp`,
+ * reference/motifs.md). Deux courbes, pas plus. Le theme MUI
+ * (`src/utils/theme/DefaultColors.tsx`, `transitions`) porte les memes valeurs :
+ * les deux fichiers se citent, les garder synchronises.
+ *
+ * Regle : rien au-dessus de 300 ms sur une action repetee ; un graphique de
+ * donnees ne s'anime pas ; une ouverture au clavier ne s'anime pas. */
+:root {
+  --ease-entree: cubic-bezier(0.2, 0.7, 0.2, 1);   /* entrees, compteurs */
+  --ease-panneau: cubic-bezier(0.23, 1, 0.32, 1);  /* menus, popovers, panneaux */
+  --duree-appui: 120ms;
+  --duree-etat: 200ms;     /* couleur, opacite, ombre */
+  --duree-panneau: 220ms;
+}
+
+/* Battement : l'indicateur de chargement du Dashboard (src/components/shared/Battement.tsx).
+ * Un trace d'electrocardiogramme qui se dessine puis s'efface, en boucle.
+ * Pose ici et non dans Emotion pour que loading.tsx (rendu serveur, sans JS) l'anime aussi. */
+@keyframes battement-trace {
+  0%   { stroke-dashoffset: 1; opacity: 1; }
+  55%  { stroke-dashoffset: 0; opacity: 1; }
+  80%  { stroke-dashoffset: 0; opacity: 0; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+@keyframes battement-point {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50%      { transform: scale(1.35); opacity: 0.5; }
+}
+@keyframes battement-apparition {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.battement {
+  /* N'apparait qu'apres 200 ms : un chargement court ne fait rien clignoter. */
+  animation: battement-apparition 200ms var(--ease-entree) 200ms both;
+}
+.battement-trace {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: battement-trace 1600ms var(--ease-entree) infinite;
+}
+.battement-point {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: battement-point 1600ms ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .battement { animation: none; }
+  .battement-trace { animation: none; stroke-dashoffset: 0; }
+  .battement-point { animation: none; }
+}

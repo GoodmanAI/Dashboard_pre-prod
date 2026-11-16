@@ -80,6 +80,22 @@ une ancre `id="…"` sur l'élément, les filtres reçus par `useFiltresRecherch
 `node --experimental-strip-types scripts/recherche/banc.mjs`. Détail : règle 6 des « Règles
 d'interface » du `CLAUDE.md` du workspace.
 
+## Design, mouvement, ambiance
+
+Les skills de design vivent aussi dans ce dépôt (`.claude/skills/`), pour qu'une session
+lancée ici les ait : `impeccable`, `ui-ux-pro-max`, ceux d'Emil Kowalski (`emil-design-eng`,
+`animate`, `animation-performance`, `review-animations`, `improve-animations`,
+`find-animation-opportunities`), et les versions locales de `design-system-inventory`,
+`make-interfaces-feel-better`, `humanizer`. La source reste `lyrae/.claude/skills/` :
+une mise à jour s'y fait puis se recopie ici.
+
+**`ambiance-neuracorp`** porte ce que la refonte du site neuracorp.ai a appris (courbes,
+durées, boutons, survols, entrées, compteurs, focus), transposé à MUI, avec le code dans
+`reference/motifs.md`. Le charger avant toute passe d'animation, de transition, de chargement
+ou de statistiques. Palette Lagune et police Geist sont des décisions du site : ne les poser
+ici que sur décision d'Enzo. Tout écran se revoit au navigateur à 1440 et 390 px, puis la
+performance sur le build (`npm run build` puis `next start`), jamais sur `next dev`.
+
 ## Ce qui n'existe pas
 
 - **Aucun test**, d'aucune sorte : ni unitaire, ni intégration, ni e2e. Aucun runner installé. La seule vérification automatisable est `npm run build` puis `npm run lint`.

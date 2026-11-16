@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Tooltip, Typography } from "@mui/material";
 import { INK, INK_MUTED, BORDER, SURFACE } from "@/lib/jetons";
+import Compteur from "@/components/shared/stats/Compteur";
 
 /**
  * Un chiffre et son libellé, pour les rangées de statistiques des écrans
@@ -50,7 +51,7 @@ export default function TuileChiffre({
           fontVariantNumeric: "tabular-nums",
         }}
       >
-        {valeur}
+        <Compteur valeur={valeur} />
       </Typography>
       {detail && (
         <Typography sx={{ fontSize: 11.5, color: INK_MUTED, mt: 0.25 }}>
