@@ -25,6 +25,7 @@ import { useSession } from "next-auth/react";
 
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
+import { signaler } from "@/lib/signaler";
 
 interface PageProps {
   params: { id: string };
@@ -55,7 +56,7 @@ function parseStringArray(value?: string): string[] {
     const parsed = JSON.parse(json);
     return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.error("Failed to parse string array:", value);
+    signaler("Failed to parse string array:", value);
     return [];
   }
 }

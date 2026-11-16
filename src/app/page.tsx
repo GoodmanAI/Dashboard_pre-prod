@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import PageContainer from '@/app/(DashboardLayout)/components/container/PageContainer';
 import { getFirstAccessiblePath } from '@/lib/pageAccess';
 import { trouverProduit } from "@/lib/produits";
+import { signaler } from "@/lib/signaler";
 
 /**
  * Page de redirection principale du tableau de bord.
@@ -38,7 +39,7 @@ const Dashboard = () => {
           setTalkId(talk?.id ?? null);
         }
       } catch (err) {
-        console.error("Error fetching products for root redirect:", err);
+        signaler("Error fetching products for root redirect:", err);
       } finally {
         setProductsLoaded(true);
       }

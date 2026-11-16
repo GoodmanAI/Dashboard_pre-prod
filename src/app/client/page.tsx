@@ -17,6 +17,7 @@ import BarreRecherche from "@/components/recherche/BarreRecherche";
 import { produitDepuisNom } from "@/lib/produits";
 import { cheminCentre, PRODUITS_MIGRES } from "@/lib/cheminsCentre";
 import Battement from "@/components/shared/Battement";
+import { signaler } from "@/lib/signaler";
 
 /**
  * Types de données échangées avec l’API / structure locale.
@@ -56,7 +57,7 @@ const ClientHomePage = () => {
         const productsData = await res.json();
         if (!cancelled) setUserProducts(productsData);
       } catch (error) {
-        console.error("Error fetching user products:", error);
+        signaler("Error fetching user products:", error);
       } finally {
         if (!cancelled) setLoading(false);
       }

@@ -17,6 +17,7 @@ import { IconEye, IconEyeOff } from "@tabler/icons-react";
 import { getFirstAccessiblePath } from "@/lib/pageAccess";
 import { trouverProduit } from "@/lib/produits";
 import { cheminCentre } from "@/lib/cheminsCentre";
+import { signaler } from "@/lib/signaler";
 
 /**
  * Page de connexion
@@ -69,7 +70,7 @@ export default function SignIn() {
     });
 
     if (result?.error) {
-      console.error("Erreur d’authentification:", result);
+      signaler("Erreur d’authentification:", result);
       // Le message FR est fourni par authOptions.authorize (cf. src/lib/authOptions.ts).
       // Fallback générique si NextAuth remplace le message par un code (rare en v4 avec redirect:false).
       const isGenericCode = result.error === "CredentialsSignin";

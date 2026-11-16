@@ -56,6 +56,7 @@ import {
   WARNING_SOFT,
 } from "@/lib/jetons";
 import Battement from "@/components/shared/Battement";
+import { signaler } from "@/lib/signaler";
 
 /**
  * Mon profil (client).
@@ -331,7 +332,7 @@ const ProfilePage = () => {
         if (rProfil.ok) setProfil(await rProfil.json());
         else setErreurProfil(true);
       } catch (error) {
-        console.error("Error fetching profile:", error);
+        signaler("Error fetching profile:", error);
         setErreurProfil(true);
       } finally {
         setLoading(false);

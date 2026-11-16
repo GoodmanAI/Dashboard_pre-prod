@@ -33,6 +33,7 @@ import {
   TEXT_MUTED,
 } from "./charte";
 import QuestionnaireEnLigne from "./QuestionnaireEnLigne";
+import { signaler } from "@/lib/signaler";
 
 /**
  * Formulaire de depot patient. Servi sur
@@ -535,7 +536,7 @@ function BlocPiece({
         onEnvoye();
       }
     } catch (err) {
-      console.error(err);
+      signaler(err);
       setSubmitError(
         "La connexion a été coupée. Vérifiez votre réseau et réessayez."
       );

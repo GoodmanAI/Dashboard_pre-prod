@@ -63,7 +63,6 @@
 //       const data: Call[] = await res.json();
 //       setCalls(data);
 //     } catch (err) {
-//       console.error(err);
 //       setCalls([]);
 //     } finally {
 //       setLoading(false);

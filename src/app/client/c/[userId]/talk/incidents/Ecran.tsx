@@ -28,6 +28,7 @@ import { apercuConversation } from "@/lib/entitesTranscription";
 import { exporterTranscriptionPdf, formatPhoneFR } from "@/lib/transcriptionPdf";
 import { useFiltresRecherche } from "@/lib/recherche/integre";
 import { libellePeriode, plageDePeriode } from "@/lib/recherche/periode";
+import { signaler } from "@/lib/signaler";
 
 
 interface FlaggedCall {
@@ -108,9 +109,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
           to: new Date().toISOString(),
         });
 
-        console.log(queryParams);
         const res = await fetch(`/api/calls?${queryParams}`, { signal: controller.signal });
-        console.log(res);
         if (!res.ok) throw new Error("Erreur lors du fetch des incidents");
 
         const data = await res.json();
@@ -173,7 +172,7 @@ export default function IncidentsPage({ params }: IncidentsPageProps) {
       }
     } catch (e) {
       setFlaggedState((prev) => ({ ...prev, [call.id]: !newValue }));
-      console.error("Erreur update flagged", e);
+      signaler("Erreur update flagged", e);
     }
   };
 
