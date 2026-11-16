@@ -91,3 +91,54 @@
   .battement-trace { animation: none; stroke-dashoffset: 0; }
   .battement-point { animation: none; }
 }
+
+/* Fond granule de l'application (demande d'Enzo, 16/11/2026) : un gris tres clair et un
+ * gros grain fixe, sous la barre laterale, l'en-tete et toutes les pages. Les cartes, les
+ * tableaux et les menus restent blancs et s'en detachent. Le grain est une image (bruit SVG
+ * teinte de l'encre #0F2A3F), posee une fois : rien ne s'anime, rien ne se repeint au
+ * defilement. Pages patient et connexion : hors de `.mainwrapper`, inchangees. */
+.mainwrapper {
+  position: relative;
+  isolation: isolate;
+  background-color: #f5f7f8;
+}
+.mainwrapper::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.38' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.06 0 0 0 0 0.16 0 0 0 0 0.25 1 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 260px 260px;
+  opacity: 0.14;
+}
+
+/* Titre de l'accueil (`AccueilProduit`) : une bande dans la couleur du produit, adoucie par
+ * l'encre, passe sur le texte en 8 s, puis 2 s de texte normal ; un passage toutes les
+ * 10 s, le premier 1,5 s apres l'arrivee. Valide par Enzo sur l'apercu du 16/11/2026. */
+.accueil-degrade {
+  --base: #0f2a3f;
+  background-image: linear-gradient(100deg,
+    var(--base) 0%, var(--base) 32%,
+    color-mix(in srgb, var(--accent-deep) 55%, var(--base)) 41%,
+    color-mix(in srgb, var(--accent) 70%, var(--base)) 50%,
+    color-mix(in srgb, var(--accent-deep) 55%, var(--base)) 59%,
+    var(--base) 68%, var(--base) 100%);
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: accueil-balayage 10000ms linear 1500ms infinite both;
+}
+.accueil-degrade--doux {
+  --base: #5a6b7b;
+  animation-delay: 1580ms;
+}
+@keyframes accueil-balayage {
+  0% { background-position: 100% 0; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  80%, 100% { background-position: 0% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .accueil-degrade { animation: none; }
+}

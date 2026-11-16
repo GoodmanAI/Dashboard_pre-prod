@@ -69,7 +69,8 @@ const SECTIONS = new Set(["messagerie", "funnel", "catalogue", "ocr"]);
 
 /**
  * `jours` (29/10/2026, C-STAT.1 de Konnect) : les compteurs quotidiens de ses 14 derniers
- * jours, poussés chaque nuit par le cron du rollup. **Pas fusionnés dans `charge`** : ils
+ * jours, poussés par le cron du rollup, la nuit et toutes les 10 minutes depuis C-STAT.3
+ * (aujourd'hui compris, zéros envoyés). **Pas fusionnés dans `charge`** : ils
  * vont dans `KonnectStatJour`, une ligne par centre, jour et clé, remplacée à chaque
  * envoi. C'est la série temporelle que la table `KonnectRemontee` renvoyait à sa propre
  * table. Des comptes seulement ; les clés `ocr*` restent internes (D4), la lecture du
