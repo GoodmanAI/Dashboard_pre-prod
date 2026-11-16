@@ -87,6 +87,7 @@ import {
   type Salle,
   type SallesParType,
 } from "@/lib/sallesExamen";
+import { signaler } from "@/lib/signaler";
 
 /**
  * Correspondance des examens (refonte design 2026-08-06).
@@ -316,7 +317,7 @@ export default function MappingExam({ params }: TalkPageProps) {
         setData(rows);
         setOriginalData(JSON.parse(JSON.stringify(rows)));
       } catch (err) {
-        console.error(err);
+        signaler(err);
         setSnack({
           open: true,
           message: "Erreur de chargement des examens",

@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import Link from "next/link";
 import Battement from "@/components/shared/Battement";
+import { signaler } from "@/lib/signaler";
 
 /**
  * Modèle minimal d’un produit tel que renvoyé par l’API publique.
@@ -55,7 +56,7 @@ const ServicesMenuItems: React.FC = () => {
         }
       } catch (err) {
         if (!isMounted) return;
-        console.error("Error fetching products:", err);
+        signaler("Error fetching products:", err);
         setError("Une erreur inattendue est survenue.");
       } finally {
         if (isMounted) setLoading(false);

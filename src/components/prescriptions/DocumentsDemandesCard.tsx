@@ -39,6 +39,7 @@ import {
 } from "@mui/icons-material";
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
+import { signaler } from "@/lib/signaler";
 
 /**
  * Bloc « Documents demandés aux patients » de la page /parametrage.
@@ -191,7 +192,7 @@ const DocumentsDemandesCard = forwardRef<
       const data = await res.json();
       setDocs(Array.isArray(data.items) ? data.items : []);
     } catch (err) {
-      console.error("[DocumentsDemandesCard] lecture:", err);
+      signaler("[DocumentsDemandesCard] lecture:", err);
       setSnack({
         open: true,
         msg: "Impossible de charger les documents demandés. Rechargez la page.",

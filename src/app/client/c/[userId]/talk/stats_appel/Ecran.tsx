@@ -93,6 +93,7 @@ import { IconDownload } from "@tabler/icons-react";
 import { MENU_FILTRE } from "@/lib/menuFiltre";
 import { useRechargement, styleRechargement } from "@/hooks/useRechargement";
 import BarreRechargement from "@/components/shared/stats/BarreRechargement";
+import { signaler } from "@/lib/signaler";
 
 /* =========================================================
    Types & utils
@@ -379,7 +380,7 @@ export default function StatsAppelPage({ params }: any) {
         );
       } catch (e) {
         if (!isAbortError(e)) {
-          console.error("Erreur lors du fetch des appels:", e);
+          signaler("Erreur lors du fetch des appels:", e);
         }
       } finally {
         if (reqSeqRef.current === seq) setLoading(false);
@@ -399,7 +400,7 @@ export default function StatsAppelPage({ params }: any) {
         setMapping(data);
       } catch (err) {
         if (!isAbortError(err)) {
-          console.error("Erreur lors du fetch des appels:", err);
+          signaler("Erreur lors du fetch des appels:", err);
         }
       }
     })();
@@ -450,7 +451,7 @@ export default function StatsAppelPage({ params }: any) {
         setNoshowStats(data);
       } catch (e) {
         if (!isAbortError(e)) {
-          console.error("Erreur fetch no-show stats:", e);
+          signaler("Erreur fetch no-show stats:", e);
         }
       }
     })();
@@ -486,7 +487,7 @@ export default function StatsAppelPage({ params }: any) {
         setPreviousNoshowStats(data);
       } catch (e) {
         if (!isAbortError(e)) {
-          console.error("Erreur fetch no-show stats (période précédente):", e);
+          signaler("Erreur fetch no-show stats (période précédente):", e);
         }
       }
     })();
@@ -968,8 +969,6 @@ export default function StatsAppelPage({ params }: any) {
 
       // normaliser en tableau
       const exams = Array.isArray(rawExam) ? rawExam : [rawExam];
-      // console.log("rawExam", rawExam, "exams", exams);
-      // console.log("examLabelMap", examLabelMap);
       // mapper chaque examen
       const label = exams
         .map((code: string) => examLabelMap[code] ?? code)

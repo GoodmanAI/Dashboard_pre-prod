@@ -47,6 +47,7 @@ import {
   DEFAULT_ALERT_AFTER_HOURS,
   type CanalDepot,
 } from "@/lib/prescriptionConfig";
+import { signaler } from "@/lib/signaler";
 
 /* =============================================================================
    Page "Ordonnances manquantes"
@@ -372,7 +373,7 @@ export default function OrdonnancesManquantesPage({ params, canal = "talk" }: Pr
         }
       } catch (err: any) {
         if (err?.name !== "AbortError") {
-          console.error("Error fetching prescription stats:", err);
+          signaler("Error fetching prescription stats:", err);
         }
       }
     })();

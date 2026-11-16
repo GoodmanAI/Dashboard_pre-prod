@@ -77,6 +77,7 @@ import {
   type ExceptionSalle,
   type SallesParType,
 } from "@/lib/sallesExamen";
+import { signaler } from "@/lib/signaler";
 
 type ExamKey = "radiographie" | "irm" | "echographie" | "scanner" | "mammo";
 type VoiceKey = "femme" | "homme" | "neutre";
@@ -433,7 +434,6 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
   const userProductId = Number(params.id);
   const basePath = useTalkBasePath(userProductId);
   const { data: sessionData } = useSession();
-  console.log("user", sessionData?.user);
   // Lecture seule, revue le 15/09/2026 : elle se lisait sur le seul booleen
   // herite `isSecretary`, donc un sous-compte moderne cree avec cette page en
   // lecture voyait tous ses champs actifs et decouvrait le refus a
@@ -548,7 +548,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         }
         setDoubleExamsMapping(formatted);
       } catch (err) {
-        console.error("Erreur fetch double_exam mapping :", err);
+        signaler("Erreur fetch double_exam mapping :", err);
       }
     })();
   }, [userProductId]);
@@ -562,13 +562,12 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
           `/api/configuration?userProductId=${userProductId}`,
         );
         if (!res.ok) {
-          console.error("Failed to load settings:", res.statusText);
+          signaler("Failed to load settings:", res.statusText);
           setLoading(false);
           return;
         }
 
         const data = await res.json();
-        console.log("settings", data);
         setSettings((prev) => ({
           ...prev,
           ...data, // ⬅️ injecte TOUTES les données récupérées
@@ -592,7 +591,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         setZipCode(codePostal);
         setCity(ville);
       } catch (error) {
-        console.error("Error fetching settings:", error);
+        signaler("Error fetching settings:", error);
       } finally {
         setLoading(false);
       }
@@ -695,7 +694,7 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         if (res.status === 403) return `${quoi} (vous êtes en lecture seule)`;
         return quoi;
       } catch (error) {
-        console.error(`Echec enregistrement ${quoi} :`, error);
+        signaler(`Echec enregistrement ${quoi} :`, error);
         return quoi;
       }
     };

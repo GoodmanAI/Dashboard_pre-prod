@@ -27,6 +27,7 @@ import PageContainer from "@/app/(DashboardLayout)/components/container/PageCont
 import { EXAM_TYPE_KEYS, ExamTypeKey } from "@/lib/smsConfirmationConfig";
 import { useRechargement, styleRechargement } from "@/hooks/useRechargement";
 import BarreRechargement from "@/components/shared/stats/BarreRechargement";
+import { signaler } from "@/lib/signaler";
 
 /* =============================================================================
    Page Stats No-Show
@@ -183,7 +184,7 @@ export default function StatsNoShowPage({ params }: Props) {
         setConfig(data);
       } catch (e: any) {
         if (e?.name !== "AbortError") {
-          console.error("Erreur fetch config no-show:", e);
+          signaler("Erreur fetch config no-show:", e);
         }
       } finally {
         setConfigLoading(false);
