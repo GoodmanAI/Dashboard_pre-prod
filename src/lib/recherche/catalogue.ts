@@ -329,9 +329,9 @@ export const CATALOGUE: Fiche[] = [
     cle: "talk#appels_aujourd_hui",
     produit: "talk",
     page: "dashboard",
-    libelle: "Vue d'ensemble",
+    libelle: "La journée en cours",
     genre: "statistique",
-    termes: ["vue d'ensemble", "tableau de bord", "indice de performance", "appels aujourd'hui"],
+    termes: ["vue d'ensemble", "tableau de bord", "appels aujourd'hui", "la journee", "chiffres du jour", "accueil"],
   },
   {
     cle: "talk/stats_appel#total_appels",
