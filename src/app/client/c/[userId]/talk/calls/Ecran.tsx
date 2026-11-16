@@ -40,6 +40,7 @@ import { construireExamLabelMap, listerTypesExamen } from "@/lib/examLabels";
 import Transcription from "@/components/transcription/Transcription";
 import { useSignalement } from "@/components/shared/DialogSignalement";
 import PastilleMineur from "@/components/transcription/PastilleMineur";
+import Pastille, { TONS, TonPastille } from "@/components/shared/Pastille";
 import { apercuConversation } from "@/lib/entitesTranscription";
 import { exporterTranscriptionPdf, formatPhoneFR } from "@/lib/transcriptionPdf";
 
@@ -50,17 +51,6 @@ const ITEMS_PER_PAGE = 10;
 // Labels et couleurs des transferReason centralisés dans
 // `src/lib/transferReasons.ts` (utilisés via getTransferMeta + CATEGORY_META).
 
-const call_status: any = {
-  no_slot: "Pas de créneaux",
-  success: "Rendez-vous",
-  not_performed: "Examen non pris en charge",
-  canceled: "Annulé",
-  rescheduled: "Modifié",
-  full_planning_end: "Planning complet",
-  confirmed: "Confirmation RDV",
-};
-
-import { pink } from "@mui/material/colors";
 import {
   getTransferMeta,
   CATEGORY_META,
@@ -68,7 +58,7 @@ import {
   estSansReponseDuSecretariat,
 } from "@/lib/transferReasons";
 import { getLanguageMeta, isNonDefaultLanguage } from "@/lib/languages";
-import { getHangupContext } from "@/lib/hangupContext";
+import { getHangupContext, isHangup } from "@/lib/hangupContext";
 import { MENU_FILTRE } from "@/lib/menuFiltre";
 import { useFiltresRecherche, useIntegre } from "@/lib/recherche/integre";
 import { plageDePeriode } from "@/lib/recherche/periode";
@@ -83,140 +73,120 @@ const STATUT_DE_L_ISSUE: Record<string, string> = {
   raccroche: "hung_up",
 };
 
-function getCallChips(call: any, examLabelMap: Record<string, string> = {}) {
-  const stats = call.stats;
+/**
+ * Les pastilles d'un appel, dans l'ordre de lecture (16/11/2026) : d'abord ce que l'appel
+ * a produit (rendez-vous, confirmation, modification, annulation), puis la demande
+ * (renseignements, urgence), la redirection, et enfin le contexte (raccroché, à quelle
+ * étape, langue). Teintes : `TONS` de `src/components/shared/Pastille.tsx`.
+ */
+export function getCallChips(
+  call: any,
+  examLabelMap: Record<string, string> = {},
+): { libelle: string; ton: TonPastille }[] {
+  const stats = call.stats ?? {};
+  const intents: unknown[] = Array.isArray(stats.intents) ? stats.intents : [];
+  const alertes: { libelle: string; ton: TonPastille }[] = [];
+  const resultats: { libelle: string; ton: TonPastille }[] = [];
+  const demandes: { libelle: string; ton: TonPastille }[] = [];
+  const contexte: { libelle: string; ton: TonPastille }[] = [];
 
-  const chips: {
-    label: string;
-    muiColor?: "success" | "error" | "warning" | "default";
-    customColor?: string;
-    textColor?: string;
-    variant?: "filled" | "outlined";
-  }[] = [];
-
-  // PRIORITÉ ABSOLUE : service désactivé (kill switch côté config).
-  // Chip rouge bien visible — devrait être très rare en pratique.
+  // Service désactivé (kill switch côté config) : très rare, bien visible.
   if (stats.transferReason === "service_disabled") {
-    chips.push({
-      label: "Service désactivé",
-      customColor: "#ef4444",
-      textColor: "#fff",
-    });
+    alertes.push({ libelle: "Service désactivé", ton: TONS.desactive });
   }
-
-  // Langue de conversation : on n'affiche un chip QUE si ce n'est pas le
-  // français (la grande majorité des appels). Signal discret pour repérer
-  // les appels où le patient a basculé sur une autre langue.
-  if (isNonDefaultLanguage(stats.language)) {
-    const langMeta = getLanguageMeta(stats.language);
-    chips.push({
-      label: `${langMeta.flag} ${langMeta.label}`,
-      customColor: langMeta.color,
-    });
-  }
-
-  // Urgences (chip dédié, priorité visuelle élevée)
   if (stats.transferReason === "emergency") {
-    chips.push({
-      label: "Appel d'urgence",
-      customColor: "#d264ee",
-    });
+    alertes.push({ libelle: "Appel d'urgence", ton: TONS.urgence });
   }
 
-  // Module info
-  if (stats.intents.includes("renseignements")) {
-    chips.push({
-      label: "Renseignements",
-      customColor: "#4a8560",
-    });
+  // Ce que l'appel a produit.
+  const statut: string | undefined = stats.rdv_status;
+  if (statut === "success") {
+    resultats.push({ libelle: "Rendez-vous", ton: TONS.rdv });
+    const rawExamId = stats.exam_type_id;
+    const examId = Array.isArray(rawExamId) ? rawExamId[0] : rawExamId;
+    if (examId) {
+      const baseExamLabel = examLabelMap[examId] || String(examId);
+      resultats.push({
+        libelle: stats.doppler_used === true ? `${baseExamLabel} + Doppler` : baseExamLabel,
+        ton: TONS.examen,
+      });
+    }
+  }
+  if (statut === "confirmed") {
+    resultats.push({ libelle: "Confirmation RDV", ton: TONS.confirme });
+  }
+  // `rescheduled` et `canceled` (anciens appels) ou `modified` et `cancelled` (LyraeTalk) :
+  // une seule pastille, que le compteur ou le statut la donne.
+  if (stats.rdv_modified > 0 || statut === "modified" || statut === "rescheduled") {
+    resultats.push({ libelle: "Modifié", ton: TONS.modifie });
+  }
+  if (stats.rdv_canceled > 0 || statut === "cancelled" || statut === "canceled") {
+    resultats.push({ libelle: "Annulé", ton: TONS.annule });
+  }
+  // Pas de créneau : teinte de la catégorie « Pas de créneau » des redirections.
+  const planning = CATEGORY_META.pas_de_creneau;
+  const tonPlanning: TonPastille = {
+    fond: planning.bg,
+    texte: planning.textColor,
+    point: planning.color,
+  };
+  if (statut === "no_slot") {
+    resultats.push({ libelle: "Pas de créneaux", ton: tonPlanning });
+  }
+  if (statut === "full_planning_end" || statut === "full_planning_redirect") {
+    resultats.push({ libelle: "Planning complet", ton: tonPlanning });
+  }
+  if (statut === "not_performed") {
+    resultats.push({ libelle: "Examen non pris en charge", ton: TONS.neutre });
   }
 
-  if (stats.rdv_canceled > 0) {
-    chips.push({
-      label: "Annulé",
-      customColor: pink[500],
-    });
+  // La demande.
+  if (intents.includes("renseignements")) {
+    demandes.push({ libelle: "Renseignements", ton: TONS.info });
   }
 
-  if (stats.rdv_modified > 0) {
-    chips.push({
-      label: "Modifié",
-      customColor: "#facc15",
-      textColor: "#1f2937",
-    });
-  }
-
+  // La redirection, à la teinte de sa catégorie (fond clair, texte foncé, point vif).
   if (estUnTransfert(stats)) {
-    // Cas déjà chippés explicitement plus haut (chip dédié visuel) → on évite
-    // la duplication avec le chip générique "Redirection …".
-    const alreadyChipped =
+    const dejaDite =
       stats.transferReason === "emergency" || stats.transferReason === "service_disabled";
-    if (!alreadyChipped) {
+    if (!dejaDite) {
       const meta = getTransferMeta(stats.transferReason);
-      const catMeta = CATEGORY_META[meta.category];
-      chips.push({
-        label: `Redirection : ${meta.label}`,
-        customColor: catMeta.color,
-        textColor: catMeta.textColor,
+      const cat = CATEGORY_META[meta.category];
+      demandes.push({
+        libelle: `Redirection : ${meta.label}`,
+        ton: { fond: cat.bg, texte: cat.textColor, point: cat.color },
       });
     }
     if (estSansReponseDuSecretariat(stats)) {
-      chips.push({ label: "Secrétariat sans réponse", variant: "outlined" });
-    }
-  }
-
-  if (
-    stats.rdv_booked === 0 &&
-    stats.rdv_canceled === 0 &&
-    stats.rdv_modified === 0 &&
-    !estUnTransfert(stats)
-  ) {
-    chips.push({
-      label: "Raccroché",
-    });
-
-    // Chip contextuel additionnel : pourquoi a-t-il raccroché ?
-    // Basé sur stats.last_state mappé dans hangupContext.ts.
-    // On masque "Raccrochage indéterminé" (chip trivial) et "early_hangup"
-    // (le label "Raccroché" seul suffit déjà).
-    const ctx = getHangupContext(stats);
-    if (ctx && ctx.key !== "unknown" && ctx.key !== "early_hangup") {
-      chips.push({
-        label: ctx.label,
-        customColor: ctx.color,
-        variant: "outlined",
+      contexte.push({
+        libelle: "Secrétariat sans réponse",
+        ton: { ...TONS.contexte, point: "#EF4444" },
       });
     }
   }
 
-  if (stats.rdv_status) {
-    const label = call_status[stats.rdv_status] || "Inconnu";
-    if (stats.rdv_status === "success") {
-      chips.push({ label, customColor: "#4ade80" });
-      const rawExamId = stats.exam_type_id;
-      const examId = Array.isArray(rawExamId) ? rawExamId[0] : rawExamId;
-      if (examId) {
-        const baseExamLabel = examLabelMap[examId] || String(examId);
-        const isDoppler = stats.doppler_used === true;
-        chips.push({
-          label: isDoppler ? `${baseExamLabel} + Doppler` : baseExamLabel,
-          customColor: "#059669",
-          variant: "outlined",
-        });
-      }
-    } else if (stats.rdv_status === "full_planning_end") {
-      chips.push({ label, customColor: "#D4BFC7", textColor: "#1f2937" });
-    } else if (stats.rdv_status === "no_slot") {
-      chips.push({ label, muiColor: "error" });
-    } else if (stats.rdv_status === "confirmed") {
-      chips.push({ label, customColor: "#4a8560" });
-    } else {
-      chips.push({ label, muiColor: "default" });
+  // Raccroché, et à quelle étape (`hangupContext.ts`). « Raccrochage indéterminé » et
+  // « early_hangup » ne disent rien de plus que « Raccroché ».
+  // Même règle que l'analyse des raccrochages des statistiques (`isHangup`) : un appel
+  // dont l'intention a abouti (prise, modification, annulation, confirmation) n'affiche
+  // pas « Raccroché ».
+  if (isHangup(stats)) {
+    contexte.push({ libelle: "Raccroché", ton: TONS.neutre });
+    const ctx = getHangupContext(stats);
+    if (ctx && ctx.key !== "unknown" && ctx.key !== "early_hangup") {
+      contexte.push({ libelle: ctx.label, ton: { ...TONS.contexte, point: ctx.color } });
     }
   }
 
-  return chips;
+  // Langue, seulement quand ce n'est pas le français : sans drapeau (pas d'emoji à l'écran).
+  if (isNonDefaultLanguage(stats.language)) {
+    const langMeta = getLanguageMeta(stats.language);
+    contexte.push({ libelle: langMeta.label, ton: { ...TONS.contexte, point: langMeta.color } });
+  }
+
+  return [...alertes, ...resultats, ...demandes, ...contexte];
 }
+
 interface CallSummary {
   id: number;
   userProductId: number;
@@ -941,11 +911,11 @@ export default function CallListPage({ params }: CallListPageProps) {
                               display: "inline-flex",
                               alignItems: "center",
                               gap: 0.5,
-                              bgcolor: "rgba(var(--accent-rgb), 0.12)",
-                              color: "var(--accent-deep)",
-                              px: 1.25,
-                              py: 0.25,
-                              borderRadius: "999px",
+                              // Le numéro n'est pas un statut : en texte, sans fond
+                              // coloré (16/11/2026), pour que seules les pastilles
+                              // portent une couleur qui veut dire quelque chose.
+                              color: "#0F2A3F",
+                              pr: 0.5,
                               fontWeight: 700,
                               fontSize: "0.8rem",
                               fontVariantNumeric: "tabular-nums",
@@ -960,46 +930,16 @@ export default function CallListPage({ params }: CallListPageProps) {
                           <PastilleMineur stats={call.stats} />
 
                           {flaggedState[call.id] && (
-                            <Chip
-                              size="small"
-                              icon={<IconFlagFilled size={14} style={{ color: "white" }} />}
-                              label="Incident"
-                              sx={{
-                                backgroundColor: "#ef4444",
-                                color: "white",
-                                fontWeight: 600,
-                              }}
+                            <Pastille
+                              libelle="Incident"
+                              ton={TONS.incident}
+                              icone={<IconFlagFilled size={12} aria-hidden />}
                             />
                           )}
 
-                          {(() => {
-                            const chips = getCallChips(call, examLabelMap);
-                            return chips.map((chip, i) => (
-                              <Chip
-                                key={i}
-                                size="small"
-                                variant={chip.variant ?? "filled"}
-                                label={chip.label}
-                                color={chip.customColor ? undefined : chip.muiColor}
-                                sx={
-                                  chip.customColor
-                                    ? chip.variant === "outlined"
-                                      ? {
-                                          borderColor: chip.customColor,
-                                          color: chip.customColor,
-                                          backgroundColor: "transparent",
-                                          fontWeight: 600,
-                                        }
-                                      : {
-                                          backgroundColor: chip.customColor,
-                                          color: chip.textColor ?? "white",
-                                          fontWeight: 600,
-                                        }
-                                    : undefined
-                                }
-                              />
-                            ));
-                          })()}
+                          {getCallChips(call, examLabelMap).map((p, i) => (
+                            <Pastille key={i} libelle={p.libelle} ton={p.ton} />
+                          ))}
                         </Box>
 
                         {/* Ligne 3 : aperçu de la conversation */}

@@ -161,18 +161,34 @@ export const UNKNOWN_HANGUP_CONTEXT: HangupContextMeta = {
  *   pas de RDV (booked/canceled/modified === 0) ET pas un transfert secrétariat.
  *
  * Critère STRICTEMENT identique à la logique d'affichage du chip "Raccroché"
- * sur la page liste des appels (cf. getCallChips) : comparaison `=== 0` sans
- * fallback, donc un champ undefined/null ne déclenche PAS le bucket "Raccroché".
+ * sur la page liste des appels (cf. getCallChips, qui appelle cette fonction) :
+ * comparaison `=== 0` sans fallback, donc un champ undefined/null ne déclenche
+ * PAS le bucket "Raccroché". Un appel dont l'intention a abouti n'en est pas un.
  */
 export function isHangup(stats: any): boolean {
   if (!stats) return false;
   if (estUnTransfert(stats)) return false;
+  // L'intention de l'appel a abouti (16/11/2026, décision d'Enzo) : une confirmation
+  // réussie n'est pas un raccrochage, même si le patient raccroche ensuite. Prise,
+  // modification et annulation étaient déjà exclues par leurs compteurs ; le statut les
+  // couvre aussi quand le compteur manque.
+  if (INTENTION_ABOUTIE.has(stats.rdv_status)) return false;
   return (
     stats.rdv_booked === 0 &&
     stats.rdv_canceled === 0 &&
     stats.rdv_modified === 0
   );
 }
+
+/** Statuts d'un appel dont l'intention a abouti (`rdv_status`, valeurs de LyraeTalk et anciennes). */
+const INTENTION_ABOUTIE = new Set([
+  "success",
+  "confirmed",
+  "modified",
+  "rescheduled",
+  "cancelled",
+  "canceled",
+]);
 
 /**
  * Retourne le contexte du raccrochage à partir des stats. Retourne null si
