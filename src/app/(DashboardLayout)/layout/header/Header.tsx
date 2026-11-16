@@ -39,10 +39,13 @@ import { trouverProduit } from "@/lib/produits";
   };
 
   /** Styles locaux, scindés pour limiter le bruit dans le JSX. */
-  const AppBarStyled = styled(AppBar)(({ theme }) => ({
+  // Sans fond : le grain de l'application (`.mainwrapper`, global.css) continue jusqu'en
+  // haut, sans bande blanche (décision d'Enzo, 16/11/2026). La barre défile avec la page
+  // (le `overflowX: hidden` de la zone de page neutralise le `sticky`) : aucun voile à
+  // prévoir au défilement.
+  const AppBarStyled = styled(AppBar)(() => ({
     boxShadow: "none",
-    background: theme.palette.background.paper,
-    backdropFilter: "blur(4px)",
+    background: "transparent",
   }));
 
   // Sur un téléphone (27/10/2026) : marges réduites et pas de retour à la ligne, la
