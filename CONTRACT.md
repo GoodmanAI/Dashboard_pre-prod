@@ -655,6 +655,21 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   transcription). Pour les écrans qui ne lisent que `createdAt` et `stats` (statistiques
   d'appels, vue d'ensemble admin). Même droit que les lignes. Sans le paramètre, la
   réponse est inchangée.
+- **Lecture directe** (16/11/2026, interne, forme de la réponse inchangée) : une plage
+  sans autre filtre que la durée se lit en une requête SQL, `stats.internal` retiré par
+  PostgreSQL ; avec `previousFrom`/`previousTo`, les deux périodes se lisent en parallèle.
+  En cas d'échec de la requête, repli journalisé sur le chemin général.
+  La **liste paginée** sans filtre fait en mémoire (statut, téléphone, mineur, type
+  d'examen) demande à la base le total et la seule page (`COUNT` et `LIMIT/OFFSET` en
+  parallèle) ; même forme de réponse, même repli.
+- **`GET /api/stats-appel`** (16/11/2026, session, pas machine-à-machine) : les statistiques
+  d'appels de Talk calculées sur le serveur (`src/lib/statsAppel.ts`), agrégats seulement,
+  aucune donnée patient. Mêmes droits et mêmes lignes que `/api/calls` en `champs=stats`.
+  `vue=apercu` : la carte d'un centre de `/admin/overview` (chiffres, appels par jour et par
+  heure, entonnoir). Consommateurs : l'écran Statistiques d'appels et la vue d'ensemble admin.
+- **`mode=agregat`** (accueil Talk) : depuis le 16/11/2026, `parJour` n'est calculé que sur
+  demande (`parJour=1`, la requête parcourt tout l'historique du centre) ; sinon `[]`. Les
+  appels du jour ne remontent que `emergency`, `rdv_booked` et `error_logic`.
 - **`status=not_performed`** (06/10/2026) : les appels arrêtés par l'examen, selon
   `estExamenNonPris` (`src/lib/transferReasons.ts`) : catégorie `examen_non_traitable` ou
   `stats.exam_not_bookable`. Avant, `transferReason === "exam_type"` seul : l'écran client,

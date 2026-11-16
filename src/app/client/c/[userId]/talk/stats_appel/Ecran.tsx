@@ -15,6 +15,7 @@ import {
   Chip,
   Tab,
   Tabs,
+  Alert,
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -62,26 +63,17 @@ import {
   TransferCategory,
   CATEGORY_META,
   CATEGORY_ORDER,
-  getTransferMeta,
-  isCounterTransfer,
-  estExamenNonPris,
-  estUnTransfert,
-  estDemandeDeResultats,
 } from "@/lib/transferReasons";
-import { getLanguageMeta, LANGUAGE_META, LanguageCode } from "@/lib/languages";
+import { LANGUAGE_META, LanguageCode } from "@/lib/languages";
 import { construireExamLabelMap, listerTypesExamen } from "@/lib/examLabels";
 import {
   HANGUP_CONTEXTS,
   UNKNOWN_HANGUP_CONTEXT,
-  isHangup,
-  getHangupContext,
-  HangupContextKey,
 } from "@/lib/hangupContext";
 import {
   computeDelta,
   computePreviousRange,
   DeltaResult,
-  DeltaDirection,
 } from "@/lib/deltaCompare";
 import {
   rowsToCsv,
@@ -93,6 +85,14 @@ import { IconDownload } from "@tabler/icons-react";
 import { MENU_FILTRE } from "@/lib/menuFiltre";
 import { useRechargement, styleRechargement } from "@/hooks/useRechargement";
 import BarreRechargement from "@/components/shared/stats/BarreRechargement";
+import { signaler } from "@/lib/signaler";
+import {
+  calculerStatsAppels,
+  IndicateursAppels,
+  RESO_KEYS,
+  ResoKey,
+  StatsAppels,
+} from "@/lib/statsAppel";
 
 /* =========================================================
    Types & utils
@@ -100,23 +100,6 @@ import BarreRechargement from "@/components/shared/stats/BarreRechargement";
 
 const NEEDLE_BASE_RADIUS_PX = 5;
 const NEEDLE_COLOR = "#d0d000";
-
-interface Call {
-  id: number;
-  userId: number;
-  caller: string;
-  called: string;
-  intent?: string | null;
-  firstname?: string | null;
-  lastname?: string | null;
-  birthdate?: string | null;
-  createdAt: string; // ISO
-  steps: string[];
-  durationSeconds?: number | null;
-  durationSec?: number | null;
-  handled?: boolean | null;
-  resolution?: string | null;
-}
 
 const PALETTE = {
   cyan: "#37D2D2",
@@ -156,51 +139,6 @@ const EXAM_LABELS: Record<string, string> = {
   MG: "Mammographie",
 };
 
-const now = () => new Date();
-const minusDays = (d: Date, days: number) =>
-  new Date(d.getTime() - days * 24 * 3600 * 1000);
-
-function dayKey(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
-
-const RESO_KEYS = [
-  "rdv",
-  "info",
-  "modification",
-  "annulation",
-  "urgence",
-] as const;
-type ResoKey = (typeof RESO_KEYS)[number];
-
-function normalizeReso(call: any): ResoKey | "autre" {
-  const s = (call.resolution ?? call.intent ?? "").toLowerCase().trim();
-  if (call?.stats?.rdv_booked != 0) return "rdv";
-  if (call?.stats?.intents.includes("renseignements")) return "info";
-  if (call?.stats?.intents.includes("modification_rdv")) return "modification";
-  if (call?.stats?.intents.includes("annulation_rdv")) return "annulation";
-  if (call?.stats?.emergency == true) return "urgence";
-  return "autre";
-}
-
-function getIndice(calls: any[]): number {
-  const indice = calls.reduce((acc: any, c: any) => {
-    if (c.stats.error_logic && c.stats.error_logic > 0) {
-      return acc + 1;
-    }
-    return acc;
-  }, 0);
-
-  return Math.floor((1 - indice / calls.length) * 100);
-}
-
-function sumDurationsSec(calls: any): number {
-  return calls.reduce((acc: any, c: any) => {
-    const sec = (c.stats.duration ?? c.stats.duration ?? 0) as number;
-    return acc + (Number(sec) || 0);
-  }, 0);
-}
-
 function formatHoursFromSeconds(totalSeconds: number): string {
   const totalMinutes = Math.round(totalSeconds / 60);
   const hrs = Math.floor(totalMinutes / 60);
@@ -215,36 +153,11 @@ function secondsToMinLabel(totalSeconds: number) {
   return `${m}min${String(ss).padStart(2, "0")}`;
 }
 
-/* =========================================================
-   Heatmap helpers
-========================================================= */
+/** Résultat de `GET /api/stats-appel`. */
+type ReponseStats = { courant: StatsAppels; precedent: IndicateursAppels | null };
 
-/**
- * Construit une matrice 7×24 [jour][heure] = count, à partir d'un array
- * d'appels et d'un filtre optionnel (pour ne compter que les RDV pris,
- * les planning complets, etc.).
- */
-function buildHeatmap(
-  calls: any[],
-  filter?: (call: any) => boolean,
-): { matrix: number[][]; max: number; total: number } {
-  const matrix: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
-  let max = 0;
-  let total = 0;
-  for (const c of calls) {
-    if (filter && !filter(c)) continue;
-    if (!c?.createdAt) continue;
-    const d = new Date(c.createdAt);
-    // JS getDay() : 0=Dim..6=Sam → on remappe en Lun=0..Dim=6 (convention FR)
-    const jsDay = d.getDay();
-    const dayIdx = jsDay === 0 ? 6 : jsDay - 1;
-    const hour = d.getHours();
-    matrix[dayIdx][hour]++;
-    total++;
-    if (matrix[dayIdx][hour] > max) max = matrix[dayIdx][hour];
-  }
-  return { matrix, max, total };
-}
+/** Résultat vide, avant le premier chargement (et période sans appel). */
+const VIDE: StatsAppels = calculerStatsAppels([]);
 
 /* =========================================================
    Page principale
@@ -281,9 +194,10 @@ export default function StatsAppelPage({ params }: any) {
   const [selectedExamCode, setSelectedExamCode] = useState<string | "all">(
     "all",
   );
-  const [calls, setCalls] = useState<Call[]>([]);
-  /** Appels de la période précédente — pour calcul des deltas sur les KPI. */
-  const [previousCalls, setPreviousCalls] = useState<Call[]>([]);
+  // Les agrégats calculés par le serveur (`GET /api/stats-appel`, 16/11/2026) : l'écran ne
+  // reçoit plus les lignes d'appel. `VIDE` tient lieu de résultat avant le premier chargement.
+  const [resultat, setResultat] = useState<ReponseStats>({ courant: VIDE, precedent: null });
+  const [erreurStats, setErreurStats] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { premier: premierChargement, recharge } = useRechargement(loading);
 
@@ -323,10 +237,9 @@ export default function StatsAppelPage({ params }: any) {
     [dateRange.from, dateRange.to],
   );
 
-  // Un seul appel pour la période et sa période de comparaison, borné aux dates
-  // affichées et sans les transcriptions (`champs=stats`). Avant le 18/09/2026 l'écran
-  // demandait TOUT l'historique du centre, transcriptions comprises, filtrait les dates
-  // dans le navigateur, et refaisait la même requête à chaque changement de période.
+  // Une requête pour la période et sa période de comparaison. Le serveur lit les appels et
+  // renvoie les seuls agrégats (`/api/stats-appel`, 16/11/2026) : avant, l'écran recevait
+  // chaque ligne des deux périodes (plusieurs Mo pour 30 jours) et calculait lui-même.
   useEffect(() => {
     if (status !== "authenticated") return;
 
@@ -351,8 +264,6 @@ export default function StatsAppelPage({ params }: any) {
 
         const params = new URLSearchParams({
           userProductId: String(userProductId),
-          mode: "all",
-          champs: "stats",
           from: fromDate.toISOString(),
           to: toDate.toISOString(),
         });
@@ -361,25 +272,22 @@ export default function StatsAppelPage({ params }: any) {
           params.set("previousTo", previousRange.to.toISOString());
         }
 
-        const res = await fetch(`/api/calls?${params.toString()}`, {
+        const res = await fetch(`/api/stats-appel?${params.toString()}`, {
           signal: controller.signal,
           cache: "no-store",
-          headers: { "Cache-Control": "no-store" },
         });
-        const reponse = await res.json();
+        if (!res.ok) throw new Error(`stats-appel ${res.status}`);
+        const reponse = (await res.json()) as ReponseStats;
         if (reqSeqRef.current !== seq) return;
-
-        // Tableau simple, ou { data, previous } quand la comparaison est demandée.
-        const courante = Array.isArray(reponse)
-          ? reponse
-          : (reponse?.data ?? []);
-        setCalls(Array.isArray(courante) ? courante : []);
-        setPreviousCalls(
-          Array.isArray(reponse?.previous) ? reponse.previous : [],
-        );
+        setResultat(reponse);
+        setErreurStats(null);
       } catch (e) {
         if (!isAbortError(e)) {
-          console.error("Erreur lors du fetch des appels:", e);
+          signaler("Statistiques d'appels :", e);
+          if (reqSeqRef.current === seq)
+            setErreurStats(
+              "Les statistiques n'ont pas pu être chargées. Vérifiez votre connexion puis rechargez la page.",
+            );
         }
       } finally {
         if (reqSeqRef.current === seq) setLoading(false);
@@ -399,7 +307,7 @@ export default function StatsAppelPage({ params }: any) {
         setMapping(data);
       } catch (err) {
         if (!isAbortError(err)) {
-          console.error("Erreur lors du fetch des appels:", err);
+          signaler("Erreur lors du fetch des appels:", err);
         }
       }
     })();
@@ -450,7 +358,7 @@ export default function StatsAppelPage({ params }: any) {
         setNoshowStats(data);
       } catch (e) {
         if (!isAbortError(e)) {
-          console.error("Erreur fetch no-show stats:", e);
+          signaler("Erreur fetch no-show stats:", e);
         }
       }
     })();
@@ -486,101 +394,30 @@ export default function StatsAppelPage({ params }: any) {
         setPreviousNoshowStats(data);
       } catch (e) {
         if (!isAbortError(e)) {
-          console.error("Erreur fetch no-show stats (période précédente):", e);
+          signaler("Erreur fetch no-show stats (période précédente):", e);
         }
       }
     })();
     return () => controller.abort();
   }, [effectiveUserId, userProductId, previousRange]);
 
-  /* ========== Stats tuiles ========== */
-  const totalAppels = calls.length;
-  const nbRDV = useMemo(() => {
-    return calls.reduce((acc, c: any) => {
-      const n = Number(c?.stats?.rdv_booked ?? 0);
-      return acc + (Number.isFinite(n) ? n : 0);
-    }, 0);
-  }, [calls]);
-  const nbUrgence = useMemo(
-    () => calls.filter((c) => normalizeReso(c) === "urgence").length,
-    [calls],
-  );
-  const nbInfo = useMemo(
-    () => calls.filter((c) => normalizeReso(c) === "info").length,
-    [calls],
-  );
-
-  const indicePerformance = useMemo(() => {
-    if (calls.length === 0) return 0;
-    return getIndice(calls);
-  }, [calls]);
-
-  const heuresPrisEnCharge = useMemo(() => {
-    const totalSeconds = sumDurationsSec(calls);
-    return formatHoursFromSeconds(totalSeconds);
-  }, [calls]);
-
-  // 2ème ligne
-  const annulation = useMemo(() => {
-    return calls.reduce((acc, c: any) => {
-      const n = Number(c?.stats?.rdv_canceled ?? 0);
-      return acc + (Number.isFinite(n) ? n : 0);
-    }, 0);
-  }, [calls]);
-
-  const modification = useMemo(() => {
-    return calls.reduce((acc, c: any) => {
-      const n = Number(c?.stats?.rdv_modified ?? 0);
-      return acc + (Number.isFinite(n) ? n : 0);
-    }, 0);
-  }, [calls]);
-
-  // "Examens non pris en charge" — toute la catégorie examen_non_traitable
-  // (exam_type, exam_not_practiced, exam_interv, exam_mult, doppler_*, …),
-  // pas seulement exam_type comme avant. Évite la sous-estimation.
-  const notPerformed = useMemo(() => {
-    return calls.reduce(
-      (acc, c: any) => acc + (estExamenNonPris(c?.stats) ? 1 : 0),
-      0,
-    );
-  }, [calls]);
-
-  const radioInter = useMemo(() => {
-    return calls.reduce((acc, c: any) => {
-      const n = Number(c.stats?.transferReason == "exam_interv" ? 1 : 0);
-      return acc + (Number.isFinite(n) ? n : 0);
-    }, 0);
-  }, [calls]);
-
-  const noSlotApi = useMemo(() => {
-    return calls.reduce((acc, c: any) => {
-      const n = Number(c?.stats?.no_slot_api_retrieve ? 1 : 0);
-      return acc + (Number.isFinite(n) ? n : 0);
-    }, 0);
-  }, [calls]);
-
-  const confirmRDV = useMemo(() => {
-    return calls.reduce((acc, c: any) => {
-      return acc + (c?.stats?.rdv_status === "confirmed" ? 1 : 0);
-    }, 0);
-  }, [calls]);
-
-  const nbTransferts = useMemo(
-    () =>
-      calls.reduce(
-        (acc, c: any) => acc + (isCounterTransfer(c?.stats) ? 1 : 0),
-        0,
-      ),
-    [calls],
-  );
-  const nbResultats = useMemo(
-    () =>
-      calls.reduce(
-        (acc, c: any) => acc + (estDemandeDeResultats(c?.stats) ? 1 : 0),
-        0,
-      ),
-    [calls],
-  );
+  /* ========== Stats tuiles ========== (calculées par le serveur, `src/lib/statsAppel.ts`) */
+  const courant = resultat.courant;
+  const ind = courant.indicateurs;
+  const totalAppels = ind.totalAppels;
+  const nbRDV = ind.nbRDV;
+  const nbUrgence = ind.nbUrgence;
+  const nbInfo = ind.nbInfo;
+  const indicePerformance = ind.indicePerformance;
+  const heuresPrisEnCharge = formatHoursFromSeconds(ind.heuresSec);
+  const annulation = ind.annulation;
+  const modification = ind.modification;
+  const notPerformed = ind.notPerformed;
+  const radioInter = ind.radioInter;
+  const noSlotApi = ind.noSlotApi;
+  const confirmRDV = ind.confirmRDV;
+  const nbTransferts = ind.nbTransferts;
+  const nbResultats = ind.resultats;
   const partResultats =
     nbTransferts > 0 ? Math.round((nbResultats / nbTransferts) * 100) : 0;
 
@@ -598,52 +435,10 @@ export default function StatsAppelPage({ params }: any) {
   const prevSmsConfirmed = previousNoshowStats?.totals?.confirmed ?? 0;
 
   /* ========== KPI période précédente + deltas ==========
-   * Mêmes calculs que ci-dessus appliqués à `previousCalls`, puis on dérive
-   * les deltas vs courant via `computeDelta` (direction métier par KPI). */
-  const previousKpis = useMemo(() => {
-    const p = previousCalls;
-    return {
-      totalAppels: p.length,
-      nbRDV: p.reduce(
-        (acc, c: any) => acc + (Number(c?.stats?.rdv_booked ?? 0) || 0),
-        0,
-      ),
-      nbUrgence: p.filter((c) => normalizeReso(c) === "urgence").length,
-      nbInfo: p.filter((c) => normalizeReso(c) === "info").length,
-      heuresSec: sumDurationsSec(p),
-      annulation: p.reduce(
-        (acc, c: any) => acc + (Number(c?.stats?.rdv_canceled ?? 0) || 0),
-        0,
-      ),
-      modification: p.reduce(
-        (acc, c: any) => acc + (Number(c?.stats?.rdv_modified ?? 0) || 0),
-        0,
-      ),
-      notPerformed: p.reduce(
-        (acc, c: any) => acc + (estExamenNonPris(c?.stats) ? 1 : 0),
-        0,
-      ),
-      radioInter: p.reduce(
-        (acc, c: any) =>
-          acc + (c.stats?.transferReason === "exam_interv" ? 1 : 0),
-        0,
-      ),
-      noSlotApi: p.reduce(
-        (acc, c: any) => acc + (c?.stats?.no_slot_api_retrieve ? 1 : 0),
-        0,
-      ),
-      confirmRDV: p.reduce(
-        (acc, c: any) => acc + (c?.stats?.rdv_status === "confirmed" ? 1 : 0),
-        0,
-      ),
-      resultats: p.reduce(
-        (acc, c: any) => acc + (estDemandeDeResultats(c?.stats) ? 1 : 0),
-        0,
-      ),
-    };
-  }, [previousCalls]);
-
-  const currentHeuresSec = useMemo(() => sumDurationsSec(calls), [calls]);
+   * Mêmes calculs sur la période précédente, faits par le serveur ; les deltas sont dérivés
+   * ici via `computeDelta` (direction métier par KPI). */
+  const previousKpis = resultat.precedent ?? VIDE.indicateurs;
+  const currentHeuresSec = ind.heuresSec;
 
   /**
    * Deltas affichés sur les tuiles. `null` si la plage est d'1 jour
@@ -731,20 +526,10 @@ export default function StatsAppelPage({ params }: any) {
   type HeatmapMetricKey = "calls" | "rdv" | "planning" | "transfer";
   const [heatmapMetric, setHeatmapMetric] = useState<HeatmapMetricKey>("calls");
 
-  const heatmapAll = useMemo(() => buildHeatmap(calls), [calls]);
-  const heatmapRdv = useMemo(
-    () =>
-      buildHeatmap(calls, (c: any) => Number(c?.stats?.rdv_booked ?? 0) > 0),
-    [calls],
-  );
-  const heatmapPlanning = useMemo(
-    () => buildHeatmap(calls, (c: any) => !!c?.stats?.no_slot_api_retrieve),
-    [calls],
-  );
-  const heatmapTransfer = useMemo(
-    () => buildHeatmap(calls, (c: any) => isCounterTransfer(c?.stats)),
-    [calls],
-  );
+  const heatmapAll = courant.cartes.calls;
+  const heatmapRdv = courant.cartes.rdv;
+  const heatmapPlanning = courant.cartes.planning;
+  const heatmapTransfer = courant.cartes.transfer;
 
   const heatmapConfig: Record<
     HeatmapMetricKey,
@@ -809,7 +594,7 @@ export default function StatsAppelPage({ params }: any) {
     if (previousRange) {
       rows.push(["Comparaison avec", previousRange.label]);
     }
-    rows.push(["Nombre total d'appels analysés", calls.length]);
+    rows.push(["Nombre total d'appels analysés", totalAppels]);
     rows.push(null);
 
     // ===== Section : Indicateurs principaux =====
@@ -957,199 +742,88 @@ export default function StatsAppelPage({ params }: any) {
     [mapping],
   );
 
+  // Examens des RDV pris : le serveur rend les codes bruts, l'écran pose les libellés du
+  // centre (et réunit deux combinaisons de codes qui portent le même libellé).
   const examPieData = useMemo(() => {
     const buckets: Record<string, number> = {};
-
-    for (const c of calls as any[]) {
-      const rawExam = c?.stats?.exam_type_id;
-      const rdv = Number(c?.stats?.rdv_booked ?? 0);
-
-      if (!rawExam || rdv === 0) continue;
-
-      // normaliser en tableau
-      const exams = Array.isArray(rawExam) ? rawExam : [rawExam];
-      // console.log("rawExam", rawExam, "exams", exams);
-      // console.log("examLabelMap", examLabelMap);
-      // mapper chaque examen
-      const label = exams
-        .map((code: string) => examLabelMap[code] ?? code)
-        .join(" ");
-
-      if (!buckets[label]) buckets[label] = 0;
-
-      buckets[label] += rdv;
+    for (const e of courant.examens) {
+      const label = e.codes.map((code) => examLabelMap[code] ?? code).join(" ");
+      buckets[label] = (buckets[label] ?? 0) + e.rdv;
     }
-
-    const arr = Object.entries(buckets).map(([name, value]) => ({
-      name,
-      value,
-    }));
-
+    const arr = Object.entries(buckets).map(([name, value]) => ({ name, value }));
     const sum = arr.reduce((a, b) => a + b.value, 0);
-
     return sum === 0 ? [{ name: "Aucune donnée", value: 1 }] : arr;
-  }, [calls, examLabelMap]);
+  }, [courant.examens, examLabelMap]);
 
   // Les types d'examen effectivement présents dans les appels de la période.
   // On part des types déclarés par le centre, et on ne garde que ceux qu'on a
   // vus, pour ne pas offrir un filtre qui ne renverrait rien.
   const examCodes = useMemo(() => {
-    const vus = new Set<string>();
-    for (const c of calls as any[]) {
-      const code = c?.stats?.exam_type_id;
-      if (!code) continue;
-      for (const e of Array.isArray(code) ? code : [code]) vus.add(String(e));
-    }
-
+    const vus = new Set<string>(courant.typesVus);
     return listerTypesExamen(mapping)
       .filter((o) => vus.has(o.valeur) || vus.has(o.code))
       .map((o) => ({ label: o.label, examCode: o.valeur }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [calls, mapping]);
+  }, [courant.typesVus, mapping]);
 
   const examCodePieData = useMemo(() => {
     const buckets: Record<string, number> = {};
-
-    for (const c of calls as any[]) {
-      const examType = c?.stats?.exam_type_id;
-      const examCode = c?.stats?.exam_code;
-      const rdv = Number(c?.stats?.rdv_booked ?? 0);
-
-      if (!examType || !examCode || rdv === 0) continue;
-
-      const examTypes = Array.isArray(examType) ? examType : [examType];
-      const examCodes = Array.isArray(examCode) ? examCode : [examCode];
-
+    for (const e of courant.codesExamen) {
       // filtre sur le select
-      if (selectedExamCode !== "all" && !examTypes.includes(selectedExamCode)) {
-        continue;
-      }
-
-      // compter les exam_code
-      for (const code of examCodes) {
-        if (!buckets[code]) buckets[code] = 0;
-        buckets[code] += 1;
-      }
+      if (selectedExamCode !== "all" && !e.types.includes(selectedExamCode)) continue;
+      buckets[e.code] = (buckets[e.code] ?? 0) + e.n;
     }
-
-    const arr = Object.entries(buckets).map(([name, value]) => ({
-      name,
-      value,
-    }));
-
+    const arr = Object.entries(buckets).map(([name, value]) => ({ name, value }));
     const sum = arr.reduce((a, b) => a + b.value, 0);
-
     return sum === 0 ? [{ name: "Aucune donnée", value: 1 }] : arr;
-  }, [calls, selectedExamCode]);
+  }, [courant.codesExamen, selectedExamCode]);
 
   /* ========== Camembert transferts — par CATÉGORIE ==========
    * Comptage : on garde uniquement les "vrais" transferts vers secrétariat
    * (estUnTransfert ET catégorie ≠ non_transfert). Source de vérité
    * dans `src/lib/transferReasons.ts`. */
   const transferData = useMemo(() => {
-    const buckets: Record<TransferCategory, number> = {
-      demande_patient: 0,
-      examen_non_traitable: 0,
-      patient_introuvable: 0,
-      incomprehension_etape: 0,
-      pas_de_creneau: 0,
-      erreur_technique: 0,
-      non_transfert: 0,
-      autre: 0,
-    };
-
-    for (const c of calls) {
-      const stats = (c as any)?.stats;
-      if (!isCounterTransfer(stats)) continue;
-      const meta = getTransferMeta(stats?.transferReason);
-      buckets[meta.category]++;
-    }
-
     const arr = CATEGORY_ORDER.filter((cat) => cat !== "non_transfert").map(
       (cat) => ({
         key: cat,
         name: CATEGORY_META[cat].label,
-        value: buckets[cat],
+        value: courant.transferts[cat] ?? 0,
         color: CATEGORY_META[cat].color,
       }),
     );
-
     const sum = arr.reduce((a, b) => a + b.value, 0);
     return sum === 0
       ? [{ name: "Aucune donnée", value: 1, color: "#9ca3af" }]
       : arr;
-  }, [calls]);
+  }, [courant.transferts]);
 
   /* ========== BarChart : top des raisons précises ========== */
-  const transferReasonDetail = useMemo(() => {
-    const buckets = new Map<
-      string,
-      {
-        reason: string;
-        label: string;
-        category: TransferCategory;
-        count: number;
-      }
-    >();
-    for (const c of calls) {
-      const stats = (c as any)?.stats;
-      if (!isCounterTransfer(stats)) continue;
-      const reason = stats?.transferReason as string | undefined;
-      if (!reason) continue;
-      const meta = getTransferMeta(reason);
-      const existing = buckets.get(reason);
-      if (existing) {
-        existing.count++;
-      } else {
-        buckets.set(reason, {
-          reason,
-          label: meta.label,
-          category: meta.category,
-          count: 1,
-        });
-      }
-    }
-    return Array.from(buckets.values())
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 12);
-  }, [calls]);
+  const transferReasonDetail = courant.raisonsTransfert;
 
   /* ========== Répartition par langue de conversation ==========
    * On n'affiche le widget QUE si on observe au moins UNE langue ≠ "fr" sur la
    * période — sinon (100% français), pas d'intérêt à montrer un graphique
    * monochrome. */
   const languageData = useMemo(() => {
-    const buckets = new Map<LanguageCode, number>();
-    for (const c of calls as any[]) {
-      const lang = (c?.stats?.language as string | undefined) ?? "fr";
-      const meta = getLanguageMeta(lang);
-      buckets.set(meta.code, (buckets.get(meta.code) ?? 0) + 1);
-    }
-    const total = Array.from(buckets.values()).reduce((s, v) => s + v, 0);
-    const items = Array.from(buckets.entries())
-      .map(([code, count]) => ({
+    const total = courant.langues.reduce((s, l) => s + l.count, 0);
+    const items = courant.langues
+      .map(({ code, count }) => ({
         code,
-        ...LANGUAGE_META[code],
+        ...LANGUAGE_META[code as LanguageCode],
         count,
         pct: total > 0 ? (count / total) * 100 : 0,
       }))
       .sort((a, b) => b.count - a.count);
     const hasDiversity = items.some((i) => i.code !== "fr" && i.count > 0);
     return { items, total, hasDiversity };
-  }, [calls]);
+  }, [courant.langues]);
 
   /* ========== Analyse des raccrochages par étape ==========
    * Regroupe les appels "raccroché" (pas de RDV + pas de transfert) selon le
    * `last_state` du bot, pour expliquer pourquoi le patient a abandonné. */
   const hangupAnalysis = useMemo(() => {
-    const buckets = new Map<HangupContextKey, number>();
-    let total = 0;
-    for (const c of calls as any[]) {
-      const ctx = getHangupContext(c?.stats);
-      if (!ctx) continue;
-      total++;
-      buckets.set(ctx.key, (buckets.get(ctx.key) ?? 0) + 1);
-    }
+    const total = courant.raccrochagesTotal;
+    const parCle = new Map(courant.raccrochages.map((r) => [r.cle, r.count]));
     const allCtx = [...HANGUP_CONTEXTS, UNKNOWN_HANGUP_CONTEXT];
     const items = allCtx
       .map((ctx) => ({
@@ -1157,63 +831,38 @@ export default function StatsAppelPage({ params }: any) {
         label: ctx.label,
         description: ctx.description,
         color: ctx.color,
-        count: buckets.get(ctx.key) ?? 0,
-        pct: total > 0 ? ((buckets.get(ctx.key) ?? 0) / total) * 100 : 0,
+        count: parCle.get(ctx.key) ?? 0,
+        pct: total > 0 ? ((parCle.get(ctx.key) ?? 0) / total) * 100 : 0,
       }))
       .filter((item) => item.count > 0)
       .sort((a, b) => b.count - a.count);
     return { items, total };
-  }, [calls]);
+  }, [courant.raccrochages, courant.raccrochagesTotal]);
 
   /* ========== Camembert (intent) ========== */
   const pieData = useMemo(() => {
-    const buckets: Record<ResoKey | "autre", number> = {
-      rdv: 0,
-      info: 0,
-      modification: 0,
-      annulation: 0,
-      urgence: 0,
-      autre: 0,
-    };
-    for (const c of calls) buckets[normalizeReso(c)]++;
-
+    const b = courant.resolutions;
     const arr = [
-      { name: "Prise de RDV", value: buckets.rdv },
-      { name: "Informations", value: buckets.info },
-      { name: "Modifications", value: buckets.modification },
-      { name: "Annulations", value: buckets.annulation },
-      { name: "Urgences", value: buckets.urgence },
+      { name: "Prise de RDV", value: b.rdv },
+      { name: "Informations", value: b.info },
+      { name: "Modifications", value: b.modification },
+      { name: "Annulations", value: b.annulation },
+      { name: "Urgences", value: b.urgence },
     ];
-    const sum = arr.reduce((a, b) => a + b.value, 0);
+    const sum = arr.reduce((a, c) => a + c.value, 0);
     return sum === 0 ? [{ name: "Aucune donnée", value: 1 }] : arr;
-  }, [calls]);
+  }, [courant.resolutions]);
 
   /* ========== Histogramme ========== */
-  const histogramData = useMemo(() => {
-    const today = now();
-    const map: Record<string, { total: number; redirect: number }> = {};
-
-    for (let i = 6; i >= 0; i--) {
-      const d = minusDays(today, i);
-      map[dayKey(d)] = { total: 0, redirect: 0 };
-    }
-
-    for (const c of calls) {
-      const k = dayKey(new Date(c.createdAt));
-      if (map[k]) {
-        map[k].total++;
-        if (estUnTransfert((c as any)?.stats)) {
-          map[k].redirect++;
-        }
-      }
-    }
-
-    return Object.entries(map).map(([k, v]) => ({
-      name: `${k.slice(8, 10)}/${k.slice(5, 7)}`,
-      normal: v.total - v.redirect,
-      redirect: v.redirect,
-    }));
-  }, [calls]);
+  const histogramData = useMemo(
+    () =>
+      courant.histogramme.map(({ jour, total, redirect }) => ({
+        name: `${jour.slice(8, 10)}/${jour.slice(5, 7)}`,
+        normal: total - redirect,
+        redirect,
+      })),
+    [courant.histogramme],
+  );
 
   function HistogramTooltip({ active, payload, label }: any) {
     if (!active || !payload || !payload.length) return null;
@@ -1246,38 +895,18 @@ export default function StatsAppelPage({ params }: any) {
     return Math.max(1, Math.ceil(diff) + 1);
   }, [dateRange]);
 
-  /* ========== Activité horaire ========== */
-  const hourlyActivity = useMemo(() => {
-    const counts = Array.from({ length: 24 }, () => 0);
-
-    for (const c of calls) {
-      const hour = new Date(c.createdAt).getHours();
-      counts[hour]++;
-    }
-
-    return counts.map((cnt, h) => ({
-      hour: `${String(h).padStart(2, "0")}h`,
-      value: Number((cnt / nbDays).toFixed(2)),
-    }));
-  }, [calls, nbDays]);
+  /* ========== Activité horaire ========== (heure de Paris, comptée par le serveur) */
+  const hourlyActivity = useMemo(
+    () =>
+      courant.parHeure.map((cnt, h) => ({
+        hour: `${String(h).padStart(2, "0")}h`,
+        value: Number((cnt / nbDays).toFixed(2)),
+      })),
+    [courant.parHeure, nbDays],
+  );
 
   /* ========== Durée moyenne par intention ========== */
   const avgByIntentData = useMemo(() => {
-    const acc: Record<ResoKey, { total: number; n: number }> = {
-      rdv: { total: 0, n: 0 },
-      info: { total: 0, n: 0 },
-      modification: { total: 0, n: 0 },
-      annulation: { total: 0, n: 0 },
-      urgence: { total: 0, n: 0 },
-    };
-    for (const c of calls) {
-      const call = c as any;
-      const k = normalizeReso(c);
-      if (k === "autre") continue;
-      const sec = (call.stats.duration ?? call.durationSec ?? 0) as number;
-      acc[k].total += Number(sec) || 0;
-      acc[k].n += 1;
-    }
     const label: Record<ResoKey, string> = {
       rdv: "RDV",
       info: "Informations",
@@ -1285,18 +914,16 @@ export default function StatsAppelPage({ params }: any) {
       annulation: "Annulations",
       urgence: "Urgences",
     };
-    return (Object.keys(acc) as ResoKey[])
-      .map((k) => {
-        const { total, n } = acc[k];
-        const avgSec = n ? total / n : 0;
-        return {
-          name: label[k],
-          avgMin: Number((avgSec / 60).toFixed(1)),
-          avgSec,
-        };
-      })
-      .filter((r) => r.avgSec > 0);
-  }, [calls]);
+    return RESO_KEYS.map((k) => {
+      const { total, n } = courant.dureesParIntention[k];
+      const avgSec = n ? total / n : 0;
+      return {
+        name: label[k],
+        avgMin: Number((avgSec / 60).toFixed(1)),
+        avgSec,
+      };
+    }).filter((r) => r.avgSec > 0);
+  }, [courant.dureesParIntention]);
 
   const isAbortError = (e: unknown) =>
     !!e && typeof e === "object" && (e as any).name === "AbortError";
@@ -1493,7 +1120,7 @@ export default function StatsAppelPage({ params }: any) {
             variant="outlined"
             startIcon={<IconDownload size={16} />}
             onClick={handleExportCsv}
-            disabled={loading || calls.length === 0}
+            disabled={loading || totalAppels === 0}
             sx={{
               borderColor: "var(--accent)",
               color: "var(--accent)",
@@ -1504,6 +1131,12 @@ export default function StatsAppelPage({ params }: any) {
           </Button>
         </Box>
       </Box>
+
+      {erreurStats && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {erreurStats}
+        </Alert>
+      )}
 
       {/* 6 tuiles */}
       <Grid container spacing={2} sx={{ mb: 2 }}>

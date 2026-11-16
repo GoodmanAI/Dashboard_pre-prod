@@ -37,6 +37,7 @@ import PageContainer from "@/app/(DashboardLayout)/components/container/PageCont
 import SectionHeader from "@/components/admin/SectionHeader";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import { trouverProduit, produitDepuisNom } from "@/lib/produits";
+import { signaler } from "@/lib/signaler";
 
 /**
  * Rapport clients :
@@ -120,7 +121,7 @@ export default function ReportsPage() {
           setError("Erreur lors du chargement des données.");
         }
       } catch (err) {
-        console.error("Error fetching data:", err);
+        signaler("Error fetching data:", err);
         setError("Une erreur inattendue est survenue.");
       } finally {
         setLoading(false);

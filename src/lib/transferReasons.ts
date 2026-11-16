@@ -1,3 +1,4 @@
+import { signaler } from "@/lib/signaler";
 /**
  * Mapping mutualisé `transferReason` → libellé + catégorie.
  *
@@ -227,7 +228,7 @@ export function getTransferMeta(reason: string | null | undefined): TransferMeta
   // Tolérance : on bucket en "autre" + log une fois côté serveur.
   if (typeof window === "undefined" && !warnedUnknown.has(reason)) {
     warnedUnknown.add(reason);
-    console.warn(`[transferReasons] valeur inconnue : "${reason}", ajouter au mapping`);
+    signaler(`[transferReasons] valeur inconnue : "${reason}", ajouter au mapping`);
   }
   return { label: reason, category: "autre", isKnown: false };
 }

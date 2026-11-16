@@ -11,6 +11,7 @@ import React, {
 import { useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import { cheminCentre, lireCheminCentre } from "@/lib/cheminsCentre";
+import { signaler } from "@/lib/signaler";
 
 /**
  * Représentation minimale d’un centre (utilisateur géré).
@@ -225,7 +226,7 @@ export const CentreProvider = ({ children }: { children: ReactNode }) => {
           }
         }
       } catch (err) {
-        console.error("Failed to load centres:", err);
+        signaler("Failed to load centres:", err);
         setAllCentres([]);
         setSelectedCentre(null);
       }

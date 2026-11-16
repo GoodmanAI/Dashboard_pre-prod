@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { signaler } from "@/lib/signaler";
 
 /**
  * Écran d'erreur des pages patient (confirmation de RDV, dépôt d'ordonnance).
@@ -45,7 +46,7 @@ export default function PatientErrorScreen({
 }) {
   useEffect(() => {
     // Seule trace disponible : le patient ne remontera pas l'incident lui-même.
-    console.error("[patient] rendu en échec", {
+    signaler("[patient] rendu en échec", {
       action,
       digest: error?.digest,
       message: error?.message,

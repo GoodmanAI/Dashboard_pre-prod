@@ -72,6 +72,7 @@ import { getHangupContext } from "@/lib/hangupContext";
 import { MENU_FILTRE } from "@/lib/menuFiltre";
 import { useFiltresRecherche, useIntegre } from "@/lib/recherche/integre";
 import { plageDePeriode } from "@/lib/recherche/periode";
+import { signaler } from "@/lib/signaler";
 
 /** Issue d'appel lue par la recherche (`VALEURS_ISSUE`), vers la valeur du filtre de statut. */
 const STATUT_DE_L_ISSUE: Record<string, string> = {
@@ -388,7 +389,7 @@ export default function CallListPage({ params }: CallListPageProps) {
         const data = await res.json();
         setMapping(data);
       } catch (err) {
-        console.error("Erreur fetch mapping type_exam:", err);
+        signaler("Erreur fetch mapping type_exam:", err);
       }
     })();
   }, [userProductId]);
@@ -424,7 +425,6 @@ export default function CallListPage({ params }: CallListPageProps) {
         setError(null);
         setCalls([]);
 
-        console.log("dateRange", dateRange.from, dateRange.to)
         const toDate = new Date(dateRange.to);
         toDate.setHours(23, 59, 59, 999);
 
@@ -485,10 +485,6 @@ export default function CallListPage({ params }: CallListPageProps) {
 
       const socket = io({
         path: "/api/socket",
-      });
-
-      socket.on("connect", () => {
-        console.log("socket connecté", socket.id);
       });
 
       socket.on("call-treated", ({ callId, treated }) => {
@@ -559,7 +555,7 @@ export default function CallListPage({ params }: CallListPageProps) {
         ...prev,
         [call.id]: !newValue,
       }));
-      console.error("Erreur update flagged", e);
+      signaler("Erreur update flagged", e);
     }
   };
 
@@ -600,7 +596,7 @@ export default function CallListPage({ params }: CallListPageProps) {
         [call.id]: !newValue
       }));
 
-      console.error("Erreur update treated", e);
+      signaler("Erreur update treated", e);
 
     }
   };

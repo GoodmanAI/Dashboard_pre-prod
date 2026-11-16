@@ -37,6 +37,7 @@ import { useRouter } from "next/navigation";
 import CustomTextField from "@/app/(DashboardLayout)/components/forms/theme-elements/CustomTextField";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import SectionHeader from "@/components/admin/SectionHeader";
+import { signaler } from "@/lib/signaler";
 
 interface Client {
   id: number;
@@ -58,7 +59,7 @@ export default function ManageClientsPage() {
         const data = await res.json();
         if (res.ok) setClients(data);
       } catch (err) {
-        console.error("Error fetching clients:", err);
+        signaler("Error fetching clients:", err);
       } finally {
         setLoadingClients(false);
       }

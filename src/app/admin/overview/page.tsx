@@ -55,7 +55,12 @@ import DateRangePresets from "@/components/DateRangePresets";
 import DateRangePicker, { DateRange } from "@/components/DateRangePicker";
 import { startOfDay, endOfDay, differenceInCalendarDays } from "date-fns";
 import FunnelMiniChart from "@/components/admin/FunnelMiniChart";
-import { estExamenNonPris, isCounterTransfer, estDemandeDeResultats } from "@/lib/transferReasons";
+import {
+  ApercuCentre,
+  calculerIndicateurs,
+  IndicateursAppels,
+  indiceDePerformance,
+} from "@/lib/statsAppel";
 import Battement from "@/components/shared/Battement";
 
 type TodayStats = {
@@ -69,23 +74,19 @@ type TodayStats = {
 };
 
 type CentreFetchState = {
-  calls: any[];
+  /** Chiffres du centre calculés par le serveur (`/api/stats-appel?vue=apercu`). */
+  apercu: ApercuCentre | null;
   loading: boolean;
   error: string | null;
 };
 
 /** Bucket des appels par jour (J-N à J), retourne les points avec count = 0 pour les jours sans appel. */
 function bucketCallsByDay(
-  calls: any[],
+  parJour: Record<string, number>,
   fromDate: Date,
   toDate: Date
 ): { iso: string; day: string; count: number }[] {
-  const byDay = new Map<string, number>();
-  for (const c of calls) {
-    if (!c?.createdAt) continue;
-    const iso = new Date(c.createdAt).toISOString().slice(0, 10);
-    byDay.set(iso, (byDay.get(iso) || 0) + 1);
-  }
+  const byDay = new Map<string, number>(Object.entries(parJour));
   const points: { iso: string; day: string; count: number }[] = [];
   const cursor = new Date(fromDate);
   cursor.setHours(0, 0, 0, 0);
@@ -104,50 +105,43 @@ function bucketCallsByDay(
 }
 
 /** Bucket des appels par heure (00h–23h) — utilisé pour la période "Aujourd'hui". */
-function bucketCallsByHour(calls: any[]): { hour: string; count: number }[] {
-  const byHour = new Array(24).fill(0);
-  for (const c of calls) {
-    if (!c?.createdAt) continue;
-    const h = new Date(c.createdAt).getHours();
-    byHour[h]++;
-  }
-  return byHour.map((count, h) => ({ hour: `${String(h).padStart(2, "0")}h`, count }));
+function bucketCallsByHour(parHeure: number[]): { hour: string; count: number }[] {
+  return parHeure.map((count, h) => ({ hour: `${String(h).padStart(2, "0")}h`, count }));
 }
 
 /**
  * Calcule les stats du jour (depuis minuit local) à partir d'un lot d'appels,
  * avec les mêmes formules que la page stats_appel / le dashboard client.
  */
-function computeTodayStats(calls: any[]): TodayStats {
-  const total = calls.length;
-  const nbRDV = calls.reduce((acc, c) => {
-    const n = Number(c?.stats?.rdv_booked ?? 0);
-    return acc + (Number.isFinite(n) ? n : 0);
-  }, 0);
-  const errors = calls.reduce((acc, c) => {
-    return acc + (c?.stats?.error_logic && c.stats.error_logic > 0 ? 1 : 0);
-  }, 0);
-  const indice = total > 0 ? Math.floor((1 - errors / total) * 100) : 0;
-  // Meme regle que l'ecran client (estExamenNonPris), pas `exam_type` seul.
-  const notPerformedExam = calls.reduce(
-    (acc, c) => acc + (estExamenNonPris(c?.stats) ? 1 : 0),
-    0
-  );
-  const planningFull = calls.reduce(
-    (acc, c) => acc + (c?.stats?.no_slot_api_retrieve ? 1 : 0),
-    0
-  );
-  const transferts = calls.reduce((acc, c) => acc + (isCounterTransfer(c?.stats) ? 1 : 0), 0);
-  const resultats = calls.reduce((acc, c) => acc + (estDemandeDeResultats(c?.stats) ? 1 : 0), 0);
+function computeTodayStats(ind: IndicateursAppels): TodayStats {
   return {
-    totalCalls: total,
-    nbRDV,
-    indice,
-    notPerformedExam,
-    planningFull,
-    transferts,
-    resultats,
+    totalCalls: ind.totalAppels,
+    nbRDV: ind.nbRDV,
+    indice: indiceDePerformance(ind.totalAppels, ind.erreurs),
+    notPerformedExam: ind.notPerformed,
+    planningFull: ind.noSlotApi,
+    transferts: ind.nbTransferts,
+    resultats: ind.resultats,
   };
+}
+
+/** Additionne les aperçus de plusieurs centres (carte « Vue d'ensemble »). */
+function additionner(apercus: ApercuCentre[]): {
+  indicateurs: IndicateursAppels;
+  parJour: Record<string, number>;
+  parHeure: number[];
+} {
+  const indicateurs = { ...calculerIndicateurs([]) };
+  const parJour: Record<string, number> = {};
+  const parHeure = Array.from({ length: 24 }, () => 0);
+  for (const a of apercus) {
+    for (const k of Object.keys(indicateurs) as (keyof IndicateursAppels)[]) {
+      indicateurs[k] += a.indicateurs[k];
+    }
+    for (const [iso, n] of Object.entries(a.parJour)) parJour[iso] = (parJour[iso] ?? 0) + n;
+    a.parHeure.forEach((n, h) => (parHeure[h] += n));
+  }
+  return { indicateurs, parJour, parHeure };
 }
 
 /** Couleur de l'indice selon la valeur (rouge → orange → vert). */
@@ -234,7 +228,7 @@ function StatRow({
 
 /**
  * Card représentant un centre actif avec ses stats sur la période choisie.
- * Reçoit `calls`, `loading`, `error` depuis le parent (fetch lifté pour partager
+ * Reçoit `apercu` (chiffres calculés par le serveur), `loading`, `error` depuis le parent (fetch lifté pour partager
  * les données avec la card "Vue d'ensemble").
  *
  * Ajoute un sparkline en bas (par heure si "today", par jour si "week").
@@ -243,25 +237,27 @@ function CentreTodayCard({
   centre,
   range,
   isSingleDay,
-  calls,
+  apercu,
   loading,
   error,
 }: {
   centre: ManagedUser;
   range: DateRange;
   isSingleDay: boolean;
-  calls: any[];
+  apercu: ApercuCentre | null;
   loading: boolean;
   error: string | null;
 }) {
   const router = useRouter();
 
-  const stats = useMemo(() => (calls.length || !loading ? computeTodayStats(calls) : null), [calls, loading]);
+  const stats = useMemo(() => (apercu ? computeTodayStats(apercu.indicateurs) : null), [apercu]);
+  const total = apercu?.indicateurs.totalAppels ?? 0;
 
   const sparklineData = useMemo(() => {
-    if (isSingleDay) return bucketCallsByHour(calls);
-    return bucketCallsByDay(calls, range.from, range.to);
-  }, [calls, isSingleDay, range.from, range.to]);
+    if (!apercu) return [];
+    if (isSingleDay) return bucketCallsByHour(apercu.parHeure);
+    return bucketCallsByDay(apercu.parJour, range.from, range.to);
+  }, [apercu, isSingleDay, range.from, range.to]);
 
   const formatShort = (d: Date) => d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
   const periodLabel = isSingleDay
@@ -404,12 +400,12 @@ function CentreTodayCard({
           de fuite du parcours utilisateur pour ce centre / cette période.
           Affiché même quand il n'y a aucun call prise_rdv (l'état vide est
           géré à l'intérieur du composant). */}
-      {!loading && !error && calls.length > 0 && (
-        <FunnelMiniChart calls={calls} />
+      {!loading && !error && total > 0 && (
+        <FunnelMiniChart funnel={apercu?.entonnoir ?? null} />
       )}
 
       {/* Sparkline en bas — donne une vue rapide de la temporalité */}
-      {!loading && !error && calls.length > 0 && (
+      {!loading && !error && total > 0 && (
         <Box sx={{ mt: 2 }}>
           <Typography
             variant="caption"
@@ -459,15 +455,19 @@ function OverviewSummaryCard({
   centresCount: number;
 }) {
   const all = Object.values(centresData);
-  const loading = all.length === 0 || all.some((d) => d.loading && d.calls.length === 0);
-  const allCalls = all.flatMap((d) => d.calls);
+  const loading = all.length === 0 || all.some((d) => d.loading && !d.apercu);
+  const somme = useMemo(
+    () => additionner(all.flatMap((d) => (d.apercu ? [d.apercu] : []))),
+    [all],
+  );
+  const totalAppels = somme.indicateurs.totalAppels;
 
-  const stats = useMemo(() => computeTodayStats(allCalls), [allCalls]);
+  const stats = useMemo(() => computeTodayStats(somme.indicateurs), [somme]);
 
   const histogram = useMemo(() => {
-    if (isSingleDay) return bucketCallsByHour(allCalls);
-    return bucketCallsByDay(allCalls, range.from, range.to);
-  }, [allCalls, isSingleDay, range.from, range.to]);
+    if (isSingleDay) return bucketCallsByHour(somme.parHeure);
+    return bucketCallsByDay(somme.parJour, range.from, range.to);
+  }, [somme, isSingleDay, range.from, range.to]);
 
   const xKey = isSingleDay ? "hour" : "day";
   const subtitle = isSingleDay ? "Activité par heure" : "Activité par jour";
@@ -554,7 +554,7 @@ function OverviewSummaryCard({
 
       {loading ? (
         <Skeleton variant="rounded" height={220} />
-      ) : allCalls.length === 0 ? (
+      ) : totalAppels === 0 ? (
         <Box
           sx={{
             height: 220,
@@ -697,7 +697,7 @@ const AdminOverviewPage = () => {
       const next: Record<number, CentreFetchState> = {};
       for (const c of activeCentres) {
         next[c.userProductId] = {
-          calls: prev[c.userProductId]?.calls ?? [],
+          apercu: prev[c.userProductId]?.apercu ?? null,
           loading: true,
           error: null,
         };
@@ -711,24 +711,25 @@ const AdminOverviewPage = () => {
 
       (async () => {
         try {
+          // Les chiffres du centre, calculés par le serveur (16/11/2026) : avant, chaque
+          // centre renvoyait toutes ses lignes d'appel de la période.
           const url =
-            `/api/calls?userProductId=${centre.userProductId}` +
-            `&mode=all&champs=stats&from=${range.from.toISOString()}&to=${range.to.toISOString()}`;
+            `/api/stats-appel?vue=apercu&userProductId=${centre.userProductId}` +
+            `&from=${range.from.toISOString()}&to=${range.to.toISOString()}`;
           const res = await fetch(url, { signal: controller.signal });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
-          const calls = Array.isArray(data) ? data : data?.data ?? [];
           if (!activeIds.has(centre.userProductId)) return;
           setCentresData((prev) => ({
             ...prev,
-            [centre.userProductId]: { calls, loading: false, error: null },
+            [centre.userProductId]: { apercu: data.apercu ?? null, loading: false, error: null },
           }));
         } catch (err: any) {
           if (err?.name === "AbortError") return;
           if (!activeIds.has(centre.userProductId)) return;
           setCentresData((prev) => ({
             ...prev,
-            [centre.userProductId]: { calls: [], loading: false, error: "Les appels de ce centre n'ont pas pu être chargés." },
+            [centre.userProductId]: { apercu: null, loading: false, error: "Les appels de ce centre n'ont pas pu être chargés." },
           }));
         }
       })();
@@ -1055,7 +1056,7 @@ const AdminOverviewPage = () => {
                           centre={c}
                           range={range}
                           isSingleDay={isSingleDay}
-                          calls={data?.calls ?? []}
+                          apercu={data?.apercu ?? null}
                           loading={data?.loading ?? true}
                           error={data?.error ?? null}
                         />
