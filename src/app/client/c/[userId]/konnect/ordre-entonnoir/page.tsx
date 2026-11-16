@@ -5,7 +5,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
-  CircularProgress,
   IconButton,
   MenuItem,
   Paper,
@@ -29,6 +28,7 @@ import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 import { INK, INK_MUTED, BORDER, SURFACE } from "@/lib/jetons";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Ordre d'affichage de l'entonnoir patient (lot E).
@@ -252,9 +252,7 @@ export default function OrdreEntonnoirKonnect() {
   if (chargement) {
     return (
       <PageContainer title="Ordre de l'entonnoir" description="L'ordre des boutons patient">
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress sx={{ color: "var(--accent)" }} />
-        </Box>
+        <Battement hauteur={320} />
       </PageContainer>
     );
   }

@@ -178,7 +178,7 @@ const MultiCurveChart = ({
             {curves.map(
               (curve) =>
                 visibleCurves[curve.key] && (
-                  <Line
+                  <Line isAnimationActive={false}
                     key={curve.key}
                     type="monotone"
                     dataKey={curve.key}

@@ -68,6 +68,8 @@ import { computeDelta, computePreviousRange } from "@/lib/deltaCompare";
 import { downloadCsv, isoDateForFilename, rowsToCsv } from "@/lib/csvExport";
 import { useFiltresRecherche } from "@/lib/recherche/integre";
 import { plageDePeriode } from "@/lib/recherche/periode";
+import { useRechargement, styleRechargement } from "@/hooks/useRechargement";
+import BarreRechargement from "@/components/shared/stats/BarreRechargement";
 import { INK, INK_MUTED, BORDER, PERDU } from "@/lib/jetons";
 import {
   JOURS_COURTS,
@@ -311,6 +313,7 @@ export default function EcranStatistiquesKonnect({
 
   const [donnees, setDonnees] = useState<Donnees | null>(null);
   const [chargement, setChargement] = useState(true);
+  const { premier: premierChargement, recharge } = useRechargement(chargement);
   const [erreur, setErreur] = useState<string | null>(null);
 
   const precedente = useMemo(
@@ -656,7 +659,8 @@ export default function EcranStatistiquesKonnect({
       title="Statistiques"
       description="Ce que le portail fait pour votre centre"
     >
-      <Box>
+      <Box sx={styleRechargement(recharge)} aria-busy={chargement}>
+        <BarreRechargement visible={recharge} />
         <SectionHeader
           title="Statistiques du portail"
           subtitle="Ce que la prise de rendez-vous en ligne a fait pour votre centre, sur la période de votre choix."
@@ -678,7 +682,7 @@ export default function EcranStatistiquesKonnect({
 
         {/* Rangée 1 : ce que le portail rapporte */}
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          {chargement || !calcul ? (
+          {premierChargement || !calcul ? (
             Array.from({ length: 6 }, (_, i) => (
               <Grid item xs={12} sm={6} md={4} xl={2} key={i}>
                 <StatTileSkeleton />
@@ -755,7 +759,7 @@ export default function EcranStatistiquesKonnect({
 
         {/* Rangée 2 : la qualité du service */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          {chargement || !calcul ? (
+          {premierChargement || !calcul ? (
             Array.from({ length: 6 }, (_, i) => (
               <Grid item xs={12} sm={6} md={4} xl={2} key={i}>
                 <StatTileSkeleton />
@@ -844,7 +848,7 @@ export default function EcranStatistiquesKonnect({
                   : "Jour par jour : les demandes reçues, les RDV pris en ligne et ce qui est passé par le secrétariat."
               }
             >
-              {chargement || !calcul ? (
+              {premierChargement || !calcul ? (
                 <ChartSkeleton />
               ) : (
                 <Box sx={{ width: "100%", height: 280 }}>
@@ -890,7 +894,7 @@ export default function EcranStatistiquesKonnect({
                   : "RDV pris en ligne par jour et par heure. Les cases encadrées sont les heures d'ouverture retenues : du lundi au vendredi, de 8 h à 18 h."
               }
             >
-              {chargement || !calcul ? (
+              {premierChargement || !calcul ? (
                 <ChartSkeleton />
               ) : calcul.hh.total === 0 ? (
                 <Vide texte="Aucun RDV pris en ligne sur cette période." />
@@ -913,7 +917,7 @@ export default function EcranStatistiquesKonnect({
               titre="Heure de la demande et de la réservation"
               aide="Sur les 24 heures, quand les ordonnances arrivent et quand les RDV se prennent."
             >
-              {chargement || !calcul ? (
+              {premierChargement || !calcul ? (
                 <ChartSkeleton />
               ) : (
                 <Box sx={{ width: "100%", height: 260 }}>
@@ -953,7 +957,7 @@ export default function EcranStatistiquesKonnect({
               titre="RDV par type d'examen"
               aide="La part de chaque type dans les RDV pris en ligne."
             >
-              {chargement || !calcul ? (
+              {premierChargement || !calcul ? (
                 <ChartSkeleton />
               ) : types.length === 0 ? (
                 <Vide texte="Aucun RDV pris en ligne sur cette période." />
@@ -1015,7 +1019,7 @@ export default function EcranStatistiquesKonnect({
                 ) : undefined
               }
             >
-              {chargement || !calcul ? (
+              {premierChargement || !calcul ? (
                 <ChartSkeleton />
               ) : examensVisibles.length === 0 ? (
                 <Vide texte="Aucun examen demandé ni réservé sur cette période. Le détail par examen commence avec la dernière mise à jour du portail." />
@@ -1128,7 +1132,7 @@ export default function EcranStatistiquesKonnect({
               titre="Délai jusqu'au RDV, par type d'examen"
               aide="Dans combien de temps le patient obtient son RDV. Une longue barre rouge signale un examen qui manque de place."
             >
-              {chargement || !calcul ? (
+              {premierChargement || !calcul ? (
                 <ChartSkeleton />
               ) : delaisParType.length === 0 ? (
                 <Vide texte="Pas encore de délai par type sur cette période. Il commence avec la dernière mise à jour du portail." />
@@ -1177,7 +1181,7 @@ export default function EcranStatistiquesKonnect({
                   : "Le jour des RDV pris en ligne."
               }
             >
-              {chargement || !calcul ? (
+              {premierChargement || !calcul ? (
                 <ChartSkeleton />
               ) : rdv === 0 ? (
                 <Vide texte="Aucun RDV pris en ligne sur cette période." />
@@ -1224,7 +1228,7 @@ export default function EcranStatistiquesKonnect({
               titre="Pourquoi des patients passent par le secrétariat"
               aide="Chaque demande compte une fois, le jour où elle vous arrive."
             >
-              {chargement || !calcul ? (
+              {premierChargement || !calcul ? (
                 <ChartSkeleton />
               ) : motifs.length === 0 ? (
                 <Vide texte="Aucune demande passée par le secrétariat sur cette période." />
@@ -1247,7 +1251,7 @@ export default function EcranStatistiquesKonnect({
               titre="RDV par site"
               aide="Où ont lieu les RDV pris en ligne."
             >
-              {chargement || !calcul ? (
+              {premierChargement || !calcul ? (
                 <ChartSkeleton />
               ) : parSite.length === 0 ? (
                 <Vide texte="Aucun RDV pris en ligne sur cette période." />

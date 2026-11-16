@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react";
 import type { DeltaResult } from "@/lib/deltaCompare";
+import Compteur from "./Compteur";
 
 /** Petit badge delta affiché sous la valeur principale d'une StatTile. */
 export function DeltaBadge({
@@ -126,8 +127,9 @@ export function StatTile({
           borderRadius: "10px",
           display: "grid",
           placeItems: "center",
-          bgcolor: "rgba(72,200,175,0.15)",
-          color: "#2a6f64",
+          // Couleur du produit affiché (vert Talk, bleu Konnect), plus jamais en dur.
+          bgcolor: "rgba(var(--accent-rgb), 0.15)",
+          color: "var(--accent-deep)",
         }}
       >
         {icon}
@@ -137,7 +139,7 @@ export function StatTile({
           {title}
         </Typography>
         <Typography variant="h5" fontWeight={700} noWrap>
-          {value}
+          <Compteur valeur={value} />
         </Typography>
         {subDetail && (
           <Typography
@@ -190,8 +192,9 @@ export function StatTileDouble({
           borderRadius: "10px",
           display: "grid",
           placeItems: "center",
-          bgcolor: "rgba(72,200,175,0.15)",
-          color: "#2a6f64",
+          // Couleur du produit affiché (vert Talk, bleu Konnect), plus jamais en dur.
+          bgcolor: "rgba(var(--accent-rgb), 0.15)",
+          color: "var(--accent-deep)",
           flexShrink: 0,
         }}
       >
@@ -204,7 +207,7 @@ export function StatTileDouble({
               {item.title}
             </Typography>
             <Typography variant="h5" fontWeight={700} noWrap>
-              {item.value}
+              <Compteur valeur={item.value} />
             </Typography>
             {item.subDetail && (
               <Typography
@@ -237,7 +240,8 @@ export function StatTileSkeleton() {
         display: "flex",
         alignItems: "center",
         gap: 2,
-        height: 96,
+        // Même hauteur minimale que la tuile pleine : rien ne saute à l'arrivée des chiffres.
+        minHeight: 96,
       }}
       elevation={1}
     >

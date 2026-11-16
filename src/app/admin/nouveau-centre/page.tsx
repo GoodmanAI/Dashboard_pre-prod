@@ -10,7 +10,6 @@ import {
   Card,
   Checkbox,
   Chip,
-  CircularProgress,
   Divider,
   FormControlLabel,
   LinearProgress,
@@ -58,6 +57,7 @@ import {
   type ReponsesTalk,
 } from "@/lib/questionnaireTalk";
 import { INK, INK_MUTED, BORDER, BRAND } from "@/lib/jetons";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Nouveau centre — l'assistant de mise en service (lots 4B et 4C, 15/09/2026).
@@ -629,9 +629,7 @@ export default function NouveauCentrePage() {
   if (status === "loading") {
     return (
       <PageContainer title="Nouveau centre" description="Mise en service">
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress sx={{ color: BRAND }} />
-        </Box>
+        <Battement hauteur={320} />
       </PageContainer>
     );
   }

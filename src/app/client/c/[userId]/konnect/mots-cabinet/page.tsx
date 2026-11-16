@@ -7,7 +7,6 @@ import {
   Autocomplete,
   Box,
   Button,
-  CircularProgress,
   IconButton,
   Paper,
   Stack,
@@ -24,6 +23,7 @@ import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useSuiviModifications } from "@/hooks/useSuiviModifications";
 import { INK, INK_MUTED, BORDER } from "@/lib/jetons";
+import Battement from "@/components/shared/Battement";
 
 /**
  * Mots propres au cabinet (lot B, `cabinet_synonyme`).
@@ -292,9 +292,7 @@ export default function MotsCabinetKonnect() {
   if (chargement) {
     return (
       <PageContainer title="Mots du cabinet" description="Les mots que vos patients emploient">
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          <CircularProgress sx={{ color: "var(--accent)" }} />
-        </Box>
+        <Battement hauteur={320} />
       </PageContainer>
     );
   }

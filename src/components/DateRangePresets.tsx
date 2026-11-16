@@ -113,7 +113,7 @@ export default function DateRangePresets({
               border: isActive
                 ? "1px solid var(--accent)"
                 : "1px solid rgba(var(--accent-rgb), 0.3)",
-              transition: "all 160ms ease",
+              transition: "background-color 160ms ease, color 160ms ease, border-color 160ms ease",
               "&:hover": {
                 bgcolor: isActive ? "var(--accent-press)" : "rgba(var(--accent-rgb), 0.08)",
                 borderColor: "var(--accent)",

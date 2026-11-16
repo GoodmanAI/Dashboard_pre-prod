@@ -309,11 +309,16 @@ export default function TalkPage({ params }: TalkPageProps) {
         cursor: "pointer",
         transition: "transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease",
         border: "1px solid transparent",
-        "&:hover": {
-          transform: "translateY(-2px)",
-          boxShadow: "0 8px 24px rgba(72,200,175,0.15)",
-          borderColor: "rgba(72,200,175,0.4)",
+        // Soulèvement au survol : souris seulement (sur une tablette, il resterait collé
+        // après le toucher). L'appui enfonce un peu la carte, au doigt comme à la souris.
+        "@media (hover: hover) and (pointer: fine)": {
+          "&:hover": {
+            transform: "translateY(-2px)",
+            boxShadow: "0 8px 24px rgba(var(--accent-rgb), 0.15)",
+            borderColor: "rgba(var(--accent-rgb), 0.4)",
+          },
         },
+        "&:active": { transform: "scale(0.98)", transitionDuration: "120ms" },
       }}
     >
       <Box
@@ -473,7 +478,7 @@ export default function TalkPage({ params }: TalkPageProps) {
                         fontSize: 12,
                       }}
                     />
-                    <Bar dataKey="total" fill={ACCENT} radius={[4, 4, 0, 0]} />
+                    <Bar isAnimationActive={false} dataKey="total" fill={ACCENT} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>

@@ -353,7 +353,7 @@ function StatusFilterChip({
         color: active ? "#FFF" : TEXT_MAIN,
         border: `1px solid ${active ? color : "#e5e7eb"}`,
         height: 32,
-        transition: "all 0.15s",
+        transition: "background-color 160ms ease, color 160ms ease, border-color 160ms ease",
         "&:hover": { bgcolor: active ? color : `${color}15` },
         px: 1,
       }}
@@ -371,12 +371,17 @@ function TicketRowCard({ ticket, onClick }: { ticket: Ticket; onClick: () => voi
         cursor: "pointer",
         borderLeft: `3px solid ${meta.dotColor}`,
         borderRadius: 2,
-        transition: "all 0.2s",
-        "&:hover": {
-          transform: "translateY(-1px)",
-          boxShadow: "0 6px 20px rgba(31,52,72,0.08)",
-          borderLeftWidth: 4,
+        transition: "transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease",
+        // Soulèvement au survol : souris seulement (sur une tablette, il resterait collé
+        // après le toucher). L'appui enfonce un peu la carte, au doigt comme à la souris.
+        "@media (hover: hover) and (pointer: fine)": {
+          "&:hover": {
+            transform: "translateY(-1px)",
+            boxShadow: "0 6px 20px rgba(31,52,72,0.08)",
+            borderLeftWidth: 4,
+          },
         },
+        "&:active": { transform: "scale(0.98)", transitionDuration: "120ms" },
         p: 2.5,
       }}
     >
