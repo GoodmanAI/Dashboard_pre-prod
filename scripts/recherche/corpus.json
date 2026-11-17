@@ -1595,6 +1595,32 @@
       },
       "lot": 1,
       "note": "C-STAT.2, refonte de l'écran Statistiques de Konnect (14/11/2026)."
+    },
+    {
+      "id": "annul1",
+      "source": "brouillon",
+      "phrase": "je veux que le SMS de relance propose seulement d'annuler",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#relance_actions_patient"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "17/11/2026 : relance no-show en annulation seule (Pontivy). Chaque fiche a au moins une phrase (contrôle 5)."
+    },
+    {
+      "id": "annul2",
+      "source": "brouillon",
+      "phrase": "retirer la confirmation des relances no-show",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#relance_actions_patient"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "17/11/2026 : relance no-show en annulation seule (Pontivy). Chaque fiche a au moins une phrase (contrôle 5)."
     }
   ]
 }

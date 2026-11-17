@@ -13,6 +13,8 @@ import { APPOINTMENT_MAX_ATTEMPTS } from "@/lib/appointmentToken";
  *  - Statut non PENDING → 409 (déjà traité / expiré / verrouillé).
  *  - Expiration dépassée → statut passé à EXPIRED, 409.
  *  - Code faux → incrémente attempts ; si attempts ≥ MAX → LOCKED.
+ *  - Lien « annulation seule » (17/11/2026) et action CONFIRMED → 409, rien
+ *    n'est compté ni écrit : le centre n'a proposé que l'annulation.
  *  - Code OK → status = action, respondedAt = now.
  *
  * Le code est un 6 chiffres généré à init et envoyé au patient par SMS.
@@ -48,9 +50,10 @@ export async function POST(
     verificationCode: string;
     externalCenterCode: string | null;
     examType: string | null;
+    annulationSeule: boolean;
   }>(
     `SELECT "id", "status", "attempts", "expiresAt", "verificationCode",
-            "externalCenterCode", "examType"
+            "externalCenterCode", "examType", "annulationSeule"
        FROM "AppointmentConfirmation"
       WHERE "token" = $1
       LIMIT 1`,
@@ -61,6 +64,19 @@ export async function POST(
     return NextResponse.json({ error: "Lien invalide" }, { status: 404 });
   }
   const record = sel.rows[0];
+
+  // Avant le code : un CONFIRMED sur un lien d'annulation seule ne doit pas
+  // consommer un essai du patient.
+  if (action === "CONFIRMED" && record.annulationSeule === true) {
+    return NextResponse.json(
+      {
+        error:
+          "Ce lien sert seulement à annuler. Si vous venez à votre rendez-vous, vous n'avez rien à faire.",
+        status: record.status,
+      },
+      { status: 409 }
+    );
+  }
 
   if (record.status !== "PENDING") {
     return NextResponse.json(

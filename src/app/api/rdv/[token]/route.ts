@@ -18,9 +18,10 @@ export async function GET(
     appointmentDate: Date | null;
     centerName: string | null;
     centerCity: string | null;
+    annulationSeule: boolean;
   }>(
     `
-    SELECT a."status", a."attempts", a."expiresAt", a."appointmentDate",
+    SELECT a."status", a."attempts", a."expiresAt", a."appointmentDate", a."annulationSeule",
            u."name" AS "centerName", u."city" AS "centerCity"
       FROM "AppointmentConfirmation" a
       JOIN "User" u ON u."id" = a."centerId"
@@ -46,5 +47,7 @@ export async function GET(
     expiresAt: row.expiresAt,
     appointmentDate: row.appointmentDate,
     center: { name: row.centerName, city: row.centerCity },
+    // 17/11/2026 : true = la page n'offre que l'annulation (réglage du client).
+    annulationSeule: row.annulationSeule === true,
   });
 }

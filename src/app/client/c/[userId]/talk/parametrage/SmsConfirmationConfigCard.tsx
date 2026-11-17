@@ -11,6 +11,7 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  FormControlLabel,
   Stack,
   Table,
   TableBody,
@@ -93,6 +94,7 @@ type ConfigPatch = Partial<{
   postesByType: PostesByType;
   reminderDays: number[] | null;
   cutoffHours: number | null;
+  proposerConfirmation: boolean;
 }>;
 
 export default function SmsConfirmationConfigCard({
@@ -111,6 +113,8 @@ export default function SmsConfirmationConfigCard({
   const [reminderDaysSaved, setReminderDaysSaved] = useState("");
   const [cutoffHoursInput, setCutoffHoursInput] = useState("");
   const [cutoffHoursSaved, setCutoffHoursSaved] = useState("");
+  // Relance « annulation seule » (17/11/2026) : coché = confirmer ou annuler.
+  const [proposerConfirmation, setProposerConfirmation] = useState(true);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -123,6 +127,7 @@ export default function SmsConfirmationConfigCard({
     postesByType?: PostesByType;
     reminderDays?: number[] | null;
     cutoffHours?: number | null;
+    proposerConfirmation?: boolean;
   }) => {
     const nextEnabled = { ...EMPTY_ENABLED, ...(data.enabledExamTypes ?? {}) };
     setEnabled(nextEnabled);
@@ -142,6 +147,8 @@ export default function SmsConfirmationConfigCard({
     const ch = cutoffHoursToInput(data.cutoffHours ?? null);
     setCutoffHoursInput(ch);
     setCutoffHoursSaved(ch);
+
+    setProposerConfirmation(data.proposerConfirmation !== false);
   }, []);
 
   useEffect(() => {
@@ -198,6 +205,12 @@ export default function SmsConfirmationConfigCard({
     const next = { ...enabled, [key]: value };
     setEnabled(next);
     savePatch({ enabledExamTypes: next }, () => setEnabled(prev));
+  };
+
+  const toggleConfirmation = (value: boolean) => {
+    const prev = proposerConfirmation;
+    setProposerConfirmation(value);
+    savePatch({ proposerConfirmation: value }, () => setProposerConfirmation(prev));
   };
 
   const savePosteField = (key: ExamKey) => {
@@ -342,6 +355,34 @@ export default function SmsConfirmationConfigCard({
               </Table>
             </Box>
           )}
+
+          <Box id="relance_actions_patient">
+            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+              Ce que le SMS propose au patient
+            </Typography>
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={proposerConfirmation}
+                    disabled={saving || loading}
+                    onChange={(e) => toggleConfirmation(e.target.checked)}
+                  />
+                }
+                label="Confirmer le rendez-vous"
+              />
+              <FormControlLabel
+                control={<Checkbox checked disabled />}
+                label="Annuler le rendez-vous"
+              />
+            </Stack>
+            <Typography variant="body2" color="text.secondary">
+              {proposerConfirmation
+                ? "Le patient peut confirmer ou annuler depuis le lien du SMS."
+                : "Le SMS et le lien ne parlent que d'annulation. Le patient qui vient n'a rien à faire, celui qui ne peut pas venir annule."}{" "}
+              L&apos;annulation reste toujours proposée.
+            </Typography>
+          </Box>
 
           <Accordion disableGutters variant="outlined" sx={{ mt: 1 }}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>

@@ -205,6 +205,18 @@ export const CATALOGUE: Fiche[] = [
     termes: ["sms de rappel", "rappel par sms", "rappel de rendez-vous", "regler les relances", "relance la veille"],
   },
   {
+    cle: "talk/parametrage#relance_actions_patient",
+    produit: "talk",
+    page: "parametrage",
+    libelle: "Relance no-show : confirmer ou seulement annuler",
+    genre: "reglage",
+    termes: [
+      "relance sans confirmation", "retirer la confirmation", "annulation seulement",
+      "seulement annuler", "seulement d'annuler", "le patient ne confirme pas", "sms d'annulation",
+      "confirmation des relances", "relance propose", "sms de relance propose", "annuler sans confirmer",
+    ],
+  },
+  {
     cle: "talk/parametrage#depot_ordonnance",
     produit: "talk",
     page: "parametrage",

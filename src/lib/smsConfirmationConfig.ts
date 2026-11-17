@@ -135,3 +135,16 @@ export function normalizeSendConfirmationSms(raw: unknown): boolean {
   if (typeof raw === "boolean") return raw;
   return DEFAULT_SEND_CONFIRMATION_SMS;
 }
+
+/**
+ * Relance no-show : proposer la confirmation au patient en plus de l'annulation
+ * (17/11/2026, demande de GH Pontivy). Coché par défaut. Décoché, le SMS et la
+ * page du lien ne parlent que d'annulation : le patient qui vient n'a rien à faire.
+ * L'annulation n'est jamais réglable. Plan `2026-11-relance-annulation-seule.md`.
+ */
+export const DEFAULT_PROPOSER_CONFIRMATION = true;
+
+export function normalizeProposerConfirmation(raw: unknown): boolean {
+  if (typeof raw === "boolean") return raw;
+  return DEFAULT_PROPOSER_CONFIRMATION;
+}
