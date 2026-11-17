@@ -140,6 +140,21 @@ export function allerAAncre(racine: ParentNode, ancre: string, defilant?: HTMLEl
     if (accordeon && !accordeon.classList.contains("Mui-expanded")) {
       accordeon.querySelector<HTMLElement>(".MuiAccordionSummary-root")?.click();
     }
+    // Ancre posée dans un accordéon replié (réglage au cœur d'une carte, 17/11/2026) :
+    // déplier chaque accordéon qui l'entoure, du plus extérieur au plus proche.
+    const parents: HTMLElement[] = [];
+    for (
+      let p = cible.parentElement?.closest<HTMLElement>(".MuiAccordion-root") ?? null;
+      p;
+      p = p.parentElement?.closest<HTMLElement>(".MuiAccordion-root") ?? null
+    ) {
+      parents.unshift(p);
+    }
+    for (const p of parents) {
+      if (!p.classList.contains("Mui-expanded")) {
+        p.querySelector<HTMLElement>(":scope > .MuiAccordionSummary-root")?.click();
+      }
+    }
     window.setTimeout(() => {
       if (defilant) {
         const haut =

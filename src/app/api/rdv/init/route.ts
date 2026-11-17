@@ -8,6 +8,7 @@ import {
   generateVerificationCode,
   parseBirthdate,
 } from "@/lib/appointmentToken";
+import { estAnnulationSeule } from "@/lib/smsConfirmationConfig";
 
 /** Nb max de retries si un shortCode nouvellement généré collisionne
  *  (extrêmement rare avec 60 bits d'entropie, mais on gère proprement). */
@@ -33,6 +34,15 @@ const SHORT_CODE_MAX_RETRIES = 5;
  *
  * Idempotent sur (rdvId, centerId) : un second appel met à jour les infos
  * et renvoie la même URL si le RDV est encore PENDING.
+ *
+ * Réponse : porte `annulationSeule` (17/11/2026). `true` quand le client a
+ * décoché « Proposer la confirmation » de sa relance no-show : AI2Xplore
+ * écrit alors un SMS qui ne parle que d'annulation, et la page du lien n'offre
+ * que le bouton « Annuler ». Le drapeau est figé sur la ligne à chaque init,
+ * donc la page reste fidèle au dernier SMS envoyé.
+ * Le réglage peut limiter la confirmation à certains types d'examen
+ * (`confirmationExamTypes`, ex. mammographie seule chez Pontivy) : un RDV d'un
+ * autre type, ou sans type, part alors en annulation seule.
  */
 export async function POST(req: NextRequest) {
   const keyErr = requireApiKey(req, "APPOINTMENT_API_KEY");
@@ -94,11 +104,18 @@ export async function POST(req: NextRequest) {
   }
 
   // Le mapping externalCenterCode -> UserProduct -> User.id (= centerId stocké).
-  const centerRes = await db.query<{ id: number }>(
+  // Le réglage de relance se lit sur le même UserProduct que celui que
+  // GET /api/sms-confirmation-config?externalCenterCode trouve (porteur).
+  const centerRes = await db.query<{
+    id: number;
+    proposerConfirmation: boolean | null;
+    confirmationExamTypes: unknown;
+  }>(
     `
-    SELECT up."userId" AS "id"
+    SELECT up."userId" AS "id", c."proposerConfirmation", c."confirmationExamTypes"
       FROM "ExternalCenterMapping" m
       JOIN "UserProduct" up ON up."id" = m."userProductId"
+      LEFT JOIN "SmsConfirmationConfig" c ON c."userProductId" = m."userProductId"
      WHERE m."externalCenterCode" = $1
        AND up."removedAt" IS NULL
      LIMIT 1
@@ -112,6 +129,7 @@ export async function POST(req: NextRequest) {
     );
   }
   const centerId = centerRes.rows[0].id;
+  const { proposerConfirmation, confirmationExamTypes } = centerRes.rows[0];
 
   // Short-circuit : si un RDV existe déjà pour (rdvId, centerId) ET qu'il est
   // dans un statut final (CONFIRMED / CANCELLED / EXPIRED / LOCKED), on ne
@@ -126,8 +144,9 @@ export async function POST(req: NextRequest) {
     verificationCode: string | null;
     status: string;
     expiresAt: Date;
+    examType: string | null;
   }>(
-    `SELECT "id", "token", "shortCode", "verificationCode", "status", "expiresAt"
+    `SELECT "id", "token", "shortCode", "verificationCode", "status", "expiresAt", "examType"
        FROM "AppointmentConfirmation"
       WHERE "rdvId" = $1 AND "centerId" = $2
       LIMIT 1`,
@@ -162,6 +181,16 @@ export async function POST(req: NextRequest) {
     // préserve shortCode + verificationCode déjà envoyés au patient).
   }
 
+  // Type retenu pour cette relance : celui de l'appel, sinon celui déjà en base
+  // (même règle que le COALESCE de l'upsert plus bas).
+  const examTypeEffectif =
+    examType ?? ((existingRes.rowCount ?? 0) > 0 ? existingRes.rows[0].examType : null);
+  const annulationSeule = estAnnulationSeule(
+    proposerConfirmation,
+    confirmationExamTypes,
+    examTypeEffectif
+  );
+
   const token = buildAppointmentToken(rdvId, phone, centerId);
   const expiresAt = defaultExpiresAt();
   const verificationCode = generateVerificationCode();
@@ -182,6 +211,7 @@ export async function POST(req: NextRequest) {
     shortCode: string;
     verificationCode: string;
     examType: string | null;
+    annulationSeule: boolean;
   } | null = null;
   for (let attempt = 0; attempt < SHORT_CODE_MAX_RETRIES; attempt++) {
     const newShortCode = generateShortCode();
@@ -194,13 +224,15 @@ export async function POST(req: NextRequest) {
         shortCode: string;
         verificationCode: string;
         examType: string | null;
+        annulationSeule: boolean;
       }>(
         `
         INSERT INTO "AppointmentConfirmation"
           ("rdvId", "centerId", "phone", "firstname", "lastname",
            "birthdate", "appointmentDate", "token", "shortCode",
-           "verificationCode", "expiresAt", "externalCenterCode", "examType")
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+           "verificationCode", "expiresAt", "externalCenterCode", "examType",
+           "annulationSeule")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         ON CONFLICT ("rdvId", "centerId") DO UPDATE
           SET "phone"              = EXCLUDED."phone",
               "firstname"          = EXCLUDED."firstname",
@@ -219,8 +251,11 @@ export async function POST(req: NextRequest) {
               -- examType : on écrase avec la nouvelle valeur si l'appelant
               -- en fournit une (permet de corriger un type manquant sur
               -- un ancien init), sinon on préserve l'existant.
-              "examType"           = COALESCE(EXCLUDED."examType", "AppointmentConfirmation"."examType")
-        RETURNING "id", "token", "status", "expiresAt", "shortCode", "verificationCode", "examType"
+              "examType"           = COALESCE(EXCLUDED."examType", "AppointmentConfirmation"."examType"),
+              -- Réglage du moment : le SMS de cette relance est écrit d'après lui.
+              "annulationSeule"    = EXCLUDED."annulationSeule"
+        RETURNING "id", "token", "status", "expiresAt", "shortCode", "verificationCode", "examType",
+                  "annulationSeule"
         `,
         [
           rdvId,
@@ -236,6 +271,7 @@ export async function POST(req: NextRequest) {
           expiresAt,
           externalCenterCode,
           examType,
+          annulationSeule,
         ]
       );
       record = upsertRes.rows[0];
@@ -274,6 +310,7 @@ export async function POST(req: NextRequest) {
       shortCode: record.shortCode,
       verificationCode: record.verificationCode,
       examType: record.examType,
+      annulationSeule: record.annulationSeule,
       url,
       status: record.status,
       expiresAt: record.expiresAt,
