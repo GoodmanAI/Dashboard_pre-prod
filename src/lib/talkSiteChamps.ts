@@ -259,7 +259,7 @@ export const SECTIONS_SITE: SectionSite[] = [
         min: 1,
         max: 5,
         defautRobot: "Transfert à la 3e incompréhension",
-        aide: "Nombre de réponses non comprises à une étape de l'identification. Réglé, le robot ne transfère plus : il garde le prénom ou le nom tel qu'il l'a entendu, ou la fiche trouvée, et passe à l'étape suivante. Seule la date de naissance transfère encore, à ce nombre, car le logiciel de gestion refuse un rendez-vous sans elle.",
+        aide: "Nombre de réponses non comprises à une étape de l'identification. Réglé, le robot ne transfère plus : il garde le prénom ou le nom tel qu'il l'a entendu (« INCONNU » s'il n'a rien entendu de lisible), ou la fiche trouvée, et passe à l'étape suivante. Sans fiche, le récapitulatif ne dit plus le nom : seulement l'examen, le créneau et la date de naissance. Seule la date de naissance transfère encore, à ce nombre, car le logiciel de gestion refuse un rendez-vous sans elle.",
         exemple: "2 : deux réponses non comprises, puis l'étape suivante.",
       },
     ],
