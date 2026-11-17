@@ -57,11 +57,12 @@ export async function generateMetadata({
   params: { shortCode: string };
 }) {
   let centre: string | null = null;
+  let annulationSeule = false;
 
   // Best-effort : un échec ici ne doit jamais empêcher la page de s'afficher.
   try {
-    const res = await db.query<{ centerName: string | null }>(
-      `SELECT u."name" AS "centerName"
+    const res = await db.query<{ centerName: string | null; annulationSeule: boolean }>(
+      `SELECT u."name" AS "centerName", a."annulationSeule"
          FROM "AppointmentConfirmation" a
          JOIN "User" u ON u."id" = a."centerId"
         WHERE a."shortCode" = $1
@@ -69,16 +70,18 @@ export async function generateMetadata({
       [params.shortCode]
     );
     centre = res.rows[0]?.centerName ?? null;
+    annulationSeule = res.rows[0]?.annulationSeule === true;
   } catch {
     centre = null;
   }
 
-  const title = centre
-    ? `Confirmation de rendez-vous : ${centre}`
-    : "Confirmation de rendez-vous";
+  // Annulation seule (17/11/2026) : l'aperçu du lien ne parle pas de confirmer.
+  const objet = annulationSeule ? "Annulation de rendez-vous" : "Confirmation de rendez-vous";
+  const verbe = annulationSeule ? "Annulez" : "Confirmez ou annulez";
+  const title = centre ? `${objet} : ${centre}` : objet;
   const description = centre
-    ? `Confirmez ou annulez votre rendez-vous d'imagerie médicale auprès de ${centre}. Aucun paiement n'est demandé.`
-    : "Confirmez ou annulez votre rendez-vous d'imagerie médicale. Aucun paiement n'est demandé.";
+    ? `${verbe} votre rendez-vous d'imagerie médicale auprès de ${centre}. Aucun paiement n'est demandé.`
+    : `${verbe} votre rendez-vous d'imagerie médicale. Aucun paiement n'est demandé.`;
 
   return {
     title,

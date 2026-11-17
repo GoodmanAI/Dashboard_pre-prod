@@ -135,3 +135,55 @@ export function normalizeSendConfirmationSms(raw: unknown): boolean {
   if (typeof raw === "boolean") return raw;
   return DEFAULT_SEND_CONFIRMATION_SMS;
 }
+
+/**
+ * Relance no-show : proposer la confirmation au patient en plus de l'annulation
+ * (17/11/2026, demande de GH Pontivy). Coché par défaut. Décoché, le SMS et la
+ * page du lien ne parlent que d'annulation : le patient qui vient n'a rien à faire.
+ * L'annulation n'est jamais réglable. Plan `2026-11-relance-annulation-seule.md`.
+ */
+export const DEFAULT_PROPOSER_CONFIRMATION = true;
+
+export function normalizeProposerConfirmation(raw: unknown): boolean {
+  if (typeof raw === "boolean") return raw;
+  return DEFAULT_PROPOSER_CONFIRMATION;
+}
+
+/**
+ * Relance no-show : types d'examen pour lesquels la confirmation reste proposée
+ * (17/11/2026, Pontivy : confirmation pour la mammographie seule).
+ * `null` = tous les types (défaut). Une liste = ces types seulement ; les autres
+ * types, et les RDV sans type, passent en annulation seule.
+ */
+export type ConfirmationExamTypes = ExamTypeKey[] | null;
+
+export const DEFAULT_CONFIRMATION_EXAM_TYPES: ConfirmationExamTypes = null;
+
+export function normalizeConfirmationExamTypes(raw: unknown): ConfirmationExamTypes {
+  if (!Array.isArray(raw)) return DEFAULT_CONFIRMATION_EXAM_TYPES;
+  const set = new Set<ExamTypeKey>();
+  for (const v of raw) {
+    if (typeof v === "string" && (EXAM_TYPE_KEYS as readonly string[]).includes(v)) {
+      set.add(v as ExamTypeKey);
+    }
+  }
+  // Tous les types cochés : même chose que « tous », on garde la forme courte.
+  if (set.size === EXAM_TYPE_KEYS.length) return null;
+  return EXAM_TYPE_KEYS.filter((k) => set.has(k));
+}
+
+/**
+ * Le lien de cette relance ne propose-t-il que l'annulation ?
+ * Vrai si la confirmation est décochée, ou si elle est limitée à des types
+ * d'examen qui ne comprennent pas celui du RDV (RDV sans type compris).
+ */
+export function estAnnulationSeule(
+  proposerConfirmation: unknown,
+  confirmationExamTypes: unknown,
+  examType: string | null
+): boolean {
+  if (!normalizeProposerConfirmation(proposerConfirmation)) return true;
+  const types = normalizeConfirmationExamTypes(confirmationExamTypes);
+  if (types === null) return false;
+  return examType === null || !(types as string[]).includes(examType);
+}
