@@ -313,6 +313,21 @@ client Konnect seul, rattache le code site de `konnect.ris-identite` s'il est li
 `?externalCenterCode=` lu par AI2Xplore est inchangé. Écriture autorisée depuis
 « Paramètres » (Talk) ou « Paramètres du portail » (Konnect).
 
+**Relance en annulation seule (17/11/2026, GH Pontivy).** `SmsConfirmationConfig.proposerConfirmation`
+(booléen, `true` par défaut) est lu et écrit par `/api/sms-confirmation-config` (champ
+`proposerConfirmation` du GET et du POST). `POST /api/rdv/init` le lit sur le produit du code
+site, le fige sur la ligne (`AppointmentConfirmation.annulationSeule`) et **renvoie
+`annulationSeule`** (champ ajouté, rien de retiré) : AI2Xplore choisit le texte du SMS
+d'après lui. `GET /api/rdv/[token]` renvoie aussi `annulationSeule` ; la page du lien n'offre
+alors que l'annulation, et `POST /api/rdv/[token]/respond` refuse `CONFIRMED` en 409 sans
+consommer d'essai. Les événements `pending-events` ne changent pas. SQL :
+`prisma/migrations/manual/2026_11_17_relance_annulation_seule.sql`, **à passer avant le build**.
+La confirmation peut aussi se limiter à des types d'examen :
+`SmsConfirmationConfig.confirmationExamTypes` (`ExamTypeKey[]` ou `null` = tous, champ
+`confirmationExamTypes` du GET et du POST). `init` calcule alors `annulationSeule` d'après
+l'`examType` du RDV (celui de l'appel, sinon celui déjà en base) : un type hors liste, ou un RDV
+sans type, part en annulation seule. Pontivy : `["mammo"]`. AI2Xplore ne change pas.
+
 **Domaine `konnect.planning-complet` (18/09/2026)**, lu par `KONNECT_API_KEY`, écrit depuis
 « Paramètres du portail » : `{ types: { radiographie|irm|echographie|scanner|mammo:
 { mode: "rappel"|"message", message } } }`. Konnect le lit quand aucun créneau n'est

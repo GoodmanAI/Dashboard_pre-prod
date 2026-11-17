@@ -27,6 +27,11 @@ import {
  *    puis côte à côte à partir de sm ; le champ code prend un rendu type OTP
  *    (grosse police monospace, letter-spacing) pour rester lisible même
  *    quand le patient tape à l'aveugle
+ *
+ * Annulation seule (17/11/2026, demande de GH Pontivy) : quand le client a
+ * décoché « Proposer la confirmation », `/api/rdv/{token}` renvoie
+ * `annulationSeule: true`. La page ne parle alors que d'annulation : un seul
+ * bouton, et une phrase qui dit au patient qui vient qu'il n'a rien à faire.
  */
 
 type Status = "PENDING" | "CONFIRMED" | "CANCELLED" | "EXPIRED" | "LOCKED";
@@ -37,6 +42,7 @@ interface RdvInfo {
   expiresAt: string;
   appointmentDate: string | null;
   center: { name: string | null; city: string | null };
+  annulationSeule?: boolean;
 }
 
 // Palette brand (mêmes valeurs que le reste du dashboard)
@@ -122,6 +128,8 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
     [info?.center.name, info?.center.city].filter(Boolean).join(", ") ||
     "votre centre";
 
+  const annulationSeule = info?.annulationSeule === true;
+
   const codeTrimmed = code.trim();
   const codeReady = /^\d{6}$/.test(codeTrimmed);
 
@@ -196,7 +204,9 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
               textAlign: "center",
             }}
           >
-            Confirmation de rendez-vous
+            {annulationSeule
+              ? "Annulation de rendez-vous"
+              : "Confirmation de rendez-vous"}
           </Typography>
 
           {info && (
@@ -265,14 +275,30 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
         )}
         {info && finalStatus === "LOCKED" && (
           <Alert severity="error" sx={{ borderRadius: 2 }}>
-            Trop de tentatives incorrectes. Pour confirmer ou annuler votre
-            rendez-vous, merci de contacter directement {centerLabel}.
+            {annulationSeule
+              ? "Trop de tentatives incorrectes. Pour annuler votre rendez-vous, merci de contacter directement "
+              : "Trop de tentatives incorrectes. Pour confirmer ou annuler votre rendez-vous, merci de contacter directement "}
+            {centerLabel}.
           </Alert>
         )}
 
         {/* ---------- Formulaire code ---------- */}
         {info && !finalStatus && (
           <Stack spacing={2.5}>
+            {annulationSeule && (
+              <Typography
+                sx={{
+                  fontSize: 14,
+                  lineHeight: 1.55,
+                  color: TEXT_MAIN,
+                  textAlign: "center",
+                }}
+              >
+                Vous venez à votre rendez-vous ? Vous n&apos;avez rien à faire.
+                <br />
+                Vous ne pouvez pas venir ? Annulez-le ici pour libérer la place.
+              </Typography>
+            )}
             <Box>
               <Typography
                 sx={{
@@ -350,6 +376,7 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
               spacing={1.5}
               sx={{ mt: 0.5 }}
             >
+              {!annulationSeule && (
               <Button
                 fullWidth
                 disabled={submitting !== null || !codeReady}
@@ -384,6 +411,7 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
               >
                 {submitting === "CONFIRMED" ? "Envoi…" : "Confirmer"}
               </Button>
+              )}
               <Button
                 fullWidth
                 disabled={submitting !== null || !codeReady}
@@ -414,7 +442,11 @@ export default function AppointmentConfirmForm({ token }: { token: string }) {
                   },
                 }}
               >
-                {submitting === "CANCELLED" ? "Envoi…" : "Annuler"}
+                {submitting === "CANCELLED"
+                  ? "Envoi…"
+                  : annulationSeule
+                  ? "Annuler mon rendez-vous"
+                  : "Annuler"}
               </Button>
             </Stack>
           </Stack>
