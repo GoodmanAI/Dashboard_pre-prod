@@ -235,7 +235,7 @@ export default function StatsNoShowPage({ params }: Props) {
 
   const byTypeRows = useMemo(() => {
     const rows: Array<{
-      key: ExamTypeKey;
+      key: ExamTypeKey | "autre";
       label: string;
       active: boolean;
       bucket: Bucket;
@@ -250,6 +250,12 @@ export default function StatsNoShowPage({ params }: Props) {
       if (a.active !== b.active) return a.active ? -1 : 1;
       return a.label.localeCompare(b.label);
     });
+    // RDV relancés sans type d'examen connu (type introuvable dans le logiciel du centre,
+    // décision du 17/11/2026) : une carte « Autre » en fin de liste, dès qu'elle a un chiffre.
+    const autre = stats?.byType?.unknown;
+    if (autre && autre.smsSent + autre.confirmed + autre.cancelled > 0) {
+      rows.push({ key: "autre", label: "Autre", active: true, bucket: autre });
+    }
     return rows;
   }, [stats, activeTypes]);
 
@@ -436,11 +442,10 @@ export default function StatsNoShowPage({ params }: Props) {
                   ))}
                 </Grid>
               )}
-              {stats && stats.byType.unknown && stats.byType.unknown.smsSent > 0 && (
+              {stats && (stats.byType.unknown?.smsSent ?? 0) > 0 && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2 }}>
-                  Note : {stats.byType.unknown.smsSent} SMS ont été comptés sans type d&apos;examen
-                  renseigné (init historique sans champ examType), non affichés dans le détail
-                  par type.
+                  Autre : rendez-vous relancés dont le type d&apos;examen n&apos;a pas pu être lu
+                  dans votre logiciel de gestion.
                 </Typography>
               )}
             </Card>
