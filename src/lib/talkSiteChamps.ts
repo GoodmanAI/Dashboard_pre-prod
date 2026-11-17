@@ -237,6 +237,34 @@ export const SECTIONS_SITE: SectionSite[] = [
     ],
   },
   {
+    // Décision d'Enzo du 17/11/2026 (Véga 659b41, 278dae). Lu par
+    // `v2/identificationSouple.js` du robot, à partir de LyraeTalk v2.107.0.
+    titre: "Identification du patient",
+    description:
+      "Ce que fait le robot quand il ne retrouve pas la fiche du patient ou ne comprend pas son identité.",
+    champs: [
+      {
+        chemin: "epellationNouveauPatient",
+        libelle: "Faire épeler le nouveau patient",
+        type: "booleen",
+        proprietaire: "admin",
+        defautRobot: "Désactivé",
+        aide: "Activé : quand aucune fiche ne correspond, le robot fait épeler le nom puis le prénom avant de créer la fiche. Désactivé : il passe à la suite avec ce qu'il a compris et dit au patient que l'orthographe sera vérifiée à son arrivée au centre.",
+      },
+      {
+        chemin: "identificationErreursMax",
+        libelle: "Incompréhensions avant de passer à la suite",
+        type: "nombre",
+        proprietaire: "admin",
+        min: 1,
+        max: 5,
+        defautRobot: "Transfert à la 3e incompréhension",
+        aide: "Nombre de réponses non comprises à une étape de l'identification. Réglé, le robot ne transfère plus : il garde le prénom ou le nom tel qu'il l'a entendu, ou la fiche trouvée, et passe à l'étape suivante. Seule la date de naissance transfère encore, à ce nombre, car le logiciel de gestion refuse un rendez-vous sans elle.",
+        exemple: "2 : deux réponses non comprises, puis l'étape suivante.",
+      },
+    ],
+  },
+  {
     titre: "Étapes du parcours",
     description:
       "Ce que le robot demande au patient, et dans quel ordre. Chaque étape allonge l'appel : ne garder que ce dont le centre a besoin.",
