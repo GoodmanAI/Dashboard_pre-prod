@@ -208,12 +208,15 @@ export const CATALOGUE: Fiche[] = [
     cle: "talk/parametrage#relance_actions_patient",
     produit: "talk",
     page: "parametrage",
-    libelle: "Relance no-show : confirmer ou seulement annuler",
+    libelle: "Relance no-show : confirmer ou seulement annuler, par examen",
     genre: "reglage",
     termes: [
       "relance sans confirmation", "retirer la confirmation", "annulation seulement",
       "seulement annuler", "seulement d'annuler", "le patient ne confirme pas", "sms d'annulation",
       "confirmation des relances", "relance propose", "sms de relance propose", "annuler sans confirmer",
+      "confirmation par examen", "confirmation pour la mammographie", "confirmer seulement les mammos",
+      "confirmation selon le type d'examen", "quels examens confirmer",
+      "garder la confirmation", "confirmation seulement pour les mammographies", "confirmation dans les relances",
     ],
   },
   {

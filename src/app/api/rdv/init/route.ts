@@ -8,7 +8,7 @@ import {
   generateVerificationCode,
   parseBirthdate,
 } from "@/lib/appointmentToken";
-import { normalizeProposerConfirmation } from "@/lib/smsConfirmationConfig";
+import { estAnnulationSeule } from "@/lib/smsConfirmationConfig";
 
 /** Nb max de retries si un shortCode nouvellement généré collisionne
  *  (extrêmement rare avec 60 bits d'entropie, mais on gère proprement). */
@@ -40,6 +40,9 @@ const SHORT_CODE_MAX_RETRIES = 5;
  * écrit alors un SMS qui ne parle que d'annulation, et la page du lien n'offre
  * que le bouton « Annuler ». Le drapeau est figé sur la ligne à chaque init,
  * donc la page reste fidèle au dernier SMS envoyé.
+ * Le réglage peut limiter la confirmation à certains types d'examen
+ * (`confirmationExamTypes`, ex. mammographie seule chez Pontivy) : un RDV d'un
+ * autre type, ou sans type, part alors en annulation seule.
  */
 export async function POST(req: NextRequest) {
   const keyErr = requireApiKey(req, "APPOINTMENT_API_KEY");
@@ -103,9 +106,13 @@ export async function POST(req: NextRequest) {
   // Le mapping externalCenterCode -> UserProduct -> User.id (= centerId stocké).
   // Le réglage de relance se lit sur le même UserProduct que celui que
   // GET /api/sms-confirmation-config?externalCenterCode trouve (porteur).
-  const centerRes = await db.query<{ id: number; proposerConfirmation: boolean | null }>(
+  const centerRes = await db.query<{
+    id: number;
+    proposerConfirmation: boolean | null;
+    confirmationExamTypes: unknown;
+  }>(
     `
-    SELECT up."userId" AS "id", c."proposerConfirmation"
+    SELECT up."userId" AS "id", c."proposerConfirmation", c."confirmationExamTypes"
       FROM "ExternalCenterMapping" m
       JOIN "UserProduct" up ON up."id" = m."userProductId"
       LEFT JOIN "SmsConfirmationConfig" c ON c."userProductId" = m."userProductId"
@@ -122,9 +129,7 @@ export async function POST(req: NextRequest) {
     );
   }
   const centerId = centerRes.rows[0].id;
-  const annulationSeule = !normalizeProposerConfirmation(
-    centerRes.rows[0].proposerConfirmation
-  );
+  const { proposerConfirmation, confirmationExamTypes } = centerRes.rows[0];
 
   // Short-circuit : si un RDV existe déjà pour (rdvId, centerId) ET qu'il est
   // dans un statut final (CONFIRMED / CANCELLED / EXPIRED / LOCKED), on ne
@@ -139,8 +144,9 @@ export async function POST(req: NextRequest) {
     verificationCode: string | null;
     status: string;
     expiresAt: Date;
+    examType: string | null;
   }>(
-    `SELECT "id", "token", "shortCode", "verificationCode", "status", "expiresAt"
+    `SELECT "id", "token", "shortCode", "verificationCode", "status", "expiresAt", "examType"
        FROM "AppointmentConfirmation"
       WHERE "rdvId" = $1 AND "centerId" = $2
       LIMIT 1`,
@@ -174,6 +180,16 @@ export async function POST(req: NextRequest) {
     // Statut PENDING → on continue le flux UPSERT (idempotent, COALESCE
     // préserve shortCode + verificationCode déjà envoyés au patient).
   }
+
+  // Type retenu pour cette relance : celui de l'appel, sinon celui déjà en base
+  // (même règle que le COALESCE de l'upsert plus bas).
+  const examTypeEffectif =
+    examType ?? ((existingRes.rowCount ?? 0) > 0 ? existingRes.rows[0].examType : null);
+  const annulationSeule = estAnnulationSeule(
+    proposerConfirmation,
+    confirmationExamTypes,
+    examTypeEffectif
+  );
 
   const token = buildAppointmentToken(rdvId, phone, centerId);
   const expiresAt = defaultExpiresAt();

@@ -1621,6 +1621,19 @@
       },
       "lot": 1,
       "note": "17/11/2026 : relance no-show en annulation seule (Pontivy). Chaque fiche a au moins une phrase (contrôle 5)."
+    },
+    {
+      "id": "annul3",
+      "source": "brouillon",
+      "phrase": "garder la confirmation seulement pour les mammographies dans les relances",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#relance_actions_patient"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "17/11/2026 : confirmation de la relance limitée à certains types d'examen (Pontivy, mammographie)."
     }
   ]
 }

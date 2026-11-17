@@ -95,6 +95,7 @@ type ConfigPatch = Partial<{
   reminderDays: number[] | null;
   cutoffHours: number | null;
   proposerConfirmation: boolean;
+  confirmationExamTypes: ExamKey[] | null;
 }>;
 
 export default function SmsConfirmationConfigCard({
@@ -115,6 +116,8 @@ export default function SmsConfirmationConfigCard({
   const [cutoffHoursSaved, setCutoffHoursSaved] = useState("");
   // Relance « annulation seule » (17/11/2026) : coché = confirmer ou annuler.
   const [proposerConfirmation, setProposerConfirmation] = useState(true);
+  // Confirmation limitée à certains types d'examen (null = tous), 17/11/2026.
+  const [confirmationExamTypes, setConfirmationExamTypes] = useState<ExamKey[] | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -128,6 +131,7 @@ export default function SmsConfirmationConfigCard({
     reminderDays?: number[] | null;
     cutoffHours?: number | null;
     proposerConfirmation?: boolean;
+    confirmationExamTypes?: ExamKey[] | null;
   }) => {
     const nextEnabled = { ...EMPTY_ENABLED, ...(data.enabledExamTypes ?? {}) };
     setEnabled(nextEnabled);
@@ -149,6 +153,9 @@ export default function SmsConfirmationConfigCard({
     setCutoffHoursSaved(ch);
 
     setProposerConfirmation(data.proposerConfirmation !== false);
+    setConfirmationExamTypes(
+      Array.isArray(data.confirmationExamTypes) ? data.confirmationExamTypes : null
+    );
   }, []);
 
   useEffect(() => {
@@ -211,6 +218,28 @@ export default function SmsConfirmationConfigCard({
     const prev = proposerConfirmation;
     setProposerConfirmation(value);
     savePatch({ proposerConfirmation: value }, () => setProposerConfirmation(prev));
+  };
+
+  // Types proposés à la confirmation : ceux qui sont relancés (tous si aucun).
+  const typesRelances = EXAM_TYPES.filter(({ key }) => enabled[key]);
+  const typesAffiches = typesRelances.length > 0 ? typesRelances : EXAM_TYPES;
+  const confirmePour = (key: ExamKey) =>
+    confirmationExamTypes === null || confirmationExamTypes.includes(key);
+  const nbConfirmesAffiches = typesAffiches.filter(({ key }) => confirmePour(key)).length;
+
+  const toggleConfirmationType = (key: ExamKey, value: boolean) => {
+    const prev = confirmationExamTypes;
+    // Depuis « tous », on part des seuls types affichés : un type activé plus
+    // tard arrive décoché, il ne reçoit pas la confirmation sans qu'on le choisisse.
+    const courant = new Set<ExamKey>(prev ?? typesAffiches.map((t) => t.key));
+    if (value) courant.add(key);
+    else courant.delete(key);
+    const next =
+      courant.size === EXAM_TYPES.length
+        ? null
+        : EXAM_TYPES.map((t) => t.key).filter((k) => courant.has(k));
+    setConfirmationExamTypes(next);
+    savePatch({ confirmationExamTypes: next }, () => setConfirmationExamTypes(prev));
   };
 
   const savePosteField = (key: ExamKey) => {
@@ -376,10 +405,43 @@ export default function SmsConfirmationConfigCard({
                 label="Annuler le rendez-vous"
               />
             </Stack>
+            {proposerConfirmation && (
+              <Box sx={{ pl: { xs: 0, sm: 4 }, mb: 0.5 }}>
+                <Typography variant="body2" sx={{ mb: 0.25 }}>
+                  Confirmer pour quels examens ?
+                </Typography>
+                <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+                  {typesAffiches.map(({ key, label }) => {
+                    const coche = confirmePour(key);
+                    return (
+                      <FormControlLabel
+                        key={key}
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={coche}
+                            // Le dernier type coché ne se décoche pas : décocher
+                            // « Confirmer le rendez-vous » fait la même chose.
+                            disabled={saving || loading || (coche && nbConfirmesAffiches <= 1)}
+                            onChange={(e) => toggleConfirmationType(key, e.target.checked)}
+                          />
+                        }
+                        label={label}
+                      />
+                    );
+                  })}
+                </Stack>
+              </Box>
+            )}
             <Typography variant="body2" color="text.secondary">
-              {proposerConfirmation
+              {!proposerConfirmation
+                ? "Le SMS et le lien ne parlent que d'annulation. Le patient qui vient n'a rien à faire, celui qui ne peut pas venir annule."
+                : nbConfirmesAffiches === typesAffiches.length
                 ? "Le patient peut confirmer ou annuler depuis le lien du SMS."
-                : "Le SMS et le lien ne parlent que d'annulation. Le patient qui vient n'a rien à faire, celui qui ne peut pas venir annule."}{" "}
+                : `Confirmer ou annuler pour : ${typesAffiches
+                    .filter(({ key }) => confirmePour(key))
+                    .map(({ label }) => label)
+                    .join(", ")}. Pour les autres examens, le SMS ne propose que l'annulation : le patient qui vient n'a rien à faire.`}{" "}
               L&apos;annulation reste toujours proposée.
             </Typography>
           </Box>

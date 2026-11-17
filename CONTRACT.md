@@ -322,6 +322,11 @@ d'après lui. `GET /api/rdv/[token]` renvoie aussi `annulationSeule` ; la page d
 alors que l'annulation, et `POST /api/rdv/[token]/respond` refuse `CONFIRMED` en 409 sans
 consommer d'essai. Les événements `pending-events` ne changent pas. SQL :
 `prisma/migrations/manual/2026_11_17_relance_annulation_seule.sql`, **à passer avant le build**.
+La confirmation peut aussi se limiter à des types d'examen :
+`SmsConfirmationConfig.confirmationExamTypes` (`ExamTypeKey[]` ou `null` = tous, champ
+`confirmationExamTypes` du GET et du POST). `init` calcule alors `annulationSeule` d'après
+l'`examType` du RDV (celui de l'appel, sinon celui déjà en base) : un type hors liste, ou un RDV
+sans type, part en annulation seule. Pontivy : `["mammo"]`. AI2Xplore ne change pas.
 
 **Domaine `konnect.planning-complet` (18/09/2026)**, lu par `KONNECT_API_KEY`, écrit depuis
 « Paramètres du portail » : `{ types: { radiographie|irm|echographie|scanner|mammo:
