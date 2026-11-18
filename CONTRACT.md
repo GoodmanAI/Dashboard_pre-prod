@@ -201,7 +201,7 @@ déjà :
   catalogue de Konnect (`cheminEnLigne` de `src/lib/konnectSallesPortail.ts`). Une lecture
   en panne retire la clé, sans priver l'appel du reste. Le texte du SMS est
   `site.smsRdvEnLigneGabarit` (`talk.textes`) : `{lien}` obligatoire, `{centre}`, 160 GSM-7
-  mesurés avec le vrai lien du client (ou 60 caractères s'il n'est pas saisi). La carte du
+  mesurés avec le vrai lien du client (ou une adresse d'exemple de 62 caractères s'il n'est pas saisi). La carte du
   Paramétrage lit `GET /api/talk-rdv-en-ligne?userProductId=` (`{ konnect, url }`, droit
   Paramétrage) et ne se montre que si `konnect`. Konnect ne lit pas ce domaine, et le pack
   de réglages ne le transporte pas.

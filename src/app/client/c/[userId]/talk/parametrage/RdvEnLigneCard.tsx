@@ -212,7 +212,7 @@ export default function RdvEnLigneCard({
                 <Typography variant="caption" color="text.secondary">
                   {infos.url
                     ? "Compté avec le nom de votre centre et l'adresse de votre page."
-                    : "Compté avec le nom de votre centre et une adresse de 60 caractères."}
+                    : "Compté avec le nom de votre centre et une adresse d'exemple de 62 caractères."}
                 </Typography>
               </Stack>
             </Stack>

@@ -356,10 +356,10 @@ export function rendreSmsRdvEnLigne(gabarit: string, d: DonneesRdvEnLigne): stri
 
 /**
  * Le lien pris pour compter la longueur : celui du centre s'il est déjà saisi, sinon
- * une adresse de 60 caractères, longueur courante d'une page de site.
+ * une adresse de 62 caractères, longueur courante d'une page de site.
  */
 export function lienRdvEnLigneOuExemple(url: string | null | undefined): string {
-  return url?.trim() || "https://www.centre-imagerie.fr/" + "x".repeat(29);
+  return url?.trim() || "https://www.centre-imagerie-medicale.fr/prendre-un-rendez-vous";
 }
 
 /** Variables inconnues ou `{lien}` absent, ou `null`. */
