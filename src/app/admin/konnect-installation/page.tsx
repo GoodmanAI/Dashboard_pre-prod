@@ -14,7 +14,13 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { IconCheck, IconAlertTriangle, IconArrowRight, IconPlus } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconAlertTriangle,
+  IconArrowRight,
+  IconMinus,
+  IconPlus,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import { cheminCentre } from "@/lib/cheminsCentre";
@@ -24,6 +30,7 @@ import type { Manque } from "@/lib/completude/types";
 import type { StatutCentre } from "@/lib/centreStatut";
 import { INK, INK_MUTED, BORDER, SURFACE_MUTED, OK, MANQUE } from "@/lib/jetons";
 import Battement from "@/components/shared/Battement";
+import { URL_RDV_EN_LIGNE_MAX } from "@/lib/rdvEnLigne";
 
 /**
  * Installer un centre LyraeKonnect, de bout en bout (lots G6 et I1).
@@ -76,7 +83,17 @@ function chercher(centre: Centre | null, cle: string): Manque | undefined {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function Etat({ fait, children }: { fait: boolean; children: React.ReactNode }) {
+function Etat({
+  fait,
+  facultatif = false,
+  children,
+}: {
+  fait: boolean;
+  /** Pas encore fait, mais rien ne manque pour que le portail fonctionne. */
+  facultatif?: boolean;
+  children: React.ReactNode;
+}) {
+  const neutre = !fait && facultatif;
   return (
     <Stack direction="row" alignItems="center" spacing={1}>
       <Box
@@ -89,11 +106,17 @@ function Etat({ fait, children }: { fait: boolean; children: React.ReactNode }) 
           height: 24,
           borderRadius: "50%",
           flex: "0 0 auto",
-          bgcolor: fait ? "#E8F5EE" : "#FDE8E8",
-          color: fait ? OK : MANQUE,
+          bgcolor: fait ? "#E8F5EE" : neutre ? SURFACE_MUTED : "#FDE8E8",
+          color: fait ? OK : neutre ? INK_MUTED : MANQUE,
         }}
       >
-        {fait ? <IconCheck size={15} /> : <IconAlertTriangle size={14} />}
+        {fait ? (
+          <IconCheck size={15} />
+        ) : neutre ? (
+          <IconMinus size={14} />
+        ) : (
+          <IconAlertTriangle size={14} />
+        )}
       </Box>
       <Box sx={{ minWidth: 0 }}>{children}</Box>
     </Stack>
@@ -106,22 +129,26 @@ function Bloc({
   titre,
   fait,
   manque,
+  facultatif = false,
   children,
 }: {
   numero: number;
   titre: string;
   fait: boolean;
   manque: string;
+  facultatif?: boolean;
   children?: React.ReactNode;
 }) {
   return (
     <Paper variant="outlined" sx={{ borderColor: BORDER, borderRadius: 2, p: 2, mb: 2 }}>
       <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: children ? 1.5 : 0 }}>
         <Typography sx={{ fontSize: 12, color: INK_MUTED, minWidth: 16 }}>{numero}</Typography>
-        <Etat fait={fait}>
+        <Etat fait={fait} facultatif={facultatif}>
           <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: INK }}>{titre}</Typography>
           {!fait && (
-            <Typography sx={{ fontSize: 12, color: MANQUE }}>{manque}</Typography>
+            <Typography sx={{ fontSize: 12, color: facultatif ? INK_MUTED : MANQUE }}>
+              {manque}
+            </Typography>
           )}
         </Etat>
       </Stack>
@@ -182,6 +209,9 @@ export default function InstallationKonnect() {
   // Saisies des blocs actionnables.
   const [risBaseUrl, setRisBaseUrl] = useState("");
   const [risCodeSite, setRisCodeSite] = useState("");
+  // Page du site du centre qui porte le portail (ponts de Talk vers Konnect, 18/11).
+  const [rdvUrl, setRdvUrl] = useState("");
+  const [rdvUrlEnregistree, setRdvUrlEnregistree] = useState<string | null>(null);
 
   const recharger = useCallback(async (garder?: number) => {
     try {
@@ -215,6 +245,28 @@ export default function InstallationKonnect() {
   useEffect(() => {
     setRisBaseUrl(centre?.risBaseUrl ?? "");
     setRisCodeSite(centre?.risCodeSite ?? "");
+  }, [centre]);
+
+  useEffect(() => {
+    setRdvUrl("");
+    setRdvUrlEnregistree(null);
+    if (!centre) return;
+    let vivant = true;
+    fetch(
+      `/api/product-config?userProductId=${centre.userProductId}&domaine=konnect.rdv-en-ligne`,
+      { cache: "no-store" }
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!vivant) return;
+        const url = typeof d?.valeur?.url === "string" ? d.valeur.url : null;
+        setRdvUrl(url ?? "");
+        setRdvUrlEnregistree(url);
+      })
+      .catch(() => undefined);
+    return () => {
+      vivant = false;
+    };
   }, [centre]);
 
   async function appeler(url: string, methode: string, corps: unknown, succes: string) {
@@ -252,6 +304,23 @@ export default function InstallationKonnect() {
       "Rattachement au logiciel du centre enregistré."
     );
     if (ok) await recharger(centre.userProductId);
+  }
+
+  async function enregistrerRdvEnLigne() {
+    if (!centre) return;
+    const data = await appeler(
+      `/api/product-config?userProductId=${centre.userProductId}&domaine=konnect.rdv-en-ligne`,
+      "PUT",
+      { valeur: { url: rdvUrl.trim() || null } },
+      rdvUrl.trim()
+        ? "Page de prise de rendez-vous en ligne enregistrée."
+        : "Page de prise de rendez-vous en ligne retirée."
+    );
+    if (data) {
+      const url = typeof data?.valeur?.url === "string" ? data.valeur.url : null;
+      setRdvUrl(url ?? "");
+      setRdvUrlEnregistree(url);
+    }
   }
 
   if (chargement) {
@@ -410,6 +479,41 @@ export default function InstallationKonnect() {
               </Alert>
             </Bloc>
 
+            <Bloc
+              numero={3}
+              titre="Page de prise de rendez-vous sur le site du centre"
+              fait={Boolean(rdvUrlEnregistree)}
+              facultatif
+              manque="Facultatif. Sans elle, le robot ne propose pas la prise de rendez-vous en ligne."
+            >
+              <Typography sx={{ fontSize: 12, color: INK_MUTED, mb: 1.5 }}>
+                L&apos;adresse de la page du site du centre où le portail est intégré.
+                Si le client a aussi LyraeTalk, le robot l&apos;envoie par SMS au patient
+                qui l&apos;accepte, par exemple quand le secrétariat est fermé. Jamais
+                l&apos;adresse du portail lui-même.
+              </Typography>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="flex-start">
+                <TextField
+                  size="small"
+                  fullWidth
+                  label="Adresse de la page"
+                  placeholder="https://www.centre.fr/prendre-rendez-vous"
+                  value={rdvUrl}
+                  onChange={(e) => setRdvUrl(e.target.value)}
+                  inputProps={{ maxLength: URL_RDV_EN_LIGNE_MAX + 20, inputMode: "url" }}
+                />
+                <Button
+                  variant="contained"
+                  disableElevation
+                  disabled={occupe || rdvUrl.trim() === (rdvUrlEnregistree ?? "")}
+                  onClick={() => void enregistrerRdvEnLigne()}
+                  sx={{ bgcolor: "var(--accent)", mt: 0.25 }}
+                >
+                  Enregistrer
+                </Button>
+              </Stack>
+            </Bloc>
+
             {/* Engagement commercial : le portail se facture par salle, et seule
                 l'équipe ouvre une salle (26/10/2026). Depuis le 02/11/2026, une liste
                 par client partagée avec Talk. */}
@@ -421,7 +525,7 @@ export default function InstallationKonnect() {
             </Typography>
 
             <BlocRenvoi
-              numero={3}
+              numero={4}
               titre="Paramètres du portail"
               fait={
                 !chercher(centre, "konnect.telephone-secretariat") &&
@@ -437,7 +541,7 @@ export default function InstallationKonnect() {
             />
 
             <BlocRenvoi
-              numero={4}
+              numero={5}
               titre="Codes d'examens"
               fait={!chercher(centre, "konnect.examens")}
               manque={chercher(centre, "konnect.examens")?.manque ?? ""}
@@ -446,7 +550,7 @@ export default function InstallationKonnect() {
             />
 
             <BlocRenvoi
-              numero={5}
+              numero={6}
               titre="Sites"
               fait={!chercher(centre, "konnect.sites")}
               manque={chercher(centre, "konnect.sites")?.manque ?? ""}
