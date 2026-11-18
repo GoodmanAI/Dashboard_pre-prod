@@ -1,3 +1,4 @@
+import { rdvEnLignePourRobot } from "@/lib/rdvEnLigneLecture";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/prisma';
 import { codeEtendu } from "@/lib/examTypes";
@@ -273,6 +274,20 @@ export async function GET(req: NextRequest) {
       site.medecinsNommes = await medecinsNommesPourRobot(userProductId);
     } catch (e) {
       console.warn(`[configuration] upid=${userProductId} medecinsNommes illisible :`, (e as Error).message);
+    }
+    // 2️⃣.g — Ponts de Talk vers Konnect (18/11/2026, plan
+    // `2026-11-ponts-talk-konnect.md`) : l'adresse de prise de RDV en ligne du site du
+    // client et ses examens réservables en ligne, seulement s'il a aussi Konnect.
+    // Absent = le robot ne propose jamais le lien. Une lecture en échec ne prive pas
+    // l'appel du reste : le pont se tait, comme pour un client sans Konnect.
+    try {
+      const rdvEnLigne = await rdvEnLignePourRobot(userProductId);
+      if (rdvEnLigne) {
+        site = site ?? {};
+        site.rdvEnLigne = rdvEnLigne;
+      }
+    } catch (e) {
+      console.warn(`[configuration] upid=${userProductId} rdvEnLigne illisible :`, (e as Error).message);
     }
     if (site && Object.keys(site).length === 0) site = null;
 
