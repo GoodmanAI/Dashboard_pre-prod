@@ -15,6 +15,7 @@
  *     examenFermeAuRobot?: {                    // examens fermés au robot (02/11)
  *       [codeRobot | codeExamen]: { reponse, texte?, telephone? }
  *     },
+ *     smsRdvEnLigneGabarit?: string,            // lien de RDV en ligne (18/11)
  *   }
  *
  * Une seule implémentation pour l'écran (aperçu, compteur) et pour la route
@@ -34,6 +35,7 @@ export const CLE_GABARIT_DEPOT = "smsDepotGabarit";
 export const CLE_DEPOT_AVANT = "smsDepotAvantConfirmation";
 export const CLE_QUESTIONS = "questionsExamen";
 export const CLE_EXAMEN_FERME = "examenFermeAuRobot";
+export const CLE_GABARIT_RDV_EN_LIGNE = "smsRdvEnLigneGabarit";
 
 /** Codes robot (jamais les diminutifs), dans l'ordre de l'écran. */
 export const EXAMENS_CONSIGNE: {
@@ -100,6 +102,16 @@ export const VARIABLES_DEPOT: VariableTexte[] = [
 ];
 const VARIABLES_DEPOT_OBLIGATOIRES = ["lien", "code"];
 
+/**
+ * SMS du lien de prise de RDV en ligne (ponts de Talk vers Konnect, 18/11/2026,
+ * plan `2026-11-ponts-talk-konnect.md` §7). Envoyé sans RDV, avec l'accord du
+ * patient : il n'y a donc ni examen, ni date, ni nom. `{lien}` est obligatoire.
+ */
+export const VARIABLES_RDV_EN_LIGNE: VariableTexte[] = [
+  { nom: "lien", aide: "page de prise de RDV de votre site (obligatoire)" },
+  { nom: "centre", aide: "nom du centre" },
+];
+
 export const MAX_CONSIGNE = 500;
 export const MAX_SMS = 160;
 
@@ -114,6 +126,10 @@ export const SMS_STANDARD =
 /** `SMS.prescription_block` du robot, écrit avec les variables de l'écran. */
 export const SMS_DEPOT_STANDARD =
   "Ordonnance à déposer sous {delai}, sinon le RDV risque une annulation :\n{lien}\nCode : {code}";
+
+/** Texte standard du SMS de RDV en ligne, recopié côté robot. */
+export const SMS_RDV_EN_LIGNE_STANDARD =
+  "{centre}\nPrenez rendez-vous en ligne ici :\n{lien}";
 
 /**
  * Début de l'annonce, fixe, pour l'aperçu de la phrase entière. Depuis le 09/10/2026
@@ -325,6 +341,48 @@ export function longueurDepotPireCas(gabarit: string, centre: string): number {
   return longueurGsm7(rendreSmsDepot(gabarit, donneesDepotPireCas(centre)));
 }
 
+export type DonneesRdvEnLigne = { lien: string; centre: string };
+
+/** Le SMS de RDV en ligne tel que le patient le reçoit, même nettoyage que les autres. */
+export function rendreSmsRdvEnLigne(gabarit: string, d: DonneesRdvEnLigne): string {
+  const brut = remplacer(gabarit, { lien: d.lien, centre: d.centre });
+  const nettoye = brut
+    .split("\n")
+    .map((l) => l.replace(/[ \t]{2,}/g, " ").trim())
+    .filter((l) => l.length > 0)
+    .join("\n");
+  return versGsm7(nettoye);
+}
+
+/**
+ * Le lien pris pour compter la longueur : celui du centre s'il est déjà saisi, sinon
+ * une adresse de 60 caractères, longueur courante d'une page de site.
+ */
+export function lienRdvEnLigneOuExemple(url: string | null | undefined): string {
+  return url?.trim() || "https://www.centre-imagerie.fr/" + "x".repeat(29);
+}
+
+/** Variables inconnues ou `{lien}` absent, ou `null`. */
+export function erreurVariablesRdvEnLigne(gabarit: string): string | null {
+  const g = erreurGabarit(gabarit, VARIABLES_RDV_EN_LIGNE);
+  if (g) return g;
+  if (!/\{lien\}/.test(gabarit)) {
+    return "Ajoutez {lien} : sans lui le patient ne peut pas ouvrir la page de prise de rendez-vous.";
+  }
+  return null;
+}
+
+/** Longueur du SMS de RDV en ligne avec le vrai nom du centre et son lien. */
+export function longueurRdvEnLigne(
+  gabarit: string,
+  centre: string,
+  url: string | null | undefined,
+): number {
+  return longueurGsm7(
+    rendreSmsRdvEnLigne(gabarit, { lien: lienRdvEnLigneOuExemple(url), centre }),
+  );
+}
+
 // ─── GSM-7 ───────────────────────────────────────────────────────────────────
 
 /** Jeu de base GSM 03.38 : un caractère = un septet. */
@@ -405,6 +463,7 @@ export type TextesTalk = {
   smsDepotAvantConfirmation?: true;
   questionsExamen?: Record<string, QuestionsExamen>;
   examenFermeAuRobot?: Record<string, ExamenFerme>;
+  smsRdvEnLigneGabarit?: string;
 };
 
 function erreurConsigne(texte: string, ou: string): string | null {
@@ -431,12 +490,14 @@ export function erreurLongueurSms(
  * retirés : une clé absente veut dire « texte standard » pour le robot. Les clés
  * inconnues sont conservées telles quelles (le socle reste extensible).
  *
- * `centre` et `adresse` sont ceux de la fiche du centre, pour le pire cas du SMS.
+ * `centre` et `adresse` sont ceux de la fiche du centre, pour le pire cas du SMS ;
+ * `urlRdvEnLigne`, l'adresse de prise de RDV en ligne du client s'il a Konnect.
  */
 export function validerTextes(
   valeur: Record<string, unknown>,
   centre: string,
   adresse: string,
+  urlRdvEnLigne: string | null = null,
 ): { valeur: Record<string, unknown> } | { erreur: string } {
   const sortie: Record<string, unknown> = { ...valeur };
 
@@ -531,6 +592,22 @@ export function validerTextes(
   if ("erreur" in questions) return questions;
   if (questions.valeur) sortie[CLE_QUESTIONS] = questions.valeur;
   else delete sortie[CLE_QUESTIONS];
+
+  const enLigne = texte(valeur[CLE_GABARIT_RDV_EN_LIGNE]);
+  if (enLigne === undefined)
+    return { erreur: "Le texte du SMS de prise de RDV en ligne doit être un texte." };
+  if (enLigne === null) delete sortie[CLE_GABARIT_RDV_EN_LIGNE];
+  else {
+    const g = erreurVariablesRdvEnLigne(enLigne);
+    if (g) return { erreur: `SMS de prise de RDV en ligne : ${g}` };
+    const n = longueurRdvEnLigne(enLigne, centre, urlRdvEnLigne);
+    if (n > MAX_SMS) {
+      return {
+        erreur: `Le SMS de prise de RDV en ligne ne tient pas en un seul message : il fait ${n} caractères avec le lien et le nom de votre centre, pour ${MAX_SMS} au plus. Retirez ${n - MAX_SMS} caractères.`,
+      };
+    }
+    sortie[CLE_GABARIT_RDV_EN_LIGNE] = enLigne;
+  }
 
   const fermes = validerExamensFermes(valeur[CLE_EXAMEN_FERME]);
   if ("erreur" in fermes) return fermes;

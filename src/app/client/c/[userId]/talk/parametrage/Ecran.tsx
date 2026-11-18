@@ -62,6 +62,7 @@ import ConsigneApresReservationCard from "./ConsigneApresReservationCard";
 import QuestionsExamenCard from "./QuestionsExamenCard";
 import ExamensFermesAuRobotCard from "./ExamensFermesAuRobotCard";
 import MedecinsNommesCard from "./MedecinsNommesCard";
+import RdvEnLigneCard from "./RdvEnLigneCard";
 import PrescriptionConfigCard, {
   type PrescriptionConfigHandle,
 } from "./PrescriptionConfigCard";
@@ -1435,6 +1436,15 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
               .map((x) => (x ?? "").trim())
               .filter(Boolean)
               .join(", ")}
+          />
+        </Box>
+
+        {/* Lien de prise de RDV en ligne, client avec Konnect (talk.textes, 18/11) */}
+        <Box id="rdv_en_ligne">
+          <RdvEnLigneCard
+            userProductId={Number(params.id)}
+            readOnly={readOnly}
+            centre={settings.centerName ?? ""}
           />
         </Box>
 

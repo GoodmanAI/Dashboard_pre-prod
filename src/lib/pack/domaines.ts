@@ -925,7 +925,7 @@ export const ONGLETS: Onglet[] = [
     exporter: (pack) => {
       if (!pack.konnect) return null;
       return Object.values(DOMAINES_PRODUIT)
-        .filter((d) => d.produit === "konnect" && d.cle !== "konnect.ris-identite" && d.cle !== "konnect.salles" && d.cle !== "konnect.file-attente")
+        .filter((d) => d.produit === "konnect" && d.cle !== "konnect.ris-identite" && d.cle !== "konnect.salles" && d.cle !== "konnect.file-attente" && d.cle !== "konnect.rdv-en-ligne")
         .map((d) => ({
           Domaine: d.cle,
           "Règle": d.libelle,
@@ -941,7 +941,7 @@ export const ONGLETS: Onglet[] = [
 
       const connus = new Set(
         Object.values(DOMAINES_PRODUIT)
-          .filter((d) => d.produit === "konnect" && d.cle !== "konnect.ris-identite" && d.cle !== "konnect.salles" && d.cle !== "konnect.file-attente")
+          .filter((d) => d.produit === "konnect" && d.cle !== "konnect.ris-identite" && d.cle !== "konnect.salles" && d.cle !== "konnect.file-attente" && d.cle !== "konnect.rdv-en-ligne")
           .map((d) => d.cle)
       );
 

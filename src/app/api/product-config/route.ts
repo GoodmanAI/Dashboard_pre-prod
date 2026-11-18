@@ -19,6 +19,8 @@ import {
 } from "@/lib/productConfig";
 import { validerSallesParType } from "@/lib/sallesExamen";
 import { validerTextes, centreEtAdresse } from "@/lib/talkTextes";
+import { DOMAINE_RDV_EN_LIGNE, validerRdvEnLigne } from "@/lib/rdvEnLigne";
+import { konnectDuClient, urlRdvEnLigne } from "@/lib/rdvEnLigneLecture";
 import { DOMAINE_PLAGES_PRIVEES, validerPlagesPrivees } from "@/lib/konnectPlagesPrivees";
 import {
   DOMAINE_LIBELLE_ORDONNANCE,
@@ -270,7 +272,10 @@ export async function PUT(req: NextRequest) {
       [userProductId]
     );
     const { centre, adresse } = centreEtAdresse(fiche.rows[0] ?? {});
-    const textes = validerTextes(valeur, centre, adresse);
+    // Le SMS de RDV en ligne se mesure avec le vrai lien du client, s'il est saisi.
+    const konnect = await konnectDuClient(userProductId);
+    const url = konnect === null ? null : await urlRdvEnLigne(konnect);
+    const textes = validerTextes(valeur, centre, adresse, url);
     if ("erreur" in textes) {
       return NextResponse.json({ error: textes.erreur }, { status: 400 });
     }
@@ -315,6 +320,16 @@ export async function PUT(req: NextRequest) {
   // à Konnect un RDV ordinaire, que le centre prendrait pour un vrai rendez-vous.
   if (domaine.cle === DOMAINE_FILE_ATTENTE) {
     const reglage = validerReglageFileAttente(valeur);
+    if ("erreur" in reglage) {
+      return NextResponse.json({ error: reglage.erreur }, { status: 400 });
+    }
+    for (const cle of Object.keys(valeur)) delete valeur[cle];
+    Object.assign(valeur, reglage.valeur);
+  }
+
+  // `konnect.rdv-en-ligne` : une adresse que le patient ouvrira depuis un SMS.
+  if (domaine.cle === DOMAINE_RDV_EN_LIGNE) {
+    const reglage = validerRdvEnLigne(valeur);
     if ("erreur" in reglage) {
       return NextResponse.json({ error: reglage.erreur }, { status: 400 });
     }

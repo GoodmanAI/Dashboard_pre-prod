@@ -190,6 +190,21 @@ déjà :
   que pour un examen demandé seul (une demande à plusieurs examens transfère toujours).
   Exemple : `{ "MG": { "reponse": "orienter", "texte": "Les mammographies se prennent au
   centre du Parc.", "telephone": "+33145678912" }, "N01RX140": { "reponse": "non_fait" } }`.
+- `site.rdvEnLigne` (18/11/2026, ponts de Talk vers Konnect, plan
+  `plans/2026-11-ponts-talk-konnect.md`, lu par LyraeTalk au lot L2) : `{ url, examens:
+  { [codeExamen]: { reservable: true, fileAttente } } }`, **seulement** si le client (même
+  `userId`) a aussi une affiliation Konnect active et que son domaine `konnect.rdv-en-ligne`
+  porte une adresse ; sinon la clé est absente. `url` = page du site du client qui porte
+  l'iframe (jamais l'adresse du portail), `https://`, 120 caractères au plus, validée au
+  `PUT /api/product-config` (droit admin, écran « Installation Konnect »). `examens` ne porte
+  que les examens réservables en ligne, par `codeExamen` NEURACORP, calculés comme le
+  catalogue de Konnect (`cheminEnLigne` de `src/lib/konnectSallesPortail.ts`). Une lecture
+  en panne retire la clé, sans priver l'appel du reste. Le texte du SMS est
+  `site.smsRdvEnLigneGabarit` (`talk.textes`) : `{lien}` obligatoire, `{centre}`, 160 GSM-7
+  mesurés avec le vrai lien du client (ou 60 caractères s'il n'est pas saisi). La carte du
+  Paramétrage lit `GET /api/talk-rdv-en-ligne?userProductId=` (`{ konnect, url }`, droit
+  Paramétrage) et ne se montre que si `konnect`. Konnect ne lit pas ce domaine, et le pack
+  de réglages ne le transporte pas.
 - `site.medecinsNommes` (03/11/2026, plan `plans/2026-10-questions-sur-le-rdv-lyraetalk.md`
   §7, lu par LyraeTalk à partir de la v2.80.0, `V2_QUESTIONS_RDV`) : les médecins que le
   robot peut nommer quand le patient demande « avec quel médecin ? ».

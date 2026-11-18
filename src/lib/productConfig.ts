@@ -163,6 +163,17 @@ export const DOMAINES: Record<string, Domaine> = {
     libelle: "Salles ouvertes au portail",
     page: "admin",
   },
+  // 18/11/2026 : l'adresse de la page du site du client qui porte le portail, envoyée
+  // par le robot au patient qui accepte (ponts de Talk vers Konnect). Réglée par
+  // l'équipe à l'installation. Konnect ne la lit pas : elle descend au robot dans
+  // `site.rdvEnLigne`. Forme et validation : `src/lib/rdvEnLigne.ts`.
+  "konnect.rdv-en-ligne": {
+    cle: "konnect.rdv-en-ligne",
+    produit: "konnect",
+    cleApiEnv: "KONNECT_API_KEY",
+    libelle: "Page de prise de RDV en ligne du site du centre",
+    page: "admin",
+  },
   "konnect.synonymes": {
     cle: "konnect.synonymes",
     produit: "konnect",
