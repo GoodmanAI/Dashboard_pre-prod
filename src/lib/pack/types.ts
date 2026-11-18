@@ -129,6 +129,7 @@ export type PackKonnect = {
    * `konnect.salles` : les salles sont celles d'UN centre, et ce qui est ouvert est
    * facturé ; un pack recopié ailleurs ne doit ni les déclarer ni les ouvrir. Ni
    * `konnect.file-attente` (27/10/2026) : ses clés sont les codes site d'un centre.
+   * Ni `konnect.rdv-en-ligne` (18/11/2026) : c'est une page du site d'UN client.
    */
   domaines: Record<string, Record<string, unknown>>;
 };

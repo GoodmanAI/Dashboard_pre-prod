@@ -197,6 +197,19 @@ export const CATALOGUE: Fiche[] = [
     ],
   },
   {
+    cle: "talk/parametrage#rdv_en_ligne",
+    produit: "talk",
+    page: "parametrage",
+    libelle: "Prise de rendez-vous en ligne : lien envoyé par SMS",
+    genre: "reglage",
+    termes: [
+      "rendez-vous en ligne", "rdv en ligne", "prise de rendez-vous sur internet",
+      "reserver sur internet", "lien du site", "envoyer le lien du site", "sms avec le lien",
+      "renvoyer vers le site", "vers notre site", "reserver en ligne", "renvoyer vers konnect",
+      "renvoyer les patients vers", "le robot renvoie vers le site", "konnect", "portail",
+    ],
+  },
+  {
     cle: "talk/parametrage#rappel_sms",
     produit: "talk",
     page: "parametrage",

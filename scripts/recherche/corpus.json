@@ -1634,6 +1634,32 @@
       },
       "lot": 1,
       "note": "17/11/2026 : confirmation de la relance limitée à certains types d'examen (Pontivy, mammographie)."
+    },
+    {
+      "id": "enligne1",
+      "source": "brouillon",
+      "phrase": "le SMS avec le lien pour prendre rendez-vous sur internet",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#rdv_en_ligne"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "18/11/2026 : ponts de Talk vers Konnect, carte « Prise de rendez-vous en ligne »."
+    },
+    {
+      "id": "enligne2",
+      "source": "brouillon",
+      "phrase": "le robot peut renvoyer les patients vers notre site pour réserver en ligne",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#rdv_en_ligne"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "18/11/2026 : ponts de Talk vers Konnect, carte « Prise de rendez-vous en ligne »."
     }
   ]
 }

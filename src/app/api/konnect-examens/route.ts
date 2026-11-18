@@ -14,20 +14,12 @@ import { completerKonnectAvecReferentiel } from "@/lib/referentielRepli";
 import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
 import {
-  DOMAINE_SALLES_KONNECT,
-  lireSallesKonnect,
   normaliserPostesExamen,
-  postesPourKonnect,
   sallesOuvertesParType,
   typesSansSalleOuverte,
-  typeSallesExamen,
   type SallesKonnect,
 } from "@/lib/konnectSalles";
-import { sallesKonnect } from "@/lib/sallesFacturees";
-import {
-  sallesDuUserProduct,
-  versionSallesDuUserProduct,
-} from "@/lib/sallesFactureesLecture";
+import { cheminEnLigne, sallesDuPortail } from "@/lib/konnectSallesPortail";
 
 /**
  * Mapping d'examens LyraeKonnect d'un centre (lot C).
@@ -91,36 +83,6 @@ const COLONNES = `"codeExamen", "typeExamen", "libelle", "codeExamenClient",
                   "performed", "reservableEnLigne", "ordoOblig", "examenInjecte",
                   "postes", "fileAttente"`;
 
-/**
- * Les salles du portail et leur version (pour l'ETag).
- *
- * Depuis le 02/11/2026 (plan `2026-11-salles-facturees-talk-konnect`), la table
- * `Salle` du client, case Konnect. Tant que le client n'y a aucune salle (ou que la
- * table n'existe pas encore), l'ancien domaine `konnect.salles` : rien ne change pour un
- * centre pas encore réglé. La version de la table est préfixée `t` pour ne jamais
- * retomber sur une version de l'ancien domaine.
- */
-async function sallesDuPortail(
-  userProductId: number
-): Promise<{ config: SallesKonnect; version: number | string }> {
-  const lignes = await sallesDuUserProduct(userProductId);
-  if (lignes && lignes.length > 0) {
-    return {
-      config: sallesKonnect(lignes),
-      version: `t${await versionSallesDuUserProduct(userProductId)}`,
-    };
-  }
-  const res = await db.query<{ valeur: unknown; version: number }>(
-    `SELECT "valeur", "version" FROM "ProductConfig"
-      WHERE "userProductId" = $1 AND "domaine" = $2 LIMIT 1`,
-    [userProductId, DOMAINE_SALLES_KONNECT]
-  );
-  return {
-    config: lireSallesKonnect(res.rows[0]?.valeur ?? null),
-    version: res.rows[0]?.version ?? 0,
-  };
-}
-
 async function estCentreKonnect(userProductId: number): Promise<boolean> {
   const res = await db.query<{ id: number }>(
     `SELECT up."id"
@@ -174,11 +136,9 @@ function versCatalogueKonnect(lignes: LigneMapping[], salles: SallesKonnect) {
     .map((l) => {
       // Les salles où chercher (plan `2026-10-salles-ouvertes-konnect`) : `[]` =
       // aucun filtre, `null` = aucune salle ouverte, l'examen passe au rappel.
-      const postes = postesPourKonnect(
-        salles,
-        typeSallesExamen(l.typeExamen, l.typeExamenClient),
-        l.postes
-      );
+      // Règle partagée avec les ponts de Talk (`cheminEnLigne`, 18/11/2026).
+      const chemin = cheminEnLigne(l, salles);
+      const postes = chemin.postes;
       return {
       examen_code: l.codeExamenClient.trim(),
       // Le code de NOTRE referentiel. Konnect s'en sert pour retrouver l'examen
@@ -197,10 +157,10 @@ function versCatalogueKonnect(lignes: LigneMapping[], salles: SallesKonnect) {
       // Le chemin de la demande. `false` → Konnect ne propose aucun créneau et
       // offre le rappel. C'est la seule chose qui distingue les deux parcours
       // depuis la fin des modes de traitement.
-      reservable_en_ligne: l.reservableEnLigne && postes !== null,
+      reservable_en_ligne: chemin.reservable,
       // Sans créneau, Konnect propose la file d'attente au lieu du rappel. Seulement
       // pour un examen réservable : un examen à rappel n'a pas de file (K1).
-      file_attente: l.fileAttente && l.reservableEnLigne && postes !== null,
+      file_attente: chemin.fileAttente,
       // Les numéros de poste où Konnect cherche les créneaux et accepte une
       // réservation. `[]` = toutes les salles.
       postes: postes ?? [],
