@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
+import { SQL_PATIENT_A_PARLE, SQL_SANS_PAROLE } from "@/lib/appelsSansParole";
+import { Prisma } from "@prisma/client";
 import { calculerApercu, calculerIndicateurs, calculerStatsAppels, LigneAppel } from "@/lib/statsAppel";
 
 /**
@@ -15,19 +17,18 @@ import { calculerApercu, calculerIndicateurs, calculerStatsAppels, LigneAppel } 
  *
  * Mêmes droits et mêmes lignes que `/api/calls` en `champs=stats` : session, centre du
  * compte, l'une des pages `calls`, `incidents` ou `stats_appel` en lecture ; appels de plus
- * de 15 secondes et de plus d'un échange ; pas de borne de rétention (les statistiques
+ * de 15 secondes et de plus d'un échange, où le patient a parlé (ceux sans aucun mot sont
+ * comptés à part dans `sansParole`, 22/11/2026) ; pas de borne de rétention (les statistiques
  * couvrent l'année, `stats` reste après l'anonymisation).
  *
  * Route de session, pas machine-à-machine. Plan : `plans/2026-11-chargements-dashboard.md`.
  */
 
-async function lireStats(userProductId: number, depuis: Date, jusqua: Date): Promise<LigneAppel[]> {
+/** Appels de la plage : plus de 15 s, plus d'un échange (bornes : voir `lireAppels`). */
+function conditions(userProductId: number, depuis: Date, jusqua: Date): Prisma.Sql {
   // Bornes en texte ISO castées en `timestamp` (colonne sans fuseau portant de l'UTC) :
-  // voir `lireAppels` de `/api/calls`. `internal` retiré par PostgreSQL.
-  return prisma.$queryRaw<LigneAppel[]>`
-    SELECT "createdAt", (stats::jsonb - 'internal') AS stats
-    FROM "CallConversation"
-    WHERE "userProductId" = ${userProductId}
+  // voir `lireAppels` de `/api/calls`.
+  return Prisma.sql`"userProductId" = ${userProductId}
       AND "createdAt" >= ${depuis.toISOString()}::timestamp
       AND "createdAt" <= ${jusqua.toISOString()}::timestamp
       AND (stats::jsonb #> '{duration}') > '15'::jsonb
@@ -35,6 +36,30 @@ async function lireStats(userProductId: number, depuis: Date, jusqua: Date): Pro
             "nbTours",
             CASE WHEN jsonb_typeof(steps::jsonb) = 'array' THEN jsonb_array_length(steps::jsonb) ELSE 0 END
           ) > 1`;
+}
+
+/** Les appels comptés : le patient a parlé (`appelsSansParole.ts`). `internal` retiré. */
+async function lireStats(userProductId: number, depuis: Date, jusqua: Date): Promise<LigneAppel[]> {
+  return prisma.$queryRaw<LigneAppel[]>`
+    SELECT "createdAt", (stats::jsonb - 'internal') AS stats
+    FROM "CallConversation"
+    WHERE ${conditions(userProductId, depuis, jusqua)} AND ${SQL_PATIENT_A_PARLE}`;
+}
+
+/**
+ * Les appels de plus de 15 s où le patient n'a dit aucun mot, comptés à part (tuile
+ * « Appels sans parole »). Sans la condition « plus d'un échange » : la plupart n'ont que
+ * l'accueil (un seul tour) et n'étaient déjà comptés nulle part ; la tuile les montre tous.
+ */
+async function compterSansParole(userProductId: number, depuis: Date, jusqua: Date): Promise<number> {
+  const r = await prisma.$queryRaw<{ n: number }[]>`
+    SELECT count(*)::int AS n FROM "CallConversation"
+    WHERE "userProductId" = ${userProductId}
+      AND "createdAt" >= ${depuis.toISOString()}::timestamp
+      AND "createdAt" <= ${jusqua.toISOString()}::timestamp
+      AND (stats::jsonb #> '{duration}') > '15'::jsonb
+      AND ${SQL_SANS_PAROLE}`;
+  return r[0]?.n ?? 0;
 }
 
 const date = (v: string | null) => {
@@ -74,15 +99,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ apercu: calculerApercu(lignes) }, { status: 200 });
     }
 
-    const [courante, precedente] = await Promise.all([
+    const avecPrecedente = !!(prevFrom && prevTo);
+    const [courante, precedente, sansParole, sansParolePrecedent] = await Promise.all([
       lireStats(userProductId, from, to),
-      prevFrom && prevTo ? lireStats(userProductId, prevFrom, prevTo) : Promise.resolve(null),
+      avecPrecedente ? lireStats(userProductId, prevFrom!, prevTo!) : Promise.resolve(null),
+      compterSansParole(userProductId, from, to),
+      avecPrecedente ? compterSansParole(userProductId, prevFrom!, prevTo!) : Promise.resolve(null),
     ]);
 
     return NextResponse.json(
       {
         courant: calculerStatsAppels(courante),
         precedent: precedente ? calculerIndicateurs(precedente) : null,
+        sansParole,
+        sansParolePrecedent,
       },
       { status: 200 },
     );

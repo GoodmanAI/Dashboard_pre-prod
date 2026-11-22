@@ -45,6 +45,7 @@ import {
   Biotech as IconRadioInterv,
   TaskAlt as IconConfirmRDV,
   Assignment as IconResultats,
+  VoiceOverOff as IconSansParole,
 } from "@mui/icons-material";
 import { useCentre } from "@/app/context/CentreContext";
 import { subDays, startOfDay, endOfDay } from "date-fns";
@@ -154,7 +155,13 @@ function secondsToMinLabel(totalSeconds: number) {
 }
 
 /** Résultat de `GET /api/stats-appel`. */
-type ReponseStats = { courant: StatsAppels; precedent: IndicateursAppels | null };
+type ReponseStats = {
+  courant: StatsAppels;
+  precedent: IndicateursAppels | null;
+  /** Appels où le patient n'a dit aucun mot, hors de tous les autres chiffres (22/11/2026). */
+  sansParole?: number;
+  sansParolePrecedent?: number | null;
+};
 
 /** Résultat vide, avant le premier chargement (et période sans appel). */
 const VIDE: StatsAppels = calculerStatsAppels([]);
@@ -180,6 +187,7 @@ const ANCRES_TUILES_BAS = [
   "sans_creneau",
   "interventionnel",
   "confirmations",
+  "appels_sans_parole",
 ];
 
 export default function StatsAppelPage({ params }: any) {
@@ -420,6 +428,7 @@ export default function StatsAppelPage({ params }: any) {
   const nbResultats = ind.resultats;
   const partResultats =
     nbTransferts > 0 ? Math.round((nbResultats / nbTransferts) * 100) : 0;
+  const sansParole = resultat.sansParole ?? 0;
 
   /* ========== Enrichissement Annulation / Confirmation avec rappels SMS ==========
    * On additionne les compteurs bot LyraeTalk (calculés ci-dessus depuis
@@ -490,6 +499,11 @@ export default function StatsAppelPage({ params }: any) {
         previousKpis.confirmRDV + prevSmsConfirmed,
         "higher_is_better",
       ),
+      sansParole: computeDelta(
+        sansParole,
+        resultat.sansParolePrecedent ?? 0,
+        "lower_is_better",
+      ),
     };
   }, [
     previousRange,
@@ -508,6 +522,8 @@ export default function StatsAppelPage({ params }: any) {
     noSlotApi,
     totalConfirmRDV,
     prevSmsConfirmed,
+    sansParole,
+    resultat.sansParolePrecedent,
   ]);
 
   /** Suffixe humain pour le tooltip des deltas (ex: "du 12 mai au 18 mai"). */
@@ -606,6 +622,11 @@ export default function StatsAppelPage({ params }: any) {
       formatDeltaForCsv(deltas?.totalAppels),
     ]);
     rows.push(["Prises de RDV", nbRDV, formatDeltaForCsv(deltas?.nbRDV)]);
+    rows.push([
+      "Appels sans parole (non comptés ailleurs)",
+      sansParole,
+      formatDeltaForCsv(deltas?.sansParole),
+    ]);
     rows.push([
       "Urgences détectées",
       nbUrgence,
@@ -1202,8 +1223,8 @@ export default function StatsAppelPage({ params }: any) {
         ))}
       </Grid>
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        {[0, 1, 2, 3, 4].map((i) => (
-          <Grid item xs={12} sm={6} md={2.4} key={i} id={ANCRES_TUILES_BAS[i]}>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <Grid item xs={12} sm={6} md={4} lg={2} key={i} id={ANCRES_TUILES_BAS[i]}>
             {premierChargement ? (
               <StatTileSkeleton />
             ) : i === 0 ? (
@@ -1251,6 +1272,15 @@ export default function StatsAppelPage({ params }: any) {
                 icon={<IconRadioInterv />}
                 delta={deltas?.radioInter}
                 previousLabel={previousLabel}
+              />
+            ) : i === 5 ? (
+              <StatTile
+                title="Appels sans parole"
+                value={sansParole === 0 ? "-" : sansParole}
+                icon={<IconSansParole />}
+                delta={deltas?.sansParole}
+                previousLabel={previousLabel}
+                subDetail="Le patient n'a rien dit. Non comptés ailleurs."
               />
             ) : (
               <StatTile

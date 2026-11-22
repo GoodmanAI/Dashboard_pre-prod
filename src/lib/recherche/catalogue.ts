@@ -434,6 +434,19 @@ export const CATALOGUE: Fiche[] = [
     filtres: [...CHIFFRE],
   },
   {
+    cle: "talk/stats_appel#appels_sans_parole",
+    produit: "talk",
+    page: "stats_appel",
+    libelle: "Appels sans parole",
+    genre: "statistique",
+    termes: [
+      "appels sans parole", "combien d'appels sans parole", "nombre d'appels sans parole",
+      "appels vides", "le patient n'a rien dit", "appels muets",
+      "personne ne parle", "appels silencieux", "raccroche sans parler",
+    ],
+    filtres: [...CHIFFRE],
+  },
+  {
     cle: "talk/stats_appel#urgences",
     produit: "talk",
     page: "stats_appel",
