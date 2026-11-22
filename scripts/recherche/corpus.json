@@ -1025,6 +1025,21 @@
       "note": "Témoin du 29/10 : une demande de chiffre désigne sa tuile, que le panneau garde entourée."
     },
     {
+      "id": "sp1",
+      "source": "brouillon",
+      "phrase": "combien d'appels sans parole ce mois-ci",
+      "attendu": {
+        "destinations": [
+          "talk/stats_appel#appels_sans_parole"
+        ],
+        "filtres": {
+          "periode": "ce_mois"
+        }
+      },
+      "lot": 1,
+      "note": "22/11/2026 : tuile des appels où le patient n'a dit aucun mot."
+    },
+    {
       "id": "t20",
       "source": "temoin",
       "phrase": "combien de confirmations cette semaine",

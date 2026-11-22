@@ -318,6 +318,11 @@ model CallConversation {
   /// qui garde l'information. NULL sur une ligne écrite avant la migration et pas
   /// encore remplie : les lectures retombent alors sur la longueur de `steps`.
   nbTours       Int?
+  /// Nombre de lignes du patient non vides, écrit à l'arrivée de l'appel (22/11/2026).
+  /// 0 = le patient n'a dit aucun mot : l'appel sort des écrans et des statistiques du
+  /// client, compté à part (`src/lib/appelsSansParole.ts`). NULL = inconnu, compté.
+  /// Posé par prisma/migrations/manual/2026_11_22_appels_sans_parole.sql.
+  nbToursPatient Int?
   /// Posé par le job d'anonymisation : `steps` vidé, `phoneNumber` et `entites`
   /// retirés de `stats`. NULL = la ligne porte encore sa transcription.
   anonymiseeLe  DateTime?

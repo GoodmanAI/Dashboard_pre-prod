@@ -738,6 +738,13 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   `stats.phoneNumber` et `stats.entites` au-delà du délai ; le reste de `stats` (dont
   `internal`) reste. Le filtre « plus d'un échange » se lit dans `nbTours`, plus dans
   `steps`. Plan : `plans/2026-09-retention-des-appels.md` (workspace).
+- **Appels sans parole du patient** (22/11/2026) : `POST /api/calls/summary` écrit aussi
+  `nbToursPatient`, le nombre de lignes `Patient:` non vides (payload inchangé, LyraeTalk
+  n'a rien à faire). Toutes les lectures de `/api/calls` et `/api/stats-appel` écartent
+  `nbToursPatient = 0` (NULL = inconnu, compté) ; `/api/stats-appel` les compte à part dans
+  `sansParole` et `sansParolePrecedent` (plus de 15 s, sans la condition « plus d'un
+  échange »). Le rapport du matin de Daily Report applique la même règle sur Loki. SQL
+  `2026_11_22_appels_sans_parole.sql`, plan `plans/2026-11-appels-sans-parole.md` (workspace).
 - **Bornes de date en SQL brut** (23/09/2026) : la sélection des identifiants compare
   désormais `"createdAt"` à des chaînes ISO castées en `timestamp`, et non à des objets
   `Date`. La colonne est un `timestamp without time zone` qui porte de l'UTC, que
