@@ -1,5 +1,6 @@
 // app/api/calls/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { patientAParle, SQL_PATIENT_A_PARLE } from "@/lib/appelsSansParole";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
@@ -121,6 +122,7 @@ function conditionsDirectes(where: any): Prisma.Sql {
               "nbTours",
               CASE WHEN jsonb_typeof(steps::jsonb) = 'array' THEN jsonb_array_length(steps::jsonb) ELSE 0 END
             ) > 1
+        AND ${SQL_PATIENT_A_PARLE}
         ${where.anonymiseeLe === null ? Prisma.sql`AND "anonymiseeLe" IS NULL` : Prisma.empty}`;
 }
 
@@ -158,7 +160,9 @@ async function lireAppels(
       where,
       orderBy: { createdAt: "desc" },
     });
-    return lignes.filter((c: any) => nbToursDe(c) > 1).map(sansMesuresInternes);
+    return lignes
+      .filter((c: any) => nbToursDe(c) > 1 && patientAParle(c))
+      .map(sansMesuresInternes);
   }
 
   const depuis: Date = where.createdAt?.gte ?? new Date(0);
@@ -201,7 +205,8 @@ async function lireAppels(
       AND COALESCE(
             "nbTours",
             CASE WHEN jsonb_typeof(steps::jsonb) = 'array' THEN jsonb_array_length(steps::jsonb) ELSE 0 END
-          ) > 1`;
+          ) > 1
+      AND ${SQL_PATIENT_A_PARLE}`;
   if (ids.length === 0) return [];
 
   // Par paquets : PostgreSQL plafonne le nombre de paramètres liés d'une requête.

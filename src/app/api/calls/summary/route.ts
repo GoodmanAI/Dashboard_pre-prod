@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { compterToursPatient } from "@/lib/appelsSansParole";
 import { prisma } from '@/lib/prisma';
 import { Prisma } from "@prisma/client";
 import { requireApiKey } from "@/lib/auth-helpers";
@@ -86,6 +87,8 @@ export async function POST(req: NextRequest) {
         steps: stepsTransformed as unknown as Prisma.InputJsonValue,
         // Garde le nombre d'échanges quand la transcription sera effacée (rétention).
         nbTours: stepsTransformed.length,
+        // Aucun mot du patient : l'appel sort des écrans du client (`appelsSansParole.ts`).
+        nbToursPatient: compterToursPatient(stepsTransformed),
         stats: stats as unknown as Prisma.InputJsonValue,
       },
     });
