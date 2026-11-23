@@ -1,4 +1,5 @@
 import { NextAuthOptions } from "next-auth";
+import { cookiesSecurises, domaineCookie, nomCookieSession } from "@/lib/cookieSession";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
@@ -259,6 +260,24 @@ export const authOptions: NextAuthOptions  = {
         tokenVersion: (token.tokenVersion as number | undefined) ?? 0,
       };
       return session;
+    },
+  },
+
+  /**
+   * Cookie de session partagé avec Pilot (`pilote.dashboard.neuracorp.ai`) quand
+   * `AUTH_COOKIE_DOMAIN` est posé. Les autres cookies NextAuth (CSRF, callback)
+   * restent liés à l'hôte : chaque espace a les siens, la connexion marche des deux côtés.
+   */
+  cookies: {
+    sessionToken: {
+      name: nomCookieSession(),
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: cookiesSecurises(),
+        domain: domaineCookie(),
+      },
     },
   },
 

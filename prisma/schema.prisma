@@ -84,6 +84,36 @@ model User {
   updatedAt DateTime @updatedAt
 
   @@index([role])
+
+  // Pilot (CRM interne), relations inverses sans colonne (plan 2026-11-pilot-dans-le-dashboard)
+  organisationsCompte       CrmOrganisation[]            @relation("OrganisationCompte")
+  organisationsResponsable  CrmOrganisation[]            @relation("OrganisationResponsable")
+  organisationsChefDeProjet CrmOrganisation[]            @relation("OrganisationChefDeProjet")
+  evenements                CrmEvenement[]               @relation("EvenementAuteur")
+  acquittements             CrmAcquittement[]            @relation("AcquittementAuteur")
+  demandesEnvoyees          CrmDemande[]                 @relation("DemandeDemandeur")
+  demandesRecues            CrmDemande[]                 @relation("DemandeDestinataire")
+  comptesEcartes            CrmCompteEcarte[]            @relation("CompteEcarte")
+  ecartsDecides             CrmCompteEcarte[]            @relation("CompteEcarteAuteur")
+  accesPilot                CrmAccesPilot?               @relation("AccesPilot")
+  accesCrees                CrmAccesPilot[]              @relation("AccesCreePar")
+  accesModifies             CrmAccesPilot[]              @relation("AccesModifiePar")
+  echanges                  CrmEchange[]                 @relation("EchangeAuteur")
+  etapes                    CrmEtapeIntegration[]        @relation("EtapeAuteur")
+  scenarios                 CrmScenario[]                @relation("ScenarioAuteur")
+  propositions              CrmProposition[]             @relation("PropositionAuteur")
+  temperaturesForcees       CrmOrganisation[]            @relation("OrganisationTemperatureForcee")
+  concurrentsCrees          CrmConcurrent[]              @relation("ConcurrentCreePar")
+  relevesConcurrentsCrees   CrmReleveConcurrent[]        @relation("ReleveConcurrentCreePar")
+  grillesTarifairesCreees   CrmGrilleTarifaire[]         @relation("GrilleTarifaireCreePar")
+  departementCompte         CrmDepartementCompte?        @relation("DepartementCompte")
+  commentairesEcrits        CrmCommentaire[]             @relation("CommentaireAuteur")
+  commentairesCibles        CrmCommentaire[]             @relation("CommentairePersonneCible")
+  commentairesRecus         CrmDestinataireCommentaire[] @relation("CommentaireDestinataire")
+  directeurGeneral          CrmDirecteurGeneral?         @relation("DirecteurGeneral")
+  directeursDesignes        CrmDirecteurGeneral[]        @relation("DirecteurGeneralModifiePar")
+  alertesAttribuees         CrmAttributionAlerte[]       @relation("AttributionAlerteDestinataire")
+  attributionsDecidees      CrmAttributionAlerte[]       @relation("AttributionAlerteAuteur")
 }
 
 model Product {
@@ -94,6 +124,15 @@ model Product {
   FileSubmission FileSubmission[]
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
+
+  // Pilot (CRM interne), relations inverses sans colonne (plan 2026-11-pilot-dans-le-dashboard)
+  centresProduits   CrmCentreProduit[]
+  etapes            CrmEtapeIntegration[]
+  lignesContrat     CrmLigneContrat[]
+  lignesProposition CrmLigneProposition[]
+  opportunites      CrmOpportunite[]
+  caMensuels        CrmCaMensuel[]
+  tarifs            CrmTarif[]
 }
 
 model UserProduct {
@@ -131,6 +170,9 @@ model UserProduct {
   CallConversations CallConversation[]
 
   @@unique([userId, productId])
+
+  // Pilot (CRM interne), relations inverses sans colonne (plan 2026-11-pilot-dans-le-dashboard)
+  centresCrm   CrmCentreProduit[]
 }
 
 model UserNumber {
@@ -225,9 +267,18 @@ model Notification {
   message   String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+  /// Notifications communes au Dashboard et à Pilot (SQL 2026_11_23_notifications_communes.sql).
+  /// `type` : ticket, pilot.demande, pilot.commentaire, pilot.alerte. Null = ancien ticket.
+  type      String?
+  /// Chemin ouvert au clic (/pilot/..., /admin/...). Null : on retombe sur le ticket.
+  lien      String?
+  /// Clé de déduplication par destinataire : une même cause ne notifie qu'une fois.
+  cle       String?
 
   ticket Ticket? @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cle])
 }
 
 model TalkSettings {
@@ -378,3 +429,1481 @@ model LoginAttempt {
   @@index([ip, createdAt])
   @@index([email, createdAt])
 }
+
+// ===========================================================================
+// LYRAE PILOT : CRM interne (src/pilot, src/app/pilot). Tables créées en SQL manuel
+// (prisma/migrations/manual/*pilot*.sql), déclarées ici pour le client Prisma.
+// Jamais de prisma migrate / db push sur ces tables (docs/pilot/CHOIX.md, C-01).
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Énumérations
+//
+// Règle transverse n° 2 de l'écosystème : on ajoute des valeurs, on n'en
+// renomme JAMAIS une. Une valeur abandonnée est laissée en place.
+// ---------------------------------------------------------------------------
+
+/// Étape commerciale d'une organisation. Les quatre premières sont le couloir
+/// commercial, les quatre suivantes la livraison et la vie du client. PERDU et
+/// EN_SOMMEIL sont des sorties possibles de n'importe quelle étape commerciale.
+enum CrmEtapeCommerciale {
+  PROSPECT
+  POURPARLERS
+  VISIO_TECHNIQUE
+  PROPOSITION
+  SIGNE
+  EN_INTEGRATION
+  EN_PRODUCTION
+  ARRETE
+  PERDU
+  EN_SOMMEIL
+  EN_POC
+  POC_NON_TRANSFORME
+}
+
+enum CrmTypeOrganisation {
+  GROUPE_PRIVE
+  HOPITAL
+  GIE
+  CABINET
+  CLINIQUE
+  CHU
+}
+
+enum CrmTypeEchange {
+  VISIO_POURPARLERS
+  VISIO_TECHNIQUE
+  DEMO
+  MAIL
+  APPEL
+  DEVIS_ENVOYE
+  RELANCE
+  JALON
+  FORMATION
+  VISITE
+  /// Branchement au RIS et à la téléphonie, planifié puis confirmé (C-62).
+  INTERFACAGE
+  /// Message LinkedIn, canal de prospection du tableur des commerciaux (C-65).
+  LINKEDIN
+}
+
+/// Priorité commerciale d'un prospect (C-65), A+ d'abord. L'ordre sert au tri.
+enum CrmPriorite {
+  A_PLUS
+  A
+  B
+  C
+}
+
+/// Où en est la position d'un centre sur la carte (lot U). A_FAIRE : pas encore
+/// cherchée, ou adresse changée depuis. ADRESSE_INCOMPLETE : il manque la rue,
+/// ou le code postal et la ville ; rien n'est envoyé au service. AMBIGU : le
+/// service hésite, la position la plus probable est gardée. INTROUVABLE : rien
+/// de crédible. On ajoute des valeurs, on n'en renomme aucune.
+enum CrmGeocodageStatut {
+  A_FAIRE
+  OK
+  AMBIGU
+  INTROUVABLE
+  ADRESSE_INCOMPLETE
+}
+
+enum CrmRaisonSortie {
+  PRIX
+  CONCURRENT
+  PAS_DE_BUDGET
+  RIS_INCOMPATIBLE
+  TIMING
+  SANS_REPONSE
+  AUTRE
+}
+
+enum CrmAttitude {
+  SOUTIEN
+  NEUTRE
+  OPPOSANT
+  INCONNU
+}
+
+enum CrmStatutEchange {
+  PLANIFIE
+  REALISE
+  ANNULE
+}
+
+/// Types du journal : on ajoute, on ne renomme jamais.
+enum CrmTypeEvenement {
+  FORMATION_POC_CREEE
+  FORMATION_POC_PRIX_RENSEIGNE
+  FORMATION_POC_FACTURE_EMISE
+  ORGANISATION_CREEE
+  ORGANISATION_MODIFIEE
+  ETAPE_COMMERCIALE_CHANGEE
+  CONTACT_AJOUTE
+  CONTACT_MODIFIE
+  CONTACT_SUPPRIME
+  CENTRE_CREE
+  RATTACHEMENT_CREE
+  DATE_PROMISE_CHANGEE
+  ETAPE_INTEGRATION_COCHEE
+  ETAPE_INTEGRATION_DECOCHEE
+  ETAPE_INTEGRATION_REGRESSION
+  ATTENTE_TIERS_CHANGEE
+  ECHANGE_SAISI
+  ECHANGE_MODIFIE
+  PROCHAINE_ACTION_CHANGEE
+  PROPOSITION_CREEE
+  PROPOSITION_STATUT_CHANGE
+  CONTRAT_CREE
+  CONTRAT_MODIFIE
+  OPPORTUNITE_CREEE
+  OPPORTUNITE_MODIFIEE
+  SCENARIO_ENREGISTRE
+  ALERTE_ACQUITTEE
+  CA_MENSUEL_FIGE
+  IMPORT_EXECUTE
+  DEMANDE_CREEE
+  DEMANDE_TRAITEE
+  /// Reprise du parc (C-60) : un compte du Dashboard relié, écarté ou réaffiché.
+  COMPTE_REPRIS
+  COMPTE_ECARTE
+  COMPTE_REAFFICHE
+  /// Apport d'affaires (C-63).
+  APPORT_CREE
+  APPORT_MODIFIE
+  APPORT_RETIRE
+  FACTURE_APPORT_CHANGEE
+  APPORTEURS_MODIFIES
+  /// Comptes de l'équipe et droits (C-64).
+  COMPTE_CREE
+  ACCES_MODIFIE
+  ACCES_RETIRE
+  ACCES_RENDU
+  MOT_DE_PASSE_REINITIALISE
+  MOT_DE_PASSE_CHANGE
+  /// Concurrents et forçage de la température (lot R). Un événement de
+  /// concurrent n'a pas d'organisation : la cible est dans `apres` / `avant`.
+  CONCURRENT_CREE
+  CONCURRENT_MODIFIE
+  CONCURRENT_SUPPRIME
+  RELEVE_CONCURRENT_AJOUTE
+  RELEVE_CONCURRENT_MODIFIE
+  RELEVE_CONCURRENT_SUPPRIME
+  TEMPERATURE_FORCEE
+  TEMPERATURE_LIBEREE
+  /// Grille tarifaire commune et datée (lot S). Un événement de grille n'a pas
+  /// d'organisation : la cible est dans `apres` / `avant`.
+  GRILLE_TARIFAIRE_CREEE
+  GRILLE_TARIFAIRE_MODIFIEE
+  TARIF_AJOUTE
+  TARIF_MODIFIE
+  TARIF_SUPPRIME
+  GRILLE_TARIFAIRE_SUPPRIMEE
+  /// Commentaires avec alerte et départements (lot T). Le journal porte la cible
+  /// et le nombre de destinataires, jamais le texte (C-22, C-27). Un événement
+  /// de département n'a pas d'organisation : le compte est dans `apres` / `avant`.
+  COMMENTAIRE_ECRIT
+  COMMENTAIRE_SUPPRIME
+  DEPARTEMENT_MODIFIE
+  /// Qui fait quoi (lot X, C-91). Le journal porte le département de la
+  /// personne choisie et son identifiant, jamais son nom (C-22).
+  ALERTE_ATTRIBUEE
+  DIRECTEUR_GENERAL_DESIGNE
+  CYCLE_POC_OUVERT
+  CYCLE_POC_CLOS
+}
+
+/// Le département d'un compte de l'équipe (lot T). Proposés, en attente de
+/// validation. On ajoute des valeurs, on n'en renomme jamais.
+enum CrmDepartement {
+  COMMERCIAL
+  PROJET
+  TECHNIQUE
+  DIRECTION
+}
+
+/// Qui un commentaire prévient (lot T). AUCUN : une note sans alerte.
+enum CrmCibleCommentaire {
+  AUCUN
+  TOUS
+  DEPARTEMENT
+  PERSONNE
+}
+
+/// Famille d'un concurrent (lot R). On ajoute des valeurs, on n'en renomme jamais.
+enum CrmTypeConcurrent {
+  ROBOT_VOCAL
+  CENTRE_APPELS
+  SECRETARIAT_EXTERNALISE
+  EDITEUR_RDV
+  AUTRE
+}
+
+/// Température d'un dossier, du plus froid au plus chaud (lot R). Seul le
+/// forçage humain est stocké ; la température calculée ne l'est jamais (C-08).
+enum CrmTemperature {
+  FROID
+  TIEDE
+  CHAUD
+}
+
+/// Le rôle d'un compte de l'équipe dans Pilot (C-64). Le super-administrateur
+/// reste le rôle SUPER_ADMIN du Dashboard. On ajoute des valeurs, on n'en renomme jamais.
+enum CrmProfilPilot {
+  DEVELOPPEUR
+  GERANT
+}
+
+/// Les droits que le super-administrateur coche compte par compte (C-64).
+enum CrmDroitPilot {
+  VOIR_CA
+  EXPORTER_CA
+  MODIFIER_MONTANTS
+  EVALUER_PARC
+}
+
+/// Ce qu'on demande à un collègue de faire (C-58). On ajoute des types, on n'en renomme jamais.
+enum CrmTypeDemande {
+  RAPPELER_CLIENT
+  PLANIFIER_VISIO
+  PREPARER_DEVIS
+  VALIDER_REMISE
+  RELANCER_EDL
+  OBTENIR_ACCES_RIS
+  FINIR_MAPPING
+  PARAMETRER_ROBOT
+  TESTER_CRENEAUX
+  VERIFIER_TELEPHONIE
+  PLANIFIER_FORMATION
+  ENVOYER_ACCES_DASHBOARD
+  PREPARER_MISE_EN_SERVICE
+  AUTRE
+}
+
+enum CrmStatutDemande {
+  OUVERTE
+  FAITE
+  ANNULEE
+}
+
+enum CrmRoleDecision {
+  DECIDEUR
+  PRESCRIPTEUR
+  UTILISATEUR
+  TECHNIQUE
+  INCONNU
+}
+
+/// Les cases de la check-list d'intégration. Une clé par ligne du tableau du
+/// dossier produit. Le mode de cochage et les produits concernés ne vivent pas
+/// ici mais dans src/lib/checklist/definition.ts, pour qu'une évolution du
+/// référentiel ne demande pas de migration.
+enum CrmCleEtape {
+  PREMIERE_VISIO
+  VISIO_TECHNIQUE
+  JETON_XPLORE
+  CODE_CENTRE
+  MAPPING_EXAMENS
+  REGLAGES_ROBOT
+  INTERFACAGE_TELEPHONIQUE
+  INTEGRATION_SITE_WEB
+  FORMATION_SECRETAIRES
+  PREMIER_APPEL_REEL
+  PASSAGE_PRODUCTION
+  ACCES_DASHBOARD_ENTRAINEMENT
+  FORMATION_DASHBOARD
+  TEST_CRENEAUX
+  MESSAGES_RAPPEL
+  PREMIER_RAPPEL
+  /// Lot V (C-85) : la checklist de déploiement du 06/11/2026.
+  PASSATION
+  PRECADRAGE_INTERNE
+  PARCOURS_PATIENT
+  CONTACTS_FACTURATION
+  RESPONSABLE_DESIGNE
+  LISTE_ELEMENTS
+  REGLES_EXAMENS
+  LECTURE_ORDONNANCE
+  MESSAGES_PATIENTS
+  FORMATION_CONFIRMEE
+  DATE_DEMARRAGE_CONFIRMEE
+  PV_RECETTE
+  TOP_FACTURATION
+  SUIVI_J1
+  SUIVI_S1
+  BILAN_M1
+  ESSAI_VALIDE
+  BON_COMMANDE_EDL
+}
+
+enum CrmModeCochage {
+  MANUEL
+  AUTOMATIQUE
+  MIXTE
+}
+
+enum CrmTiers {
+  LYRAE
+  CLIENT
+  EDL
+  OPERATEUR_TELEPHONIE
+  PRESTATAIRE_SITE_WEB
+  AUTRE
+}
+
+enum CrmTypeLigne {
+  MISE_EN_SERVICE
+  ABONNEMENT
+  PART_VARIABLE
+  /// Facturée une fois, hors abonnement (lot S) : une mission ponctuelle, comme
+  /// la vente d'un connecteur RIS. Comptée au début officiel, comme une mise en service.
+  PRESTATION
+}
+
+/// Ce sur quoi porte un tarif de la grille (lot S). On ajoute des valeurs, on
+/// n'en renomme jamais. POURCENTAGE : un taux en pour-mille, sans montant.
+enum CrmBaseTarif {
+  PAR_SALLE
+  PAR_SITE
+  PAR_ORGANISATION
+  POURCENTAGE
+}
+
+/// Unité facturée d'une ligne à l'usage. Les compteurs correspondants sont tenus
+/// par le Dashboard, jamais par Pilot.
+enum CrmUniteVariable {
+  APPEL_TRAITE
+  RDV_PRIS
+  SMS_ENVOYE
+}
+
+enum CrmStatutContrat {
+  BROUILLON
+  ACTIF
+  TERMINE
+}
+
+/// Ce qui se passe à la fin de la durée du contrat (C-62).
+enum CrmReconduction {
+  TACITE
+  EXPRESSE
+  AUCUNE
+}
+
+enum CrmStatutProposition {
+  BROUILLON
+  ENVOYEE
+  EN_DISCUSSION
+  ACCEPTEE
+  REFUSEE
+  EXPIREE
+}
+
+enum CrmCategoriePrevision {
+  ENGAGE
+  PROBABLE
+  POSSIBLE
+  EXCLU
+}
+
+// ---------------------------------------------------------------------------
+// Modèles Crm* — propriété de Pilot
+// ---------------------------------------------------------------------------
+
+/// Les décisions de fin d'un cycle POC. Jamais renommées.
+enum CrmIssueCyclePoc {
+  VALIDE
+  NON_TRANSFORME
+  RETOUR_PROPOSITION
+  RETOUR_PROSPECTION
+}
+
+/// Historique des seuls cycles clos. Le cycle courant vit sur l'organisation.
+/// C-95 : une formation par dossier, liée au premier UUID de POC, sans contrat.
+model CrmFormationPoc {
+  organisationId Int @id
+  organisation CrmOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  cycleId String @unique @db.Uuid
+  debuteLe DateTime @db.Date
+  grilleId Int?
+  grille CrmGrilleTarifaire? @relation(fields: [grilleId], references: [id], onDelete: SetNull)
+  montantCentimes Int?
+  factureEmiseLe DateTime? @db.Date
+  comptabiliseeLe DateTime?
+  creeLe DateTime @default(now())
+
+  @@index([debuteLe])
+}
+
+model CrmCyclePoc {
+  id             String @id @db.Uuid
+  organisationId Int
+  organisation   CrmOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  debuteLe       DateTime @db.Date
+  prolongeLe     DateTime? @db.Date
+  issue          CrmIssueCyclePoc
+  decideLe       DateTime
+
+  @@index([organisationId, decideLe])
+}
+
+/// Le client ou le prospect. Une organisation porte l'étape commerciale ; ses
+/// centres portent chacun leur étape d'intégration, par produit.
+model CrmOrganisation {
+  formationPoc CrmFormationPoc?
+  id               Int                 @id @default(autoincrement())
+  raisonSocialeNom String
+  /// Clé stable de la ligne source CSV.
+  importCle        String?             @unique
+  notes            String?
+  type             CrmTypeOrganisation
+  etape            CrmEtapeCommerciale @default(PROSPECT)
+  /// POC avant signature, distinct de l’essai du contrat. Dates conservées après décision.
+  /// Identifiant stable du cycle courant ou dernier, archivé à la décision (C-94).
+  pocCycleId       String? @unique @db.Uuid
+  pocDebuteLe      DateTime? @db.Date
+  pocProlongeLe    DateTime? @db.Date
+
+  /// Renseignés quand l'étape est PERDU ou EN_SOMMEIL. Le dossier produit
+  /// impose que la raison soit notée.
+  raisonSortie           String?
+  dateSortie             DateTime?
+  raisonSortieCode       CrmRaisonSortie?
+  reveilLe               DateTime?
+  prochaineAction        String?
+  prochaineActionLe      DateTime?
+  decisionAttendueLe     DateTime?
+  solutionActuelle       String?
+  qualifBesoin           Boolean          @default(false)
+  qualifDecideur         Boolean          @default(false)
+  qualifBudget           Boolean          @default(false)
+  qualifCalendrier       Boolean          @default(false)
+  qualifSolutionActuelle Boolean          @default(false)
+
+  /// Le RIS utilisé par l'organisation. « Xplore » pour tout le parc actuel ;
+  /// la question « Desk vise-t-il d'autres RIS ? » reste ouverte.
+  ris                String?
+  nombreSites        Int?
+  nombreSalles       Int?
+  /// Volume d'appels estimé par jour, déclaré par le client en pourparlers.
+  volumeAppelsEstime Int?
+
+  /// Identité légale (C-89), lue dans l'annuaire des entreprises ou saisie.
+  /// CHECK en base : SIREN à 9 chiffres, SIRET à 14.
+  siren              String?
+  denominationLegale String?
+  siretSiege         String?
+  siegeAdresse       String?
+  siegeCodePostal    String?
+  siegeVille         String?
+  codeNaf            String?
+  formeJuridique     String?
+  /// Le jour de la dernière lecture de l'annuaire ; vide si saisie à la main.
+  annuaireLuLe       DateTime?
+
+  /// Fiche client enrichie (C-59). Listes de valeurs dans
+  /// src/lib/organisations/referentielClient.ts, pas en énumération.
+  risVersion         String?
+  outilRdv           String?
+  nombreSecretaires  Int?
+  nombreIrm          Int?
+  nombreScanners     Int?
+  nombreRadio        Int?
+  nombreEcho         Int?
+  nombreMammo        Int?
+  /// Codes de BLOCAGES_TECHNIQUES.
+  blocagesTechniques String[] @default([])
+  origine            String?
+  rattachementGht    String?
+
+  /// Prospection (C-65) : priorité commerciale et coordonnées de l'établissement.
+  /// Les personnes restent dans CrmContact, l'adresse sur le site (CrmCentre).
+  priorite  CrmPriorite?
+  telephone String?
+  email     String?
+  siteWeb   String?
+
+  /// Le concurrent en place chez le prospect (lot R).
+  concurrentId        Int?
+  concurrent          CrmConcurrent? @relation("OrganisationConcurrent", fields: [concurrentId], references: [id], onDelete: SetNull)
+  /// Le concurrent qui a gagné l'affaire, quand elle est perdue avec le motif CONCURRENT.
+  concurrentGagnantId Int?
+  concurrentGagnant   CrmConcurrent? @relation("OrganisationConcurrentGagnant", fields: [concurrentGagnantId], references: [id], onDelete: SetNull)
+
+  /// Forçage humain de la température, sur le modèle de probabiliteForcee
+  /// (C-44). Tout vide, ou la valeur et sa date ensemble (CHECK en base). La
+  /// température calculée n'est jamais stockée (C-08).
+  temperatureForcee      CrmTemperature?
+  temperatureForceeParId Int?
+  temperatureForceePar   User?           @relation("OrganisationTemperatureForcee", fields: [temperatureForceeParId], references: [id], onDelete: SetNull)
+  temperatureForceeLe    DateTime?
+
+  /// Compte Dashboard principal de l'organisation, dès qu'il existe.
+  utilisateurId Int?
+  utilisateur   User? @relation("OrganisationCompte", fields: [utilisateurId], references: [id], onDelete: SetNull)
+
+  /// Qui, chez Lyrae, est responsable de ce client.
+  responsableId Int?
+  responsable   User? @relation("OrganisationResponsable", fields: [responsableId], references: [id], onDelete: SetNull)
+
+  /// Chef de projet d'intégration. Le commercial reste responsableId.
+  chefDeProjetId Int?
+  chefDeProjet   User? @relation("OrganisationChefDeProjet", fields: [chefDeProjetId], references: [id], onDelete: SetNull)
+
+  /// Posé à chaque transition pour mesurer le vieillissement dans l'étape.
+  etapeDepuisLe DateTime @default(now())
+
+  /// Date du dernier échange, dénormalisée pour l'alerte « prospect sans contact
+  /// depuis 30 jours ». Recalculée à chaque écriture d'un CrmEchange.
+  dernierEchangeLe DateTime?
+
+  cyclesPoc           CrmCyclePoc[]
+  contacts            CrmContact[]
+  centres             CrmCentre[]
+  echanges            CrmEchange[]
+  contrats            CrmContrat[]
+  opportunites        CrmOpportunite[]
+  evenements          CrmEvenement[]
+  acquittements       CrmAcquittement[]
+  attributionsAlertes CrmAttributionAlerte[]
+  demandes            CrmDemande[]
+  vagues              CrmVague[]
+  propositions        CrmProposition[]
+  caMensuels          CrmCaMensuel[]
+  /// Présent quand le client a été apporté par un apporteur d'affaires (C-63).
+  apport              CrmApport?
+  prestataires        CrmPrestataire[]
+  commentaires        CrmCommentaire[]
+
+  creeLe DateTime @default(now())
+  majLe  DateTime @updatedAt
+
+  @@index([etape])
+  @@index([responsableId])
+  @@index([chefDeProjetId])
+  @@index([dernierEchangeLe])
+  @@index([prochaineActionLe])
+  @@index([reveilLe])
+  @@index([priorite])
+  @@index([concurrentId])
+  @@index([concurrentGagnantId])
+  @@index([siren])
+}
+
+/// Le journal ne porte que des champs Pilot, jamais de donnée patient ni les
+/// champs d'un contact supprimé. Les identifiants hors organisation et auteur
+/// restent des repères historiques, même si leur objet est supprimé.
+model CrmEvenement {
+  id   Int              @id @default(autoincrement())
+  type CrmTypeEvenement
+
+  organisationId     Int?
+  organisation       CrmOrganisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  centreId           Int?
+  centreProduitId    Int?
+  etapeIntegrationId Int?
+  echangeId          Int?
+  propositionId      Int?
+  contratId          Int?
+  opportuniteId      Int?
+
+  /// Null désigne le système (évaluateur, cron, import).
+  auteurId Int?
+  auteur   User? @relation("EvenementAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+
+  /// Phrase affichable telle quelle dans la chronologie.
+  resume     String
+  avant      Json?
+  apres      Json?
+  surveneuLe DateTime @default(now())
+
+  @@index([organisationId, surveneuLe])
+  @@index([type, surveneuLe])
+  @@index([surveneuLe])
+}
+
+/// Seule la décision de taire une alerte est stockée. Logique livrée en E.
+model CrmAcquittement {
+  id             Int             @id @default(autoincrement())
+  cleAlerte      String
+  organisationId Int
+  organisation   CrmOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  jusquAu        DateTime
+  raison         String
+  auteurId       Int?
+  auteur         User?           @relation("AcquittementAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+  creeLe         DateTime        @default(now())
+
+  @@index([cleAlerte, jusquAu])
+}
+
+/// Le directeur général (lot X, C-91) : une seule ligne, id = 1 (CHECK).
+/// Toute alerte lui va d'office ; il la réattribue. Sans ligne, ou si son
+/// accès est retiré, les alertes vont au premier super-administrateur.
+model CrmDirecteurGeneral {
+  id           Int      @id @default(1)
+  userId       Int      @unique
+  user         User     @relation("DirecteurGeneral", fields: [userId], references: [id], onDelete: Cascade)
+  modifieParId Int?
+  modifiePar   User?    @relation("DirecteurGeneralModifiePar", fields: [modifieParId], references: [id], onDelete: SetNull)
+  /// Lu par l'écran, sert de garde aux écritures concurrentes (C-26).
+  majLe        DateTime @updatedAt
+}
+
+/// À qui une alerte a été confiée (lot X, C-91). `cleGroupe` : la clé du groupe
+/// de l'alerte (« suivi-12 », « mise-en-service-34 ») ou sa propre clé. Seule
+/// cette décision humaine est stockée : l'alerte reste calculée à la lecture.
+model CrmAttributionAlerte {
+  id             Int             @id @default(autoincrement())
+  organisationId Int
+  organisation   CrmOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  cleGroupe      String
+  attribueeAId   Int
+  attribueeA     User            @relation("AttributionAlerteDestinataire", fields: [attribueeAId], references: [id], onDelete: Cascade)
+  parId          Int?
+  par            User?           @relation("AttributionAlerteAuteur", fields: [parId], references: [id], onDelete: SetNull)
+  creeLe         DateTime        @default(now())
+  majLe          DateTime        @updatedAt
+
+  @@unique([organisationId, cleGroupe])
+  @@index([attribueeAId])
+}
+
+/// Une demande d'action adressée à un collègue (C-58). `precisions` et
+/// `reponse` sont du texte libre : ni le journal ni les logs ne les portent.
+model CrmDemande {
+  id                 Int              @id @default(autoincrement())
+  organisationId     Int
+  organisation       CrmOrganisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  centreProduitId    Int?
+  etapeIntegrationId Int?
+  type               CrmTypeDemande
+  precisions         String?
+  demandeurId        Int?
+  demandeur          User?            @relation("DemandeDemandeur", fields: [demandeurId], references: [id], onDelete: SetNull)
+  destinataireId     Int
+  destinataire       User             @relation("DemandeDestinataire", fields: [destinataireId], references: [id], onDelete: Cascade)
+  echeanceLe         DateTime?
+  statut             CrmStatutDemande @default(OUVERTE)
+  traiteeLe          DateTime?
+  reponse            String?
+  creeLe             DateTime         @default(now())
+  majLe              DateTime         @updatedAt
+
+  @@index([destinataireId, statut])
+  @@index([demandeurId, statut])
+  @@index([organisationId, statut])
+}
+
+/// Reprise du parc (C-60) : un compte du Dashboard que l'équipe a décidé de ne
+/// pas suivre (démonstration, entraînement, test). Seule cette décision humaine
+/// est stockée, comme un acquittement : la liste des comptes à relier, elle, se
+/// recalcule à chaque lecture.
+model CrmCompteEcarte {
+  id       Int      @id @default(autoincrement())
+  userId   Int      @unique
+  user     User     @relation("CompteEcarte", fields: [userId], references: [id], onDelete: Cascade)
+  raison   String
+  auteurId Int?
+  auteur   User?    @relation("CompteEcarteAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+  creeLe   DateTime @default(now())
+}
+
+/// Ce qu'un compte de l'équipe peut faire dans Pilot (C-64) : son rôle, ses
+/// droits cochés, son mot de passe provisoire, son accès retiré. Un compte
+/// SUPER_ADMIN n'a pas de ligne : il a tous les droits. Un compte ADMIN sans
+/// ligne est traité en développeur, avec les droits par défaut de ce rôle.
+model CrmAccesPilot {
+  userId               Int             @id
+  user                 User            @relation("AccesPilot", fields: [userId], references: [id], onDelete: Cascade)
+  profil               CrmProfilPilot
+  droits               CrmDroitPilot[] @default([])
+  /// Posé à la création et à la réinitialisation, levé quand la personne choisit le sien.
+  motDePasseProvisoire Boolean         @default(false)
+  /// Accès retiré : la personne ne se connecte plus, ses traces restent.
+  retireLe             DateTime?
+  creeParId            Int?
+  creePar              User?           @relation("AccesCreePar", fields: [creeParId], references: [id], onDelete: SetNull)
+  modifieParId         Int?
+  modifiePar           User?           @relation("AccesModifiePar", fields: [modifieParId], references: [id], onDelete: SetNull)
+  creeLe               DateTime        @default(now())
+  /// Lu par l'écran, sert de garde aux écritures concurrentes (C-26).
+  majLe                DateTime        @updatedAt
+}
+
+/// Le département d'un compte de l'équipe, super-administrateur compris (lot T).
+/// Une table à part plutôt qu'une colonne de `CrmAccesPilot` : le
+/// super-administrateur n'y a pas de ligne (C-64), et cette table ne porte ni
+/// rôle ni droit. Pas de ligne : département pas encore choisi.
+model CrmDepartementCompte {
+  userId      Int            @id
+  user        User           @relation("DepartementCompte", fields: [userId], references: [id], onDelete: Cascade)
+  departement CrmDepartement
+  /// Lu par l'écran, sert de garde aux écritures concurrentes (C-26).
+  majLe       DateTime       @updatedAt
+
+  @@index([departement])
+}
+
+/// Un commentaire sur une fiche client, qui peut prévenir l'équipe (lot T).
+/// `texte` est du texte libre (1 à 2 000 signes, pas fait que d'espaces,
+/// CHECK) : ni le journal ni les logs. Supprimé pour de bon, avec ses
+/// destinataires. Cible cohérente (CHECK) : DEPARTEMENT avec `departementCible`
+/// seul, PERSONNE sans département (la personne est exigée à l'écriture par le
+/// service, vidée si son compte disparaît), AUCUN et TOUS sans rien. On ne se
+/// vise pas soi-même (CHECK).
+model CrmCommentaire {
+  id               Int                 @id @default(autoincrement())
+  organisationId   Int
+  organisation     CrmOrganisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  auteurId         Int?
+  auteur           User?               @relation("CommentaireAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+  texte            String
+  cible            CrmCibleCommentaire @default(AUCUN)
+  departementCible CrmDepartement?
+  personneCibleId  Int?
+  personneCible    User?               @relation("CommentairePersonneCible", fields: [personneCibleId], references: [id], onDelete: SetNull)
+  creeLe           DateTime            @default(now())
+
+  destinataires CrmDestinataireCommentaire[]
+
+  @@index([organisationId, creeLe(sort: Desc), id(sort: Desc)])
+}
+
+/// Qui un commentaire a prévenu, figé à l'écriture (qui était dans le
+/// département à ce moment-là), et quand il l'a lu. L'auteur n'en fait jamais
+/// partie : garde du service, une CHECK ne voit pas l'autre table.
+model CrmDestinataireCommentaire {
+  id             Int            @id @default(autoincrement())
+  commentaireId  Int
+  commentaire    CrmCommentaire @relation(fields: [commentaireId], references: [id], onDelete: Cascade)
+  destinataireId Int
+  destinataire   User           @relation("CommentaireDestinataire", fields: [destinataireId], references: [id], onDelete: Cascade)
+  luLe           DateTime?
+
+  @@unique([commentaireId, destinataireId])
+  @@index([destinataireId, luLe])
+}
+
+/// Groupe optionnel de rattachements déployés ensemble.
+model CrmVague {
+  id             Int                @id @default(autoincrement())
+  organisationId Int
+  organisation   CrmOrganisation    @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  numero         Int
+  nom            String?
+  datePromise    DateTime?
+  rattachements  CrmCentreProduit[]
+  creeLe         DateTime           @default(now())
+  majLe          DateTime           @updatedAt
+
+  @@unique([organisationId, numero])
+}
+
+model CrmContact {
+  id             Int             @id @default(autoincrement())
+  organisationId Int
+  organisation   CrmOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  nom              String
+  fonction         String?
+  email            String?
+  telephone        String?
+  roleDecision     CrmRoleDecision @default(INCONNU)
+  attitude         CrmAttitude     @default(INCONNU)
+  dernierContactLe DateTime?
+  principal        Boolean         @default(false)
+  /// Contact de facturation (lot V, C-85) : coche seul l'étape CONTACTS_FACTURATION.
+  facturation      Boolean         @default(false)
+  /// Le métier (C-88) : gérant, radiologue, prestataire informatique. Saisie
+  /// libre, liste proposée dans src/lib/organisations/referentielClient.ts.
+  metier           String?
+  notes            String?
+
+  echanges CrmEchange[]
+
+  creeLe DateTime @default(now())
+  majLe  DateTime @updatedAt
+
+  @@index([organisationId])
+}
+
+/// Un site du client. Relié à son UserProduct dès qu'il existe au Dashboard :
+/// à partir de là, l'usage et la complétude arrivent seuls.
+model CrmCentre {
+  id             Int             @id @default(autoincrement())
+  organisationId Int
+  organisation   CrmOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  nom                String
+  /// Identifiant du centre côté Xplore. Le dossier produit rappelle que
+  /// l'identifiant de centre porte sept noms différents dans l'écosystème :
+  /// ici on stocke le codeSite de la passerelle, et rien d'autre.
+  codeSite           String?
+  ville              String?
+  /// Fiche de signalement (C-63) : localisation complète, RIS du site (vide =
+  /// celui du site principal ou du groupe) et offres envisagées sur ce site.
+  adresse            String?
+  /// Prospection (C-65) : le département, donc la région, s'en déduit.
+  codePostal         String?
+  ris                String?
+  /// L'établissement (C-89) : SIRET (CHECK, 14 chiffres) et FINESS, lus dans l'annuaire.
+  siret              String?
+  finess             String?
+  offreTalk          Boolean    @default(false)
+  offreKonnect       Boolean    @default(false)
+  offreConnecteurRis Boolean    @default(false)
+  salles             CrmSalle[]
+
+  /// La carte (lot U, `2026_12_15_pilot_carte.sql`) : la position calculée
+  /// depuis la rue, le code postal et la ville, après l'écriture et jamais
+  /// pendant (`src/lib/carte/localiser.ts`). Changer l'adresse l'efface et
+  /// repasse le centre en A_FAIRE. Jamais journalisée. CHECK en base : les deux
+  /// coordonnées ensemble ou aucune, dans leurs bornes ; OK a une position,
+  /// A_FAIRE, INTROUVABLE et ADRESSE_INCOMPLETE n'en ont pas.
+  geocodageStatut CrmGeocodageStatut @default(A_FAIRE)
+  latitude        Decimal?           @db.Decimal(9, 6)
+  longitude       Decimal?           @db.Decimal(9, 6)
+  /// Score du service en millièmes (0 à 1000) : pas de flottant stocké.
+  geocodageScore  Int?
+  geocodeLe       DateTime?
+
+  etapesIntegration CrmEtapeIntegration[]
+  lignesContrat     CrmLigneContrat[]
+  lignesProposition CrmLigneProposition[]
+  rattachements     CrmCentreProduit[]
+
+  creeLe DateTime @default(now())
+  majLe  DateTime @updatedAt
+
+  @@unique([organisationId, nom])
+  @@index([organisationId])
+  @@index([codePostal])
+  @@index([geocodageStatut])
+}
+
+/// Le rattachement d'un centre à un produit, et au UserProduct du Dashboard qui
+/// le porte. C'est la jointure qui permet à la check-list de se cocher seule.
+model CrmCentreProduit {
+  id       Int       @id @default(autoincrement())
+  centreId Int
+  centre   CrmCentre @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  /// Null tant que le centre n'a pas de UserProduct au Dashboard : le client est
+  /// signé mais rien n'est encore provisionné.
+  userProductId Int?
+  userProduct   UserProduct? @relation(fields: [userProductId], references: [id], onDelete: SetNull)
+
+  /// Date promise au client pour la mise en production de ce produit sur ce
+  /// centre. Sert à l'alerte « date promise qui approche ».
+  datePromise          DateTime?
+  /// Première date promise, conservée même si la date courante est effacée.
+  datePromiseInitiale  DateTime?
+  vagueId              Int?
+  vague                CrmVague? @relation(fields: [vagueId], references: [id], onDelete: SetNull)
+  /// Posé par le cochage de PASSAGE_PRODUCTION, effacé par son décochage (K).
+  miseEnProductionLe   DateTime?
+  /// miseEnProductionLe + 14 jours. Pendant cette période, le silence s'alerte à 24 h.
+  suiviRenforceJusquAu DateTime?
+
+  creeLe DateTime @default(now())
+  majLe  DateTime @updatedAt
+
+  @@unique([centreId, productId])
+  @@index([userProductId])
+  @@index([vagueId])
+}
+
+/// Visio, mail, démo, devis : date, type, compte rendu, prochaine action.
+model CrmEchange {
+  id             Int             @id @default(autoincrement())
+  organisationId Int
+  organisation   CrmOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  contactId Int?
+  contact   CrmContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  type        CrmTypeEchange
+  statut      CrmStatutEchange @default(REALISE)
+  aLaChargeDe CrmTiers?
+  surveneuLe  DateTime
+  compteRendu String?
+
+  /// La prochaine action décidée pendant l'échange, et sa date. Une organisation
+  /// dont la prochaine action est en retard remonte dans la vue d'ensemble.
+  prochaineAction   String?
+  prochaineActionLe DateTime?
+
+  /// Une décision terminée continue de remplacer les décisions plus anciennes.
+  prochaineActionFaiteLe DateTime?
+
+  auteurId Int?
+  auteur   User? @relation("EchangeAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+
+  creeLe DateTime @default(now())
+  majLe  DateTime @updatedAt
+
+  @@index([organisationId, surveneuLe])
+  @@index([prochaineActionLe])
+  @@index([statut, surveneuLe])
+}
+
+/// Une case de check-list, par centre et par produit.
+///
+/// Invariant du dossier produit : une étape dont le mode est AUTOMATIQUE ne peut
+/// jamais être cochée à la main, « pour qu'il n'y ait jamais deux vérités ».
+/// Les lignes automatiques ne sont donc JAMAIS écrites par un humain : elles
+/// sont le reflet, en base, du dernier passage de l'évaluateur de complétude.
+model CrmEtapeIntegration {
+  id       Int       @id @default(autoincrement())
+  centreId Int
+  centre   CrmCentre @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  cle  CrmCleEtape
+  mode CrmModeCochage
+
+  faite   Boolean   @default(false)
+  faiteLe DateTime?
+
+  /// Null pour une étape automatique : l'auteur est le système.
+  auteurId Int?
+  auteur   User? @relation("EtapeAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+
+  /// Pour une étape automatique : ce que l'évaluateur a constaté, en clair, pour
+  /// que le chef de projet sache pourquoi la case est vide.
+  motif String?
+
+  /// Liste des présents, pour la formation des secrétaires.
+  commentaire String?
+
+  /// Dernier passage de l'évaluateur sur cette ligne (étapes automatiques).
+  evalueeLe DateTime?
+
+  enAttenteDe       CrmTiers?
+  demandeeLe        DateTime?
+  derniereRelanceLe DateTime?
+  echeanceLe        DateTime?
+
+  creeLe DateTime @default(now())
+  majLe  DateTime @updatedAt
+
+  @@unique([centreId, productId, cle])
+  @@index([productId, cle])
+  @@index([faite])
+  @@index([enAttenteDe])
+}
+
+model CrmProposition {
+  id              Int                   @id @default(autoincrement())
+  organisationId  Int
+  organisation    CrmOrganisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  version         Int
+  statut          CrmStatutProposition  @default(BROUILLON)
+  envoyeeLe       DateTime?
+  valideJusquAu   DateTime?
+  repondueLe      DateTime?
+  remisePourMille Int                   @default(0)
+  engagementMois  Int?
+  preavisMois     Int?
+  documentUrl     String?
+  reponseClient   String?
+  notes           String?
+  auteurId        Int?
+  auteur          User?                 @relation("PropositionAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+  /// La grille dont la version a tiré ses prix (lot S). Une grille utilisée ne
+  /// se supprime pas (RESTRICT). Vide pour les versions antérieures au lot S.
+  grilleId        Int?
+  grille          CrmGrilleTarifaire?   @relation(fields: [grilleId], references: [id], onDelete: Restrict)
+  lignes          CrmLigneProposition[]
+  contrat         CrmContrat?
+  creeLe          DateTime              @default(now())
+  majLe           DateTime              @updatedAt
+
+  @@unique([organisationId, version])
+  @@index([statut, valideJusquAu])
+  @@index([grilleId])
+}
+
+model CrmLigneProposition {
+  id                   Int               @id @default(autoincrement())
+  propositionId        Int
+  proposition          CrmProposition    @relation(fields: [propositionId], references: [id], onDelete: Cascade)
+  /// Facultatif depuis le lot S : une prestation ou le connecteur RIS n'est pas
+  /// un produit du catalogue. Sans produit, le libellé est obligatoire (CHECK).
+  productId            Int?
+  product              Product?          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  centreId             Int?
+  centre               CrmCentre?        @relation(fields: [centreId], references: [id], onDelete: SetNull)
+  type                 CrmTypeLigne
+  montantCentimes      Int               @default(0)
+  unite                CrmUniteVariable?
+  volumeInclus         Int?
+  libelle              String?
+  /// Geste commercial (lot S) : la ligne est offerte au client.
+  /// Le calcul de la ligne (C-90) : quantité × prix unitaire, moins sa remise.
+  /// La base dit ce qu'on compte (par salle, par site). Vides : montant saisi.
+  quantite             Int?
+  prixUnitaireCentimes Int?
+  baseQuantite         CrmBaseTarif?
+  /// En pour-mille. Vide : la ligne suit la remise de la version.
+  remisePourMille      Int?
+  offerte              Boolean           @default(false)
+
+  @@index([propositionId])
+}
+
+model CrmContrat {
+  id             Int             @id @default(autoincrement())
+  organisationId Int
+  organisation   CrmOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  reference            String?
+  statut               CrmStatutContrat @default(BROUILLON)
+  signeLe              DateTime?
+  debuteLe             DateTime?
+  termineLe            DateTime?
+  /// Échéance de renouvellement, pour l'écran Chiffre d'affaires.
+  renouvelleLe         DateTime?
+  engagementMois       Int?
+  preavisMois          Int?
+  /// Essai avant le début officiel (C-62). Il ne compte pas dans le chiffre
+  /// d'affaires : la projection part de debuteLe (C-45).
+  essaiDebuteLe        DateTime?
+  essaiJours           Int?
+  reconduction         CrmReconduction?
+  /// Conditions négociées en plus des lignes. Texte libre : jamais dans le
+  /// résumé du journal ni dans les logs.
+  conditionsTarifaires String?
+  propositionId        Int?             @unique
+  proposition          CrmProposition?  @relation(fields: [propositionId], references: [id], onDelete: SetNull)
+
+  lignes CrmLigneContrat[]
+
+  creeLe DateTime @default(now())
+  majLe  DateTime @updatedAt
+
+  @@index([organisationId])
+  @@index([statut])
+}
+
+/// Une ligne de contrat : un produit, un type de facturation, un montant.
+/// Le modèle tarifaire réel de Lyrae n'est pas tranché (question ouverte du
+/// dossier produit) : cette structure couvre forfait + usage, par site ou pour
+/// l'organisation entière.
+model CrmLigneContrat {
+  id        Int        @id @default(autoincrement())
+  contratId Int
+  contrat   CrmContrat @relation(fields: [contratId], references: [id], onDelete: Cascade)
+
+  /// Facultatif depuis le lot S, comme sur la ligne de proposition. Sans
+  /// produit, le libellé est obligatoire (CHECK).
+  productId Int?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  /// Null = la ligne porte sur toute l'organisation ; sinon elle est rattachée
+  /// à un centre précis (tarification par site).
+  centreId Int?
+  centre   CrmCentre? @relation(fields: [centreId], references: [id], onDelete: SetNull)
+
+  type CrmTypeLigne
+
+  /// Montant en centimes d'euro. Jamais de flottant pour de l'argent.
+  montantCentimes Int @default(0)
+
+  /// Pour une ligne PART_VARIABLE seulement.
+  unite        CrmUniteVariable?
+  /// Volume inclus dans l'abonnement avant facturation à l'unité.
+  volumeInclus Int?
+
+  libelle String?
+
+  /// Geste commercial (lot S) : la ligne est offerte au client.
+  /// Le calcul de la ligne (C-90) : quantité × prix unitaire, moins sa remise.
+  /// La base dit ce qu'on compte (par salle, par site). Vides : montant saisi.
+  quantite             Int?
+  prixUnitaireCentimes Int?
+  baseQuantite         CrmBaseTarif?
+  /// En pour-mille. Vide : la ligne suit la remise de la version.
+  remisePourMille      Int?
+  offerte              Boolean       @default(false)
+
+  creeLe DateTime @default(now())
+  majLe  DateTime @updatedAt
+
+  @@index([contratId])
+  @@index([productId])
+}
+
+/// Un prospect chiffré : montant mensuel estimé, probabilité, date de démarrage
+/// attendue. C'est la matière des scénarios.
+model CrmOpportunite {
+  id             Int             @id @default(autoincrement())
+  organisationId Int
+  organisation   CrmOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  libelle String?
+
+  /// Récurrent mensuel estimé, en centimes.
+  montantMensuelCentimes       Int @default(0)
+  /// Mise en service estimée, en centimes, facturée une fois au démarrage.
+  montantMiseEnServiceCentimes Int @default(0)
+
+  /// 0 à 100. Vient de l'étape par défaut, se corrige à la main.
+  probabilite        Int                   @default(0)
+  /// true dès qu'un humain a corrigé la probabilité : l'étape ne l'écrase plus.
+  probabiliteForcee  Boolean               @default(false)
+  categoriePrevision CrmCategoriePrevision @default(POSSIBLE)
+
+  /// Mois de démarrage attendu. Seules les opportunités dont la date est
+  /// antérieure ou égale au mois projeté comptent dans la projection.
+  demarrageAttenduLe DateTime?
+
+  /// Null tant que l'opportunité est ouverte.
+  gagneeLe    DateTime?
+  perdueLe    DateTime?
+  raisonPerte String?
+
+  scenarios CrmScenarioOpportunite[]
+
+  creeLe DateTime @default(now())
+  majLe  DateTime @updatedAt
+
+  @@index([organisationId])
+  @@index([demarrageAttenduLe])
+}
+
+/// Un jeu d'opportunités cochées ou décochées, enregistré sous un nom
+/// (« Bretagne signée au T1 ») et comparable au réel mois après mois.
+model CrmScenario {
+  id    Int     @id @default(autoincrement())
+  nom   String
+  notes String?
+
+  auteurId Int?
+  auteur   User? @relation("ScenarioAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+
+  opportunites CrmScenarioOpportunite[]
+
+  creeLe DateTime @default(now())
+  majLe  DateTime @updatedAt
+
+  @@unique([nom])
+}
+
+model CrmScenarioOpportunite {
+  id         Int         @id @default(autoincrement())
+  scenarioId Int
+  scenario   CrmScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  opportuniteId Int
+  opportunite   CrmOpportunite @relation(fields: [opportuniteId], references: [id], onDelete: Cascade)
+
+  cochee Boolean @default(true)
+
+  /// Décalage de la date de démarrage propre au scénario, sans toucher à
+  /// l'opportunité : « et si l'intégration glissait de deux mois ? ».
+  demarrageDecaleLe DateTime?
+
+  @@unique([scenarioId, opportuniteId])
+}
+
+/// Le réel d'un mois, figé le 1er du mois suivant. Jamais réécrit après figeLe.
+/// C'est ce que l'export comptable lit et ce à quoi un scénario se compare.
+model CrmCaMensuel {
+  id             Int             @id @default(autoincrement())
+  /// Premier jour du mois, à minuit UTC.
+  mois           DateTime
+  organisationId Int
+  organisation   CrmOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  /// Facultatif depuis le lot S : une ligne de contrat sans produit (prestation,
+  /// connecteur RIS) est figée sans produit, sous le produit `0` de la clé.
+  productId      Int?
+  product        Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  centreId       Int?
+
+  recurrentCentimes     Int               @default(0)
+  variableCentimes      Int               @default(0)
+  /// Facturé une fois ce mois-là : installations et prestations (lot S).
+  miseEnServiceCentimes Int               @default(0)
+  /// Volume ayant servi à la part variable, pour la vérification comptable.
+  volumeVariable        Int?
+  uniteVariable         CrmUniteVariable?
+
+  figeLe DateTime
+
+  /// `${mois AAAA-MM}|${organisationId}|${productId ?? 0}|${centreId ?? 0}` : une
+  /// unicité qui ne dépend pas d'un NULL, PostgreSQL les considérant distincts.
+  cle String @unique
+
+  @@index([mois])
+  @@index([organisationId, mois])
+}
+
+// ---------------------------------------------------------------------------
+// Apport d'affaires (C-63). Codes en texte, libellés dans
+// src/lib/apports/referentiel.ts. Argent en centimes, taux en points de base.
+// ---------------------------------------------------------------------------
+
+model CrmApporteur {
+  id             Int     @id @default(autoincrement())
+  nom            String
+  structure      String?
+  telephone      String?
+  email          String?
+  adresse        String?
+  siret          String?
+  rcs            String?
+  tvaIntracom    String?
+  prefixeFacture String?
+  mention        String?
+  commissionne   Boolean @default(true)
+  ordre          Int     @default(0)
+  cleImport      String? @unique
+
+  apports       CrmApport[]           @relation("ApportApporteur")
+  coApports     CrmApport[]           @relation("ApportCoApporteur")
+  factures      CrmFactureApport[]
+  parDefautDans CrmParametresApport[]
+
+  creeLe DateTime @default(now())
+  majLe  DateTime @updatedAt
+}
+
+/// Une seule ligne (id = 1). Lue avec ses valeurs par défaut si elle manque.
+model CrmParametresApport {
+  id                          Int           @id @default(1)
+  talkTtcCentimes             Int           @default(32500)
+  konnectTtcCentimes          Int           @default(9500)
+  tvaPdm                      Int           @default(2000)
+  connecteurRisPdm            Int           @default(1500)
+  installationTalkCentimes    Int           @default(75000)
+  installationKonnectCentimes Int           @default(45000)
+  /// site, groupe ou salle.
+  modeInstallation            String        @default("site")
+  seuil1Centimes              Int           @default(400000)
+  seuil2Centimes              Int           @default(1250000)
+  taux1Pdm                    Int           @default(250)
+  taux2Pdm                    Int           @default(500)
+  taux3Pdm                    Int           @default(1000)
+  autresClientsCentimes       Int           @default(0)
+  delaiEncaissementMois       Int           @default(1)
+  dureeCommissionMois         Int           @default(0)
+  horizonMois                 Int           @default(18)
+  inclureValidees             Boolean       @default(true)
+  inclureBcEnvoyes            Boolean       @default(true)
+  inclureProspects            Boolean       @default(false)
+  tvaFacturePdm               Int           @default(2000)
+  delaiPaiementJours          Int           @default(15)
+  clientNom                   String        @default("Neuracorp AI, SAS")
+  clientAdresse               String        @default("17 rue de la Marine, 56950 Crach")
+  clientRcs                   String        @default("RCS Lorient 933 852 717")
+  typesPrestataires           String[]      @default(["DSI Groupe", "Presta Informatique", "Presta Téléphonie", "Opérateur Téléphonie"])
+  apporteurParDefautId        Int?
+  apporteurParDefaut          CrmApporteur? @relation(fields: [apporteurParDefautId], references: [id], onDelete: SetNull)
+  majLe                       DateTime      @updatedAt
+}
+
+/// L'apport d'un client par un apporteur : fiche de signalement, décision,
+/// parcours de commande, offres validées au niveau du groupe.
+model CrmApport {
+  id              Int             @id @default(autoincrement())
+  organisationId  Int             @unique
+  organisation    CrmOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  apporteurId     Int
+  apporteur       CrmApporteur    @relation("ApportApporteur", fields: [apporteurId], references: [id], onDelete: Restrict)
+  coApporteurId   Int?
+  coApporteur     CrmApporteur?   @relation("ApportCoApporteur", fields: [coApporteurId], references: [id], onDelete: SetNull)
+  /// Part du chiffre d'affaires revenant au co-apporteur, en pourcentage entier.
+  coApporteurPart Int             @default(30)
+
+  denominationSociale    String?
+  siren                  String?
+  adresseSiege           String?
+  /// independant, investisseur, public, prive.
+  categorie              String?
+  investisseur           String?
+  precisionCategorie     String?
+  signaleLe              DateTime?
+  besoin                 String?
+  risCodeClient          String?
+  risCodesSites          String?
+  risCommercial          String?
+  risCommercialTelephone String?
+  risCommercialEmail     String?
+  /// sites ou groupe (article 3.4).
+  perimetre              String    @default("sites")
+  /// attente, valide, refuse.
+  decision               String    @default("attente")
+  decisionLe             DateTime?
+  deploiementPrevuLe     DateTime?
+  observations           String?
+  offreTalk              Boolean   @default(false)
+  offreKonnect           Boolean   @default(false)
+  offreConnecteurRis     Boolean   @default(false)
+  bcEnvoyeLe             DateTime?
+  commandeValideeLe      DateTime?
+  commandeInstalleeLe    DateTime?
+  cleImport              String?   @unique
+
+  creeLe DateTime @default(now())
+  majLe  DateTime @updatedAt
+
+  @@index([apporteurId])
+  @@index([coApporteurId])
+}
+
+model CrmSalle {
+  id       Int       @id @default(autoincrement())
+  centreId Int
+  centre   CrmCentre @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  libelle  String
+  /// Code de MODALITES (RX, ECHO, IRM…).
+  modalite String
+  ordre    Int       @default(0)
+  creeLe   DateTime  @default(now())
+
+  @@index([centreId])
+}
+
+model CrmPrestataire {
+  id             Int             @id @default(autoincrement())
+  organisationId Int
+  organisation   CrmOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  type           String?
+  societe        String?
+  nom            String?
+  telephone      String?
+  email          String?
+  commentaire    String?
+  ordre          Int             @default(0)
+  creeLe         DateTime        @default(now())
+  majLe          DateTime        @updatedAt
+
+  @@index([organisationId])
+}
+
+model CrmFactureApport {
+  id            Int          @id @default(autoincrement())
+  apporteurId   Int
+  apporteur     CrmApporteur @relation(fields: [apporteurId], references: [id], onDelete: Restrict)
+  /// Premier jour du mois d'encaissement, à minuit UTC.
+  mois          DateTime
+  /// a_emettre, emise, payee.
+  statut        String       @default("a_emettre")
+  numero        String?
+  emiseLe       DateTime?
+  echeanceLe    DateTime?
+  payeeLe       DateTime?
+  /// { organisationId: centimes } quand l'encaissé diffère du théorique.
+  encaissements Json         @default("{}")
+  /// La facture telle qu'émise, figée.
+  fige          Json?
+  creeLe        DateTime     @default(now())
+  majLe         DateTime     @updatedAt
+
+  @@unique([apporteurId, mois])
+}
+
+// ---------------------------------------------------------------------------
+// Concurrents (lot R). Le relevé en vigueur est le plus récent par releveLe,
+// puis par id : rien n'est stocké pour cela. Argent en centimes, montants
+// positifs ou nuls (CHECK en base).
+// ---------------------------------------------------------------------------
+
+/// Un concurrent. Nom unique tel que saisi (la casse n'est pas comparée en
+/// base). `offre` et `notes` sont du texte libre : ni le journal ni les logs.
+model CrmConcurrent {
+  id        Int               @id @default(autoincrement())
+  nom       String            @unique
+  type      CrmTypeConcurrent
+  offre     String?
+  siteWeb   String?
+  notes     String?
+  creeParId Int?
+  creePar   User?             @relation("ConcurrentCreePar", fields: [creeParId], references: [id], onDelete: SetNull)
+
+  releves              CrmReleveConcurrent[]
+  organisationsEnPlace CrmOrganisation[]     @relation("OrganisationConcurrent")
+  affairesGagnees      CrmOrganisation[]     @relation("OrganisationConcurrentGagnant")
+
+  creeLe DateTime @default(now())
+  /// Lu par l'écran, sert de garde aux écritures concurrentes (C-26).
+  majLe  DateTime @updatedAt
+}
+
+/// Un relevé de prix daté. `conditions` et `source` sont du texte libre : ni le
+/// journal ni les logs.
+model CrmReleveConcurrent {
+  id                       Int           @id @default(autoincrement())
+  concurrentId             Int
+  concurrent               CrmConcurrent @relation(fields: [concurrentId], references: [id], onDelete: Cascade)
+  releveLe                 DateTime
+  /// Prix repère par salle et par mois, en centimes.
+  prixSalleMoisCentimes    Int?
+  prixInstallationCentimes Int?
+  conditions               String?
+  /// D'où vient le relevé.
+  source                   String?
+  creeParId                Int?
+  creePar                  User?         @relation("ReleveConcurrentCreePar", fields: [creeParId], references: [id], onDelete: SetNull)
+  creeLe                   DateTime      @default(now())
+  /// La version lue par l'écran : une correction écrit sous condition de cette valeur (C-26).
+  majLe                    DateTime      @updatedAt
+
+  @@index([concurrentId, releveLe(sort: Desc), id(sort: Desc)])
+}
+
+/// Une grille tarifaire commune et datée (lot S). Propositions, contrats et
+/// grilles sont en HT. La grille en vigueur est celle dont `applicableLe` est la
+/// plus récente sans dépasser aujourd'hui, calculée à la lecture (C-08) ; une
+/// grille datée dans le futur est la prochaine grille. `notes` est du texte
+/// libre : ni le journal ni les logs.
+model CrmGrilleTarifaire {
+  formationsPoc CrmFormationPoc[]
+  id           Int      @id @default(autoincrement())
+  /// Minuit UTC (CHECK) : une grille par jour d'application.
+  applicableLe DateTime @unique
+  notes        String?
+  creeParId    Int?
+  creePar      User?    @relation("GrilleTarifaireCreePar", fields: [creeParId], references: [id], onDelete: SetNull)
+
+  tarifs       CrmTarif[]
+  propositions CrmProposition[]
+
+  creeLe DateTime @default(now())
+  /// Lu par l'écran, sert de garde aux écritures concurrentes (C-26).
+  majLe  DateTime @updatedAt
+}
+
+/// Un tarif d'une grille, en HT. `code` est stable et unique dans la grille
+/// (TALK, CONNECTEUR_RIS…) : le code retrouve un tarif sans dépendre de son
+/// libellé. `productId` est facultatif : le connecteur RIS n'est pas un produit
+/// du catalogue. Un montant vide se lit « Prix à renseigner », jamais 0 €.
+/// Base POURCENTAGE : un `pourMille` et pas de montant ; autre base : pas de
+/// `pourMille` (CHECK).
+model CrmTarif {
+  id                Int                @id @default(autoincrement())
+  grilleId          Int
+  grille            CrmGrilleTarifaire @relation(fields: [grilleId], references: [id], onDelete: Cascade)
+  productId         Int?
+  product           Product?           @relation(fields: [productId], references: [id], onDelete: SetNull)
+  libelle           String
+  code              String
+  type              CrmTypeLigne
+  base              CrmBaseTarif
+  montantHtCentimes Int?
+  pourMille         Int?
+  ordre             Int                @default(0)
+
+  @@unique([grilleId, code])
+}
+

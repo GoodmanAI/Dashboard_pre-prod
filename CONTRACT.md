@@ -898,6 +898,14 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 | Prisma (16) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
 | SQL manuel (19) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `KonnectSites`, `KonnectDemandesRappel`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionDocument`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus`, `CentreStatut`, `ReferentielExamens` |
 
+**Pilot, CRM interne (23/11/2026, branche `feat/pilot`, non déployé)** : tables `Crm*`
+(26 SQL manuels `2026_10_26_crm_pilot.sql` à `2026_12_21_pilot_facturation.sql`, rapatriées
+dans `schema.prisma`), lues et écrites par les seules routes de session `/api/pilot/*`.
+**Aucune route machine-à-machine ne change, aucune brique ne les lit.** `Notification`
+gagne `type`, `lien`, `cle` et l'index unique `(userId, cle)` (`2026_12_22_notifications_communes.sql`,
+additif, colonnes nullables : les notifications de tickets existantes ne changent pas).
+Plan : `lyrae/plans/2026-11-pilot-dans-le-dashboard.md`.
+
 `CentreStatut` (07/09/2026) porte le statut de cycle de vie d'un centre :
 `integration`, `production` ou `arrete`, une ligne par `userProductId`, donc **par couple
 client × produit** — un cabinet peut prendre des appels depuis six mois et ouvrir son

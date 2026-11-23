@@ -13,6 +13,8 @@
 import { db } from "@/lib/db";
 import { produitDepuisNom } from "@/lib/produits";
 import { EXAM_TYPES, type ExamType } from "@/lib/examTypes";
+import { lireGrilleEnVigueur } from "@/pilot/lib/tarifs/grille";
+import { prixDesSalles, ttc } from "@/pilot/lib/facturationSalles/calcul";
 import {
   comparerSites,
   TARIFS_PAR_DEFAUT,
@@ -104,7 +106,30 @@ export async function versionSallesDuUserProduct(userProductId: number): Promise
   }
 }
 
+/**
+ * Le prix TTC d'une salle par produit. Depuis l'intégration de Pilot (23/11/2026,
+ * décision d'Enzo), la grille datée de Pilot fait foi (codes TALK et KONNECT, base
+ * PAR_SALLE, HT) : on la convertit en TTC pour les écrans qui affichent en TTC.
+ * `TarifSalle` n'est plus lu que pour un produit absent de la grille, le temps que
+ * la grille soit complète en production. Plus aucun écran n'y écrit.
+ */
 export async function lireTarifs(): Promise<Tarifs> {
+  const anciens = await lireTarifsSalle();
+  try {
+    const grille = await lireGrilleEnVigueur();
+    const p = prixDesSalles(grille);
+    return {
+      talk: p.talk === null ? anciens.talk : ttc(p.talk),
+      konnect: p.konnect === null ? anciens.konnect : ttc(p.konnect),
+    };
+  } catch (e) {
+    // Tables de Pilot pas encore créées sur ce serveur : l'ancien prix.
+    if (tableAbsente(e) || (e as { code?: string })?.code === "P2021") return anciens;
+    throw e;
+  }
+}
+
+async function lireTarifsSalle(): Promise<Tarifs> {
   try {
     const res = await db.query<{ produit: string; prixMensuelTtcCts: number }>(
       `SELECT "produit", "prixMensuelTtcCts" FROM "TarifSalle"`

@@ -95,6 +95,9 @@ export async function GET(request: NextRequest) {
         message: true,
         isRead: true,
         createdAt: true,
+        // Notifications communes avec Pilot : type (pilot.*) et écran à ouvrir.
+        type: true,
+        lien: true,
         ticket: {
           select: {
             id: true,

@@ -362,7 +362,7 @@ export default function InstallationTalk() {
                 label={STATUTS[centre.statut].libelle}
                 size="small"
                 component={Link}
-                href="/admin/parc"
+                href="/pilot/parc-clients"
                 clickable
                 sx={{
                   bgcolor: STATUTS[centre.statut].couleur.fond,

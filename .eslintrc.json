@@ -9,6 +9,7 @@
         "src/app/api/**",
         "src/pages/api/**",
         "src/lib/**",
+        "src/pilot/lib/**",
         "src/middleware.ts",
         "scripts/**",
         "prisma/**",
