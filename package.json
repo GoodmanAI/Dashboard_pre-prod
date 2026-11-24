@@ -9,6 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:pilot": "next start -p 3001",
     "lint": "next lint",
     "seed": "ts-node prisma/seed.ts",
     "pilot:test": "vitest run",
@@ -17,7 +18,8 @@
     "pilot:figer": "tsx scripts/pilot/figer-ca.ts",
     "pilot:geocoder": "tsx scripts/pilot/geocoder.ts",
     "pilot:import": "tsx scripts/pilot/import-csv.ts",
-    "pilot:comptes": "tsx scripts/pilot/creer-comptes-internes.ts"
+    "pilot:comptes": "tsx scripts/pilot/creer-comptes-internes.ts",
+    "pilot:frontiere": "node scripts/pilot/controle-frontiere.mjs"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.29.1",

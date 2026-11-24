@@ -5,5 +5,5 @@ import { fileURLToPath } from "node:url";
 // du Dashboard n'a pas de tests : ce runner ne couvre que Pilot.
 export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
-  test: { environment: "node", include: ["src/pilot/**/*.test.ts"], env: { NODE_ENV: "test", PILOT_GEOCODAGE: "0" } },
+  test: { environment: "node", include: ["src/pilot/**/*.test.ts", "src/lib/**/*.test.ts"], env: { NODE_ENV: "test", PILOT_GEOCODAGE: "0" } },
 });

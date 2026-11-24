@@ -151,6 +151,21 @@ export const authOptions: NextAuthOptions  = {
           throw new Error(GENERIC_MSG);
         }
 
+        // 5 bis) Compte de l'équipe dont l'accès est retiré dans Pilot (écran Équipe) :
+        //    il ne se connecte plus, ni à Pilot ni au Dashboard (24/11/2026).
+        if (user.role === "ADMIN") {
+          const acces = await prisma.crmAccesPilot.findUnique({ where: { userId: user.id }, select: { retireLe: true } });
+          if (acces?.retireLe) {
+            await recordLoginAttempt(ip, email, false);
+            auditLog("auth", "login", {
+              success: false,
+              errorReason: "access-removed",
+              actor: { id: user.id, email, role: user.role, ip, userAgent },
+            });
+            throw new Error("L'accès de ce compte a été retiré. Adressez-vous au super-administrateur.");
+          }
+        }
+
         // 6) Succès : journaliser + reset état de lock
         await recordLoginAttempt(ip, email, true);
         await handleSuccessfulLogin(user.id, user.failedLoginAttempts, user.lockedUntil);

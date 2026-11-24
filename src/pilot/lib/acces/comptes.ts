@@ -9,6 +9,7 @@ import { journaliser, transactionJournalisee } from "@/pilot/lib/evenements/jour
 import { hacherMotDePasse, motDePasseProvisoire, verifierMotDePasse } from "@/pilot/lib/motDePasse";
 import { PROFILS, PROFIL_PAR_DEFAUT, droitsEffectifs, normaliser, refusDroits, type Profil } from "./droits";
 import { LIBELLES_DEPARTEMENT } from "./departements";
+import { libelleAcces, lireAccesInternes, normaliserAccesInternes, type AccesInternes } from "@/lib/accesInternes";
 
 /**
  * Les comptes de l'équipe et leurs droits (CHOIX.md, C-64).
@@ -45,11 +46,11 @@ const libelle = (profil: Profil) => PROFILS[profil].libelle;
 export async function chargerEquipe() {
   const comptes = await prisma.user.findMany({
     where: { role: { in: ["SUPER_ADMIN", "ADMIN"] } },
-    select: { id: true, name: true, email: true, role: true, accesPilot: true, departementCompte: { select: { departement: true, majLe: true } } },
+    select: { id: true, name: true, email: true, role: true, permissions: true, accesPilot: true, departementCompte: { select: { departement: true, majLe: true } } },
     orderBy: [{ name: "asc" }, { id: "asc" }],
   });
   return comptes
-    .map(({ accesPilot: a, departementCompte: dep, ...c }) => {
+    .map(({ accesPilot: a, departementCompte: dep, permissions, ...c }) => {
       const superAdmin = c.role === "SUPER_ADMIN";
       const profil: Profil | null = superAdmin ? null : a?.profil ?? PROFIL_PAR_DEFAUT;
       return {
@@ -63,6 +64,8 @@ export async function chargerEquipe() {
         // Lot T : null tant que personne n'a choisi. `departementMajLe` est la version lue, renvoyée à l'écriture (C-26).
         departement: dep?.departement ?? null,
         departementMajLe: dep?.majLe.toISOString() ?? null,
+        // Les écrans du Dashboard ouverts (24/11/2026). Vide : Pilot seul. Le super-administrateur ouvre tout.
+        accesDashboard: superAdmin ? null : lireAccesInternes(permissions),
       };
     })
     .sort((x, y) => Number(y.superAdmin) - Number(x.superAdmin));
@@ -80,11 +83,15 @@ export async function creerCompte(d: z.output<typeof creationCompte>, auteurId: 
     const id = await transactionJournalisee(async (tx) => {
       const existant = await tx.user.findFirst({ where: { email: { equals: d.email, mode: "insensitive" } }, select: { id: true } });
       if (existant) throw new ErreurMetier("Un compte existe déjà avec cette adresse e-mail.", 409);
-      const compte = await tx.user.create({ data: { name: d.nom, email: d.email, password, role: "ADMIN" }, select: { id: true } });
+      const dashboard = normaliserAccesInternes(d.dashboard ?? {});
+      const compte = await tx.user.create({
+        data: { name: d.nom, email: d.email, password, role: "ADMIN", permissions: dashboard as Prisma.InputJsonObject },
+        select: { id: true },
+      });
       await tx.crmAccesPilot.create({ data: { userId: compte.id, profil: d.profil, droits, motDePasseProvisoire: true, creeParId: auteurId, modifieParId: auteurId } });
       if (d.departement) await tx.crmDepartementCompte.create({ data: { userId: compte.id, departement: d.departement } });
       await journaliser(tx, { type: "COMPTE_CREE", auteurId, resume: `Compte créé : ${d.nom}, ${libelle(d.profil)}`,
-        apres: { userId: compte.id, profil: d.profil, droits, ...(d.departement ? { departement: d.departement } : {}) } });
+        apres: { userId: compte.id, profil: d.profil, droits, dashboard, ...(d.departement ? { departement: d.departement } : {}) } });
       return compte.id;
     });
     return { id, motDePasse };
@@ -102,6 +109,7 @@ type Operation = z.output<typeof operationAcces>;
 export async function agirSurAcces(userId: number, op: Operation, auteurId: number): Promise<{ motDePasse?: string }> {
   switch (op.operation) {
     case "droits": await modifierDroits(userId, op, auteurId); return {};
+    case "dashboard": await modifierAccesDashboard(userId, op, auteurId); return {};
     case "retirer": await retirerAcces(userId, auteurId); return {};
     case "rendre": await rendreAcces(userId, auteurId); return {};
     case "motDePasse": return { motDePasse: await reinitialiserMotDePasse(userId, auteurId) };
@@ -131,6 +139,32 @@ async function modifierDroits(userId: number, d: Extract<Operation, { operation:
   });
 }
 
+const memes = (a: AccesInternes, b: AccesInternes) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * Les écrans du Dashboard qu'un compte de l'équipe ouvre (24/11/2026, `src/lib/accesInternes.ts`).
+ * Rangés dans `User.permissions`, lus par le middleware à chaque requête. Un changement
+ * déconnecte la personne (`tokenVersion`) : elle se reconnecte avec ses nouveaux accès,
+ * aucune session ne garde ceux d'avant.
+ */
+async function modifierAccesDashboard(userId: number, d: Extract<Operation, { operation: "dashboard" }>, auteurId: number) {
+  const acces = normaliserAccesInternes(d.acces);
+  await transactionJournalisee(async (tx) => {
+    await verrouiller(tx, userId);
+    const compte = await compteModifiable(tx, userId);
+    if (compte.accesPilot?.retireLe) throw new ErreurMetier("L'accès de ce compte est retiré. Rendez-le avant de changer ses accès.", 409);
+    const { permissions } = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { permissions: true } });
+    const precedent = normaliserAccesInternes(permissions);
+    if (!memes(precedent, normaliserAccesInternes(d.avant))) throw new ErreurMetier(CONCURRENCE, 409);
+    if (memes(precedent, acces)) return;
+    await tx.user.update({ where: { id: userId }, data: { permissions: acces as Prisma.InputJsonObject, tokenVersion: { increment: 1 } } });
+    const noms = Object.keys(acces).map((c) => libelleAcces(c as keyof AccesInternes));
+    await journaliser(tx, { type: "ACCES_MODIFIE", auteurId,
+      resume: `Accès au Dashboard modifiés : ${compte.nom}, ${noms.length ? `${noms.length} écran(s)` : "Pilot seul"}`,
+      avant: { userId, dashboard: precedent }, apres: { userId, dashboard: acces } });
+  });
+}
+
 /** Le compte ne se connecte plus à Pilot, et une session ouverte s'arrête à l'appel suivant. Ses traces restent. */
 async function retirerAcces(userId: number, auteurId: number) {
   await transactionJournalisee(async (tx) => {
@@ -143,6 +177,8 @@ async function retirerAcces(userId: number, auteurId: number) {
       create: { userId, profil: PROFIL_PAR_DEFAUT, droits: [...PROFILS[PROFIL_PAR_DEFAUT].parDefaut], retireLe: maintenant, creeParId: auteurId, modifieParId: auteurId },
       update: { retireLe: maintenant, modifieParId: auteurId },
     });
+    // La session ouverte s'arrête, au Dashboard comme dans Pilot, et la connexion est refusée.
+    await tx.user.update({ where: { id: userId }, data: { tokenVersion: { increment: 1 } } });
     await journaliser(tx, { type: "ACCES_RETIRE", auteurId, resume: `Accès retiré : ${compte.nom}`, apres: { userId } });
   });
 }

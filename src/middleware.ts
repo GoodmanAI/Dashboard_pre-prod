@@ -10,6 +10,15 @@ import {
 import { origineDe, origineRefusee } from '@/pilot/lib/requete';
 import { ENTETE_CHEMIN } from '@/pilot/lib/refusSession';
 import { nomCookieSession } from '@/lib/cookieSession';
+import {
+  ENTETE_CHEMIN_ADMIN,
+  MESSAGE_ACCES_INTERNE,
+  apiPermiseAInterne,
+  lireAccesInternes,
+  ouvreLeDashboard,
+} from '@/lib/accesInternes';
+import { hasPermission } from '@/lib/permissions';
+import { peutOuvrirAdmin, verdictAcces } from '@/lib/pageAccess';
 
 /**
  * Endpoints API publics (pas de session requise).
@@ -154,6 +163,15 @@ function isPublicApi(pathname: string): boolean {
 }
 
 /**
+ * Les routes que la session ne regarde pas : la connexion, et les routes à clé ou à
+ * jeton patient, que le handler protège seul. Un compte interne n'en a pas besoin,
+ * sauf la connexion ; elles restent refusées s'il n'en a pas la page.
+ */
+function isPublicApiPourInterne(pathname: string): boolean {
+  return /^\/api\/auth(\/|$)/.test(pathname);
+}
+
+/**
  * Sous-domaine dédié aux liens SMS patient (rdv.neuracorp.ai).
  * Sur ce host on n'expose QUE les 2 pages publiques + leurs APIs internes,
  * pour éviter qu'un visiteur (ou un scanner) puisse atteindre le dashboard
@@ -258,6 +276,10 @@ export async function middleware(req: NextRequest) {
     // Sur l'hôte du Dashboard, les pages de Pilot s'ouvrent sur le leur. En local
     // (variable vide), elles restent sur localhost:3000/pilot.
     return NextResponse.redirect(new URL(pathname + req.nextUrl.search, process.env.NEXT_PUBLIC_PILOT_URL));
+  } else if (/^\/api\/pilot(\/|$)/.test(pathname) && process.env.NEXT_PUBLIC_PILOT_URL) {
+    // L'API de Pilot ne répond que sur son hôte, donc dans son propre processus
+    // (deploy/ecosystem.config.js) : le processus du Dashboard ne l'exécute jamais.
+    return new NextResponse('Not Found', { status: 404 });
   }
 
   // Les écrans de l'admin passés dans Pilot le 23/11/2026 : les anciens liens et favoris
@@ -295,6 +317,34 @@ export async function middleware(req: NextRequest) {
     return NextResponse.json({ error: MESSAGE_LECTURE_SEULE, erreur: MESSAGE_LECTURE_SEULE }, { status: 403 });
   }
 
+  // ---- Comptes internes (ADMIN) : seulement ce qui leur est coché (24/11/2026) ----
+  // Refus par défaut, pages ET routes d'API : l'écran Équipe de Pilot coche, écran par
+  // écran, ce qu'un compte de l'équipe ouvre au Dashboard (src/lib/accesInternes.ts).
+  // Sans rien de coché, il n'a que Pilot. Les gardes de chaque écran (menu, layout,
+  // PageAccessGuard) le redisent ; celle-ci est la seule qui protège les données.
+  if (token?.id && token.role === 'ADMIN' && !estCheminPilot(pathname)) {
+    const acces = lireAccesInternes(token.permissions);
+    if (pathname.startsWith('/api/')) {
+      if (!isPublicApiPourInterne(pathname) && !apiPermiseAInterne(pathname, acces)) {
+        return NextResponse.json({ error: MESSAGE_ACCES_INTERNE, erreur: MESSAGE_ACCES_INTERNE }, { status: 403 });
+      }
+    } else if (/^\/(admin|client)(\/|$)/.test(pathname)) {
+      const versPilot = new URL('/pilot', process.env.NEXT_PUBLIC_PILOT_URL || basePublique);
+      if (!ouvreLeDashboard(acces)) return NextResponse.redirect(versPilot);
+      const racineAdmin = /^\/admin\/?$/.test(pathname);
+      if (!racineAdmin) {
+        const verdict = verdictAcces(pathname);
+        const sujet = { role: 'ADMIN', permissions: token.permissions };
+        const ouvert =
+          verdict.genre === 'exempt' ||
+          verdict.genre === 'inconnu' || // l'écran le refuse lui-même (PageAccessGuard)
+          (verdict.genre === 'admin' && peutOuvrirAdmin(sujet, verdict.cle)) ||
+          (verdict.genre === 'page' && hasPermission(sujet, verdict.page, 'read'));
+        if (!ouvert) return NextResponse.redirect(new URL('/admin', basePublique));
+      }
+    }
+  }
+
   // ---- Pages de Pilot : comptes internes seulement ----
   if (/^\/pilot(\/|$)/.test(pathname)) {
     if (!token || !token.id) {
@@ -324,6 +374,14 @@ export async function middleware(req: NextRequest) {
 
     if (pathname.startsWith('/admin') && token.role !== 'ADMIN' && token.role !== 'SUPER_ADMIN') {
       return NextResponse.redirect(new URL('/client', req.url));
+    }
+
+    // Le chemin demandé, pour la seconde garde de `src/app/admin/layout.tsx` (un layout
+    // ne connaît pas son adresse). Toujours réécrit : un navigateur ne le choisit pas.
+    if (pathname.startsWith('/admin')) {
+      const entetes = new Headers(req.headers);
+      entetes.set(ENTETE_CHEMIN_ADMIN, pathname);
+      return NextResponse.next({ request: { headers: entetes } });
     }
 
     if (

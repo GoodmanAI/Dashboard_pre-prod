@@ -13,6 +13,17 @@ const profil = z.nativeEnum(CrmProfilPilot, { errorMap: () => ({ message: "Chois
 const droits = z.array(z.nativeEnum(CrmDroitPilot, { errorMap: () => ({ message: "Droit inconnu." }) }),
   { required_error: "Indiquez les droits.", invalid_type_error: "Indiquez les droits." }).max(20, "Droit inconnu.");
 
+/**
+ * Les écrans du Dashboard ouverts à un compte de l'équipe (24/11/2026,
+ * `src/lib/accesInternes.ts`) : clé d'écran, « read » ou « write » (gestes du
+ * quotidien). Les clés inconnues sont écartées au serveur par `normaliserAccesInternes`.
+ */
+const accesDashboard = z.record(
+  z.string().max(60, "Écran inconnu."),
+  z.enum(["read", "write"], { errorMap: () => ({ message: "Niveau d'accès inconnu." }) }),
+  { invalid_type_error: "Vérifiez les écrans cochés." },
+).refine((r) => Object.keys(r).length <= 80, "Écran inconnu.");
+
 export const creationCompte = z.object({
   nom: texte("Indiquez le nom de la personne.").trim().min(1, "Indiquez le nom de la personne.").max(120, "Le nom tient en 120 signes."),
   email: texte("Vérifiez l'adresse e-mail.").trim().toLowerCase().max(200, "Vérifiez l'adresse e-mail.").email("Vérifiez l'adresse e-mail."),
@@ -20,6 +31,8 @@ export const creationCompte = z.object({
   droits,
   /** Facultatif (lot T) : sans lui, « Département pas encore choisi ». */
   departement: z.nativeEnum(CrmDepartement, { errorMap: () => ({ message: "Choisissez un département." }) }).optional(),
+  /** Facultatif : sans lui, le compte n'ouvre que Pilot. */
+  dashboard: accesDashboard.optional(),
 }, CORPS).strict();
 
 const version = z.string({ invalid_type_error: "Rechargez la page." }).datetime({ message: "Rechargez la page." }).nullable();
@@ -27,6 +40,8 @@ const version = z.string({ invalid_type_error: "Rechargez la page." }).datetime(
 export const operationAcces = z.discriminatedUnion("operation", [
   /** `majLe` : la version lue par l'écran, null si le compte n'avait pas encore de ligne (C-26). */
   z.object({ operation: z.literal("droits"), profil, droits, majLe: version }).strict(),
+  /** `avant` : les accès lus par l'écran, pour ne pas écraser un changement fait entre-temps (C-26). */
+  z.object({ operation: z.literal("dashboard"), acces: accesDashboard, avant: accesDashboard }).strict(),
   z.object({ operation: z.literal("retirer") }).strict(),
   z.object({ operation: z.literal("rendre") }).strict(),
   z.object({ operation: z.literal("motDePasse") }).strict(),

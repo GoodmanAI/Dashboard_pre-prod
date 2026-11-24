@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
+import { headers } from "next/headers";
 import { authOptions } from "@/lib/authOptions";
+import { ENTETE_CHEMIN_ADMIN } from "@/lib/accesInternes";
+import { peutOuvrirAdmin, verdictAcces } from "@/lib/pageAccess";
+import { hasPermission } from "@/lib/permissions";
 
 /**
  * Garde serveur de tout l'espace `/admin`.
@@ -37,6 +41,23 @@ export default async function AdminLayout({
     // Un compte client qui tape une URL `/admin/...` repart chez lui plutôt que
     // sur une page d'erreur : il n'a rien fait de mal, il s'est trompé d'adresse.
     redirect("/");
+  }
+
+  // Un compte interne (ADMIN, 24/11/2026) n'ouvre que les écrans qui lui sont cochés :
+  // le middleware l'a déjà vérifié, ceci est la seconde couche, sur la même règle.
+  if (role === "ADMIN") {
+    const chemin = headers().get(ENTETE_CHEMIN_ADMIN) ?? "";
+    // Sans l'en-tête, le middleware n'est pas passé : on ne sait rien, on refuse (vers
+    // Pilot, pour ne pas boucler sur /admin).
+    if (!chemin) redirect("/pilot");
+    const verdict = verdictAcces(chemin);
+    const sujet = session.user as any;
+    const ouvert =
+      /^\/admin\/?$/.test(chemin) ||
+      verdict.genre === "exempt" ||
+      (verdict.genre === "admin" && peutOuvrirAdmin(sujet, verdict.cle)) ||
+      (verdict.genre === "page" && hasPermission(sujet, verdict.page, "read"));
+    if (!ouvert) redirect("/admin");
   }
 
   return <>{children}</>;

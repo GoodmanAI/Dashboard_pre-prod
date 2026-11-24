@@ -17,10 +17,13 @@ import { DEPARTEMENTS, LIBELLES_DEPARTEMENT, LIBELLE_SANS_DEPARTEMENT } from "@/
 import type { CrmDepartement } from "@prisma/client";
 import { creationCompte, operationAcces } from "@/pilot/lib/validation/acces";
 import { JETONS } from "@/pilot/jetons";
+import { ChampsAccesDashboard, resumeAccesDashboard } from "@/pilot/components/formulaires/AccesDashboard";
+import { PREREGLAGES, type AccesInternes } from "@/lib/accesInternes";
 
 type Dialogue =
   | { type: "creer" }
   | { type: "droits"; membre: MembreEquipe }
+  | { type: "dashboard"; membre: MembreEquipe }
   | { type: "motDePasse"; membre: MembreEquipe }
   | { type: "retirer"; membre: MembreEquipe }
   | { type: "provisoire"; nom: string; motDePasse: string; nouveau: boolean };
@@ -98,10 +101,13 @@ function DialogueCreer({ fermer, cree }: { fermer: () => void; cree: (nom: strin
   const [choix, setChoix] = useState<{ profil: Profil; droits: Droit[] }>({ profil: "DEVELOPPEUR", droits: [...PROFILS.DEVELOPPEUR.parDefaut] });
   // Facultatif (lot T) : sans choix, « Département pas encore choisi », à compléter plus tard depuis la liste.
   const [departement, setDepartement] = useState<CrmDepartement | "">("");
+  // Les écrans du Dashboard, par préréglage ici ; on les affine ensuite avec « Accès au Dashboard ».
+  const [prereglage, setPrereglage] = useState(PREREGLAGES[0].cle);
   return <DialogueFormulaire titre="Nouveau compte" bouton="Créer le compte" fermer={fermer} soumettre={async (f) => {
     const nom = String(f.get("nom") ?? "").trim();
     const { motDePasse } = await envoyer<{ motDePasse: string }>("/api/pilot/equipe", "POST", creationCompte,
-      { nom, email: String(f.get("email") ?? ""), ...choix, ...(departement ? { departement } : {}) });
+      { nom, email: String(f.get("email") ?? ""), ...choix, ...(departement ? { departement } : {}),
+        dashboard: (PREREGLAGES.find((p) => p.cle === prereglage) ?? PREREGLAGES[0]).acces() });
     cree(nom, motDePasse);
   }}>
     <TextField name="nom" label="Nom" required fullWidth autoFocus autoComplete="off" helperText="Prénom et nom, tels que l'équipe les connaît." />
@@ -115,6 +121,29 @@ function DialogueCreer({ fermer, cree }: { fermer: () => void; cree: (nom: strin
       {DEPARTEMENTS.map((d) => <MenuItem key={d} value={d}>{LIBELLES_DEPARTEMENT[d]}</MenuItem>)}
     </TextField>
     <ChampsDroits profil={choix.profil} droits={choix.droits} changer={(profil, droits) => setChoix({ profil, droits })} />
+    <Box>
+      <Typography variant="subtitle2" component="p" sx={{ mb: 0.5 }}>Accès au Dashboard</Typography>
+      <RadioGroup value={prereglage} onChange={(e) => setPrereglage(e.target.value)}>
+        {PREREGLAGES.map((p) => <FormControlLabel key={p.cle} value={p.cle} control={<Radio />} sx={{ alignItems: "flex-start", mb: 0.5, "& .MuiRadio-root": { mt: -0.75 } }}
+          label={<Box><Box component="span" sx={{ fontWeight: 500 }}>{p.libelle}</Box>
+            <Typography variant="body2" color="text.secondary">{p.detail}</Typography></Box>} />)}
+      </RadioGroup>
+      <Typography variant="body2" color="text.secondary">Vous choisirez ensuite écran par écran avec « Accès au Dashboard ».</Typography>
+    </Box>
+  </DialogueFormulaire>;
+}
+
+function DialogueAccesDashboard({ membre, fermer, fini }: { membre: MembreEquipe; fermer: () => void; fini: () => void }) {
+  const avant: AccesInternes = membre.accesDashboard ?? {};
+  const [acces, setAcces] = useState<AccesInternes>(avant);
+  return <DialogueFormulaire titre={`Accès au Dashboard de ${membre.nom}`} fermer={fermer} soumettre={async () => {
+    await envoyer(`/api/pilot/equipe/${membre.id}`, "PATCH", operationAcces, { operation: "dashboard", acces, avant });
+    fini();
+  }}>
+    <Alert severity="info" icon={false}>
+      {membre.nom} sera déconnecté à l&apos;enregistrement, et se reconnectera avec ces accès.
+    </Alert>
+    <ChampsAccesDashboard acces={acces} changer={setAcces} />
   </DialogueFormulaire>;
 }
 
@@ -137,7 +166,8 @@ function Actions({ membre, ouvrir, rendre }: { membre: MembreEquipe; ouvrir: (d:
   if (membre.superAdmin) return null;
   if (membre.retireLe) return <Button variant="outlined" onClick={() => rendre(membre)}>Rendre l&apos;accès</Button>;
   return <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-    <Button variant="outlined" onClick={() => ouvrir({ type: "droits", membre })}>Droits</Button>
+    <Button variant="outlined" onClick={() => ouvrir({ type: "droits", membre })}>Droits dans Pilot</Button>
+    <Button variant="outlined" onClick={() => ouvrir({ type: "dashboard", membre })}>Accès au Dashboard</Button>
     <IconButton aria-label={`Plus d'actions pour ${membre.nom}`} aria-haspopup="menu" onClick={(e) => setAncre(e.currentTarget)}><IconDots size={20} /></IconButton>
     <Menu anchorEl={ancre} open={Boolean(ancre)} onClose={() => setAncre(null)} anchorOrigin={{ vertical: "bottom", horizontal: "right" }} transformOrigin={{ vertical: "top", horizontal: "right" }}>
       <MenuItem onClick={() => { setAncre(null); ouvrir({ type: "motDePasse", membre }); }}>Donner un nouveau mot de passe</MenuItem>
@@ -155,6 +185,7 @@ function LigneMembre({ membre, ouvrir, rendre, signaler }: { membre: MembreEquip
   return <Ligne data-compte={membre.id} nom={membre.nom} detail={<>
     <Box sx={{ overflowWrap: "anywhere" }}>{membre.email}</Box>
     {!membre.retireLe && <Box sx={{ color: "text.primary" }}>{resume(membre)}</Box>}
+    {!membre.retireLe && <Box sx={{ color: "text.primary" }}>{resumeAccesDashboard(membre.accesDashboard)}</Box>}
     {notes.map((n) => <Box key={String(n)} sx={{ color: membre.retireLe ? "text.secondary" : "warning.dark" }}>{n}</Box>)}
   </>}>
     <SelecteurDepartement compteId={membre.id} nom={membre.nom} departement={membre.departement} majLe={membre.departementMajLe} signaler={signaler} />
@@ -204,6 +235,8 @@ export function Equipe({ membres, directeur }: { membres: MembreEquipe[]; direct
       cree={(nom, motDePasse) => { setDialogue({ type: "provisoire", nom, motDePasse, nouveau: true }); router.refresh(); }} />}
     {dialogue?.type === "droits" && <DialogueDroits membre={dialogue.membre} fermer={() => setDialogue(null)}
       fini={() => termine(`Droits de ${dialogue.membre.nom} enregistrés.`)} />}
+    {dialogue?.type === "dashboard" && <DialogueAccesDashboard membre={dialogue.membre} fermer={() => setDialogue(null)}
+      fini={() => termine(`Accès au Dashboard de ${dialogue.membre.nom} enregistrés.`)} />}
     {dialogue?.type === "motDePasse" && <DialogueFormulaire titre={`Nouveau mot de passe pour ${dialogue.membre.nom} ?`} bouton="Donner un nouveau mot de passe"
       fermer={() => setDialogue(null)} soumettre={async () => {
         const { motDePasse } = await envoyer<{ motDePasse: string }>(`/api/pilot/equipe/${dialogue.membre.id}`, "PATCH", operationAcces, { operation: "motDePasse" });
@@ -216,7 +249,7 @@ export function Equipe({ membres, directeur }: { membres: MembreEquipe[]; direct
         await envoyer(`/api/pilot/equipe/${dialogue.membre.id}`, "PATCH", operationAcces, { operation: "retirer" });
         termine(`Accès de ${dialogue.membre.nom} retiré.`);
       }}>
-      <Typography>{dialogue.membre.nom} ne pourra plus se connecter à Pilot, et une session ouverte s&apos;arrête tout de suite.</Typography>
+      <Typography>{dialogue.membre.nom} ne pourra plus se connecter, ni à Pilot ni au Dashboard, et une session ouverte s&apos;arrête tout de suite.</Typography>
       <Typography color="text.secondary">Ses clients, ses demandes et son historique restent. Vous pourrez lui rendre l&apos;accès.</Typography>
     </DialogueFormulaire>}
     {dialogue?.type === "provisoire" && <MotDePasseProvisoire nom={dialogue.nom} motDePasse={dialogue.motDePasse} nouveau={dialogue.nouveau}
