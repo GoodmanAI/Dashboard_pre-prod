@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { assertUserProductOwnership, requireAuth } from "@/lib/auth-helpers";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
-import { slugifyQuestion, uniqueSlug } from "@/lib/moduleInfoSlug";
+import { prefixeDeRecherche, slugifyQuestion, uniqueSlug } from "@/lib/moduleInfoSlug";
 import { triggerAzureRebuildWebhook } from "@/lib/moduleInfoWebhook";
 import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
@@ -114,8 +114,9 @@ export async function POST(req: NextRequest) {
   // collisions entre centres. Rare mais possible (ex: "urgence-sans-rdv"
   // question standard qu'on retrouve chez plusieurs clients).
   const baseSlug = slugifyQuestion(question);
+  // Prefixe raccourci : voir `prefixeDeRecherche` (slug tronque a 60 et suffixe).
   const existing = await prisma.moduleInfoItem.findMany({
-    where: { id: { startsWith: baseSlug } },
+    where: { id: { startsWith: prefixeDeRecherche(baseSlug) } },
     select: { id: true },
   });
   const id = uniqueSlug(baseSlug, existing.map((e) => e.id));
