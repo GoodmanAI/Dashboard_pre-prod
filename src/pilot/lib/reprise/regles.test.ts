@@ -18,10 +18,10 @@ describe("grouperComptes", () => {
   it("met un compte par ligne, ses accès dessous, triés par produit", () => {
     const comptes = grouperComptes([
       ligne({ userProductId: 1, userId: 10, produit: "LyraeTalk", productId: 1, nom: "Cabinet A" }),
-      ligne({ userProductId: 4, userId: 10, produit: "Konnect", productId: 2, nom: "Cabinet A" }),
+      ligne({ userProductId: 4, userId: 10, produit: "LyraeKonnect", productId: 2, nom: "Cabinet A" }),
     ], etats);
     expect(comptes).toHaveLength(1);
-    expect(comptes[0].acces.map((a) => a.produit)).toEqual(["Konnect", "LyraeTalk"]);
+    expect(comptes[0].acces.map((a) => a.produit)).toEqual(["LyraeKonnect", "LyraeTalk"]);
     expect(comptes[0].acces[1]).toMatchObject({ statutCentre: "EN_INTEGRATION", dernierAppelLe: null });
   });
 
@@ -62,13 +62,13 @@ describe("etapesDeclarables", () => {
   it("ne propose jamais une étape automatique", () => {
     const automatiques = CHECKLIST.filter((e) => e.mode === "AUTOMATIQUE").map((e) => e.cle);
     expect(automatiques.length).toBeGreaterThan(0);
-    for (const produits of [["LyraeTalk"], ["Konnect"], ["Desk"], ["LyraeTalk", "Konnect"]]) {
+    for (const produits of [["LyraeTalk"], ["LyraeKonnect"], ["Desk"], ["LyraeTalk", "LyraeKonnect"]]) {
       expect(etapesDeclarables(produits).some((e) => automatiques.includes(e.cle))).toBe(false);
     }
   });
   it("suit les produits : la ligne téléphonique pour Talk, le site web pour Konnect", () => {
     const talk = etapesDeclarables(["LyraeTalk"]).map((e) => e.cle);
-    const konnect = etapesDeclarables(["Konnect"]).map((e) => e.cle);
+    const konnect = etapesDeclarables(["LyraeKonnect"]).map((e) => e.cle);
     expect(talk).toContain("INTERFACAGE_TELEPHONIQUE");
     expect(talk).not.toContain("INTEGRATION_SITE_WEB");
     expect(konnect).toContain("INTEGRATION_SITE_WEB");
@@ -76,7 +76,7 @@ describe("etapesDeclarables", () => {
     expect(konnect).toContain("FORMATION_SECRETAIRES");
   });
   it("réunit les étapes de plusieurs produits, sans doublon, dans l'ordre de la check-list", () => {
-    const cles = etapesDeclarables(["LyraeTalk", "Konnect"]).map((e) => e.cle);
+    const cles = etapesDeclarables(["LyraeTalk", "LyraeKonnect"]).map((e) => e.cle);
     expect(new Set(cles).size).toBe(cles.length);
     expect(cles).toEqual(CHECKLIST.map((e) => e.cle).filter((cle) => cles.includes(cle)));
     expect(cles).toEqual(expect.arrayContaining(["INTERFACAGE_TELEPHONIQUE", "INTEGRATION_SITE_WEB", "PASSAGE_PRODUCTION"]));
@@ -98,9 +98,9 @@ describe("etapesParDefaut", () => {
 
 describe("repartirEtapes", () => {
   it("répartit une étape commune entre les produits, et une étape propre à son seul produit", () => {
-    const { parProduit, automatiques, sansObjet } = repartirEtapes(["PASSAGE_PRODUCTION", "INTEGRATION_SITE_WEB", "PASSAGE_PRODUCTION"], ["LyraeTalk", "Konnect"]);
+    const { parProduit, automatiques, sansObjet } = repartirEtapes(["PASSAGE_PRODUCTION", "INTEGRATION_SITE_WEB", "PASSAGE_PRODUCTION"], ["LyraeTalk", "LyraeKonnect"]);
     expect(parProduit.get("LyraeTalk")).toEqual(["PASSAGE_PRODUCTION"]);
-    expect(parProduit.get("Konnect")).toEqual(["PASSAGE_PRODUCTION", "INTEGRATION_SITE_WEB"]);
+    expect(parProduit.get("LyraeKonnect")).toEqual(["PASSAGE_PRODUCTION", "INTEGRATION_SITE_WEB"]);
     expect(automatiques).toEqual([]);
     expect(sansObjet).toEqual([]);
   });

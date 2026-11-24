@@ -181,7 +181,7 @@ BEGIN
     RETURN;
   END IF;
 
-  FOREACH nom IN ARRAY ARRAY['LyraeTalk', 'Konnect', 'Desk', 'NoShow'] LOOP
+  FOREACH nom IN ARRAY ARRAY['LyraeTalk', 'LyraeKonnect', 'Desk', 'NoShow'] LOOP
     IF NOT EXISTS (SELECT 1 FROM "Product" WHERE "name" = nom) THEN
       RAISE NOTICE 'Grille tarifaire : produit « % » introuvable, ses tarifs restent sans produit (lignes préremplies hors catalogue).', nom;
     END IF;
@@ -213,7 +213,7 @@ BEGIN
   INSERT INTO "CrmTarif" ("grilleId", "productId", "libelle", "code", "type", "base", "montantHtCentimes", "pourMille", "ordre") VALUES
     (grille, (SELECT "id" FROM "Product" WHERE "name" = 'LyraeTalk'), 'Talk', 'TALK', 'ABONNEMENT', 'PAR_SALLE',
       ((2 * p.talk::BIGINT * 10000 + coef) / (2 * coef))::INTEGER, NULL, 10),
-    (grille, (SELECT "id" FROM "Product" WHERE "name" = 'Konnect'), 'Konnect', 'KONNECT', 'ABONNEMENT', 'PAR_SALLE',
+    (grille, (SELECT "id" FROM "Product" WHERE "name" = 'LyraeKonnect'), 'Konnect', 'KONNECT', 'ABONNEMENT', 'PAR_SALLE',
       ((2 * p.konnect::BIGINT * 10000 + coef) / (2 * coef))::INTEGER, NULL, 20),
     (grille, (SELECT "id" FROM "Product" WHERE "name" = 'Desk'), 'Desk', 'DESK', 'ABONNEMENT', 'PAR_SALLE',
       NULL, NULL, 30),
@@ -223,7 +223,7 @@ BEGIN
       NULL, ((p.ris + 5) / 10)::INTEGER, 50),
     (grille, (SELECT "id" FROM "Product" WHERE "name" = 'LyraeTalk'), 'Installation et formation Talk', 'INSTALLATION_TALK', 'MISE_EN_SERVICE', base_installation,
       ((2 * p.inst_talk::BIGINT * 10000 + coef) / (2 * coef))::INTEGER, NULL, 60),
-    (grille, (SELECT "id" FROM "Product" WHERE "name" = 'Konnect'), 'Installation et formation Konnect', 'INSTALLATION_KONNECT', 'MISE_EN_SERVICE', base_installation,
+    (grille, (SELECT "id" FROM "Product" WHERE "name" = 'LyraeKonnect'), 'Installation et formation Konnect', 'INSTALLATION_KONNECT', 'MISE_EN_SERVICE', base_installation,
       ((2 * p.inst_konnect::BIGINT * 10000 + coef) / (2 * coef))::INTEGER, NULL, 70);
 END $$;
 

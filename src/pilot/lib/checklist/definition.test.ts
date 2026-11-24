@@ -25,13 +25,13 @@ it("chaque étape a une phase, et le référentiel est rangé par phase (C-85)",
 });
 
 it("Konnect a ses libellés, ses règles d'examens et ses secrétaires, sans ligne téléphonique (C-85)", () => {
-  const konnect = etapesDuProduit("Konnect");
+  const konnect = etapesDuProduit("LyraeKonnect");
   const cles = konnect.map((e) => e.cle);
   expect(cles).toEqual(expect.arrayContaining(["REGLES_EXAMENS", "LECTURE_ORDONNANCE", "MESSAGES_PATIENTS", "FORMATION_SECRETAIRES", "INTEGRATION_SITE_WEB"]));
   expect(cles).not.toContain("INTERFACAGE_TELEPHONIQUE");
   expect(cles).not.toContain("REGLAGES_ROBOT");
   expect(konnect.find((e) => e.cle === "PREMIER_APPEL_REEL")?.libelle).toBe("Premier rendez-vous pris en ligne via ordonnance");
-  expect(definitionEtape("TEST_CRENEAUX", "Konnect").libelle).toBe("Créneaux en ligne testés : Konnect voit le vrai planning");
+  expect(definitionEtape("TEST_CRENEAUX", "LyraeKonnect").libelle).toBe("Créneaux en ligne testés : Konnect voit le vrai planning");
   expect(definitionEtape("TEST_CRENEAUX", "LyraeTalk").libelle).toBe("Créneaux testés : le robot voit le vrai planning");
   expect(etapesDuProduit("LyraeTalk").map((e) => e.cle)).not.toContain("LECTURE_ORDONNANCE");
 });

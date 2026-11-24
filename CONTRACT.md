@@ -912,6 +912,8 @@ additif, colonnes nullables : les notifications de tickets existantes ne changen
 `CrmAccesPilot` gagne `administrateur` (24/11/2026, `2026_12_23_pilot_administrateur.sql`,
 additif, `false` par défaut) : les pouvoirs du super-administrateur dans Pilot seulement,
 aucun écran du Dashboard.
+Le produit Konnect s'appelle `LyraeKonnect` partout dans Pilot (24/11/2026, comme
+`src/lib/produits.ts`) : `2026_12_13_pilot_tarifs.sql` relie la grille à ce nom.
 Plan : `lyrae/plans/2026-11-pilot-dans-le-dashboard.md`.
 
 `CentreStatut` (07/09/2026) porte le statut de cycle de vie d'un centre :

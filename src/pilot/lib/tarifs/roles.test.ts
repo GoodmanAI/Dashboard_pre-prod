@@ -80,7 +80,7 @@ describe("refusRole : le rôle contraint le type et la base", () => {
 describe("rôles et produits", () => {
   it("les rôles de produit se relient aux produits du catalogue, le connecteur et l'autre prestation non", () => {
     expect(ROLES.TALK.produit).toBe("LyraeTalk");
-    expect(ROLES.INSTALLATION_KONNECT.produit).toBe("Konnect");
+    expect(ROLES.INSTALLATION_KONNECT.produit).toBe("LyraeKonnect");
     expect(ROLES.NOSHOW.produit).toBe("NoShow");
     expect(estRoleProduit("DESK")).toBe(true);
     expect(estRoleProduit("CONNECTEUR_RIS")).toBe(false);
@@ -96,21 +96,21 @@ describe("le rôle fixe aussi le produit relié (lot S, second tour)", () => {
   it("un rôle de produit accepte son produit ou aucun, jamais un autre", () => {
     expect(refusProduit("TALK", "LyraeTalk")).toBeNull();
     expect(refusProduit("TALK", null)).toBeNull();
-    expect(refusProduit("INSTALLATION_KONNECT", "Konnect")).toBeNull();
-    expect(refusProduit("TALK", "Konnect")).toBe("Un tarif « Abonnement Talk » se relie au produit LyraeTalk, ou à aucun produit.");
-    expect(refusProduit("INSTALLATION_TALK", "Konnect")).toBe("Un tarif « Installation Talk » se relie au produit LyraeTalk, ou à aucun produit.");
+    expect(refusProduit("INSTALLATION_KONNECT", "LyraeKonnect")).toBeNull();
+    expect(refusProduit("TALK", "LyraeKonnect")).toBe("Un tarif « Abonnement Talk » se relie au produit LyraeTalk, ou à aucun produit.");
+    expect(refusProduit("INSTALLATION_TALK", "LyraeKonnect")).toBe("Un tarif « Installation Talk » se relie au produit LyraeTalk, ou à aucun produit.");
     expect(refusProduit("DESK", "NoShow")).toMatch(/au produit Desk/);
   });
   it("un rôle sans produit reste libre : autre prestation, connecteur RIS", () => {
     expect(refusProduit("AUTRE", "LyraeTalk")).toBeNull();
-    expect(refusProduit("AUTRE", "Konnect")).toBeNull();
+    expect(refusProduit("AUTRE", "LyraeKonnect")).toBeNull();
     expect(refusProduit("CONNECTEUR_RIS", "LyraeTalk")).toBeNull();
   });
   it("la page avertit d'un produit absent ou d'un mauvais produit hérité, et seulement pour un rôle de produit", () => {
     expect(avertissementProduit("TALK", null)).toBe(PRODUIT_NON_RELIE);
     expect(avertissementProduit("TALK", "LyraeTalk")).toBeNull();
-    expect(avertissementProduit("TALK", "Konnect")).toBe("Relié à Konnect, qui n'est pas le produit de ce rôle. Un tarif « Abonnement Talk » se relie au produit LyraeTalk, ou à aucun produit.");
+    expect(avertissementProduit("TALK", "LyraeKonnect")).toBe("Relié à LyraeKonnect, qui n'est pas le produit de ce rôle. Un tarif « Abonnement Talk » se relie au produit LyraeTalk, ou à aucun produit.");
     expect(avertissementProduit("AUTRE", null)).toBeNull();
-    expect(avertissementProduit("CONNECTEUR_RIS", "Konnect")).toBeNull();
+    expect(avertissementProduit("CONNECTEUR_RIS", "LyraeKonnect")).toBeNull();
   });
 });

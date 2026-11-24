@@ -19,7 +19,7 @@ import type { CrmCleEtape, CrmModeCochage } from "@prisma/client";
 
 /** Les noms de produits tels que le Dashboard les porte dans la table Product. */
 export const PRODUIT_TALK = "LyraeTalk";
-export const PRODUIT_KONNECT = "Konnect";
+export const PRODUIT_KONNECT = "LyraeKonnect"; // Product.name, comme src/lib/produits.ts (corrigé le 24/11/2026 : « Konnect » n'existait pas en base)
 export const PRODUIT_DESK = "Desk";
 /** Anti-absence : rappels avant le RDV, confirmation ou annulation par le patient (C-56). */
 export const PRODUIT_NOSHOW = "NoShow";

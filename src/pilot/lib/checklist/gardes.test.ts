@@ -38,10 +38,10 @@ describe("gardes du lot V (C-85)", () => {
   });
   it("le top facturation part avec le PV", () => {
     const cases = [...faites("PASSAGE_PRODUCTION"), { cle: "PV_RECETTE" as const, faite: false }];
-    expect(refusCochage({ cle: "TOP_FACTURATION", produit: "Konnect", cases, datePromise: null }))
+    expect(refusCochage({ cle: "TOP_FACTURATION", produit: "LyraeKonnect", cases, datePromise: null }))
       .toBe("Le top départ part avec le PV. Cochez d'abord « PV de recette signé par le client ».");
     // Mise en service antérieure au lot V : pas de case PV, rien à attendre.
-    expect(refusCochage({ cle: "TOP_FACTURATION", produit: "Konnect", cases: faites("PASSAGE_PRODUCTION"), datePromise: null })).toBeNull();
+    expect(refusCochage({ cle: "TOP_FACTURATION", produit: "LyraeKonnect", cases: faites("PASSAGE_PRODUCTION"), datePromise: null })).toBeNull();
   });
   it("la date de démarrage demande une date promise", () => {
     expect(refusCochage({ cle: "DATE_DEMARRAGE_CONFIRMEE", produit: "LyraeTalk", cases: toutSauf("LyraeTalk"), datePromise: null }))
@@ -50,8 +50,8 @@ describe("gardes du lot V (C-85)", () => {
   it("la date de démarrage nomme ce qui bloque avant elle, trois au plus", () => {
     expect(refusCochage({ cle: "DATE_DEMARRAGE_CONFIRMEE", produit: "LyraeTalk", cases: toutSauf("LyraeTalk", "VISIO_TECHNIQUE"), datePromise: date }))
       .toBe("Avant de confirmer la date, il reste « Visio technique : accès au RIS, agenda, opérateur téléphonique ».");
-    const refus = refusCochage({ cle: "DATE_DEMARRAGE_CONFIRMEE", produit: "Konnect",
-      cases: toutSauf("Konnect", "PARCOURS_PATIENT", "VISIO_TECHNIQUE", "JETON_XPLORE", "LECTURE_ORDONNANCE", "REGLES_EXAMENS"), datePromise: date });
+    const refus = refusCochage({ cle: "DATE_DEMARRAGE_CONFIRMEE", produit: "LyraeKonnect",
+      cases: toutSauf("LyraeKonnect", "PARCOURS_PATIENT", "VISIO_TECHNIQUE", "JETON_XPLORE", "LECTURE_ORDONNANCE", "REGLES_EXAMENS"), datePromise: date });
     expect(refus).toBe("Avant de confirmer la date, il reste « Parcours patient validé par le client », « Visio technique : accès au RIS, agenda, opérateur téléphonique », « Jeton d'accès au RIS reçu de l'éditeur et testé » et 2 autres.");
   });
   it("une étape non bloquante, ou du go/no-go, ne retient pas la date", () => {

@@ -27,7 +27,7 @@ describe("estimerRattachement", () => {
     expect(estimerRattachement({ produit: "LyraeTalk", lignes, datePromise: null, suiviRenforceJusquAu: maintenant, maintenant }).suiviRenforceJusquAu).toBeNull();
   });
   it("les étapes d'un autre produit ne comptent pas", () => {
-    const e = estimerRattachement({ produit: "Konnect", lignes: [ligne("INTERFACAGE_TELEPHONIQUE", { echeanceLe: new Date("2027-06-01") })], datePromise: null, maintenant });
+    const e = estimerRattachement({ produit: "LyraeKonnect", lignes: [ligne("INTERFACAGE_TELEPHONIQUE", { echeanceLe: new Date("2027-06-01") })], datePromise: null, maintenant });
     expect(e.resteJours).toBe(37);
   });
 });
