@@ -177,6 +177,22 @@ export const PREREGLAGES: Array<{ cle: string; libelle: string; detail: string; 
   },
 ];
 
+/**
+ * `centres+admin_vue_ensemble` → les écrans ouverts, en lecture. Chaque morceau est un
+ * préréglage ou la clé d'un écran ; le texte du refus si l'un est inconnu. Lu par
+ * `scripts/pilot/creer-comptes-internes.ts` (colonne `dashboard`).
+ */
+export function accesDepuisTexte(texte: string): AccesInternes | string {
+  const acces: Record<string, string> = {};
+  for (const morceau of texte.split("+").map((m) => m.trim()).filter(Boolean)) {
+    const preregle = PREREGLAGES.find((p) => p.cle === morceau.toLowerCase());
+    if (preregle) { Object.assign(acces, preregle.acces()); continue; }
+    if (!TOUTES_LES_CLES.includes(morceau as CleAcces)) return `écran inconnu : « ${morceau} »`;
+    acces[morceau] = acces[morceau] ?? "read";
+  }
+  return normaliserAccesInternes(acces);
+}
+
 /** L'adresse d'arrivée de chaque écran d'administration, dans l'ordre où on y entre. */
 export const ADRESSES_ADMIN: Array<[CleAdmin, string]> = [
   [PAGES_ADMIN.VUE_ENSEMBLE, "/admin/overview"],

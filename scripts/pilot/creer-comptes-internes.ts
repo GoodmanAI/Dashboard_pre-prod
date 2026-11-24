@@ -6,15 +6,18 @@
  *   npm run pilot:comptes -- equipe.csv           # crée les comptes
  *
  * Fichier (séparateur `;`, première ligne d'en-tête, hors dépôt : il porte des adresses) :
- *   nom;email;role;departement
- *   Camille Martin;camille@neuracorp.ai;GERANT;DIRECTION
- *   Alex Durand;alex@neuracorp.ai;DEVELOPPEUR;TECHNIQUE
+ *   nom;email;role;departement;dashboard
+ *   Camille Martin;camille@neuracorp.ai;GERANT;DIRECTION;centres+admin_vue_ensemble
+ *   Alex Durand;alex@neuracorp.ai;DEVELOPPEUR;TECHNIQUE;pilot
  *
  * `role` : GERANT (voit le chiffre d'affaires) ou DEVELOPPEUR (ne le voit jamais).
  * `departement` : COMMERCIAL, PROJET, TECHNIQUE, DIRECTION, ou vide.
+ * `dashboard` : les écrans du Dashboard que le compte ouvre, séparés par `+` ; chacun est
+ *   un préréglage de l'écran Équipe (pilot, centres, quotidien, tout) ou la clé d'un écran
+ *   (admin_vue_ensemble, calls...), en lecture. Vide ou absent : Pilot seul.
  *
- * Chaque compte a accès au Dashboard en lecture seule sur la configuration (outils
- * et statistiques internes) et à Pilot selon son rôle. Il passe par `creerCompte` de
+ * Chaque compte ouvre Pilot selon son rôle et, au Dashboard, les écrans de sa colonne
+ * `dashboard` ; la configuration reste au super-administrateur. Il passe par `creerCompte` de
  * Pilot, le même chemin que l'écran Équipe : hachage bcrypt du Dashboard, ligne
  * d'accès, département, journal. Le mot de passe provisoire de chacun s'affiche UNE
  * fois, ici, à transmettre en main propre ; il n'est écrit nulle part ailleurs.
@@ -25,9 +28,10 @@ import { prisma } from "../../src/pilot/lib/prisma";
 import { creerCompte } from "../../src/pilot/lib/acces/comptes";
 import { PROFILS } from "../../src/pilot/lib/acces/droits";
 import { creationCompte, messageAcces } from "../../src/pilot/lib/validation/acces";
+import { accesDepuisTexte } from "../../src/lib/accesInternes";
 import { ErreurMetier } from "../../src/pilot/lib/erreurs";
 
-type Ligne = { numero: number; nom: string; email: string; role: string; departement: string };
+type Ligne = { numero: number; nom: string; email: string; role: string; departement: string; dashboard: string };
 
 function lire(fichier: string): Ligne[] {
   const lignes = readFileSync(fichier, "utf8").replace(/^﻿/, "").split(/\r?\n/).filter((l) => l.trim());
@@ -37,7 +41,8 @@ function lire(fichier: string): Ligne[] {
   return lignes.map((l, i) => {
     const c = l.split(";").map((x) => x.trim());
     return { numero: i + 2, nom: c[col("nom")] ?? "", email: c[col("email")] ?? "", role: (c[col("role")] ?? "").toUpperCase(),
-      departement: col("departement") >= 0 ? (c[col("departement")] ?? "").toUpperCase() : "" };
+      departement: col("departement") >= 0 ? (c[col("departement")] ?? "").toUpperCase() : "",
+      dashboard: col("dashboard") >= 0 ? (c[col("dashboard")] ?? "") : "" };
   });
 }
 
@@ -51,20 +56,23 @@ async function main() {
   });
   if (!auteur) throw new Error("Aucun super-administrateur en base : il signe la création des comptes.");
 
-  const resultats: { ligne: number; nom: string; email: string; statut: string; motDePasse?: string }[] = [];
+  const resultats: { ligne: number; nom: string; email: string; statut: string; dashboard?: string; motDePasse?: string }[] = [];
   for (const l of lire(fichier)) {
     const profil = l.role as keyof typeof PROFILS;
+    const dashboard = accesDepuisTexte(l.dashboard);
+    if (typeof dashboard === "string") { resultats.push({ ligne: l.numero, nom: l.nom, email: l.email, statut: `refusée : ${dashboard}` }); continue; }
+    const ecrans = Object.keys(dashboard).length ? Object.keys(dashboard).join(", ") : "aucun, Pilot seul";
     const saisie = creationCompte.safeParse({
-      nom: l.nom, email: l.email, profil, droits: PROFILS[profil]?.parDefaut ?? [],
+      nom: l.nom, email: l.email, profil, droits: PROFILS[profil]?.parDefaut ?? [], dashboard,
       ...(l.departement ? { departement: l.departement } : {}),
     });
     if (!saisie.success) { resultats.push({ ligne: l.numero, nom: l.nom, email: l.email, statut: `refusée : ${messageAcces(saisie.error)}` }); continue; }
     const existe = await prisma.user.findFirst({ where: { email: { equals: saisie.data.email, mode: "insensitive" } }, select: { role: true } });
     if (existe) { resultats.push({ ligne: l.numero, nom: l.nom, email: saisie.data.email, statut: `déjà un compte (${existe.role}), passée` }); continue; }
-    if (essai) { resultats.push({ ligne: l.numero, nom: l.nom, email: saisie.data.email, statut: `à créer, ${PROFILS[profil].libelle}` }); continue; }
+    if (essai) { resultats.push({ ligne: l.numero, nom: l.nom, email: saisie.data.email, statut: `à créer, ${PROFILS[profil].libelle}`, dashboard: ecrans }); continue; }
     try {
       const { motDePasse } = await creerCompte(saisie.data, auteur.id);
-      resultats.push({ ligne: l.numero, nom: l.nom, email: saisie.data.email, statut: `créé, ${PROFILS[profil].libelle}`, motDePasse });
+      resultats.push({ ligne: l.numero, nom: l.nom, email: saisie.data.email, statut: `créé, ${PROFILS[profil].libelle}`, dashboard: ecrans, motDePasse });
     } catch (e) {
       resultats.push({ ligne: l.numero, nom: l.nom, email: saisie.data.email, statut: `refusée : ${e instanceof ErreurMetier ? e.message : "erreur de la base"}` });
     }

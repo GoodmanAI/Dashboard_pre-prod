@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  PAGES_ADMIN, PREREGLAGES, apiPermiseAInterne, cleAdminDuChemin, lireAccesInternes,
+  PAGES_ADMIN, PREREGLAGES, accesDepuisTexte, apiPermiseAInterne, cleAdminDuChemin, lireAccesInternes,
   normaliserAccesInternes, ouvreLeDashboard, ouvreLesCentres, premierEcranAdmin,
 } from "./accesInternes";
 import { hasPermission, PAGES } from "./permissions";
@@ -55,6 +55,25 @@ describe("lecture et écriture du JSON", () => {
     expect(ouvreLeDashboard(PREREGLAGES.find((p) => p.cle === "pilot")!.acces())).toBe(false);
     const tout = PREREGLAGES.find((p) => p.cle === "tout")!.acces();
     expect(Object.values(tout).every((n) => n === "read")).toBe(true);
+  });
+});
+
+describe("colonne « dashboard » du fichier de l'équipe", () => {
+  it("additionne un préréglage et des écrans, en lecture", () => {
+    const lu = accesDepuisTexte("centres + admin_vue_ensemble");
+    expect(typeof lu).toBe("object");
+    const acces = lu as Exclude<typeof lu, string>;
+    expect(acces.admin_vue_ensemble).toBe("read");
+    expect(acces.calls).toBe("read");
+    expect(Object.values(acces).every((n) => n === "read")).toBe(true);
+    expect(peutOuvrirAdmin(admin(acces), PAGES_ADMIN.COMPTES)).toBe(false);
+    expect(ouvreLesCentres(acces)).toBe(true);
+  });
+
+  it("vide : Pilot seul ; un écran inconnu est refusé", () => {
+    expect(accesDepuisTexte("")).toEqual({});
+    expect(accesDepuisTexte("pilot")).toEqual({});
+    expect(accesDepuisTexte("centres+admin_tout")).toBe("écran inconnu : « admin_tout »");
   });
 });
 
