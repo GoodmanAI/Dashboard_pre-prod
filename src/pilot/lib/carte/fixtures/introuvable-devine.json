@@ -1,0 +1,1 @@
+{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[5.369780,43.296482]},"properties":{"label":"Impasse des Lilas 13001 Marseille","score":0.2134,"name":"Impasse des Lilas","postcode":"13001","city":"Marseille","type":"street","_type":"address"}}],"query":"zzz qqq 99999"}

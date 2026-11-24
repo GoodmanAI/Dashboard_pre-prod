@@ -1,0 +1,5 @@
+cle;nom;type;etape;responsable_email;chef_de_projet_email;ris;nombre_sites;contact_nom;contact_fonction;contact_email;contact_telephone;dernier_echange_le;notes
+exemple-omicron;Cabinet Omicron;Cabinet;Prospect;;;Xplore;1;Référent Omicron;Direction;referent@omicron.test;;2026-10-01;Premier dossier fictif
+exemple-pi;Groupe Pi;GROUPE_PRIVE;Pourparlers;;;Xplore;3;;;;;02/10/2026;Groupe fictif
+exemple-mu;Hôpital Mu;Hôpital;Visio technique;;;Autre;2;Référent Mu;Technique;referent@mu.test;;2026-10-03;Démonstration
+exemple-nu;GIE Nu;GIE;Proposition;;;;2;;;;;04/10/2026;Dossier fictif

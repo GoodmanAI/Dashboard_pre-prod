@@ -16,10 +16,8 @@ import {
   IconMessage2,
   IconFileAlert,
   IconHourglass,
-  IconRocket,
   IconChecklist,
   IconListDetails,
-  IconReceipt,
   IconUserPlus,
   IconFileSpreadsheet,
   IconUsers,
@@ -176,6 +174,8 @@ const Menuitems: SidebarItem[] = [
  * écrans. Ce qu'un admin voit de plus lui vient de sa session et de ce menu, pas
  * de son URL.
  */
+// Parc clients, Facturation et Déploiements sont passés dans Pilot le 23/11/2026
+// (plan lyrae/plans/2026-11-pilot-dans-le-dashboard.md) : bouton « Pilot » du header.
 export const AdminMenuitems: SidebarItem[] = [
   { navlabel: true, subheader: "Admin" },
   {
@@ -201,12 +201,6 @@ export const AdminMenuitems: SidebarItem[] = [
     title: "Actions",
     icon: IconBolt,
     href: "/admin/actions",
-  },
-  {
-    id: uniqueId(),
-    title: "Déploiements",
-    icon: IconRocket,
-    href: "/admin/deployments",
   },
   {
     // La mise en service d'un client, de bout en bout (lot 4B, 15/09/2026). Elle
@@ -253,23 +247,6 @@ export const AdminMenuitems: SidebarItem[] = [
     title: "Clients et comptes",
     icon: IconUsers,
     href: "/admin/comptes",
-  },
-  {
-    // Où en est chaque centre : en intégration, en production, ou arrêté. Le
-    // statut décide des alertes de configuration affichées au client, et il est
-    // transverse aux deux produits — d'où sa place avant les deux pages
-    // d'installation, qui traitent un centre à la fois.
-    id: uniqueId(),
-    title: "Parc clients",
-    icon: IconListDetails,
-    href: "/admin/parc",
-  },
-  {
-    // Talk et Konnect se facturent à la salle (02/11/2026).
-    id: uniqueId(),
-    title: "Facturation",
-    icon: IconReceipt,
-    href: "/admin/facturation",
   },
   {
     id: uniqueId(),

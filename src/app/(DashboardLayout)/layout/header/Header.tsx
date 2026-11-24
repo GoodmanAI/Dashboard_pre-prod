@@ -20,6 +20,7 @@
   import { cheminCentre, lireCheminCentre } from "@/lib/cheminsCentre";
   import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
   import NotificationBell from "@/components/notifications/NotificationBell";
+  import BasculeEspace from "@/components/espaces/BasculeEspace";
 import { trouverProduit } from "@/lib/produits";
   import SelecteurProduit from "@/components/produits/SelecteurProduit";
   import BarreRecherche from "@/components/recherche/BarreRecherche";
@@ -173,7 +174,10 @@ import { trouverProduit } from "@/lib/produits";
           <Box
             sx={{ display: "flex", alignItems: "center", gap: { xs: 0.5, sm: 2 }, minWidth: 0 }}
           >
-            {/* Cloche notifications support (tickets : nouveau message, prise en charge, resolution) */}
+            {/* Vers Pilot, le suivi des clients : comptes internes seulement. */}
+            <BasculeEspace />
+
+            {/* Cloche commune au Dashboard et à Pilot (tickets, demandes, commentaires, alertes) */}
             <NotificationBell />
 
             {/* Compteur ordonnances manquantes — clic = raccourci vers la page */}
