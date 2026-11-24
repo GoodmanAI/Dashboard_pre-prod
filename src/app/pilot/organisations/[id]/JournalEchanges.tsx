@@ -18,7 +18,7 @@ const DATE = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeZone: "
 export function JournalEchanges({ organisationId, contacts, chronologieInitiale, moi }: {
   organisationId: number; contacts: { id: number; nom: string }[]; chronologieInitiale: PageChronologie;
   /** Pour proposer « Corriger » à l'auteur de l'échange et au super-administrateur (C-86). */
-  moi?: { id: number; role: string };
+  moi?: { id: number; role: string; superAdmin?: boolean };
 }) {
   const router = useRouter();
   const recherche = useSearchParams()!;
@@ -79,7 +79,7 @@ export function JournalEchanges({ organisationId, contacts, chronologieInitiale,
         </Typography>}
         {e.prochaineActionFaiteLe && <Typography variant="caption" color="text.secondary">Faite le {DATE.format(new Date(e.prochaineActionFaiteLe))}</Typography>}
         {e.statut === "PLANIFIE" && <ActionsSuivi organisationId={organisationId} echangeId={e.id} le={e.surveneuLe} />}
-        {e.statut !== "PLANIFIE" && moi && (moi.role === "SUPER_ADMIN" || e.auteurId === moi.id) && <Button size="small" sx={{ ml: -1 }}
+        {e.statut !== "PLANIFIE" && moi && (moi.superAdmin || e.auteurId === moi.id) && <Button size="small" sx={{ ml: -1 }}
           onClick={() => setCorrection({ id: e.id, texte: e.compteRendu ?? "", jalon: e.type === "JALON" })}>Corriger le texte</Button>}
       </Box>)}
     </Stack>}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DROITS, PROFILS, droitsEffectifs, libelleCompte, normaliser, profilEffectif, refusDroits, type Droit } from "./droits";
+import { DROITS, PROFILS, droitsEffectifs, estAdministrateurPilot, libelleCompte, normaliser, profilEffectif, refusDroits, type Droit } from "./droits";
 
 const tous = DROITS.map((d) => d.cle);
 const acces = (profil: "DEVELOPPEUR" | "GERANT", droits: Droit[], retireLe: Date | null = null) => ({ profil, droits, retireLe });
@@ -57,4 +57,19 @@ it("libelleCompte nomme les trois rôles", () => {
   expect(libelleCompte("ADMIN", "GERANT")).toBe("Gérant");
   expect(libelleCompte("ADMIN", null)).toBe("Développeur");
   expect(libelleCompte("CLIENT", null)).toBe("Client");
+});
+
+describe("administrateur de Pilot (24/11/2026)", () => {
+  const admin = (retireLe: Date | null = null) => ({ ...acces("DEVELOPPEUR", [], retireLe), administrateur: true });
+  it("a tous les droits de Pilot, quel que soit son rôle coché", () => {
+    expect(estAdministrateurPilot("ADMIN", admin())).toBe(true);
+    expect(droitsEffectifs("ADMIN", admin())).toEqual(tous);
+    expect(libelleCompte("ADMIN", "GERANT", true)).toBe("Administrateur de Pilot");
+  });
+  it("perd tout quand son accès est retiré, et la case ne vaut rien hors d'un compte ADMIN", () => {
+    expect(estAdministrateurPilot("ADMIN", admin(new Date()))).toBe(false);
+    expect(droitsEffectifs("ADMIN", admin(new Date()))).toEqual([]);
+    expect(estAdministrateurPilot("CLIENT", admin())).toBe(false);
+    expect(droitsEffectifs("CLIENT", admin())).toEqual([]);
+  });
 });

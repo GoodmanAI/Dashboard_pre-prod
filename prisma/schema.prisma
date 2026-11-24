@@ -1122,6 +1122,9 @@ model CrmAccesPilot {
   motDePasseProvisoire Boolean         @default(false)
   /// Accès retiré : la personne ne se connecte plus, ses traces restent.
   retireLe             DateTime?
+  /// Administrateur de Pilot (24/11/2026) : les pouvoirs du super-administrateur dans
+  /// Pilot (équipe, alertes, fiches), rien de plus au Dashboard. Coché par le SUPER_ADMIN seul.
+  administrateur       Boolean         @default(false)
   creeParId            Int?
   creePar              User?           @relation("AccesCreePar", fields: [creeParId], references: [id], onDelete: SetNull)
   modifieParId         Int?

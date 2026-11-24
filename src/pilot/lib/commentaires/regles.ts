@@ -3,12 +3,14 @@
  * et l'écran lisent les mêmes. Un commentaire ne se modifie pas : on le
  * supprime et on en écrit un autre.
  */
-type Acteur = { id: number; role: string };
+import { pouvoirsPilot } from "@/pilot/lib/autorisations";
 
-export const MESSAGE_SUPPRESSION_REFUSEE = "Seule la personne qui a écrit le commentaire, ou un super-administrateur, peut le supprimer.";
+type Acteur = { id: number; role: string; administrateurPilot?: boolean };
+
+export const MESSAGE_SUPPRESSION_REFUSEE = "Seule la personne qui a écrit le commentaire, ou un administrateur de Pilot, peut le supprimer.";
 export const MESSAGE_PAS_DESTINATAIRE = "Ce commentaire ne vous était pas adressé.";
 
 /** L'auteur, ou un super-administrateur. Un commentaire dont l'auteur a disparu (`auteurId` nul) n'a plus que le super-administrateur. */
 export function peutSupprimerCommentaire(auteurId: number | null, acteur: Acteur): boolean {
-  return acteur.role === "SUPER_ADMIN" || (auteurId !== null && auteurId === acteur.id);
+  return pouvoirsPilot(acteur) || (auteurId !== null && auteurId === acteur.id);
 }

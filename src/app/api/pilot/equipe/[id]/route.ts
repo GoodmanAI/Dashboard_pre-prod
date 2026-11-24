@@ -11,11 +11,11 @@ import { agirSurAcces } from "@/pilot/lib/acces/comptes";
 export async function PATCH(requete: Request, { params }: { params: { id: string } }) {
   try {
     const utilisateur = await utilisateurCourant();
-    exiger(peutGererComptes(utilisateur.role), "Seul le super-administrateur donne les droits.");
+    exiger(peutGererComptes(utilisateur), "Seul un administrateur de Pilot donne les droits.");
     const id = identifiant.safeParse(Number(params.id));
     if (!id.success) throw new ErreurMetier("Identifiant invalide.", 400);
     const analyse = operationAcces.safeParse(await requete.json().catch(() => null));
     if (!analyse.success) throw new ErreurMetier(messageAcces(analyse.error), 400);
-    return NextResponse.json(await agirSurAcces(id.data, analyse.data, utilisateur.id), { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(await agirSurAcces(id.data, analyse.data, utilisateur), { headers: { "Cache-Control": "no-store" } });
   } catch (erreur) { return reponseErreur(erreur); }
 }

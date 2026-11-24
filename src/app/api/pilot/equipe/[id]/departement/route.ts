@@ -15,7 +15,7 @@ import { changerDepartement } from "@/pilot/lib/acces/comptes";
 export async function PATCH(requete: Request, { params }: { params: { id: string } }) {
   try {
     const utilisateur = await utilisateurCourant();
-    exiger(peutGererComptes(utilisateur.role), "Seul le super-administrateur choisit les départements.");
+    exiger(peutGererComptes(utilisateur), "Seul un administrateur de Pilot choisit les départements.");
     const id = identifiant.safeParse(Number(params.id));
     if (!id.success) throw new ErreurMetier("Identifiant invalide.", 400);
     const analyse = modificationDepartement.safeParse(await requete.json().catch(() => null));

@@ -1,3 +1,4 @@
+import { pouvoirsPilot } from "@/pilot/lib/autorisations";
 import type { z } from "zod";
 import type { nouveauCommentaire } from "@/pilot/lib/validation/commentaire";
 import { prisma } from "@/pilot/lib/prisma";
@@ -64,7 +65,7 @@ export async function ecrireCommentaire(organisationId: number, p: z.output<type
  * l'auteur, la cible et le nombre de personnes prévenues, jamais le texte.
  */
 export async function supprimerCommentaire(id: number, acteur: Acteur) {
-  const superAdmin = acteur.role === "SUPER_ADMIN";
+  const superAdmin = pouvoirsPilot(acteur);
   await transactionJournalisee(async (tx) => {
     const c = await tx.crmCommentaire.findUnique({
       where: { id },

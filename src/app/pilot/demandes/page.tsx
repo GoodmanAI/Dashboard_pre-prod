@@ -9,5 +9,5 @@ const VUES: VueDemandes[] = ["pour-moi", "envoyees", "toutes"];
 export default async function PageDemandes({ searchParams }: { searchParams: { vue?: string } }) {
   const vue: VueDemandes = VUES.includes(searchParams.vue as VueDemandes) ? searchParams.vue as VueDemandes : "pour-moi";
   const moi = await utilisateurCourant();
-  return <ListeDemandes vue={vue} donnees={await chargerDemandes(vue, moi.id)} moi={{ id: moi.id, role: moi.role }} />;
+  return <ListeDemandes vue={vue} donnees={await chargerDemandes(vue, moi.id)} moi={{ id: moi.id, role: moi.role, administrateurPilot: moi.administrateurPilot, superAdmin: moi.superAdmin }} />;
 }

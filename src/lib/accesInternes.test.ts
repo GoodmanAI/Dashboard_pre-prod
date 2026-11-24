@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  PAGES_ADMIN, PREREGLAGES, accesDepuisTexte, apiPermiseAInterne, cleAdminDuChemin, lireAccesInternes,
+  PAGES_ADMIN, PREREGLAGES, accesDepuisTexte, apiPermiseAInterne, lireTranscriptionsPermis, cleAdminDuChemin, lireAccesInternes,
   normaliserAccesInternes, ouvreLeDashboard, ouvreLesCentres, premierEcranAdmin,
 } from "./accesInternes";
 import { hasPermission, PAGES } from "./permissions";
@@ -121,5 +121,19 @@ describe("routes d'API", () => {
     for (const non of ["/api/rdv/init", "/api/calls/summary", "/api/admin/users", "/api/admin/users/3/kick", "/api/prescriptions/pending"]) {
       expect(apiPermiseAInterne(non, tout), non).toBe(false);
     }
+  });
+});
+
+describe("transcriptions des appels (RGPD, 24/11/2026)", () => {
+  it("seuls Appels et Incidents ouvrent les conversations", () => {
+    const equipe = accesDepuisTexte("centres+admin_vue_ensemble-calls-incidents") as Record<string, string>;
+    expect(equipe.calls).toBeUndefined();
+    expect(equipe.incidents).toBeUndefined();
+    expect(equipe.admin_vue_ensemble).toBe("read");
+    expect(equipe.stats_appel).toBe("read");
+    expect(lireTranscriptionsPermis({ permissions: equipe })).toBe(false);
+    expect(lireTranscriptionsPermis({ permissions: { stats_appel: "read", dashboard: "read" } })).toBe(false);
+    expect(lireTranscriptionsPermis({ permissions: { calls: "read" } })).toBe(true);
+    expect(lireTranscriptionsPermis({ permissions: { incidents: "read" } })).toBe(true);
   });
 });

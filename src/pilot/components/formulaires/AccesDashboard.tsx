@@ -2,7 +2,7 @@
 
 import { Box, Button, Checkbox, FormControlLabel, Stack, Typography } from "@mui/material";
 import {
-  GROUPES_ACCES, PAGES_DU_QUOTIDIEN, PREREGLAGES, libelleAcces, ouvreLeDashboard,
+  GROUPES_ACCES, PAGES_A_TRANSCRIPTION, PAGES_DU_QUOTIDIEN, PREREGLAGES, libelleAcces, ouvreLeDashboard,
   type AccesInternes, type CleAcces,
 } from "@/lib/accesInternes";
 
@@ -67,6 +67,9 @@ export function ChampsAccesDashboard({ acces, changer }: { acces: AccesInternes;
               <FormControlLabel sx={{ display: "flex", mr: 0 }}
                 control={<Checkbox name={cle} checked={Boolean(niveau)} onChange={(e) => ouvrir(cle, e.target.checked)} />}
                 label={libelleAcces(cle)} />
+              {(PAGES_A_TRANSCRIPTION as readonly string[]).includes(cle) && <Typography variant="body2" color="text.secondary" sx={{ ml: 3.5, mt: -0.75 }}>
+                Montre les conversations des appels, avec les patients.
+              </Typography>}
               {quotidien && niveau && <FormControlLabel sx={{ display: "flex", ml: 3.5, mt: -0.75, mr: 0 }}
                 control={<Checkbox size="small" checked={niveau === "write"} onChange={(e) => traiter(cle, e.target.checked)} />}
                 label={<Typography variant="body2" color="text.secondary">et traiter ce qui s&apos;y trouve</Typography>} />}

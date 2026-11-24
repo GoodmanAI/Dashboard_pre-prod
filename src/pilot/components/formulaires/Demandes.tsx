@@ -15,7 +15,8 @@ import { dateCourte } from "@/pilot/lib/integration/estimation";
 import type { LigneDemande as Demande } from "@/pilot/lib/demandes/charger";
 
 export type Personne = { id: number; name: string | null };
-export type Moi = { id: number; role: string };
+/** `administrateurPilot` et `superAdmin` (24/11/2026) : les pouvoirs du super-administrateur dans Pilot. */
+export type Moi = { id: number; role: string; administrateurPilot?: boolean; superAdmin?: boolean };
 
 /** « Demander à… » : ouvre le dialogue. Depuis une étape, le type le plus probable est déjà choisi. */
 export function BoutonDemander({ organisationId, comptes, moi, etape, libelle = "Demander à…", variante = "outlined" }: {
@@ -63,7 +64,7 @@ export function LigneDemande({ demande: d, moi, afficherClient = true }: { deman
   const [dialogue, setDialogue] = useState<"faite" | "annuler" | null>(null);
   const jour = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00.000Z");
   const retard = enRetard(d, jour);
-  const superAdmin = moi.role === "SUPER_ADMIN";
+  const superAdmin = moi.superAdmin === true || moi.role === "SUPER_ADMIN";
   const peutFaire = d.statut === "OUVERTE" && (d.destinataireId === moi.id || superAdmin);
   const peutAnnuler = d.statut === "OUVERTE" && (d.demandeurId === moi.id || superAdmin);
   const pourMoi = d.destinataireId === moi.id;

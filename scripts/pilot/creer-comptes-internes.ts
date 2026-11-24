@@ -10,7 +10,9 @@
  *   Camille Martin;camille@neuracorp.ai;GERANT;DIRECTION;centres+admin_vue_ensemble
  *   Alex Durand;alex@neuracorp.ai;DEVELOPPEUR;TECHNIQUE;pilot
  *
- * `role` : GERANT (voit le chiffre d'affaires) ou DEVELOPPEUR (ne le voit jamais).
+ * `role` : GERANT (voit le chiffre d'affaires), DEVELOPPEUR (ne le voit jamais), ou
+ *   ADMINISTRATEUR : gérant et administrateur de Pilot (équipe, alertes, fiches), sans
+ *   rien de plus au Dashboard que sa colonne `dashboard`.
  * `departement` : COMMERCIAL, PROJET, TECHNIQUE, DIRECTION, ou vide.
  * `dashboard` : les écrans du Dashboard que le compte ouvre, séparés par `+` ; chacun est
  *   un préréglage de l'écran Équipe (pilot, centres, quotidien, tout) ou la clé d'un écran
@@ -52,27 +54,30 @@ async function main() {
   const essai = options.includes("--essai");
   const auteur = await prisma.user.findFirst({
     where: { role: "SUPER_ADMIN", ...(process.env.PILOT_COMPTE_SCRIPT ? { email: process.env.PILOT_COMPTE_SCRIPT } : {}) },
-    orderBy: { id: "asc" }, select: { id: true, email: true },
+    orderBy: { id: "asc" }, select: { id: true, email: true, role: true },
   });
   if (!auteur) throw new Error("Aucun super-administrateur en base : il signe la création des comptes.");
 
   const resultats: { ligne: number; nom: string; email: string; statut: string; dashboard?: string; motDePasse?: string }[] = [];
   for (const l of lire(fichier)) {
-    const profil = l.role as keyof typeof PROFILS;
+    const administrateur = l.role === "ADMINISTRATEUR";
+    const profil = (administrateur ? "GERANT" : l.role) as keyof typeof PROFILS;
+    const role = administrateur ? "Administrateur de Pilot" : PROFILS[profil]?.libelle;
     const dashboard = accesDepuisTexte(l.dashboard);
     if (typeof dashboard === "string") { resultats.push({ ligne: l.numero, nom: l.nom, email: l.email, statut: `refusée : ${dashboard}` }); continue; }
     const ecrans = Object.keys(dashboard).length ? Object.keys(dashboard).join(", ") : "aucun, Pilot seul";
     const saisie = creationCompte.safeParse({
       nom: l.nom, email: l.email, profil, droits: PROFILS[profil]?.parDefaut ?? [], dashboard,
+      ...(administrateur ? { administrateur: true } : {}),
       ...(l.departement ? { departement: l.departement } : {}),
     });
     if (!saisie.success) { resultats.push({ ligne: l.numero, nom: l.nom, email: l.email, statut: `refusée : ${messageAcces(saisie.error)}` }); continue; }
     const existe = await prisma.user.findFirst({ where: { email: { equals: saisie.data.email, mode: "insensitive" } }, select: { role: true } });
     if (existe) { resultats.push({ ligne: l.numero, nom: l.nom, email: saisie.data.email, statut: `déjà un compte (${existe.role}), passée` }); continue; }
-    if (essai) { resultats.push({ ligne: l.numero, nom: l.nom, email: saisie.data.email, statut: `à créer, ${PROFILS[profil].libelle}`, dashboard: ecrans }); continue; }
+    if (essai) { resultats.push({ ligne: l.numero, nom: l.nom, email: saisie.data.email, statut: `à créer, ${role}`, dashboard: ecrans }); continue; }
     try {
-      const { motDePasse } = await creerCompte(saisie.data, auteur.id);
-      resultats.push({ ligne: l.numero, nom: l.nom, email: saisie.data.email, statut: `créé, ${PROFILS[profil].libelle}`, dashboard: ecrans, motDePasse });
+      const { motDePasse } = await creerCompte(saisie.data, auteur);
+      resultats.push({ ligne: l.numero, nom: l.nom, email: saisie.data.email, statut: `créé, ${role}`, dashboard: ecrans, motDePasse });
     } catch (e) {
       resultats.push({ ligne: l.numero, nom: l.nom, email: saisie.data.email, statut: `refusée : ${e instanceof ErreurMetier ? e.message : "erreur de la base"}` });
     }

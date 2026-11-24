@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const utilisateur = await utilisateurCourant();
-    exiger(peutExporter(utilisateur.role), "L'export est réservé au super-administrateur.");
+    exiger(peutExporter(utilisateur), "L'export est réservé aux administrateurs de Pilot.");
     const donnees = await chargerApports();
     const corps = JSON.stringify(exporterSauvegarde(donnees), null, 1);
     return new Response(corps, { headers: {

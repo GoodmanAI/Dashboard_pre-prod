@@ -1,3 +1,4 @@
+import { pouvoirsPilot } from "@/pilot/lib/autorisations";
 import type { CrmCleEtape, CrmStatutDemande, CrmTypeDemande } from "@prisma/client";
 
 /**
@@ -43,11 +44,11 @@ export function typeSuggere(cle: CrmCleEtape | null | undefined): CrmTypeDemande
   }
 }
 
-type Acteur = { id: number; role: string };
+type Acteur = { id: number; role: string; administrateurPilot?: boolean };
 type DemandeLue = { statut: CrmStatutDemande; demandeurId: number | null; destinataireId: number };
 export type Refus = { statut: 400 | 403 | 409; message: string } | null;
 
-const superAdmin = (a: Acteur) => a.role === "SUPER_ADMIN";
+const superAdmin = (a: Acteur) => pouvoirsPilot(a);
 
 /** Marquer faite : le destinataire, ou un super-administrateur. */
 export function refusTraiter(d: DemandeLue, a: Acteur): Refus {

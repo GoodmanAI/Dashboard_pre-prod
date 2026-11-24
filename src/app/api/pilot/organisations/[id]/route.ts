@@ -27,7 +27,7 @@ export async function PATCH(requete: Request, { params }: { params: { id: string
 export async function DELETE(_requete: Request, { params }: { params: { id: string } }) {
   try {
     const utilisateur = await utilisateurCourant();
-    exiger(peutGererComptes(utilisateur.role), "Seul le super-administrateur supprime une fiche.");
+    exiger(peutGererComptes(utilisateur), "Seul un administrateur de Pilot supprime une fiche.");
     const id = identifiant.safeParse(Number(params.id));
     if (!id.success) throw new ErreurMetier("Identifiant invalide.", 400);
     return NextResponse.json(await supprimerFiche(id.data, utilisateur.id));

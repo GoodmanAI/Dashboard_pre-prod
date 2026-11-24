@@ -33,13 +33,27 @@ export function peutEvaluer(a: Acteur): boolean {
   return peutLirePilot(a.role) && a.droits.includes("EVALUER_PARC");
 }
 
-/** Créer les comptes de l'équipe et donner les droits : le super-administrateur seul. */
-export function peutGererComptes(role: string): boolean {
-  return role === "SUPER_ADMIN";
+/**
+ * Qui a les pouvoirs du super-administrateur DANS Pilot (24/11/2026) : le SUPER_ADMIN
+ * du Dashboard, et l'administrateur de Pilot (`estAdministrateurPilot`, calculé par
+ * la session). Créer les comptes et donner les droits de Pilot, confier les alertes,
+ * supprimer une fiche, corriger ce que d'autres ont écrit. Jamais les écrans du
+ * Dashboard : `peutDonnerAccesDashboard`.
+ */
+export type Gestionnaire = { role: string; administrateurPilot?: boolean };
+
+export function pouvoirsPilot(a: Gestionnaire): boolean {
+  return a.role === "SUPER_ADMIN" || (a.role === "ADMIN" && a.administrateurPilot === true);
 }
 
-/** L'import et l'export de l'apport d'affaires restent au super-administrateur (C-63). */
-export function peutExporter(role: string): boolean {
+/** Créer les comptes de l'équipe et donner les droits de Pilot. */
+export const peutGererComptes = pouvoirsPilot;
+
+/** L'import et l'export de l'apport d'affaires (C-63). */
+export const peutExporter = pouvoirsPilot;
+
+/** Ouvrir des écrans du Dashboard, nommer un administrateur de Pilot : le SUPER_ADMIN seul. */
+export function peutDonnerAccesDashboard(role: string): boolean {
   return role === "SUPER_ADMIN";
 }
 

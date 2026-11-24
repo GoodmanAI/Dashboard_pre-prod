@@ -26,11 +26,19 @@ type Dialogue =
   | { type: "dashboard"; membre: MembreEquipe }
   | { type: "motDePasse"; membre: MembreEquipe }
   | { type: "retirer"; membre: MembreEquipe }
+  | { type: "administrateur"; membre: MembreEquipe }
   | { type: "provisoire"; nom: string; motDePasse: string; nouveau: boolean };
+
+/**
+ * Qui regarde l'écran. `superAdminDashboard` : le super-administrateur lui-même, seul à
+ * ouvrir des écrans du Dashboard et à nommer un administrateur de Pilot (24/11/2026).
+ */
+type Moi = { id: number; superAdminDashboard: boolean };
 
 /** Les droits d'un compte en une ligne : ce qu'il a en plus du suivi des clients. */
 function resume(m: MembreEquipe): string {
   if (m.superAdmin) return "Tous les droits, toujours. Crée les comptes et donne les droits.";
+  if (m.administrateurPilot) return "Tous les droits dans Pilot. Crée les comptes de Pilot, confie les alertes, gère les fiches.";
   const noms = DROITS.filter((d) => m.droits.includes(d.cle)).map((d) => d.court);
   return noms.length ? noms.join(" · ") : "Suit les clients et les déploiements, sans droit en plus.";
 }
@@ -97,17 +105,20 @@ function MotDePasseProvisoire({ nom, motDePasse, nouveau, fermer }: { nom: strin
   </Dialog>;
 }
 
-function DialogueCreer({ fermer, cree }: { fermer: () => void; cree: (nom: string, motDePasse: string) => void }) {
+function DialogueCreer({ moi, fermer, cree }: { moi: Moi; fermer: () => void; cree: (nom: string, motDePasse: string) => void }) {
   const [choix, setChoix] = useState<{ profil: Profil; droits: Droit[] }>({ profil: "DEVELOPPEUR", droits: [...PROFILS.DEVELOPPEUR.parDefaut] });
   // Facultatif (lot T) : sans choix, « Département pas encore choisi », à compléter plus tard depuis la liste.
   const [departement, setDepartement] = useState<CrmDepartement | "">("");
   // Les écrans du Dashboard, par préréglage ici ; on les affine ensuite avec « Accès au Dashboard ».
   const [prereglage, setPrereglage] = useState(PREREGLAGES[0].cle);
+  const [administrateur, setAdministrateur] = useState(false);
   return <DialogueFormulaire titre="Nouveau compte" bouton="Créer le compte" fermer={fermer} soumettre={async (f) => {
     const nom = String(f.get("nom") ?? "").trim();
     const { motDePasse } = await envoyer<{ motDePasse: string }>("/api/pilot/equipe", "POST", creationCompte,
       { nom, email: String(f.get("email") ?? ""), ...choix, ...(departement ? { departement } : {}),
-        dashboard: (PREREGLAGES.find((p) => p.cle === prereglage) ?? PREREGLAGES[0]).acces() });
+        // Un administrateur de Pilot crée des comptes de Pilot seul : le serveur refuse le reste.
+        dashboard: moi.superAdminDashboard ? (PREREGLAGES.find((p) => p.cle === prereglage) ?? PREREGLAGES[0]).acces() : {},
+        ...(moi.superAdminDashboard && administrateur ? { administrateur: true } : {}) });
     cree(nom, motDePasse);
   }}>
     <TextField name="nom" label="Nom" required fullWidth autoFocus autoComplete="off" helperText="Prénom et nom, tels que l'équipe les connaît." />
@@ -121,7 +132,17 @@ function DialogueCreer({ fermer, cree }: { fermer: () => void; cree: (nom: strin
       {DEPARTEMENTS.map((d) => <MenuItem key={d} value={d}>{LIBELLES_DEPARTEMENT[d]}</MenuItem>)}
     </TextField>
     <ChampsDroits profil={choix.profil} droits={choix.droits} changer={(profil, droits) => setChoix({ profil, droits })} />
-    <Box>
+    {moi.superAdminDashboard && <FormControlLabel sx={{ alignItems: "flex-start", "& .MuiCheckbox-root": { mt: -0.75 } }}
+      control={<Checkbox checked={administrateur} onChange={(e) => {
+        setAdministrateur(e.target.checked);
+        if (e.target.checked) setChoix({ profil: "GERANT", droits: [...PROFILS.GERANT.parDefaut] });
+      }} />}
+      label={<Box><Box component="span" sx={{ fontWeight: 500 }}>Administrateur de Pilot</Box>
+        <Typography variant="body2" color="text.secondary">{DETAIL_ADMINISTRATEUR}</Typography></Box>} />}
+    {!moi.superAdminDashboard && <Typography variant="body2" color="text.secondary">
+      Le compte ouvre Pilot seul. Le super-administrateur peut lui ouvrir des écrans du Dashboard.
+    </Typography>}
+    {moi.superAdminDashboard && <Box>
       <Typography variant="subtitle2" component="p" sx={{ mb: 0.5 }}>Accès au Dashboard</Typography>
       <RadioGroup value={prereglage} onChange={(e) => setPrereglage(e.target.value)}>
         {PREREGLAGES.map((p) => <FormControlLabel key={p.cle} value={p.cle} control={<Radio />} sx={{ alignItems: "flex-start", mb: 0.5, "& .MuiRadio-root": { mt: -0.75 } }}
@@ -129,7 +150,7 @@ function DialogueCreer({ fermer, cree }: { fermer: () => void; cree: (nom: strin
             <Typography variant="body2" color="text.secondary">{p.detail}</Typography></Box>} />)}
       </RadioGroup>
       <Typography variant="body2" color="text.secondary">Vous choisirez ensuite écran par écran avec « Accès au Dashboard ».</Typography>
-    </Box>
+    </Box>}
   </DialogueFormulaire>;
 }
 
@@ -160,23 +181,34 @@ function DialogueDroits({ membre, fermer, fini }: { membre: MembreEquipe; fermer
   </DialogueFormulaire>;
 }
 
-/** Les actions sur une ligne : les droits en bouton, le reste derrière « plus ». */
-function Actions({ membre, ouvrir, rendre }: { membre: MembreEquipe; ouvrir: (d: Dialogue) => void; rendre: (m: MembreEquipe) => void }) {
+const DETAIL_ADMINISTRATEUR = "Tous les droits dans Pilot : crée les comptes de Pilot, confie les alertes, gère les fiches. Rien de plus au Dashboard.";
+
+/**
+ * Les actions sur une ligne : les droits en bouton, le reste derrière « plus ». Un
+ * administrateur de Pilot ne touche ni à lui-même ni à un autre administrateur, et ne
+ * donne pas le mot de passe d'un compte qui ouvre le Dashboard : le serveur le refuse aussi.
+ */
+function Actions({ membre, moi, ouvrir, rendre }: { membre: MembreEquipe; moi: Moi; ouvrir: (d: Dialogue) => void; rendre: (m: MembreEquipe) => void }) {
   const [ancre, setAncre] = useState<HTMLElement | null>(null);
   if (membre.superAdmin) return null;
+  if (!moi.superAdminDashboard && (membre.id === moi.id || membre.administrateurPilot)) return null;
   if (membre.retireLe) return <Button variant="outlined" onClick={() => rendre(membre)}>Rendre l&apos;accès</Button>;
+  const motDePasse = moi.superAdminDashboard || !membre.ouvreLeDashboard;
   return <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
     <Button variant="outlined" onClick={() => ouvrir({ type: "droits", membre })}>Droits dans Pilot</Button>
-    <Button variant="outlined" onClick={() => ouvrir({ type: "dashboard", membre })}>Accès au Dashboard</Button>
+    {moi.superAdminDashboard && <Button variant="outlined" onClick={() => ouvrir({ type: "dashboard", membre })}>Accès au Dashboard</Button>}
     <IconButton aria-label={`Plus d'actions pour ${membre.nom}`} aria-haspopup="menu" onClick={(e) => setAncre(e.currentTarget)}><IconDots size={20} /></IconButton>
     <Menu anchorEl={ancre} open={Boolean(ancre)} onClose={() => setAncre(null)} anchorOrigin={{ vertical: "bottom", horizontal: "right" }} transformOrigin={{ vertical: "top", horizontal: "right" }}>
-      <MenuItem onClick={() => { setAncre(null); ouvrir({ type: "motDePasse", membre }); }}>Donner un nouveau mot de passe</MenuItem>
+      {motDePasse && <MenuItem onClick={() => { setAncre(null); ouvrir({ type: "motDePasse", membre }); }}>Donner un nouveau mot de passe</MenuItem>}
+      {moi.superAdminDashboard && <MenuItem onClick={() => { setAncre(null); ouvrir({ type: "administrateur", membre }); }}>
+        {membre.administrateurPilot ? "Ne plus être administrateur de Pilot" : "Nommer administrateur de Pilot"}
+      </MenuItem>}
       <MenuItem onClick={() => { setAncre(null); ouvrir({ type: "retirer", membre }); }} sx={{ color: "error.main" }}>Retirer l&apos;accès</MenuItem>
     </Menu>
   </Box>;
 }
 
-function LigneMembre({ membre, ouvrir, rendre, signaler }: { membre: MembreEquipe; ouvrir: (d: Dialogue) => void; rendre: (m: MembreEquipe) => void; signaler: (texte: string) => void }) {
+function LigneMembre({ membre, moi, ouvrir, rendre, signaler }: { membre: MembreEquipe; moi: Moi; ouvrir: (d: Dialogue) => void; rendre: (m: MembreEquipe) => void; signaler: (texte: string) => void }) {
   const notes = [
     membre.retireLe && `Accès retiré le ${new Date(membre.retireLe).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}.`,
     !membre.retireLe && membre.motDePasseProvisoire && "Mot de passe provisoire, pas encore changé.",
@@ -189,11 +221,11 @@ function LigneMembre({ membre, ouvrir, rendre, signaler }: { membre: MembreEquip
     {notes.map((n) => <Box key={String(n)} sx={{ color: membre.retireLe ? "text.secondary" : "warning.dark" }}>{n}</Box>)}
   </>}>
     <SelecteurDepartement compteId={membre.id} nom={membre.nom} departement={membre.departement} majLe={membre.departementMajLe} signaler={signaler} />
-    <Actions membre={membre} ouvrir={ouvrir} rendre={rendre} />
+    <Actions membre={membre} moi={moi} ouvrir={ouvrir} rendre={rendre} />
   </Ligne>;
 }
 
-export function Equipe({ membres, directeur }: { membres: MembreEquipe[]; directeur: { userId: number; majLe: string } | null }) {
+export function Equipe({ membres, directeur, moi }: { membres: MembreEquipe[]; directeur: { userId: number; majLe: string } | null; moi: Moi }) {
   const router = useRouter();
   const [dialogue, setDialogue] = useState<Dialogue | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -207,11 +239,13 @@ export function Equipe({ membres, directeur }: { membres: MembreEquipe[]; direct
   const actifs = membres.filter((m) => !m.retireLe);
   const groupes = [
     { titre: "Super-administrateurs", icone: IconCrown, teinte: "orange" as const, liste: actifs.filter((m) => m.superAdmin) },
-    { titre: "Gérants", icone: IconUserShield, teinte: "bleu" as const, liste: actifs.filter((m) => m.profil === "GERANT") },
-    { titre: "Développeurs", icone: IconCode, teinte: "violet" as const, liste: actifs.filter((m) => m.profil === "DEVELOPPEUR") },
+    { titre: "Administrateurs de Pilot", icone: IconCrown, teinte: "bleu" as const, liste: actifs.filter((m) => m.administrateurPilot) },
+    { titre: "Gérants", icone: IconUserShield, teinte: "bleu" as const, liste: actifs.filter((m) => !m.administrateurPilot && m.profil === "GERANT") },
+    { titre: "Développeurs", icone: IconCode, teinte: "violet" as const, liste: actifs.filter((m) => !m.administrateurPilot && m.profil === "DEVELOPPEUR") },
   ];
   const retires = membres.filter((m) => m.retireLe);
   const vides: Record<string, string> = {
+    "Administrateurs de Pilot": "Aucun administrateur de Pilot. " + DETAIL_ADMINISTRATEUR,
     "Gérants": "Aucun gérant. Un gérant voit et pilote tout, chiffre d'affaires compris.",
     "Développeurs": "Aucun développeur. Un développeur suit les clients et les déploiements, sans le chiffre d'affaires.",
   };
@@ -225,13 +259,13 @@ export function Equipe({ membres, directeur }: { membres: MembreEquipe[]; direct
       <SelecteurDirecteur membres={actifs.map((m) => ({ id: m.id, nom: m.nom }))} directeur={directeur} signaler={setMessage} />
     </Bloc>
     {groupes.map((g) => <Bloc key={g.titre} titre={g.titre} nombre={g.liste.length} icone={g.icone} teinte={g.teinte} vide={g.liste.length ? undefined : vides[g.titre]}>
-      {g.liste.map((m) => <LigneMembre key={m.id} membre={m} ouvrir={setDialogue} rendre={(x) => void rendre(x)} signaler={setMessage} />)}
+      {g.liste.map((m) => <LigneMembre key={m.id} membre={m} moi={moi} ouvrir={setDialogue} rendre={(x) => void rendre(x)} signaler={setMessage} />)}
     </Bloc>)}
     {retires.length > 0 && <Bloc titre="Accès retirés" nombre={retires.length} icone={IconUserOff} teinte="gris">
-      {retires.map((m) => <LigneMembre key={m.id} membre={m} ouvrir={setDialogue} rendre={(x) => void rendre(x)} signaler={setMessage} />)}
+      {retires.map((m) => <LigneMembre key={m.id} membre={m} moi={moi} ouvrir={setDialogue} rendre={(x) => void rendre(x)} signaler={setMessage} />)}
     </Bloc>}
 
-    {dialogue?.type === "creer" && <DialogueCreer fermer={() => setDialogue(null)}
+    {dialogue?.type === "creer" && <DialogueCreer moi={moi} fermer={() => setDialogue(null)}
       cree={(nom, motDePasse) => { setDialogue({ type: "provisoire", nom, motDePasse, nouveau: true }); router.refresh(); }} />}
     {dialogue?.type === "droits" && <DialogueDroits membre={dialogue.membre} fermer={() => setDialogue(null)}
       fini={() => termine(`Droits de ${dialogue.membre.nom} enregistrés.`)} />}
@@ -243,6 +277,18 @@ export function Equipe({ membres, directeur }: { membres: MembreEquipe[]; direct
         setDialogue({ type: "provisoire", nom: dialogue.membre.nom, motDePasse, nouveau: false }); router.refresh();
       }}>
       <Typography>Son mot de passe actuel cessera de marcher. Vous lui transmettrez le nouveau, provisoire.</Typography>
+    </DialogueFormulaire>}
+    {dialogue?.type === "administrateur" && <DialogueFormulaire
+      titre={dialogue.membre.administrateurPilot ? `${dialogue.membre.nom} n'est plus administrateur de Pilot ?` : `Nommer ${dialogue.membre.nom} administrateur de Pilot ?`}
+      bouton={dialogue.membre.administrateurPilot ? "Retirer ce rôle" : "Nommer administrateur"}
+      fermer={() => setDialogue(null)} soumettre={async () => {
+        await envoyer(`/api/pilot/equipe/${dialogue.membre.id}`, "PATCH", operationAcces, { operation: "administrateur", administrateur: !dialogue.membre.administrateurPilot });
+        termine(dialogue.membre.administrateurPilot ? `${dialogue.membre.nom} n'est plus administrateur de Pilot.` : `${dialogue.membre.nom} est administrateur de Pilot.`);
+      }}>
+      <Typography>{dialogue.membre.administrateurPilot
+        ? `${dialogue.membre.nom} garde ses droits dans Pilot, mais ne gère plus l'équipe, les alertes ni les fiches des autres.`
+        : DETAIL_ADMINISTRATEUR}</Typography>
+      <Typography variant="body2" color="text.secondary">{dialogue.membre.nom} sera déconnecté et se reconnectera avec ce changement. Ses accès au Dashboard ne changent pas.</Typography>
     </DialogueFormulaire>}
     {dialogue?.type === "retirer" && <DialogueFormulaire titre={`Retirer l'accès de ${dialogue.membre.nom} ?`} bouton="Retirer l'accès" suppression
       fermer={() => setDialogue(null)} soumettre={async () => {

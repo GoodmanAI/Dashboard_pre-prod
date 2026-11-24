@@ -33,6 +33,8 @@ export const creationCompte = z.object({
   departement: z.nativeEnum(CrmDepartement, { errorMap: () => ({ message: "Choisissez un département." }) }).optional(),
   /** Facultatif : sans lui, le compte n'ouvre que Pilot. */
   dashboard: accesDashboard.optional(),
+  /** Facultatif (24/11/2026) : administrateur de Pilot, posé par le super-administrateur seul. */
+  administrateur: z.boolean({ invalid_type_error: "Vérifiez les champs du formulaire." }).optional(),
 }, CORPS).strict();
 
 const version = z.string({ invalid_type_error: "Rechargez la page." }).datetime({ message: "Rechargez la page." }).nullable();
@@ -42,6 +44,7 @@ export const operationAcces = z.discriminatedUnion("operation", [
   z.object({ operation: z.literal("droits"), profil, droits, majLe: version }).strict(),
   /** `avant` : les accès lus par l'écran, pour ne pas écraser un changement fait entre-temps (C-26). */
   z.object({ operation: z.literal("dashboard"), acces: accesDashboard, avant: accesDashboard }).strict(),
+  z.object({ operation: z.literal("administrateur"), administrateur: z.boolean({ required_error: "Action inconnue.", invalid_type_error: "Action inconnue." }) }).strict(),
   z.object({ operation: z.literal("retirer") }).strict(),
   z.object({ operation: z.literal("rendre") }).strict(),
   z.object({ operation: z.literal("motDePasse") }).strict(),

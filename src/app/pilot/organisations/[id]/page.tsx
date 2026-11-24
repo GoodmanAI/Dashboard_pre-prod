@@ -52,7 +52,7 @@ export default async function PageOrganisation({ params }: { params: { id: strin
     qualifBudget: org.qualifBudget, qualifBesoin: org.qualifBesoin, decisionAttendueLe: org.decisionAttendueLe,
     temperatureForcee: org.temperatureForcee, temperatureForceeParId: org.temperatureForceeParId, temperatureForceeLe: org.temperatureForceeLe,
   }, maintenant), org.temperatureForceePar?.name ?? null);
-  return <FicheOrganisation facturation={facturation} commentaires={commentaires} cibles={cibles} alertes={alertes} peutConfier={peutConfier} temperature={temperature} concurrents={concurrents} peutModifier={peutModifierPilot(utilisateur.role)} demandes={demandes} moi={{ id: utilisateur.id, role: utilisateur.role }}
+  return <FicheOrganisation facturation={facturation} commentaires={commentaires} cibles={cibles} alertes={alertes} peutConfier={peutConfier} temperature={temperature} concurrents={concurrents} peutModifier={peutModifierPilot(utilisateur.role)} demandes={demandes} moi={{ id: utilisateur.id, role: utilisateur.role, administrateurPilot: utilisateur.administrateurPilot, superAdmin: utilisateur.superAdmin }}
     contrats={org.contrats.map((c) => ({ ...c, signeLe: c.signeLe?.toISOString() ?? null, debuteLe: c.debuteLe?.toISOString() ?? null,
       renouvelleLe: c.renouvelleLe?.toISOString() ?? null, termineLe: c.termineLe?.toISOString() ?? null,
       essaiDebuteLe: c.essaiDebuteLe?.toISOString() ?? null,

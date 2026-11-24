@@ -15,5 +15,5 @@ export default async function PageApports() {
   exiger(peutLirePilot(courant.role));
   const donnees = await chargerApports();
   return <ApportsAffaires donnees={donnees}
-    droits={{ modifier: peutModifierPilot(courant.role), montants: peutModifierLesMontants(courant), exporter: peutExporter(courant.role) }} />;
+    droits={{ modifier: peutModifierPilot(courant.role), montants: peutModifierLesMontants(courant), exporter: peutExporter(courant) }} />;
 }

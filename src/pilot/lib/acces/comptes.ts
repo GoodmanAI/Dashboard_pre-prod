@@ -7,9 +7,10 @@ import { ErreurMetier } from "@/pilot/lib/erreurs";
 import { prisma } from "@/pilot/lib/prisma";
 import { journaliser, transactionJournalisee } from "@/pilot/lib/evenements/journaliser";
 import { hacherMotDePasse, motDePasseProvisoire, verifierMotDePasse } from "@/pilot/lib/motDePasse";
-import { PROFILS, PROFIL_PAR_DEFAUT, droitsEffectifs, normaliser, refusDroits, type Profil } from "./droits";
+import { PROFILS, PROFIL_PAR_DEFAUT, droitsEffectifs, estAdministrateurPilot, normaliser, refusDroits, type Profil } from "./droits";
 import { LIBELLES_DEPARTEMENT } from "./departements";
-import { libelleAcces, lireAccesInternes, normaliserAccesInternes, type AccesInternes } from "@/lib/accesInternes";
+import { libelleAcces, lireAccesInternes, normaliserAccesInternes, ouvreLeDashboard, type AccesInternes } from "@/lib/accesInternes";
+import { peutDonnerAccesDashboard } from "@/pilot/lib/autorisations";
 
 /**
  * Les comptes de l'équipe et leurs droits (CHOIX.md, C-64).
@@ -32,11 +33,33 @@ async function verrouiller(tx: Prisma.TransactionClient, userId: number) {
   await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(${VERROU_ACCES}::integer, ${userId}::integer)`;
 }
 
-/** Un compte de l'équipe qu'on peut modifier : ADMIN. Le super-administrateur garde tous ses droits. */
-async function compteModifiable(tx: Prisma.TransactionClient, userId: number) {
-  const compte = await tx.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, role: true, accesPilot: true } });
+/**
+ * Qui agit sur l'équipe : le SUPER_ADMIN, ou un administrateur de Pilot (24/11/2026).
+ * La route a déjà vérifié `peutGererComptes` ; ici on ne regarde que le rôle.
+ */
+export type Auteur = { id: number; role: string };
+
+export const REFUS_DASHBOARD = "Les accès au Dashboard se donnent par le super-administrateur seul.";
+const REFUS_ADMINISTRATEUR = "Un administrateur de Pilot se nomme et se modifie par le super-administrateur seul.";
+const REFUS_SOI = "Vos propres droits se modifient par le super-administrateur.";
+const REFUS_MOT_DE_PASSE = "Ce compte ouvre des écrans du Dashboard : son mot de passe se donne par le super-administrateur.";
+
+/**
+ * Un compte de l'équipe qu'on peut modifier : ADMIN. Le super-administrateur garde tous ses droits.
+ *
+ * Un administrateur de Pilot qui n'est pas SUPER_ADMIN ne touche ni à lui-même, ni à un
+ * autre administrateur : sans cela, il pourrait s'élever ou élever un autre. Ce qu'il ne
+ * peut pas faire d'autre (écrans du Dashboard, mot de passe d'un compte qui en ouvre) est
+ * vérifié par l'opération elle-même.
+ */
+async function compteModifiable(tx: Prisma.TransactionClient, userId: number, auteur: Auteur) {
+  const compte = await tx.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, role: true, permissions: true, accesPilot: true } });
   if (!compte || compte.role === "CLIENT") throw new ErreurMetier("Compte inconnu.", 404);
   if (compte.role === "SUPER_ADMIN") throw new ErreurMetier("Un super-administrateur a tous les droits. Ils ne se modifient pas ici.", 400);
+  if (!peutDonnerAccesDashboard(auteur.role)) {
+    if (compte.id === auteur.id) throw new ErreurMetier(REFUS_SOI, 403);
+    if (compte.accesPilot?.administrateur) throw new ErreurMetier(REFUS_ADMINISTRATEUR, 403);
+  }
   return { ...compte, nom: compte.name ?? compte.email };
 }
 
@@ -53,11 +76,14 @@ export async function chargerEquipe() {
     .map(({ accesPilot: a, departementCompte: dep, permissions, ...c }) => {
       const superAdmin = c.role === "SUPER_ADMIN";
       const profil: Profil | null = superAdmin ? null : a?.profil ?? PROFIL_PAR_DEFAUT;
+      const acces = superAdmin ? null : lireAccesInternes(permissions);
       return {
         id: c.id, nom: c.name ?? c.email, email: c.email, superAdmin, profil,
+        // Administrateur de Pilot (24/11/2026) : coché par le super-administrateur seul.
+        administrateurPilot: !superAdmin && a?.administrateur === true,
         // Sans ligne, l'écran montre les droits par défaut du rôle : ceux qui s'appliquent.
         profilConfirme: superAdmin || a !== null,
-        droits: superAdmin ? droitsEffectifs(c.role, null) : normaliser(a ? a.droits : PROFILS[profil!].parDefaut),
+        droits: superAdmin || estAdministrateurPilot(c.role, a) ? droitsEffectifs(c.role, a) : normaliser(a ? a.droits : PROFILS[profil!].parDefaut),
         motDePasseProvisoire: a?.motDePasseProvisoire ?? false,
         retireLe: a?.retireLe?.toISOString() ?? null,
         majLe: a?.majLe.toISOString() ?? null,
@@ -65,7 +91,8 @@ export async function chargerEquipe() {
         departement: dep?.departement ?? null,
         departementMajLe: dep?.majLe.toISOString() ?? null,
         // Les écrans du Dashboard ouverts (24/11/2026). Vide : Pilot seul. Le super-administrateur ouvre tout.
-        accesDashboard: superAdmin ? null : lireAccesInternes(permissions),
+        accesDashboard: acces,
+        ouvreLeDashboard: superAdmin || ouvreLeDashboard(acces ?? {}),
       };
     })
     .sort((x, y) => Number(y.superAdmin) - Number(x.superAdmin));
@@ -73,9 +100,15 @@ export async function chargerEquipe() {
 export type MembreEquipe = Awaited<ReturnType<typeof chargerEquipe>>[number];
 
 /** Crée un compte de l'équipe avec un mot de passe provisoire, rendu une seule fois. */
-export async function creerCompte(d: z.output<typeof creationCompte>, auteurId: number) {
+export async function creerCompte(d: z.output<typeof creationCompte>, auteur: Auteur) {
+  const auteurId = auteur.id;
   const refus = refusDroits(d.profil, d.droits);
   if (refus) throw new ErreurMetier(refus, 400);
+  // Un administrateur de Pilot crée des comptes de Pilot seul, jamais un autre administrateur.
+  if (!peutDonnerAccesDashboard(auteur.role)) {
+    if (ouvreLeDashboard(normaliserAccesInternes(d.dashboard ?? {}))) throw new ErreurMetier(REFUS_DASHBOARD, 403);
+    if (d.administrateur) throw new ErreurMetier(REFUS_ADMINISTRATEUR, 403);
+  }
   const droits = normaliser(d.droits);
   const motDePasse = motDePasseProvisoire();
   const password = await hacherMotDePasse(motDePasse);
@@ -88,10 +121,10 @@ export async function creerCompte(d: z.output<typeof creationCompte>, auteurId: 
         data: { name: d.nom, email: d.email, password, role: "ADMIN", permissions: dashboard as Prisma.InputJsonObject },
         select: { id: true },
       });
-      await tx.crmAccesPilot.create({ data: { userId: compte.id, profil: d.profil, droits, motDePasseProvisoire: true, creeParId: auteurId, modifieParId: auteurId } });
+      await tx.crmAccesPilot.create({ data: { userId: compte.id, profil: d.profil, droits, motDePasseProvisoire: true, administrateur: d.administrateur === true, creeParId: auteurId, modifieParId: auteurId } });
       if (d.departement) await tx.crmDepartementCompte.create({ data: { userId: compte.id, departement: d.departement } });
       await journaliser(tx, { type: "COMPTE_CREE", auteurId, resume: `Compte créé : ${d.nom}, ${libelle(d.profil)}`,
-        apres: { userId: compte.id, profil: d.profil, droits, dashboard, ...(d.departement ? { departement: d.departement } : {}) } });
+        apres: { userId: compte.id, profil: d.profil, droits, dashboard, ...(d.administrateur ? { administrateur: true } : {}), ...(d.departement ? { departement: d.departement } : {}) } });
       return compte.id;
     });
     return { id, motDePasse };
@@ -105,24 +138,56 @@ export async function creerCompte(d: z.output<typeof creationCompte>, auteurId: 
 
 type Operation = z.output<typeof operationAcces>;
 
-/** Les actions du super-administrateur sur un compte : rôle et droits, retrait, retour, mot de passe provisoire. */
-export async function agirSurAcces(userId: number, op: Operation, auteurId: number): Promise<{ motDePasse?: string }> {
+/**
+ * Les actions sur un compte : rôle et droits, accès au Dashboard, administrateur de
+ * Pilot, retrait, retour, mot de passe provisoire. Les accès au Dashboard et la case
+ * d'administrateur sont au SUPER_ADMIN seul.
+ */
+export async function agirSurAcces(userId: number, op: Operation, auteur: Auteur): Promise<{ motDePasse?: string }> {
+  if ((op.operation === "dashboard" || op.operation === "administrateur") && !peutDonnerAccesDashboard(auteur.role)) {
+    throw new ErreurMetier(op.operation === "dashboard" ? REFUS_DASHBOARD : REFUS_ADMINISTRATEUR, 403);
+  }
   switch (op.operation) {
-    case "droits": await modifierDroits(userId, op, auteurId); return {};
-    case "dashboard": await modifierAccesDashboard(userId, op, auteurId); return {};
-    case "retirer": await retirerAcces(userId, auteurId); return {};
-    case "rendre": await rendreAcces(userId, auteurId); return {};
-    case "motDePasse": return { motDePasse: await reinitialiserMotDePasse(userId, auteurId) };
+    case "droits": await modifierDroits(userId, op, auteur); return {};
+    case "dashboard": await modifierAccesDashboard(userId, op, auteur); return {};
+    case "administrateur": await nommerAdministrateur(userId, op.administrateur, auteur); return {};
+    case "retirer": await retirerAcces(userId, auteur); return {};
+    case "rendre": await rendreAcces(userId, auteur); return {};
+    case "motDePasse": return { motDePasse: await reinitialiserMotDePasse(userId, auteur) };
   }
 }
 
-async function modifierDroits(userId: number, d: Extract<Operation, { operation: "droits" }>, auteurId: number) {
+/**
+ * Coche ou décoche l'administrateur de Pilot (24/11/2026). Le compte se reconnecte
+ * (`tokenVersion`) : aucune session ne garde des pouvoirs retirés.
+ */
+async function nommerAdministrateur(userId: number, administrateur: boolean, auteur: Auteur) {
+  const auteurId = auteur.id;
+  await transactionJournalisee(async (tx) => {
+    await verrouiller(tx, userId);
+    const compte = await compteModifiable(tx, userId, auteur);
+    if (compte.accesPilot?.retireLe) throw new ErreurMetier("L'accès de ce compte est retiré. Rendez-le avant de le nommer.", 409);
+    if ((compte.accesPilot?.administrateur ?? false) === administrateur) return;
+    await tx.crmAccesPilot.upsert({
+      where: { userId },
+      create: { userId, profil: "GERANT", droits: [...PROFILS.GERANT.parDefaut], administrateur, creeParId: auteurId, modifieParId: auteurId },
+      update: { administrateur, modifieParId: auteurId },
+    });
+    await tx.user.update({ where: { id: userId }, data: { tokenVersion: { increment: 1 } } });
+    await journaliser(tx, { type: "ACCES_MODIFIE", auteurId,
+      resume: `${administrateur ? "Nommé administrateur de Pilot" : "N'est plus administrateur de Pilot"} : ${compte.nom}`,
+      avant: { userId, administrateur: !administrateur }, apres: { userId, administrateur } });
+  });
+}
+
+async function modifierDroits(userId: number, d: Extract<Operation, { operation: "droits" }>, auteur: Auteur) {
+  const auteurId = auteur.id;
   const refus = refusDroits(d.profil, d.droits);
   if (refus) throw new ErreurMetier(refus, 400);
   const droits = normaliser(d.droits);
   await transactionJournalisee(async (tx) => {
     await verrouiller(tx, userId);
-    const compte = await compteModifiable(tx, userId);
+    const compte = await compteModifiable(tx, userId, auteur);
     const avant = compte.accesPilot;
     // Écriture conditionnelle (C-26) : la version lue par l'écran doit être celle en base.
     if ((avant?.majLe.toISOString() ?? null) !== d.majLe) throw new ErreurMetier(CONCURRENCE, 409);
@@ -147,11 +212,12 @@ const memes = (a: AccesInternes, b: AccesInternes) => JSON.stringify(a) === JSON
  * déconnecte la personne (`tokenVersion`) : elle se reconnecte avec ses nouveaux accès,
  * aucune session ne garde ceux d'avant.
  */
-async function modifierAccesDashboard(userId: number, d: Extract<Operation, { operation: "dashboard" }>, auteurId: number) {
+async function modifierAccesDashboard(userId: number, d: Extract<Operation, { operation: "dashboard" }>, auteur: Auteur) {
+  const auteurId = auteur.id;
   const acces = normaliserAccesInternes(d.acces);
   await transactionJournalisee(async (tx) => {
     await verrouiller(tx, userId);
-    const compte = await compteModifiable(tx, userId);
+    const compte = await compteModifiable(tx, userId, auteur);
     if (compte.accesPilot?.retireLe) throw new ErreurMetier("L'accès de ce compte est retiré. Rendez-le avant de changer ses accès.", 409);
     const { permissions } = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { permissions: true } });
     const precedent = normaliserAccesInternes(permissions);
@@ -166,10 +232,11 @@ async function modifierAccesDashboard(userId: number, d: Extract<Operation, { op
 }
 
 /** Le compte ne se connecte plus à Pilot, et une session ouverte s'arrête à l'appel suivant. Ses traces restent. */
-async function retirerAcces(userId: number, auteurId: number) {
+async function retirerAcces(userId: number, auteur: Auteur) {
+  const auteurId = auteur.id;
   await transactionJournalisee(async (tx) => {
     await verrouiller(tx, userId);
-    const compte = await compteModifiable(tx, userId);
+    const compte = await compteModifiable(tx, userId, auteur);
     if (compte.accesPilot?.retireLe) throw new ErreurMetier("L'accès de ce compte est déjà retiré.", 409);
     const maintenant = new Date();
     await tx.crmAccesPilot.upsert({
@@ -183,10 +250,11 @@ async function retirerAcces(userId: number, auteurId: number) {
   });
 }
 
-async function rendreAcces(userId: number, auteurId: number) {
+async function rendreAcces(userId: number, auteur: Auteur) {
+  const auteurId = auteur.id;
   await transactionJournalisee(async (tx) => {
     await verrouiller(tx, userId);
-    const compte = await compteModifiable(tx, userId);
+    const compte = await compteModifiable(tx, userId, auteur);
     if (!compte.accesPilot?.retireLe) throw new ErreurMetier("Ce compte a déjà accès à Pilot.", 409);
     await tx.crmAccesPilot.update({ where: { userId }, data: { retireLe: null, modifieParId: auteurId } });
     await journaliser(tx, { type: "ACCES_RENDU", auteurId, resume: `Accès rendu : ${compte.nom}`, apres: { userId } });
@@ -194,12 +262,18 @@ async function rendreAcces(userId: number, auteurId: number) {
 }
 
 /** Un nouveau mot de passe provisoire, pour qui a oublié le sien. L'ancien cesse de marcher. */
-async function reinitialiserMotDePasse(userId: number, auteurId: number) {
+async function reinitialiserMotDePasse(userId: number, auteur: Auteur) {
+  const auteurId = auteur.id;
   const motDePasse = motDePasseProvisoire();
   const password = await hacherMotDePasse(motDePasse);
   await transactionJournalisee(async (tx) => {
     await verrouiller(tx, userId);
-    const compte = await compteModifiable(tx, userId);
+    const compte = await compteModifiable(tx, userId, auteur);
+    // Donner le mot de passe d'un compte, c'est pouvoir s'y connecter : un administrateur
+    // de Pilot ne le fait que pour un compte qui n'ouvre rien au Dashboard.
+    if (!peutDonnerAccesDashboard(auteur.role) && ouvreLeDashboard(lireAccesInternes(compte.permissions))) {
+      throw new ErreurMetier(REFUS_MOT_DE_PASSE, 403);
+    }
     if (compte.accesPilot?.retireLe) throw new ErreurMetier("L'accès de ce compte est retiré. Rendez-le avant de donner un mot de passe.", 409);
     await tx.user.update({ where: { id: userId }, data: { password } });
     await tx.crmAccesPilot.upsert({

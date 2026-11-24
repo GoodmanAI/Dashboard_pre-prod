@@ -17,7 +17,7 @@ const FORMAT = "Collez la sauvegarde copiée depuis le calculateur (bouton « Co
 export async function POST(requete: Request) {
   try {
     const utilisateur = await utilisateurCourant();
-    exiger(peutExporter(utilisateur.role), "L'import est réservé au super-administrateur.");
+    exiger(peutExporter(utilisateur), "L'import est réservé aux administrateurs de Pilot.");
     if (Number(requete.headers.get("content-length") ?? 0) > LIMITE) throw new ErreurMetier("Sauvegarde trop lourde : 5 Mo au plus.", 400);
     const texte = await requete.text();
     if (new TextEncoder().encode(texte).length > LIMITE) throw new ErreurMetier("Sauvegarde trop lourde : 5 Mo au plus.", 400);

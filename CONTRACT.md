@@ -682,6 +682,11 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   pages `calls`, `incidents` ou `stats_appel`. **`dashboard` n'en fait plus partie depuis
   le 18/09/2026** : il y avait été ajouté le 16/09 pour que l'accueil n'affiche pas zéro,
   et donnait de fait les appels du centre à quiconque lisait la réponse réseau.
+- **Comptes de l'équipe, `ADMIN`** (24/11/2026, branche `feat/pilot`, RGPD) : en plus, la
+  conversation (lignes sans `champs=stats`, `call=`) n'est servie que si le compte a la page
+  `calls` ou `incidents` (`lireTranscriptionsPermis`, `src/lib/accesInternes.ts`) ; sinon
+  403. `stats_appel` et `dashboard` gardent `champs=stats` et `mode=agregat`. Clients et
+  `SUPER_ADMIN` inchangés.
 - **`champs=stats`** (18/09/2026), avec `mode=all` : les lignes partent **sans `steps`** (la
   transcription). Pour les écrans qui ne lisent que `createdAt` et `stats` (statistiques
   d'appels, vue d'ensemble admin). Même droit que les lignes. Sans le paramètre, la
@@ -904,6 +909,9 @@ dans `schema.prisma`), lues et écrites par les seules routes de session `/api/p
 **Aucune route machine-à-machine ne change, aucune brique ne les lit.** `Notification`
 gagne `type`, `lien`, `cle` et l'index unique `(userId, cle)` (`2026_12_22_notifications_communes.sql`,
 additif, colonnes nullables : les notifications de tickets existantes ne changent pas).
+`CrmAccesPilot` gagne `administrateur` (24/11/2026, `2026_12_23_pilot_administrateur.sql`,
+additif, `false` par défaut) : les pouvoirs du super-administrateur dans Pilot seulement,
+aucun écran du Dashboard.
 Plan : `lyrae/plans/2026-11-pilot-dans-le-dashboard.md`.
 
 `CentreStatut` (07/09/2026) porte le statut de cycle de vie d'un centre :

@@ -12,7 +12,7 @@ export async function GET() {
   try {
     const utilisateur = await utilisateurCourant();
     exiger(peutLirePilot(utilisateur.role));
-    exiger(await peutConfierAlertes(utilisateur), "Seul le directeur général ou le super-administrateur confie une alerte.");
+    exiger(await peutConfierAlertes(utilisateur), "Seul le directeur général ou un administrateur de Pilot confie une alerte.");
     return NextResponse.json({ equipe: await equipeAttribuable() }, { headers: { "Cache-Control": "no-store" } });
   } catch (erreur) { return reponseErreur(erreur); }
 }

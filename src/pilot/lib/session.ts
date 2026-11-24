@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/authOptions";
 import { ErreurMetier } from "@/pilot/lib/erreurs";
 import { prisma } from "@/pilot/lib/prisma";
 import { peutGererComptes, peutLirePilot } from "@/pilot/lib/autorisations";
-import { droitsEffectifs, libelleCompte, profilEffectif } from "@/pilot/lib/acces/droits";
+import { droitsEffectifs, estAdministrateurPilot, libelleCompte, profilEffectif } from "@/pilot/lib/acces/droits";
 import { ENTETE_CHEMIN, adresseDeConnexion, type RaisonRefus } from "@/pilot/lib/refusSession";
 
 /**
@@ -51,7 +51,7 @@ export async function compteAffiche() {
 
 const CHAMPS = {
   id: true, name: true, email: true, role: true,
-  accesPilot: { select: { profil: true, droits: true, retireLe: true, motDePasseProvisoire: true } },
+  accesPilot: { select: { profil: true, droits: true, retireLe: true, motDePasseProvisoire: true, administrateur: true } },
 } as const satisfies Prisma.UserSelect;
 
 type Lu = Prisma.UserGetPayload<{ select: typeof CHAMPS }>;
@@ -59,9 +59,14 @@ type Lu = Prisma.UserGetPayload<{ select: typeof CHAMPS }>;
 /** Ce que les routes et les pages savent de qui agit : identité, rôle, droits réels. */
 function enActeur({ accesPilot, ...u }: Lu) {
   const profil = profilEffectif(u.role, accesPilot);
+  const administrateurPilot = estAdministrateurPilot(u.role, accesPilot);
   return {
-    ...u, profil, libelle: libelleCompte(u.role, profil), droits: droitsEffectifs(u.role, accesPilot),
-    superAdmin: peutGererComptes(u.role), motDePasseProvisoire: accesPilot?.motDePasseProvisoire ?? false,
+    ...u, profil, libelle: libelleCompte(u.role, profil, administrateurPilot), droits: droitsEffectifs(u.role, accesPilot),
+    administrateurPilot,
+    // `superAdmin` : les pouvoirs du super-administrateur dans Pilot (administrateur compris).
+    // `superAdminDashboard` : le SUPER_ADMIN lui-même, seul à ouvrir des écrans du Dashboard.
+    superAdmin: peutGererComptes({ role: u.role, administrateurPilot }), superAdminDashboard: u.role === "SUPER_ADMIN",
+    motDePasseProvisoire: accesPilot?.motDePasseProvisoire ?? false,
   };
 }
 

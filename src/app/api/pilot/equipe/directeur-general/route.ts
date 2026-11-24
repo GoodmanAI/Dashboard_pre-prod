@@ -15,7 +15,7 @@ import { designerDirecteurGeneral } from "@/pilot/lib/alertes/attribuer";
 export async function PUT(requete: Request) {
   try {
     const utilisateur = await utilisateurCourant();
-    exiger(peutGererComptes(utilisateur.role), "Seul le super-administrateur désigne le directeur général.");
+    exiger(peutGererComptes(utilisateur), "Seul un administrateur de Pilot désigne le directeur général.");
     const analyse = designationDirecteur.safeParse(await requete.json().catch(() => null));
     if (!analyse.success) throw new ErreurMetier(messageValidation(analyse.error), 400);
     return NextResponse.json(await designerDirecteurGeneral(analyse.data, utilisateur.id), { headers: { "Cache-Control": "no-store" } });

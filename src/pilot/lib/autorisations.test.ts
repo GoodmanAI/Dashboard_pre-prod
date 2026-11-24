@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  exiger, peutLirePilot, peutModifierPilot, peutChangerEtape, peutAcquitter, peutExporter, peutGererComptes,
+  exiger, peutLirePilot, peutModifierPilot, peutChangerEtape, peutAcquitter, peutExporter, peutGererComptes, peutDonnerAccesDashboard,
   peutVoirCa, peutExporterCa, peutModifierLesMontants, peutEvaluer,
 } from "./autorisations";
 import { droitsEffectifs } from "./acces/droits";
@@ -15,8 +15,10 @@ describe("autorisations par rôle", () => {
     for (const autorisation of [peutLirePilot, peutModifierPilot, peutChangerEtape, peutAcquitter]) {
       expect(autorisation(role)).toBe(interne);
     }
-    expect(peutExporter(role)).toBe(superAdmin);
-    expect(peutGererComptes(role)).toBe(superAdmin);
+    expect(peutExporter({ role })).toBe(superAdmin);
+    expect(peutGererComptes({ role })).toBe(superAdmin);
+    expect(peutGererComptes({ role, administrateurPilot: true })).toBe(superAdmin || role === "ADMIN");
+    expect(peutDonnerAccesDashboard(role)).toBe(role === "SUPER_ADMIN");
   });
   it("exiger refuse en 403 avec le message fourni", () => {
     expect(() => exiger(false, "Action réservée.")).toThrowError(expect.objectContaining({

@@ -178,17 +178,23 @@ export const PREREGLAGES: Array<{ cle: string; libelle: string; detail: string; 
 ];
 
 /**
- * `centres+admin_vue_ensemble` → les écrans ouverts, en lecture. Chaque morceau est un
- * préréglage ou la clé d'un écran ; le texte du refus si l'un est inconnu. Lu par
+ * `centres+admin_vue_ensemble-calls` → les écrans ouverts, en lecture. Chaque morceau est
+ * un préréglage ou la clé d'un écran, ajouté par `+` ou retiré par `-`, de gauche à
+ * droite ; le texte du refus si l'un est inconnu. Lu par
  * `scripts/pilot/creer-comptes-internes.ts` (colonne `dashboard`).
  */
 export function accesDepuisTexte(texte: string): AccesInternes | string {
   const acces: Record<string, string> = {};
-  for (const morceau of texte.split("+").map((m) => m.trim()).filter(Boolean)) {
+  for (const [, signe, brut] of texte.matchAll(/([+-]?)\s*([^+-]+)/g)) {
+    const morceau = brut.trim();
+    if (!morceau) continue;
     const preregle = PREREGLAGES.find((p) => p.cle === morceau.toLowerCase());
-    if (preregle) { Object.assign(acces, preregle.acces()); continue; }
-    if (!TOUTES_LES_CLES.includes(morceau as CleAcces)) return `écran inconnu : « ${morceau} »`;
-    acces[morceau] = acces[morceau] ?? "read";
+    const cles = preregle ? Object.keys(preregle.acces()) : [morceau];
+    if (!preregle && !TOUTES_LES_CLES.includes(morceau as CleAcces)) return `écran inconnu : « ${morceau} »`;
+    for (const cle of cles) {
+      if (signe === "-") delete acces[cle];
+      else acces[cle] = acces[cle] ?? (preregle?.acces()[cle as CleAcces] ?? "read");
+    }
   }
   return normaliserAccesInternes(acces);
 }
@@ -217,6 +223,22 @@ export const ENTETE_CHEMIN_ADMIN = "x-lyrae-chemin-admin";
 
 export const MESSAGE_ACCES_INTERNE =
   "Votre compte n'a pas accès à cet écran du Dashboard. Le super-administrateur peut vous l'ouvrir dans l'écran Équipe de Pilot.";
+
+/**
+ * Les écrans qui montrent la conversation d'un appel (24/11/2026, RGPD). Un compte de
+ * l'équipe ne lit une transcription que si l'un d'eux est coché : `/api/calls` le
+ * vérifie, même quand « Statistiques d'appels » ou « Tableau de bord » ouvrent la route.
+ */
+export const PAGES_A_TRANSCRIPTION: readonly PageKey[] = [PAGES.CALLS, PAGES.INCIDENTS];
+
+export const MESSAGE_TRANSCRIPTIONS =
+  "Votre compte ne lit pas les conversations des appels. Les statistiques restent ouvertes.";
+
+/** Ce compte interne lit-il les transcriptions ? Lu sur ses écrans cochés. */
+export function lireTranscriptionsPermis(subject: { permissions?: unknown }): boolean {
+  const acces = lireAccesInternes(subject.permissions);
+  return PAGES_A_TRANSCRIPTION.some((p) => niveauInterne(acces, p) !== "none");
+}
 
 /**
  * Ce qu'une route d'API demande pour servir un compte interne :

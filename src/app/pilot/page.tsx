@@ -12,5 +12,5 @@ export default async function PageAujourdHui({ searchParams }: { searchParams: {
   const moi = await utilisateurCourant();
   // « Pour vous » : les demandes et les commentaires non lus, lus en parallèle (lot T).
   const [donnees, demandes, commentaires] = await Promise.all([construireAujourdhui(equipe, page), demandesDuJour(moi.id), commentairesNonLus(moi.id)]);
-  return <AujourdHui donnees={donnees} equipe={equipe} demandes={demandes} commentaires={commentaires} moi={{ id: moi.id, role: moi.role }} />;
+  return <AujourdHui donnees={donnees} equipe={equipe} demandes={demandes} commentaires={commentaires} moi={{ id: moi.id, role: moi.role, administrateurPilot: moi.administrateurPilot, superAdmin: moi.superAdmin }} />;
 }

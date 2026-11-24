@@ -5,7 +5,10 @@ import type { CrmDroitPilot, CrmProfilPilot } from "@prisma/client";
  * serveur, l'écran Équipe et Mon compte lisent tous ce fichier.
  *
  * - Super-administrateur : le rôle SUPER_ADMIN du Dashboard. Tous les droits,
- *   toujours, et lui seul crée les comptes et donne les droits.
+ *   toujours ; lui seul ouvre des écrans du Dashboard et nomme un administrateur.
+ * - Administrateur de Pilot (24/11/2026) : un compte ADMIN coché `administrateur`.
+ *   Tous les droits et les pouvoirs du super-administrateur, dans Pilot seulement :
+ *   l'équipe, les alertes, les fiches. Rien de plus au Dashboard.
  * - Gérant et Développeur : des comptes ADMIN du Dashboard, avec un rôle et
  *   des droits cochés dans `CrmAccesPilot`.
  * - Un développeur ne voit jamais le chiffre d'affaires, même coché.
@@ -65,14 +68,19 @@ export function refusDroits(profil: Profil, droits: readonly Droit[]): string | 
 }
 
 /** Ce qu'on lit de `CrmAccesPilot` ; null quand le compte n'a pas de ligne. */
-export type AccesLu = { profil: Profil; droits: readonly Droit[]; retireLe: Date | null } | null;
+export type AccesLu = { profil: Profil; droits: readonly Droit[]; retireLe: Date | null; administrateur?: boolean } | null;
+
+/** Un compte ADMIN coché administrateur de Pilot, dont l'accès n'est pas retiré. */
+export function estAdministrateurPilot(role: string, acces: AccesLu): boolean {
+  return role === "ADMIN" && acces?.administrateur === true && !acces.retireLe;
+}
 
 /**
  * Les droits réels d'un compte. Le serveur ne se fie qu'à ce calcul : un droit
  * stocké que le rôle interdit est ignoré, l'export sans la vue aussi.
  */
 export function droitsEffectifs(role: string, acces: AccesLu): Droit[] {
-  if (role === "SUPER_ADMIN") return [...TOUS];
+  if (role === "SUPER_ADMIN" || estAdministrateurPilot(role, acces)) return [...TOUS];
   if (role !== "ADMIN" || acces?.retireLe) return [];
   const profil = acces?.profil ?? PROFIL_PAR_DEFAUT;
   const permis = normaliser(acces ? acces.droits : PROFILS[profil].parDefaut).filter((d) => !PROFILS[profil].interdits.includes(d));
@@ -85,8 +93,9 @@ export function profilEffectif(role: string, acces: AccesLu): Profil | null {
 }
 
 /** Le libellé du compte, affiché sous son nom. */
-export function libelleCompte(role: string, profil: Profil | null): string {
+export function libelleCompte(role: string, profil: Profil | null, administrateur = false): string {
   if (role === "SUPER_ADMIN") return "Super-administrateur";
+  if (role === "ADMIN" && administrateur) return "Administrateur de Pilot";
   if (role === "ADMIN") return PROFILS[profil ?? PROFIL_PAR_DEFAUT].libelle;
   return "Client";
 }

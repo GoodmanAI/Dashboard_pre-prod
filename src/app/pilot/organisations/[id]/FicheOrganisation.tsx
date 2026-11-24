@@ -157,7 +157,7 @@ export function FicheOrganisation({ facturation, peutConfier = false, commentair
             accepter={(id) => { setAcceptation(id); ouvrirOnglet("negociation"); }}
             termine={(texte) => { setMessage(texte); router.refresh(); }} />
           <Button variant="outlined" onClick={() => setDialogue({ type: "organisation" })}>Modifier</Button>
-          {moi.role === "SUPER_ADMIN" && <BoutonSupprimerFiche organisationId={org.id} nom={org.raisonSocialeNom} />}
+          {moi.superAdmin && <BoutonSupprimerFiche organisationId={org.id} nom={org.raisonSocialeNom} />}
           <BoutonDemander organisationId={org.id} comptes={comptes} moi={moi} />
           <Button variant="contained" component={Link} href={`/pilot/organisations/${org.id}?onglet=chronologie&saisir=1`}>Noter un échange</Button>
         </Stack>

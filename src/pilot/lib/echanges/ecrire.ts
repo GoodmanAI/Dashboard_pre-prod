@@ -1,3 +1,4 @@
+import { pouvoirsPilot } from "@/pilot/lib/autorisations";
 import type { CrmEchange, Prisma } from "@prisma/client";
 import type { z } from "zod";
 import type { saisieEchange, modificationEchange } from "@/pilot/lib/validation/echange";
@@ -72,8 +73,8 @@ export async function modifierDansTransaction(tx: Prisma.TransactionClient, e: C
 }
 
 /** Pourquoi ce compte ne corrige pas cet échange, ou null : son auteur ou le super-administrateur (C-86). */
-export function refusCorrection(e: Pick<CrmEchange, "auteurId" | "type">, acteur: { id: number; role: string }, compteRendu: string | null): string | null {
-  if (acteur.role !== "SUPER_ADMIN" && e.auteurId !== acteur.id) return "Seul l'auteur de cet échange, ou le super-administrateur, peut corriger son texte.";
+export function refusCorrection(e: Pick<CrmEchange, "auteurId" | "type">, acteur: { id: number; role: string; administrateurPilot?: boolean }, compteRendu: string | null): string | null {
+  if (!pouvoirsPilot(acteur) && e.auteurId !== acteur.id) return "Seul l'auteur de cet échange, ou un administrateur de Pilot, peut corriger son texte.";
   if (e.type === "JALON" && !compteRendu?.trim()) return "Indiquez le nom de l'étape clé.";
   return null;
 }
