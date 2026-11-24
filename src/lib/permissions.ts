@@ -2,8 +2,9 @@
  * Permissions granulaires par page (chantier 3, Lot A).
  * -----------------------------------------------------------------------------
  * Modele :
- *   - SUPER_ADMIN / ADMIN : acces complet, la valeur `permissions` en base
- *     est ignoree.
+ *   - SUPER_ADMIN : acces complet, la valeur `permissions` en base est ignoree.
+ *   - ADMIN (comptes internes, depuis le 24/11/2026) : refus par defaut, chaque
+ *     page cochee dans l'ecran Equipe de Pilot (`src/lib/accesInternes.ts`).
  *   - CLIENT sans `permissions` set (null) : compte principal, acces complet
  *     a toutes les pages CLIENT (comportement historique).
  *   - CLIENT avec `permissions` set : sous-compte, acces granulaire par page.
@@ -287,8 +288,17 @@ export function hasPermission(
 ): boolean {
   if (!subject?.role) return false;
 
-  // SUPER_ADMIN / ADMIN : bypass total
-  if (subject.role === "SUPER_ADMIN" || subject.role === "ADMIN") return true;
+  // SUPER_ADMIN : bypass total.
+  if (subject.role === "SUPER_ADMIN") return true;
+
+  // ADMIN (comptes internes de l'équipe, 24/11/2026) : refus par défaut. Sans rien de
+  // coché, le compte n'ouvre que Pilot ; chaque écran d'un centre se coche dans
+  // l'écran Équipe de Pilot (`src/lib/accesInternes.ts`). Avant, un ADMIN ouvrait tout.
+  if (subject.role === "ADMIN") {
+    const pageLevel = parsePermissions(subject.permissions)?.[page];
+    if (!pageLevel || pageLevel === "none") return false;
+    return level === "read" || pageLevel === "write";
+  }
 
   if (subject.role !== "CLIENT") return false;
 

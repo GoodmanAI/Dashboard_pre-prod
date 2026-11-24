@@ -17,6 +17,7 @@ import localFont from 'next/font/local'
 import { CentreProvider } from "./context/CentreContext";
 import PageAccessGuard from "@/components/permissions/PageAccessGuard";
 import BandeauCompletude from "@/components/completude/BandeauCompletude";
+import BandeauLectureSeule from "@/components/espaces/BandeauLectureSeule";
 import { TutorielProvider } from "@/components/tutoriel/ContexteTutoriel";
 
 /**
@@ -74,6 +75,7 @@ export default function RootLayout({
    *   - /c/*               : URL courte du SMS de rappel RDV (patient)
    *   - /confirm/*         : URL longue du SMS de rappel RDV (patient, rétrocompat)
    *   - /d/*               : URL courte du SMS de dépôt d'ordonnance (patient)
+   *   - /pilot/*           : Pilot, CRM interne, avec sa propre coquille
    *
    * Ces routes servent notamment via les sous-domaines patient (rdv.neuracorp.ai
    * et depot-ordonnances.neuracorp.ai — isolés côté middleware) et doivent
@@ -85,7 +87,10 @@ export default function RootLayout({
     pathname?.startsWith("/authentication") ||
     pathname?.startsWith("/c/") ||
     pathname?.startsWith("/confirm/") ||
-    pathname?.startsWith("/d/");
+    pathname?.startsWith("/d/") ||
+    // Pilot (CRM interne) monte sa propre coquille et son thème : src/app/pilot/layout.tsx.
+    pathname === "/pilot" ||
+    pathname?.startsWith("/pilot/");
 
   return (
     <html lang="fr" className={myFont.variable}>
@@ -115,6 +120,8 @@ export default function RootLayout({
                       arrete, ni sur un centre complet : il est sans effet tant
                       qu'il n'a rien a dire. */}
                   <BandeauCompletude />
+                  {/* Comptes internes (ADMIN) : la configuration se consulte, elle ne se change pas. */}
+                  <BandeauLectureSeule />
                   {/* Zone d’injection des pages (routes enfants). */}
                     {/* `pt` : le sélecteur de produit du header est le contexte de
                         tout ce qui suit. Collé au titre de la page, on lisait deux

@@ -215,7 +215,7 @@ export default function BandeauCompletude() {
       {autres} autre{autres > 1 ? "s" : ""} centre{autres > 1 ? "s" : ""} en
       production {autres > 1 ? "ont" : "a"} une information essentielle
       manquante.{" "}
-      <Link href="/admin/parc" style={{ color: "inherit" }}>
+      <Link href="/pilot/parc-clients" style={{ color: "inherit" }}>
         Voir le parc
       </Link>
     </Typography>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   Badge,
@@ -14,12 +14,18 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { IconLifebuoy } from "@tabler/icons-react";
+import { IconBell } from "@tabler/icons-react";
 import { io as ioClient, Socket } from "socket.io-client";
-import { BRAND_TEAL, TEXT_MAIN, TEXT_MUTED, NEUTRAL_BG } from "@/lib/jetons";
+import { TEXT_MAIN, TEXT_MUTED } from "@/lib/jetons";
+import { adresseDansSonEspace, estCheminPilot } from "@/lib/espaces";
+
+/** Couleur d'accent de l'espace où la cloche est montée (vert au Dashboard, bleu dans Pilot). */
+const ACCENT = "primary.main";
 
 /**
- * Bell notification globale dans le header, dediee aux tickets support.
+ * Cloche commune au Dashboard et à Pilot (plan 2026-11-pilot-dans-le-dashboard).
+ * Tickets du support, et depuis l'intégration de Pilot : demandes reçues,
+ * commentaires reçus, alertes confiées (`type` pilot.*, `lien` vers l'écran).
  *
  * Fonctionnement :
  *   - Fetch initial GET /api/notification/get-unread au mount + poll 60s
@@ -43,6 +49,8 @@ interface Notification {
   message: string;
   isRead: boolean;
   createdAt: string;
+  type?: string | null;
+  lien?: string | null;
   ticket: {
     id: number;
     subject: string;
@@ -54,7 +62,7 @@ function formatRelativeTime(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "-";
   const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (seconds < 60) return "a l'instant";
+  if (seconds < 60) return "à l'instant";
   if (seconds < 3600) return `il y a ${Math.floor(seconds / 60)} min`;
   if (seconds < 86400) return `il y a ${Math.floor(seconds / 3600)} h`;
   const days = Math.floor(seconds / 86400);
@@ -65,6 +73,7 @@ function formatRelativeTime(iso: string): string {
 export default function NotificationBell() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const chemin = usePathname() ?? "";
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [markingAll, setMarkingAll] = useState(false);
@@ -140,6 +149,13 @@ export default function NotificationBell() {
       // Silencieux : au pire la notif reste "unread" en base, refetch prochain
     }
     handleClose();
+    if (notif.lien && notif.lien.startsWith("/")) {
+      // Lien vers l'autre espace : navigation complète, l'autre hôte a sa propre coquille.
+      const dansPilot = estCheminPilot(chemin);
+      if (estCheminPilot(notif.lien) !== dansPilot) window.location.assign(adresseDansSonEspace(notif.lien, dansPilot));
+      else router.push(notif.lien);
+      return;
+    }
     if (notif.ticket?.id) {
       router.push(
         isAdmin
@@ -178,11 +194,11 @@ export default function NotificationBell() {
         <IconButton
           onClick={handleClickBell}
           size="large"
-          aria-label="Notifications support"
+          aria-label="Notifications"
           sx={{
-            color: unreadCount > 0 ? BRAND_TEAL : TEXT_MUTED,
+            color: unreadCount > 0 ? ACCENT : TEXT_MUTED,
             transition: "color 0.2s",
-            "&:hover": { color: BRAND_TEAL, bgcolor: "rgba(var(--accent-rgb), 0.08)" },
+            "&:hover": { color: ACCENT, bgcolor: "action.hover" },
           }}
         >
           <Badge
@@ -198,7 +214,7 @@ export default function NotificationBell() {
               },
             }}
           >
-            <IconLifebuoy size={22} stroke={1.5} />
+            <IconBell size={22} stroke={1.5} />
           </Badge>
         </IconButton>
       </Tooltip>
@@ -216,7 +232,7 @@ export default function NotificationBell() {
             overflow: "hidden",
             borderRadius: 2,
             boxShadow: "0 12px 32px rgba(31, 52, 72, 0.15)",
-            border: "1px solid rgba(var(--accent-rgb), 0.15)",
+            border: "1px solid rgba(0, 0, 0, 0.08)",
           },
         }}
         MenuListProps={{ sx: { p: 0 } }}
@@ -234,7 +250,7 @@ export default function NotificationBell() {
           }}
         >
           <Typography variant="subtitle2" sx={{ fontWeight: 700, color: TEXT_MAIN }}>
-            Support
+            Notifications
             {unreadCount > 0 && (
               <Typography
                 component="span"
@@ -255,12 +271,12 @@ export default function NotificationBell() {
               onClick={handleMarkAllRead}
               disabled={markingAll}
               sx={{
-                color: BRAND_TEAL,
+                color: ACCENT,
                 fontSize: 12,
                 fontWeight: 600,
                 minWidth: 0,
                 px: 1,
-                "&:hover": { bgcolor: "rgba(var(--accent-rgb), 0.08)" },
+                "&:hover": { bgcolor: "action.hover" },
               }}
             >
               Tout marquer lu
@@ -271,7 +287,7 @@ export default function NotificationBell() {
         {/* Liste des notifs OU empty state */}
         {notifications.length === 0 ? (
           <Box sx={{ p: 4, textAlign: "center" }}>
-            <IconLifebuoy size={40} color={TEXT_MUTED} stroke={1.2} style={{ opacity: 0.4 }} />
+            <IconBell size={40} color={TEXT_MUTED} stroke={1.2} style={{ opacity: 0.4 }} />
             <Typography variant="body2" sx={{ mt: 1.5, color: TEXT_MUTED }}>
               Aucune nouvelle notification
             </Typography>
@@ -285,11 +301,11 @@ export default function NotificationBell() {
                 sx={{
                   px: 2,
                   py: 1.5,
-                  cursor: notif.ticket ? "pointer" : "default",
+                  cursor: notif.ticket || notif.lien ? "pointer" : "default",
                   borderBottom: i < notifications.length - 1 ? "1px solid #f1f5f9" : "none",
                   transition: "background-color 0.15s",
-                  "&:hover": notif.ticket
-                    ? { bgcolor: "rgba(var(--accent-rgb), 0.06)" }
+                  "&:hover": notif.ticket || notif.lien
+                    ? { bgcolor: "action.hover" }
                     : undefined,
                 }}
               >
@@ -300,17 +316,17 @@ export default function NotificationBell() {
                       width: 8,
                       height: 8,
                       borderRadius: "50%",
-                      bgcolor: BRAND_TEAL,
+                      bgcolor: ACCENT,
                       mt: 0.8,
                       flexShrink: 0,
                     }}
                   />
                   <Box sx={{ flex: 1, minWidth: 0 }}>
-                    {notif.ticket && (
+                    {(notif.ticket || notif.type?.startsWith("pilot.")) && (
                       <Typography
                         variant="caption"
                         sx={{
-                          color: BRAND_TEAL,
+                          color: ACCENT,
                           fontWeight: 700,
                           textTransform: "uppercase",
                           letterSpacing: 0.5,
@@ -323,7 +339,9 @@ export default function NotificationBell() {
                             partagee entre admins). Pour le client, on montre
                             juste "Ticket" car le message contient deja le
                             sujet et on ne veut pas leaker l'id global. */}
-                        {isAdmin ? `Ticket #${notif.ticket.id}` : "Ticket"}
+                        {notif.type?.startsWith("pilot.")
+                          ? "Pilot"
+                          : isAdmin && notif.ticket ? `Ticket #${notif.ticket.id}` : "Ticket"}
                       </Typography>
                     )}
                     <Typography

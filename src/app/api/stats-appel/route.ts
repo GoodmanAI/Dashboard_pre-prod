@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, assertUserProductOwnership } from "@/lib/auth-helpers";
 import { requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
+import { PAGES_ADMIN } from "@/lib/accesInternes";
+import { peutOuvrirAdmin } from "@/lib/pageAccess";
 import { SQL_PATIENT_A_PARLE, SQL_SANS_PAROLE } from "@/lib/appelsSansParole";
 import { Prisma } from "@prisma/client";
 import { calculerApercu, calculerIndicateurs, calculerStatsAppels, LigneAppel } from "@/lib/statsAppel";
@@ -86,9 +88,13 @@ export async function GET(request: NextRequest) {
     const prevFrom = date(q.get("previousFrom"));
     const prevTo = date(q.get("previousTo"));
 
+    // La carte d'un centre de la vue d'ensemble admin (`vue=apercu`) s'ouvre aussi à qui
+    // a la vue d'ensemble (compte interne, 24/11/2026), sans les écrans d'appels du centre.
+    const apercuPermis =
+      q.get("vue") === "apercu" && peutOuvrirAdmin(auth.session.user as any, PAGES_ADMIN.VUE_ENSEMBLE);
     const [ownershipErr, droitErr] = await Promise.all([
       assertUserProductOwnership(auth.session, userProductId),
-      requireAnyPagePermission([PAGES.CALLS, PAGES.INCIDENTS, PAGES.STATS_APPEL], "read"),
+      apercuPermis ? Promise.resolve(null) : requireAnyPagePermission([PAGES.CALLS, PAGES.INCIDENTS, PAGES.STATS_APPEL], "read"),
     ]);
     if (ownershipErr) return ownershipErr;
     if (droitErr) return droitErr;

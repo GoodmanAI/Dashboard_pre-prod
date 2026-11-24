@@ -13,6 +13,7 @@
  */
 
 import { hasPermission, PageKey, PAGES, PermissionSubject } from "./permissions";
+import { cleAdminDuChemin, lireAccesInternes, type CleAdmin } from "./accesInternes";
 
 /**
  * Ordre : les patterns plus specifiques d'abord (mapping_exam avant
@@ -136,7 +137,7 @@ const CHEMINS_EXEMPTS: RegExp[] = [
  */
 export type VerdictAcces =
   | { genre: "page"; page: PageKey }
-  | { genre: "admin" }
+  | { genre: "admin"; cle: CleAdmin | null }
   | { genre: "exempt" }
   | { genre: "inconnu" };
 
@@ -146,7 +147,9 @@ export function verdictAcces(pathname: string): VerdictAcces {
   for (const { pattern, page } of PATH_MATCHERS) {
     if (pattern.test(pathname)) return { genre: "page", page };
   }
-  if (/^\/admin(?:\/|$)/.test(pathname)) return { genre: "admin" };
+  // Son propre profil : tout compte interne y a droit, comme `/client/profile`.
+  if (/^\/admin\/profile\/?$/.test(pathname)) return { genre: "exempt" };
+  if (/^\/admin(?:\/|$)/.test(pathname)) return { genre: "admin", cle: cleAdminDuChemin(pathname) };
   for (const motif of CHEMINS_EXEMPTS) {
     if (motif.test(pathname)) return { genre: "exempt" };
   }
@@ -330,4 +333,17 @@ export function getFirstAccessiblePath(
     if (url) return url;
   }
   return null;
+}
+
+/**
+ * Vrai si ce compte ouvre cet écran d'administration (24/11/2026). Le super-administrateur
+ * ouvre tout ; un compte interne (ADMIN) seulement ce qui lui a été coché dans l'écran
+ * Équipe de Pilot (`src/lib/accesInternes.ts`), et jamais un écran sans clé (`cle` null :
+ * réservé au super-administrateur) ; un client, rien.
+ */
+export function peutOuvrirAdmin(subject: PermissionSubject, cle: CleAdmin | null): boolean {
+  if (subject?.role === "SUPER_ADMIN") return true;
+  if (subject?.role !== "ADMIN" || !cle) return false;
+  const niveau = lireAccesInternes(subject.permissions)[cle];
+  return niveau === "read" || niveau === "write";
 }

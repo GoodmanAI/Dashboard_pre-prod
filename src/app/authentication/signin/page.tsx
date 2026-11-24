@@ -87,7 +87,12 @@ export default function SignIn() {
     const session = await getSession();
 
     if (session?.user?.role === "ADMIN" || session?.user?.role === "SUPER_ADMIN") {
-      router.push("/admin");
+      // Venu de Pilot (session expirée, lien direct) : on y retourne. Chemin relatif
+      // sous /pilot seulement, jamais une adresse d'un autre site.
+      const retour = new URLSearchParams(window.location.search).get("callbackUrl");
+      const versPilot = retour && /^\/pilot(\/|\?|$)/.test(retour) ? retour : null;
+      const surHotePilot = window.location.hostname.startsWith("pilote.");
+      router.push(versPilot ?? (surHotePilot ? "/pilot" : "/admin"));
       router.refresh();
       return;
     }
