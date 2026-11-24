@@ -10,6 +10,7 @@ import {
   requireAnyPagePermission,
 } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
+import { MESSAGE_TRANSCRIPTIONS, lireTranscriptionsPermis } from "@/lib/accesInternes";
 import { debutConservation } from "@/lib/retentionAppels";
 import {
   estExamenNonPris,
@@ -429,6 +430,17 @@ export async function GET(request: NextRequest) {
       "read",
     );
     if (droitErr) return droitErr;
+
+    // Comptes de l'équipe (ADMIN, 24/11/2026, RGPD) : la conversation d'un appel ne
+    // sort que pour l'écran Appels ou Incidents coché dans Pilot, écran Équipe.
+    // « Statistiques d'appels » seul ne lit que les chiffres (`champs=stats`).
+    if (
+      session.user.role === "ADMIN" &&
+      (callIdParam || !sansTranscription) &&
+      !lireTranscriptionsPermis(session.user)
+    ) {
+      return NextResponse.json({ error: MESSAGE_TRANSCRIPTIONS }, { status: 403 });
+    }
 
     // ==========================
     // RÉTENTION (28/09/2026)

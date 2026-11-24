@@ -682,6 +682,11 @@ ne l'appelle), mais elle porte de la donnée patient, donc son droit se note ici
   pages `calls`, `incidents` ou `stats_appel`. **`dashboard` n'en fait plus partie depuis
   le 18/09/2026** : il y avait été ajouté le 16/09 pour que l'accueil n'affiche pas zéro,
   et donnait de fait les appels du centre à quiconque lisait la réponse réseau.
+- **Comptes de l'équipe, `ADMIN`** (24/11/2026, branche `feat/pilot`, RGPD) : en plus, la
+  conversation (lignes sans `champs=stats`, `call=`) n'est servie que si le compte a la page
+  `calls` ou `incidents` (`lireTranscriptionsPermis`, `src/lib/accesInternes.ts`) ; sinon
+  403. `stats_appel` et `dashboard` gardent `champs=stats` et `mode=agregat`. Clients et
+  `SUPER_ADMIN` inchangés.
 - **`champs=stats`** (18/09/2026), avec `mode=all` : les lignes partent **sans `steps`** (la
   transcription). Pour les écrans qui ne lisent que `createdAt` et `stats` (statistiques
   d'appels, vue d'ensemble admin). Même droit que les lignes. Sans le paramètre, la
@@ -897,6 +902,19 @@ PostgreSQL unique via `DATABASE_URL`. Propriétaire complet. **[?] Q2** — rela
 |---|---|
 | Prisma (16) | `User`, `Product`, `UserProduct`, `UserNumber`, `LyraeExplainDetails`, `LyraeTalkDetails`, `FileSubmission`, `Ticket`, `TicketMessage`, `Notification`, `TalkSettings`, `ReceivedCalls`, `TalkInformationSettings`, `ExamMapping`, `CallConversation`, `LoginAttempt` |
 | SQL manuel (19) | `AppointmentConfirmation`, `ReminderSent`, `ReminderStats`, `ExternalCenterMapping`, `KonnectTenantMapping`, `KonnectSettings`, `KonnectExamens`, `KonnectSites`, `KonnectDemandesRappel`, `ProductConfig`, `SmsConfirmationConfig`, `PrescriptionConfig`, `PrescriptionUpload`, `PrescriptionDocument`, `PrescriptionAccessLog`, `PrescriptionStats`, `DeploymentStatus`, `CentreStatut`, `ReferentielExamens` |
+
+**Pilot, CRM interne (23/11/2026, branche `feat/pilot`, non déployé)** : tables `Crm*`
+(26 SQL manuels `2026_10_26_crm_pilot.sql` à `2026_12_21_pilot_facturation.sql`, rapatriées
+dans `schema.prisma`), lues et écrites par les seules routes de session `/api/pilot/*`.
+**Aucune route machine-à-machine ne change, aucune brique ne les lit.** `Notification`
+gagne `type`, `lien`, `cle` et l'index unique `(userId, cle)` (`2026_12_22_notifications_communes.sql`,
+additif, colonnes nullables : les notifications de tickets existantes ne changent pas).
+`CrmAccesPilot` gagne `administrateur` (24/11/2026, `2026_12_23_pilot_administrateur.sql`,
+additif, `false` par défaut) : les pouvoirs du super-administrateur dans Pilot seulement,
+aucun écran du Dashboard.
+Le produit Konnect s'appelle `LyraeKonnect` partout dans Pilot (24/11/2026, comme
+`src/lib/produits.ts`) : `2026_12_13_pilot_tarifs.sql` relie la grille à ce nom.
+Plan : `lyrae/plans/2026-11-pilot-dans-le-dashboard.md`.
 
 `CentreStatut` (07/09/2026) porte le statut de cycle de vie d'un centre :
 `integration`, `production` ou `arrete`, une ligne par `userProductId`, donc **par couple

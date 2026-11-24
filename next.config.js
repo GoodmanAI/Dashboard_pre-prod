@@ -23,7 +23,8 @@ const cspDirectives = {
   "default-src": ["'self'"],
   "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
   "style-src": ["'self'", "'unsafe-inline'"],
-  "img-src": ["'self'", "data:", "blob:"],
+  // Tuiles de la carte de Pilot (lot U) : OpenStreetMap, le seul hôte d'images externe.
+  "img-src": ["'self'", "data:", "blob:", "https://tile.openstreetmap.org"],
   "font-src": ["'self'", "data:"],
   "connect-src": ["'self'"],
   "frame-src": ["'self'", "https://tabler-icons.io"],

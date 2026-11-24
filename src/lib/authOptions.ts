@@ -1,4 +1,5 @@
 import { NextAuthOptions } from "next-auth";
+import { cookiesSecurises, domaineCookie, nomCookieSession } from "@/lib/cookieSession";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
@@ -150,6 +151,21 @@ export const authOptions: NextAuthOptions  = {
           throw new Error(GENERIC_MSG);
         }
 
+        // 5 bis) Compte de l'équipe dont l'accès est retiré dans Pilot (écran Équipe) :
+        //    il ne se connecte plus, ni à Pilot ni au Dashboard (24/11/2026).
+        if (user.role === "ADMIN") {
+          const acces = await prisma.crmAccesPilot.findUnique({ where: { userId: user.id }, select: { retireLe: true } });
+          if (acces?.retireLe) {
+            await recordLoginAttempt(ip, email, false);
+            auditLog("auth", "login", {
+              success: false,
+              errorReason: "access-removed",
+              actor: { id: user.id, email, role: user.role, ip, userAgent },
+            });
+            throw new Error("L'accès de ce compte a été retiré. Adressez-vous au super-administrateur.");
+          }
+        }
+
         // 6) Succès : journaliser + reset état de lock
         await recordLoginAttempt(ip, email, true);
         await handleSuccessfulLogin(user.id, user.failedLoginAttempts, user.lockedUntil);
@@ -259,6 +275,24 @@ export const authOptions: NextAuthOptions  = {
         tokenVersion: (token.tokenVersion as number | undefined) ?? 0,
       };
       return session;
+    },
+  },
+
+  /**
+   * Cookie de session partagé avec Pilot (`pilote.dashboard.neuracorp.ai`) quand
+   * `AUTH_COOKIE_DOMAIN` est posé. Les autres cookies NextAuth (CSRF, callback)
+   * restent liés à l'hôte : chaque espace a les siens, la connexion marche des deux côtés.
+   */
+  cookies: {
+    sessionToken: {
+      name: nomCookieSession(),
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: cookiesSecurises(),
+        domain: domaineCookie(),
+      },
     },
   },
 

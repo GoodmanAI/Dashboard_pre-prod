@@ -17,6 +17,7 @@ import {
 import { IconSchool, IconUser } from "@tabler/icons-react";
 import { useProduitActif } from "@/hooks/useProduitActif";
 import { useTutoriel } from "@/components/tutoriel/ContexteTutoriel";
+import BasculeEspace from "@/components/espaces/BasculeEspace";
 
 /**
  * Composant Profil
@@ -130,6 +131,9 @@ const Profile = () => {
             <ListItemText primary="Tutoriel" />
           </MenuItem>
         )}
+
+        {/* Vers Pilot (comptes internes seulement) */}
+        <BasculeEspace forme="menu" onClick={handleCloseMenu} />
 
         {/* Action de déconnexion */}
         <Box mt={1} py={1} px={2}>

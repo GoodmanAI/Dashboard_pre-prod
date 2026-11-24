@@ -1,0 +1,43 @@
+# Pilot, le CRM interne, sur son propre processus (plan
+# lyrae/plans/2026-11-pilot-dans-le-dashboard.md, « Cloisons », décision d'Enzo du 24/11/2026).
+#
+# Même dépôt, même build, même base, même .env que le Dashboard, mais un second
+# processus PM2 (`pilot`, port 3001, voir deploy/ecosystem.config.js) : un plantage ou
+# une page lourde de Pilot ne touche plus le Dashboard, que le robot appelle pendant
+# les appels des patients.
+#
+# À poser sur le VPS : /etc/nginx/sites-available/pilote.dashboard.neuracorp.ai, lien
+# dans sites-enabled, `nginx -t`, reload, puis
+#   certbot --nginx -d pilote.dashboard.neuracorp.ai
+# Certbot complète le bloc 443 (certificat) et le bloc 80 (redirection), comme pour
+# dashboard.neuracorp.ai. Le relais SNI du port 443 (/etc/nginx/stream.d/konnect.conf)
+# envoie déjà tout nom inconnu vers 127.0.0.1:8443 : rien à y changer.
+
+server {
+    server_name pilote.dashboard.neuracorp.ai;
+
+    location / {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        # Le middleware construit ses redirections sur ce protocole : sans lui, une
+        # redirection partirait en http.
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Real-IP        $proxy_protocol_addr;
+        proxy_set_header X-Forwarded-For  $proxy_protocol_addr;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    listen 127.0.0.1:8443 ssl proxy_protocol;
+    # Les quatre lignes ssl_* sont posées par certbot.
+}
+
+server {
+    listen 80;
+    server_name pilote.dashboard.neuracorp.ai;
+    # Remplacé par certbot par la redirection vers https.
+    return 404;
+}

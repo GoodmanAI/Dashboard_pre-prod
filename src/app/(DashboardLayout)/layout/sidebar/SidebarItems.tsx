@@ -10,7 +10,7 @@ import NavGroup from "./NavGroup";
 import { useCentre } from "@/app/context/CentreContext";
 import { usePrescriptionAlertsCount } from "@/hooks/usePrescriptionAlertsCount";
 import { hasPermission } from "@/lib/permissions";
-import { verdictAccesHref } from "@/lib/pageAccess";
+import { peutOuvrirAdmin, verdictAccesHref } from "@/lib/pageAccess";
 import { trouverProduit, ORDRE_PRODUITS, PRODUITS, type SlugProduit } from "@/lib/produits";
 import { cheminCentre, lireCheminCentre } from "@/lib/cheminsCentre";
 
@@ -187,7 +187,7 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
     if (!item.href || !session?.user) return true;
     const verdict = verdictAccesHref(item.href);
     if (verdict.genre === "exempt") return true;
-    if (verdict.genre === "admin") return isAdmin;
+    if (verdict.genre === "admin") return peutOuvrirAdmin(session.user as any, verdict.cle);
     if (verdict.genre === "inconnu") return false;
     return hasPermission(session.user as any, verdict.page, "read");
   });

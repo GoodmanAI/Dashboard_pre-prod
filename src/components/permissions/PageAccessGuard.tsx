@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Alert, Box, Button, Container } from "@mui/material";
-import { getFirstAccessiblePath, verdictAcces } from "@/lib/pageAccess";
+import { getFirstAccessiblePath, peutOuvrirAdmin, verdictAcces } from "@/lib/pageAccess";
 import { hasPermission } from "@/lib/permissions";
 import { trouverProduit } from "@/lib/produits";
 
@@ -75,8 +75,6 @@ export default function PageAccessGuard({ children }: { children: React.ReactNod
     return <>{children}</>;
   }
 
-  const role = (session.user as any)?.role;
-
   const fallbackUrl =
     getFirstAccessiblePath(session.user as any, (session.user as any)?.id ?? null) ?? "/client";
 
@@ -105,8 +103,10 @@ export default function PageAccessGuard({ children }: { children: React.ReactNod
   // Espace d'administration : c'est le ROLE qui decide, jamais un droit par page. Le
   // middleware et `src/app/admin/layout.tsx` le gardent deja cote serveur ; ce test est
   // la troisieme couche, et il coute une comparaison.
+  // Depuis le 24/11/2026, un compte interne (ADMIN) n'ouvre que les écrans
+  // d'administration cochés pour lui dans l'écran Équipe de Pilot.
   if (verdict.genre === "admin") {
-    if (role === "ADMIN" || role === "SUPER_ADMIN") return <>{children}</>;
+    if (peutOuvrirAdmin(session.user as any, verdict.cle)) return <>{children}</>;
     return refus;
   }
 
