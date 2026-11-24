@@ -33,6 +33,21 @@ export function slugifyQuestion(input: string): string {
 }
 
 /**
+ * Prefixe a chercher en base avant `uniqueSlug`.
+ *
+ * Une base de 60 caracteres est raccourcie avant son suffixe ("-2" la ramene a
+ * 58) : chercher les slugs qui commencent par la base ENTIERE ne voit pas ces
+ * candidats-la, `uniqueSlug` en rend un qui existe deja chez un autre centre et
+ * la creation part en 500 sur la cle primaire. Constate le 24/11/2026 a
+ * l'ouverture de Challans : 29 questions du gabarit commun sur 52 refusees, les
+ * 29 dont le slug etait tronque. On cherche donc sous la base amputee de la
+ * place du plus long suffixe ("-9999", 5 caracteres) : tout candidat la porte.
+ */
+export function prefixeDeRecherche(base: string): string {
+  return (base || "item").slice(0, MAX_SLUG_LENGTH - 5).replace(/-+$/g, "");
+}
+
+/**
  * Calcule un slug unique pour un userProductId donne en verifiant les
  * collisions parmi les slugs existants passes en argument. Si `base`
  * est deja pris, retourne `base-2`, `base-3`, etc.
