@@ -917,6 +917,13 @@ Le produit Konnect s'appelle `LyraeKonnect` partout dans Pilot (24/11/2026, comm
 Support (25/11/2026, `2026_12_24_pilot_support.sql`, additif) : `CrmSujetSupport`, `CrmMessageSupport`,
 lus et écrits par les seules routes de session `/api/pilot/support/*` ; mails par Brevo
 (`sendEmail` gagne `cc`, facultatif). Script `npm run pilot:relancer-support`, cron horaire.
+`PILOT_MAIL_ADRESSES` (`.env`, « identifiant=adresse ») : adresse des mails du support pour un
+compte dont l'identifiant n'est pas une adresse (le compte `admin`).
+Retour de Maxime (25/11/2026), routes de session seulement, aucun schéma : `POST
+/api/pilot/prospects/import` (formulaire, `.xlsx` ou `.csv`, `essai=1` à blanc ; crée
+organisations, centre, contact, échange, prestataire, jamais de mise à jour),
+`GET /api/pilot/prospects/import/modele.xlsx` ; `POST /api/pilot/concurrents` accepte
+`premierReleve` facultatif ; l'abonnement saisi sur la fiche passe par `/api/pilot/contrats`.
 Plan : `lyrae/plans/2026-11-pilot-dans-le-dashboard.md`.
 
 `CentreStatut` (07/09/2026) porte le statut de cycle de vie d'un centre :

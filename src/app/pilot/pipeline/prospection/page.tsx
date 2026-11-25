@@ -1,5 +1,6 @@
 import Stack from "@mui/material/Stack";
 import { BoutonExportProspects } from "@/pilot/components/BoutonExportProspects";
+import { ImportProspects } from "@/pilot/components/ImportProspects";
 import type { CrmEtapeCommerciale } from "@prisma/client";
 import { exiger, peutLirePilot, peutModifierLesMontants } from "@/pilot/lib/autorisations";
 import { utilisateurCourant } from "@/pilot/lib/session";
@@ -41,6 +42,7 @@ export default async function Prospection({ searchParams }: { searchParams: Filt
     <Stack spacing={2.5} sx={{ minWidth: 0 }}>
       <EnTete titre="Prospects" sousTitre="Les établissements à contacter ou à qualifier, du plus prioritaire au moins prioritaire.">
         <BoutonExportProspects />
+        <ImportProspects />
         <NouveauProspect comptes={comptes} courantId={courant.id} suggestions={suggestions} grille={grillePourEstimation(grille)} montantsModifiables={peutModifierLesMontants(courant)} concurrents={concurrents} />
       </EnTete>
       <NavFamilles actif="prospection" entrees={[
