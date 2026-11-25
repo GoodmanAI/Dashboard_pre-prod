@@ -234,3 +234,15 @@ describe("suppressionReleve", () => {
     for (const corps of [{ majLe: "pas une date" }, { majLe: null }, { id: 3 }, null]) expect(suppressionReleve.safeParse(corps).success, JSON.stringify(corps)).toBe(false);
   });
 });
+
+describe("création d'un concurrent avec son prix (retour du 25/11)", () => {
+  it("accepte un premier relevé, et la création sans relevé", () => {
+    const c = creationConcurrent.parse({ ...minimal, premierReleve: { releveLe: "2026-11-20", prixSalleMoisCentimes: 25000, prixInstallationCentimes: null, conditions: "Engagement 36 mois", source: "" } });
+    expect(c.premierReleve?.prixSalleMoisCentimes).toBe(25000);
+    expect(creationConcurrent.parse(minimal).premierReleve).toBeUndefined();
+  });
+  it("refuse un premier relevé daté du futur ou à prix négatif", () => {
+    expect(creationConcurrent.safeParse({ ...minimal, premierReleve: { releveLe: "2999-01-01" } }).success).toBe(false);
+    expect(creationConcurrent.safeParse({ ...minimal, premierReleve: { releveLe: "2026-11-20", prixSalleMoisCentimes: -1 } }).success).toBe(false);
+  });
+});
