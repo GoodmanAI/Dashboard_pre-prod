@@ -19,6 +19,7 @@
     "pilot:geocoder": "tsx scripts/pilot/geocoder.ts",
     "pilot:import": "tsx scripts/pilot/import-csv.ts",
     "pilot:comptes": "tsx scripts/pilot/creer-comptes-internes.ts",
+    "pilot:relancer-support": "tsx scripts/pilot/relancer-support.ts",
     "pilot:frontiere": "node scripts/pilot/controle-frontiere.mjs"
   },
   "dependencies": {

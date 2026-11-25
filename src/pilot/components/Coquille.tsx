@@ -19,7 +19,7 @@ import ListItemText from "@mui/material/ListItemText";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
-import {
+import { IconLifebuoy,
   IconBell,
   IconBriefcase,
   IconChartLine,
@@ -67,6 +67,8 @@ const ENTREES: Entree[] = [
   { href: "/pilot/ventes", libelle: "Ventes", Icone: IconFileCertificate, teinte: "menthe", groupe: "quotidien", onglet: true },
   // Sous 600 px, quatre onglets au plus (HIG) : la mise en service passe sous « Plus ».
   { href: "/pilot/integrations", libelle: "Déploiement", Icone: IconRocket, teinte: "vert", groupe: "quotidien", onglet: false },
+  // Ce que la technique dit aux commerciaux de transmettre aux clients (25/11/2026).
+  { href: "/pilot/support", libelle: "Support", Icone: IconLifebuoy, teinte: "orange", groupe: "quotidien", onglet: false },
   { href: "/pilot/demandes", libelle: "Demandes", Icone: IconSend, teinte: "violet", groupe: "quotidien", onglet: false },
   { href: "/pilot/attentes", libelle: "Relances", Icone: IconHourglass, teinte: "jaune", groupe: "quotidien", onglet: false },
   // Coquille cliente : pas de compteur qui recharge les alertes à chaque navigation.

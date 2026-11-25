@@ -12,7 +12,7 @@ import type { Prisma } from "@prisma/client";
  * Le message ne porte jamais le texte d'un commentaire ni d'une précision : le
  * nom du client et la nature de la chose, rien d'autre (C-22, C-27).
  */
-export type TypeNotificationPilot = "pilot.demande" | "pilot.commentaire" | "pilot.alerte";
+export type TypeNotificationPilot = "pilot.demande" | "pilot.commentaire" | "pilot.alerte" | "pilot.support";
 
 export type NotificationPilot = {
   userId: number;

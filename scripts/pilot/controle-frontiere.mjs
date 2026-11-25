@@ -54,6 +54,7 @@ const MODULES_PERMIS = {
   "@/lib/cheminsCentre": "adresses des écrans d'un centre",
   "@/lib/sallesFactureesLecture": "salles facturées d'un client (configuration)",
   "@/lib/accesInternes": "droits des comptes internes au Dashboard, lus par l'écran Équipe",
+  "@/lib/brevoMailer": "envoi des mails du support de Pilot (25/11/2026), aucune lecture de table",
   "@/components/admin/SectionHeader": "composant d'affichage",
   "@/components/shared/Retour": "composant d'affichage",
   "@/components/notifications/NotificationBell": "la cloche commune (notifications internes)",

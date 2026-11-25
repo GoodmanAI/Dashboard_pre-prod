@@ -34,3 +34,23 @@ describe("facturation à la salle (grille de Pilot)", () => {
     expect(csv).toContain('"Centre; B";MEN;1;270,83;0;0,00;270,83;325,00;');
   });
 });
+
+describe("tarif du contrat (premiers clients, 25/11/2026)", () => {
+  const l = (userId: number, talk: number, konnect: number, codeSite: string | null = null) =>
+    ({ userId, nom: `Client ${userId}`, codeSite, talk, konnect, aRegler: [] as ("talk" | "konnect")[] });
+  it("un client sous contrat paie son contrat, une fois, quel que soit le nombre de salles ou de sites", () => {
+    const contrats = new Map([[1, { talk: 50000 }]]);
+    const f = facturerLignes([l(1, 3, 0, "A"), l(1, 2, 0, "B"), l(2, 1, 0)], { talk: 27083, konnect: 7917 }, contrats);
+    expect(f.lignes[0].htCentimes.talk).toBe(50000);
+    expect(f.lignes[0].sources.talk).toBe("contrat");
+    expect(f.lignes[1].htCentimes.talk).toBe(0);
+    expect(f.lignes[2].htCentimes.talk).toBe(27083);
+    expect(f.lignes[2].sources.talk).toBe("grille");
+    expect(f.totalHtCentimes).toBe(50000 + 27083);
+  });
+  it("le contrat d'un produit laisse l'autre produit à la grille, et un prix de grille absent ne gêne pas un client sous contrat", () => {
+    const f = facturerLignes([l(1, 2, 1)], { talk: null, konnect: 7917 }, new Map([[1, { talk: 0 }]]));
+    expect(f.lignes[0].htCentimes).toEqual({ talk: 0, konnect: 7917 });
+    expect(f.incomplet).toBe(false);
+  });
+});
