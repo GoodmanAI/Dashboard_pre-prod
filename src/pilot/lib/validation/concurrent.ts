@@ -45,7 +45,6 @@ const identite = z.object({
   notes: texteOptionnel(2000),
 }).strict();
 
-export const creationConcurrent = identite;
 /** `majLe` est la version lue par l'écran : si elle a changé, le serveur répond 409 (C-26). */
 export const modificationConcurrent = identite.partial().extend({ majLe: dateValide })
   .refine(({ majLe, ...champs }) => { void majLe; return auMoinsUnChamp(champs); }, "Renseignez au moins un champ.");
@@ -58,6 +57,11 @@ const champsReleve = {
   conditions: texteOptionnel(2000), source: texteOptionnel(2000),
 };
 export const creationReleve = z.object({ releveLe: date, ...champsReleve }).strict();
+/**
+ * Création en une fois (retour de Maxime, 25/11/2026) : le concurrent et, s'il est connu,
+ * son premier relevé de prix, enregistrés ensemble.
+ */
+export const creationConcurrent = identite.extend({ premierReleve: creationReleve.optional() });
 /**
  * `majLe` est la version du relevé lue par l'écran, comme pour un concurrent : si
  * quelqu'un l'a corrigé depuis, le serveur répond 409, quel que soit le champ touché

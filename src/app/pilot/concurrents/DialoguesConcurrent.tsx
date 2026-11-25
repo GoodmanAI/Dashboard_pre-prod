@@ -19,7 +19,7 @@ export function DialogueConcurrent({ concurrent, fermer, termine }: { concurrent
   return <DialogueFormulaire titre={concurrent ? "Modifier le concurrent" : "Nouveau concurrent"} bouton={concurrent ? "Enregistrer" : "Créer"} fermer={fermer} soumettre={async (f) => {
     const valeurs = { nom: texte(f, "nom"), type: texte(f, "type"), offre: texte(f, "offre"), siteWeb: texte(f, "siteWeb"), notes: texte(f, "notes") };
     if (concurrent) await envoyer(`/api/pilot/concurrents/${concurrent.id}`, "PATCH", undefined, { ...valeurs, majLe: concurrent.majLe });
-    else await envoyer("/api/pilot/concurrents", "POST", undefined, valeurs);
+    else await envoyer("/api/pilot/concurrents", "POST", undefined, { ...valeurs, ...premierReleveSaisi(f) });
     termine(concurrent ? "Concurrent modifié." : "Concurrent créé.");
   }}>
     <TextField name="nom" label="Nom" defaultValue={concurrent?.nom ?? ""} required autoFocus fullWidth inputProps={{ maxLength: 120 }}
@@ -32,7 +32,41 @@ export function DialogueConcurrent({ concurrent, fermer, termine }: { concurrent
     <TextField name="siteWeb" label="Site web" defaultValue={concurrent?.siteWeb ?? ""} fullWidth inputProps={{ maxLength: 300 }} placeholder="www.exemple.fr" />
     <TextField name="notes" label="Notes" defaultValue={concurrent?.notes ?? ""} multiline minRows={3} fullWidth inputProps={{ maxLength: 2000 }}
       helperText="Forces, faiblesses, ce que disent les clients." />
+    {!concurrent && <>
+      <Typography variant="h3" sx={{ pt: 1 }}>Prix pratiqué</Typography>
+      <Typography variant="body2" color="text.secondary">Facultatif. Renseigné ici, il devient le premier relevé de prix du concurrent.</Typography>
+      <ChampsReleve />
+    </>}
   </DialogueFormulaire>;
+}
+
+/** Le premier relevé saisi à la création, ou rien si aucun prix ni condition n'est renseigné. */
+function premierReleveSaisi(f: FormData): { premierReleve?: Record<string, unknown> } {
+  const releve = {
+    releveLe: texte(f, "releveLe"),
+    prixSalleMoisCentimes: prix(f, "prixSalle", "Prix par salle et par mois en euros"),
+    prixInstallationCentimes: prix(f, "prixInstallation", "Prix d'installation en euros"),
+    conditions: texte(f, "conditions"), source: texte(f, "source"),
+  };
+  const renseigne = releve.prixSalleMoisCentimes !== null || releve.prixInstallationCentimes !== null || releve.conditions.trim() !== "" || releve.source.trim() !== "";
+  return renseigne ? { premierReleve: releve } : {};
+}
+
+/** Les champs d'un relevé, communs à la création du concurrent et au dialogue du relevé. */
+function ChampsReleve({ releve, autoFocus = false }: { releve?: ReleveEcran; autoFocus?: boolean }) {
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  return <>
+    <TextField name="releveLe" label="Date du relevé" type="date" required autoFocus={autoFocus} defaultValue={releve?.releveLe.slice(0, 10) ?? aujourdhui}
+      InputLabelProps={{ shrink: true }} inputProps={{ max: aujourdhui }} helperText="Le jour où vous avez vu ce prix. Le relevé le plus récent est celui en vigueur." />
+    <TextField name="prixSalle" label="Prix par salle et par mois, en euros" defaultValue={releve?.prixSalleMoisCentimes != null ? saisieEuros(releve.prixSalleMoisCentimes) : ""}
+      fullWidth inputProps={CHAMP_DECIMAL} helperText="Laissez vide si le prix n'est pas connu : l'écran dira « prix non relevé », jamais 0 €." />
+    <TextField name="prixInstallation" label="Prix d'installation, en euros" defaultValue={releve?.prixInstallationCentimes != null ? saisieEuros(releve.prixInstallationCentimes) : ""}
+      fullWidth inputProps={CHAMP_DECIMAL} helperText="Facultatif. Laissez vide s'il n'est pas connu." />
+    <TextField name="conditions" label="Conditions" defaultValue={releve?.conditions ?? ""} multiline minRows={2} fullWidth inputProps={{ maxLength: 2000 }}
+      helperText="Durée d'engagement, remises, ce qui est inclus." />
+    <TextField name="source" label="Source" defaultValue={releve?.source ?? ""} multiline minRows={2} fullWidth inputProps={{ maxLength: 2000 }}
+      helperText="D'où vient ce prix : devis du client, site du concurrent, échange avec un centre." />
+  </>;
 }
 
 /** Un prix saisi en euros, vide quand il n'est pas connu : l'écran dit alors « prix non relevé », jamais 0 €. */
@@ -45,7 +79,6 @@ function prix(f: FormData, cle: string, libelle: string): number | null {
 export function DialogueReleve({ concurrentId, releve, fermer, termine }: {
   concurrentId: number; releve?: ReleveEcran; fermer: () => void; termine: (message: string) => void;
 }) {
-  const aujourdhui = new Date().toISOString().slice(0, 10);
   return <DialogueFormulaire titre={releve ? "Modifier le relevé" : "Ajouter un relevé de prix"} bouton={releve ? "Enregistrer" : "Ajouter"} fermer={fermer} soumettre={async (f) => {
     const valeurs = {
       releveLe: texte(f, "releveLe"),
@@ -67,16 +100,7 @@ export function DialogueReleve({ concurrentId, releve, fermer, termine }: {
     await envoyer(`/api/pilot/concurrents/${concurrentId}/releves/${releve.id}`, "PATCH", undefined, { ...modifies, majLe: releve.majLe });
     termine("Relevé modifié.");
   }}>
-    <TextField name="releveLe" label="Date du relevé" type="date" required autoFocus defaultValue={releve?.releveLe.slice(0, 10) ?? aujourdhui}
-      InputLabelProps={{ shrink: true }} inputProps={{ max: aujourdhui }} helperText="Le jour où vous avez vu ce prix. Le relevé le plus récent est celui en vigueur." />
-    <TextField name="prixSalle" label="Prix par salle et par mois, en euros" defaultValue={releve?.prixSalleMoisCentimes != null ? saisieEuros(releve.prixSalleMoisCentimes) : ""}
-      fullWidth inputProps={CHAMP_DECIMAL} helperText="Laissez vide si le prix n'est pas connu : l'écran dira « prix non relevé », jamais 0 €." />
-    <TextField name="prixInstallation" label="Prix d'installation, en euros" defaultValue={releve?.prixInstallationCentimes != null ? saisieEuros(releve.prixInstallationCentimes) : ""}
-      fullWidth inputProps={CHAMP_DECIMAL} helperText="Facultatif. Laissez vide s'il n'est pas connu." />
-    <TextField name="conditions" label="Conditions" defaultValue={releve?.conditions ?? ""} multiline minRows={2} fullWidth inputProps={{ maxLength: 2000 }}
-      helperText="Durée d'engagement, remises, ce qui est inclus." />
-    <TextField name="source" label="Source" defaultValue={releve?.source ?? ""} multiline minRows={2} fullWidth inputProps={{ maxLength: 2000 }}
-      helperText="D'où vient ce prix : devis du client, site du concurrent, échange avec un centre." />
+    <ChampsReleve releve={releve} autoFocus />
   </DialogueFormulaire>;
 }
 

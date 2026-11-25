@@ -60,13 +60,18 @@ function surs(valeurs: Partial<Record<(typeof CHAMPS_RELEVE_SURS)[number], unkno
 
 /* ----------------------------- Concurrents ----------------------------- */
 
-export async function creerConcurrent(champs: z.output<typeof creationConcurrent>, auteurId: number) {
+export async function creerConcurrent({ premierReleve, ...champs }: z.output<typeof creationConcurrent>, auteurId: number) {
   try {
     return await transactionJournalisee(async (tx) => {
       await verrouillerLesNoms(tx);
       await refuserDoublon(tx, champs.nom);
       const concurrent = await tx.crmConcurrent.create({ data: { ...champs, creeParId: auteurId } });
       await journaliser(tx, { type: "CONCURRENT_CREE", auteurId, resume: "Concurrent créé", apres: { concurrentId: concurrent.id, type: concurrent.type } });
+      if (premierReleve) {
+        const releve = await tx.crmReleveConcurrent.create({ data: { ...premierReleve, concurrentId: concurrent.id, creeParId: auteurId } });
+        await journaliser(tx, { type: "RELEVE_CONCURRENT_AJOUTE", auteurId, resume: "Relevé de prix ajouté",
+          apres: { concurrentId: concurrent.id, releveId: releve.id, ...surs(releve) } });
+      }
       return concurrent;
     });
   } catch (erreur) { return erreurNom(erreur); }
