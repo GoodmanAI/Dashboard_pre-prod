@@ -25,9 +25,9 @@ export function DialogueAbonnement({ organisationId, catalogue, fermer, termine 
     for (const p of catalogue) {
       const saisie = texte(f, "montant-" + p.id).trim();
       if (!saisie) continue;
-      const centimes = entierDepuisSaisie(saisie, 2, `Montant ${p.name}`);
+      const centimes = entierDepuisSaisie(saisie, 2, `Montant ${p.name.replace(/^Lyrae/, "")}`);
       lignes.push({ productId: p.id, type: "ABONNEMENT", montantCentimes: mensuelDepuisSaisie(centimes, periodicite) });
-      if (periodicite === "AN") annuels.push(`${p.name} : ${eurosPrecis(centimes)} HT par an`);
+      if (periodicite === "AN") annuels.push(`${p.name.replace(/^Lyrae/, "")} : ${eurosPrecis(centimes)} HT par an`);
     }
     if (!lignes.length) throw new Error("Indiquez le montant d'au moins un produit.");
     const debuteLe = texte(f, "debuteLe") || jour;
@@ -47,7 +47,7 @@ export function DialogueAbonnement({ organisationId, catalogue, fermer, termine 
       <MenuItem value="MOIS">par mois</MenuItem>
       <MenuItem value="AN">par an (compté au douzième chaque mois)</MenuItem>
     </TextField>
-    {catalogue.map((p, i) => <TextField key={p.id} name={"montant-" + p.id} label={`${p.name}, en euros HT`} fullWidth autoFocus={i === 0} inputProps={CHAMP_DECIMAL} />)}
+    {catalogue.map((p, i) => <TextField key={p.id} name={"montant-" + p.id} label={`${p.name.replace(/^Lyrae/, "")}, en euros HT`} fullWidth autoFocus={i === 0} inputProps={CHAMP_DECIMAL} />)}
     <TextField name="debuteLe" label="Début de l'abonnement" type="date" defaultValue={jour} InputLabelProps={{ shrink: true }} fullWidth
       helperText="Le chiffre d'affaires compte à partir de ce jour." />
     <TextField name="reference" label="Référence du contrat" fullWidth inputProps={{ maxLength: 200 }} helperText="Facultatif." />
