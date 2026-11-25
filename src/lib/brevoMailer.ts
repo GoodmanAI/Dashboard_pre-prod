@@ -31,6 +31,8 @@ export interface EmailRecipient {
 
 export interface SendEmailOptions {
   to: EmailRecipient | EmailRecipient[];
+  /** Copie (25/11/2026, support de Pilot) : facultative. */
+  cc?: EmailRecipient[];
   subject: string;
   /** HTML body (au moins l'un des 2 requis par Brevo) */
   htmlContent?: string;
@@ -98,6 +100,7 @@ export async function sendEmail(opts: SendEmailOptions): Promise<SendEmailResult
   if (!opts.htmlContent && !opts.textContent) {
     return { ok: false, error: "either htmlContent or textContent required" };
   }
+  if (opts.cc && opts.cc.length > 0) body.cc = opts.cc;
   if (opts.replyTo) body.replyTo = opts.replyTo;
   if (opts.tags && opts.tags.length > 0) body.tags = opts.tags;
 

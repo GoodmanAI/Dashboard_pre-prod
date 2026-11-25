@@ -914,6 +914,9 @@ additif, `false` par défaut) : les pouvoirs du super-administrateur dans Pilot 
 aucun écran du Dashboard.
 Le produit Konnect s'appelle `LyraeKonnect` partout dans Pilot (24/11/2026, comme
 `src/lib/produits.ts`) : `2026_12_13_pilot_tarifs.sql` relie la grille à ce nom.
+Support (25/11/2026, `2026_12_24_pilot_support.sql`, additif) : `CrmSujetSupport`, `CrmMessageSupport`,
+lus et écrits par les seules routes de session `/api/pilot/support/*` ; mails par Brevo
+(`sendEmail` gagne `cc`, facultatif). Script `npm run pilot:relancer-support`, cron horaire.
 Plan : `lyrae/plans/2026-11-pilot-dans-le-dashboard.md`.
 
 `CentreStatut` (07/09/2026) porte le statut de cycle de vie d'un centre :

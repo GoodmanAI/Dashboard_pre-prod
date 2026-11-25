@@ -4,6 +4,8 @@ import { BoutonDemander, LigneDemande, type Moi } from "@/pilot/components/formu
 import { BlocCommentaires, type PageFil } from "@/pilot/components/formulaires/Commentaires";
 import type { Cibles } from "@/pilot/lib/commentaires/cibles";
 import type { LigneDemande as Demande } from "@/pilot/lib/demandes/charger";
+import type { LigneSujet } from "@/pilot/lib/support/charger";
+import { BlocSupport } from "@/pilot/components/formulaires/Support";
 import { BLOCAGES_TECHNIQUES, ORIGINES, resumeEquipements, type CleBlocage, type CleOrigine } from "@/pilot/lib/organisations/referentielClient";
 import { OpportunitesOrganisation, type OpportuniteFiche } from "./OpportunitesOrganisation";
 import { PRIORITES } from "@/pilot/lib/prospection/regles";
@@ -75,12 +77,13 @@ const ONGLETS = { resume: "Résumé", contacts: "Contacts", negociation: "Négoc
 type Onglet = keyof typeof ONGLETS;
 const date = (valeur: string) => new Date(valeur).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
-export function FicheOrganisation({ facturation, peutConfier = false, commentaires, cibles, temperature, concurrents, peutModifier, org, propositions, jalons, contrats, opportunites, alertes, demandes, moi, complements, historique, comptes, clients, suggestions, catalogue, comptesProduits, recurrent, pondere, montantsModifiables, compteClientConnu, grilleDu }: {
+export function FicheOrganisation({ sujetsSupport, facturation, peutConfier = false, commentaires, cibles, temperature, concurrents, peutModifier, org, propositions, jalons, contrats, opportunites, alertes, demandes, moi, complements, historique, comptes, clients, suggestions, catalogue, comptesProduits, recurrent, pondere, montantsModifiables, compteClientConnu, grilleDu }: {
   /** Le fil des commentaires (première page) et ceux qu'on peut prévenir (lot T). */
   commentaires: PageFil; cibles: Cibles;
   /** Le barème de température, calculé par la page serveur (lot R). */
   temperature: TemperatureFiche; concurrents: OptionConcurrent[]; peutModifier: boolean;
   propositions: PropositionFiche[]; jalons: JalonFiche[]; contrats: ContratFiche[]; opportunites: OpportuniteFiche[];
+  sujetsSupport: LigneSujet[];
   peutConfier?: boolean; org: OrganisationFiche; alertes: Alerte[]; demandes: Demande[]; moi: Moi; complements: Complement[]; historique: PageChronologie;
   comptes: CompteInterne[]; clients: CompteClient[]; suggestions: SuggestionsSaisie; catalogue: { id: number; name: string }[]; comptesProduits: CompteProduit[];
   recurrent: number; pondere: number; montantsModifiables: boolean; compteClientConnu: boolean;
@@ -245,6 +248,7 @@ export function FicheOrganisation({ facturation, peutConfier = false, commentair
           {org.notes?.trim() && <Notes texte={org.notes.trim()} />}
         </Stack>
         <Stack spacing={2.5} sx={{ minWidth: 0 }}>
+          <BlocSupport organisationId={org.id} sujets={sujetsSupport} />
           <BlocCommentaires organisationId={org.id} fil={commentaires} cibles={cibles} moi={moi} />
           <Bloc icone={IconSend} teinte="violet" titre="Demandes en cours" nombre={demandes.length}
             vide={!demandes.length && "Aucune demande en cours. Demandez à un collègue de rappeler le client, de relancer EDL ou de tester les créneaux."}

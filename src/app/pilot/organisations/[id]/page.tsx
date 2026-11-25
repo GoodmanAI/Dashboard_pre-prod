@@ -15,6 +15,7 @@ import { calculerAlertesDuParc } from "@/pilot/lib/alertes";
 import { peutConfierAlertes } from "@/pilot/lib/alertes/attribuer";
 import { lireSuggestions } from "@/pilot/lib/organisations/lireSuggestions";
 import { demandesOuvertesDuClient } from "@/pilot/lib/demandes/charger";
+import { sujetsDuClient } from "@/pilot/lib/support/charger";
 import { lireDateGrilleEnVigueur } from "@/pilot/lib/tarifs/grille";
 import { chargerFil } from "@/pilot/lib/commentaires/charger";
 import { chargerCibles } from "@/pilot/lib/commentaires/chargerCibles";
@@ -39,10 +40,10 @@ export default async function PageOrganisation({ params }: { params: { id: strin
   const dernier = org.echanges[0];
   const maintenant = new Date();
   // Le fil des commentaires : trois lectures et les comptes à prévenir en une, quel que soit le nombre de commentaires (lot T).
-  const [{ actives: alertes }, demandes, suggestions, grilleDu, commentaires, cibles, avantSortie, peutConfier, facturation] = await Promise.all([
+  const [{ actives: alertes }, demandes, suggestions, grilleDu, commentaires, cibles, avantSortie, peutConfier, facturation, sujetsSupport] = await Promise.all([
     calculerAlertesDuParc({ organisationId: id }), demandesOuvertesDuClient(id), lireSuggestions(), lireDateGrilleEnVigueur(),
     chargerFil(id, utilisateur), chargerCibles(utilisateur.id), lireEtapeAvantSortie(prisma, id, org.etape),
-    peutConfierAlertes(utilisateur), chargerFacturation(id, utilisateur, maintenant),
+    peutConfierAlertes(utilisateur), chargerFacturation(id, utilisateur, maintenant), sujetsDuClient(id),
   ]);
   // Le barème, calculé ici avec les contacts, les salles et les RIS déjà chargés : aucune requête de plus.
   const temperature = pourLEcran(calculerTemperature({
@@ -52,7 +53,7 @@ export default async function PageOrganisation({ params }: { params: { id: strin
     qualifBudget: org.qualifBudget, qualifBesoin: org.qualifBesoin, decisionAttendueLe: org.decisionAttendueLe,
     temperatureForcee: org.temperatureForcee, temperatureForceeParId: org.temperatureForceeParId, temperatureForceeLe: org.temperatureForceeLe,
   }, maintenant), org.temperatureForceePar?.name ?? null);
-  return <FicheOrganisation facturation={facturation} commentaires={commentaires} cibles={cibles} alertes={alertes} peutConfier={peutConfier} temperature={temperature} concurrents={concurrents} peutModifier={peutModifierPilot(utilisateur.role)} demandes={demandes} moi={{ id: utilisateur.id, role: utilisateur.role, administrateurPilot: utilisateur.administrateurPilot, superAdmin: utilisateur.superAdmin }}
+  return <FicheOrganisation sujetsSupport={sujetsSupport} facturation={facturation} commentaires={commentaires} cibles={cibles} alertes={alertes} peutConfier={peutConfier} temperature={temperature} concurrents={concurrents} peutModifier={peutModifierPilot(utilisateur.role)} demandes={demandes} moi={{ id: utilisateur.id, role: utilisateur.role, administrateurPilot: utilisateur.administrateurPilot, superAdmin: utilisateur.superAdmin }}
     contrats={org.contrats.map((c) => ({ ...c, signeLe: c.signeLe?.toISOString() ?? null, debuteLe: c.debuteLe?.toISOString() ?? null,
       renouvelleLe: c.renouvelleLe?.toISOString() ?? null, termineLe: c.termineLe?.toISOString() ?? null,
       essaiDebuteLe: c.essaiDebuteLe?.toISOString() ?? null,

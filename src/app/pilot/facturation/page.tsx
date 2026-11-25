@@ -21,6 +21,13 @@ const MOYENNE = { display: { xs: "none", md: "table-cell" } };
 
 const NOM: Record<ProduitSalle, string> = { talk: "Talk", konnect: "Konnect" };
 const montant = (cts: number | null) => (cts === null ? "Prix à renseigner" : eurosPrecis(cts));
+/** Un montant lu sur le contrat du client (25/11/2026) : le dire sous le chiffre. */
+function MontantProduit({ cts, source }: { cts: number | null; source: "grille" | "contrat" }) {
+  return <>
+    {montant(cts)}
+    {source === "contrat" && <Typography component="div" sx={{ fontSize: 12, color: "text.secondary" }}>{cts === 0 ? "compris dans le contrat" : "prix du contrat"}</Typography>}
+  </>;
+}
 const jourFr = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 
 /**
@@ -48,7 +55,7 @@ export default async function PageFacturation() {
       <EnTete
         titre="Facturation"
         sousTitre={f.grilleDu
-          ? <>Ce que chaque client paie par mois, salle par salle, au prix de la grille du {jourFr(f.grilleDu)}. Montants hors taxe.</>
+          ? <>Ce que chaque client paie par mois, salle par salle, au prix de la grille du {jourFr(f.grilleDu)}. Un client sous contrat paie le prix de son contrat, saisi sur sa fiche. Montants hors taxe.</>
           : <>Aucune grille de prix en vigueur. Créez-en une dans <Link href="/pilot/tarifs">Tarifs</Link>.</>}
       >
         <Button component="a" href="/api/pilot/facturation" variant="outlined" startIcon={<IconDownload size={18} />}>Exporter pour Excel</Button>
@@ -104,9 +111,9 @@ export default async function PageFacturation() {
                   </TableCell>
                   <TableCell sx={PETITE}>{l.codeSite ?? "Non précisé"}</TableCell>
                   <TableCell align="right" sx={MOYENNE}>{l.talk}</TableCell>
-                  <TableCell align="right" sx={MOYENNE}>{montant(l.htCentimes.talk)}</TableCell>
+                  <TableCell align="right" sx={MOYENNE}><MontantProduit cts={l.htCentimes.talk} source={l.sources.talk} /></TableCell>
                   <TableCell align="right" sx={MOYENNE}>{l.konnect}</TableCell>
-                  <TableCell align="right" sx={MOYENNE}>{montant(l.htCentimes.konnect)}</TableCell>
+                  <TableCell align="right" sx={MOYENNE}><MontantProduit cts={l.htCentimes.konnect} source={l.sources.konnect} /></TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>{montant(l.totalHtCentimes)}</TableCell>
                   <TableCell align="right" sx={PETITE}>{l.totalHtCentimes === null ? "" : eurosPrecis(ttc(l.totalHtCentimes))}</TableCell>
                 </TableRow>
