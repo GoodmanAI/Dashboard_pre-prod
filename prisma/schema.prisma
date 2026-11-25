@@ -93,6 +93,8 @@ model User {
   acquittements             CrmAcquittement[]            @relation("AcquittementAuteur")
   demandesEnvoyees          CrmDemande[]                 @relation("DemandeDemandeur")
   demandesRecues            CrmDemande[]                 @relation("DemandeDestinataire")
+  sujetsSupportOuverts      CrmSujetSupport[]            @relation("SujetSupportAuteur")
+  messagesSupport           CrmMessageSupport[]          @relation("MessageSupportAuteur")
   comptesEcartes            CrmCompteEcarte[]            @relation("CompteEcarte")
   ecartsDecides             CrmCompteEcarte[]            @relation("CompteEcarteAuteur")
   accesPilot                CrmAccesPilot?               @relation("AccesPilot")
@@ -532,7 +534,19 @@ enum CrmStatutEchange {
 }
 
 /// Types du journal : on ajoute, on ne renomme jamais.
+/// Support (25/11/2026, plan lyrae/plans/2026-11-support-dans-pilot.md).
+enum CrmStatutSujetSupport {
+  OUVERT
+  A_TRANSMETTRE
+  TRANSMIS
+  RESOLU
+}
+
 enum CrmTypeEvenement {
+  SUPPORT_SUJET_CREE
+  SUPPORT_MESSAGE_AJOUTE
+  SUPPORT_STATUT_CHANGE
+  SUPPORT_RELANCE
   FORMATION_POC_CREEE
   FORMATION_POC_PRIX_RENSEIGNE
   FORMATION_POC_FACTURE_EMISE
@@ -967,6 +981,7 @@ model CrmOrganisation {
   acquittements       CrmAcquittement[]
   attributionsAlertes CrmAttributionAlerte[]
   demandes            CrmDemande[]
+  sujetsSupport       CrmSujetSupport[]
   vagues              CrmVague[]
   propositions        CrmProposition[]
   caMensuels          CrmCaMensuel[]
@@ -1093,6 +1108,44 @@ model CrmDemande {
   @@index([destinataireId, statut])
   @@index([demandeurId, statut])
   @@index([organisationId, statut])
+}
+
+/// Support (25/11/2026) : un problème d'un client, que le technicien et le commercial
+/// du client se passent. Le commercial est celui de la fiche (`responsableId`), lu à
+/// chaque envoi : changer de commercial change qui reçoit, sans rien réécrire.
+model CrmSujetSupport {
+  id             Int                   @id @default(autoincrement())
+  organisationId Int
+  organisation   CrmOrganisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  titre          String
+  statut         CrmStatutSujetSupport @default(OUVERT)
+  /// Depuis quand le sujet est dans ce statut : la relance compte à partir de là.
+  statutDepuisLe DateTime              @default(now())
+  derniereRelanceLe DateTime?
+  auteurId       Int?
+  auteur         User?                 @relation("SujetSupportAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+  creeLe         DateTime              @default(now())
+  /// Garde des écritures concurrentes (C-26) et tri de la liste.
+  majLe          DateTime              @updatedAt
+
+  messages CrmMessageSupport[]
+
+  @@index([statut, statutDepuisLe])
+  @@index([organisationId, statut])
+}
+
+/// Un message d'un sujet : une note pour l'équipe, un texte à dire au client, ou les deux.
+model CrmMessageSupport {
+  id           Int             @id @default(autoincrement())
+  sujetId      Int
+  sujet        CrmSujetSupport @relation(fields: [sujetId], references: [id], onDelete: Cascade)
+  auteurId     Int?
+  auteur       User?           @relation("MessageSupportAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+  noteInterne  String?
+  aDireAuClient String?
+  creeLe       DateTime        @default(now())
+
+  @@index([sujetId, creeLe])
 }
 
 /// Reprise du parc (C-60) : un compte du Dashboard que l'équipe a décidé de ne
