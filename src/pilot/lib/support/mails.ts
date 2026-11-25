@@ -24,7 +24,23 @@ function adresseDe(chemin: string): string {
   return base + chemin;
 }
 
-const paragraphe = (t: string) => `<p style="margin:0 0 12px;line-height:1.5">${escapeHtml(t).replace(/\n/g, "<br>")}</p>`;
+/**
+ * `PILOT_MAIL_ADRESSES="admin=prenom@exemple.fr,autre=…"` : l'adresse où écrire à un compte
+ * dont l'identifiant de connexion n'est pas une adresse. Le compte garde son identifiant.
+ */
+export function adressesDeRepli(texte = process.env.PILOT_MAIL_ADRESSES ?? ""): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const morceau of texte.split(",")) {
+    const i = morceau.indexOf("=");
+    if (i <= 0) continue;
+    const identifiant = morceau.slice(0, i).trim();
+    const adresse = morceau.slice(i + 1).trim();
+    if (identifiant && ADRESSE.test(adresse)) m.set(identifiant, adresse);
+  }
+  return m;
+}
+
+const paragraphe =(t: string) => `<p style="margin:0 0 12px;line-height:1.5">${escapeHtml(t).replace(/\n/g, "<br>")}</p>`;
 const encadre = (titre: string, t: string, fond: string) =>
   `<div style="margin:0 0 14px;padding:12px 14px;border-radius:10px;background:${fond}">` +
   `<div style="font-size:12px;font-weight:600;color:#475569;margin-bottom:6px">${escapeHtml(titre)}</div>` +
@@ -40,8 +56,13 @@ export async function envoyerMailSupport(e: EvenementMail): Promise<void> {
       "auteurId" in e ? prisma.user.findUnique({ where: { id: e.auteurId }, select: { name: true } }) : Promise.resolve(null),
       "messageId" in e ? prisma.crmMessageSupport.findUnique({ where: { id: e.messageId }, select: { noteInterne: true, aDireAuClient: true } }) : Promise.resolve(null),
     ]);
-    // Un identifiant qui n'est pas une adresse (le compte « admin ») ferait refuser tout le mail par Brevo : écarté.
-    const parId = new Map(comptes.filter((c) => ADRESSE.test(c.email)).map((c) => [c.id, { email: c.email, ...(c.name ? { name: c.name } : {}) }]));
+    // Un identifiant qui n'est pas une adresse (le compte « admin ») ferait refuser tout le mail par Brevo :
+    // remplacé par l'adresse de PILOT_MAIL_ADRESSES s'il y en a une, écarté sinon.
+    const redirections = adressesDeRepli();
+    const parId = new Map(comptes
+      .map((c) => ({ ...c, email: ADRESSE.test(c.email) ? c.email : redirections.get(c.email) ?? c.email }))
+      .filter((c) => ADRESSE.test(c.email))
+      .map((c) => [c.id, { email: c.email, ...(c.name ? { name: c.name } : {}) }]));
     const principal = e.destinataires.principal !== null ? parId.get(e.destinataires.principal) : undefined;
     const copie = e.destinataires.copie.map((id) => parId.get(id)).filter((c): c is NonNullable<typeof c> => Boolean(c));
     const to = principal ? [principal] : copie.slice(0, 1);

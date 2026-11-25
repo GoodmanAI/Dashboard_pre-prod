@@ -48,6 +48,7 @@ import type { Alerte } from "@/pilot/lib/alertes/types";
 import { NegociationOrganisation, type PropositionFiche } from "./NegociationOrganisation";
 import { ConvertirClient } from "./ConvertirClient";
 import { ContratsOrganisation, type ContratFiche } from "./ContratsOrganisation";
+import { DialogueAbonnement } from "./DialogueAbonnement";
 import type { JalonFiche } from "./PlanSignature";
 import { LigneAlerte } from "@/pilot/components/LigneAlerte";
 import { BoutonSupprimerFiche } from "./BoutonSupprimerFiche";
@@ -96,6 +97,7 @@ export function FicheOrganisation({ sujetsSupport, facturation, peutConfier = fa
   const onglet: Onglet = valeur && Object.hasOwn(ONGLETS, valeur) ? valeur as Onglet : "resume";
   const [dialogue, setDialogue] = useState<Dialogue | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [abonnement, setAbonnement] = useState(false);
   // « Convertir en client » avec une proposition en cours : l'onglet Négociation ouvre son acceptation.
   const [acceptation, setAcceptation] = useState<number | null>(null);
   // Un prospect se range sous Prospects, un client sous Clients : le fil d'Ariane et le menu le disent (C-87).
@@ -130,6 +132,11 @@ export function FicheOrganisation({ sujetsSupport, facturation, peutConfier = fa
   const dossier = { client: estClient(org.etape), contrats, propositions, opportunites };
   const montant = montantDuDossier(dossier);
   const estime = estimeSansContrat(dossier);
+  // Un client sans contrat actif saisit son abonnement d'ici, en une fois (retour de Maxime, 25/11/2026).
+  const abonnementASaisir = montantsModifiables && dossier.client && !contrats.some((c) => c.statut === "ACTIF");
+  const boutonMontant = abonnementASaisir
+    ? <Button size="small" onClick={() => setAbonnement(true)}>Saisir l&apos;abonnement</Button>
+    : <Button size="small" onClick={() => ouvrirOnglet("argent")}>Ajouter</Button>;
   // Une seule règle pour le nombre de sites (C-92) : le saisi, jamais sous le nombre de centres créés.
   const sites = nombreDeSites(org.nombreSites, org.centres.length);
   const taille = [sites !== null ? compter(sites, "site") : null, org.nombreSalles !== null ? compter(org.nombreSalles, "salle") : null].filter(Boolean).join(", ");
@@ -188,18 +195,19 @@ export function FicheOrganisation({ sujetsSupport, facturation, peutConfier = fa
           <Box component="span" sx={{ color: "text.secondary", fontWeight: 400 }}>
             {montantsModifiables ? montant.libelle : montant.libelle === CONTRAT_A_SAISIR ? CONTRAT_A_SAISIR_SANS_DROIT : CONTRAT_EN_BROUILLON_SANS_DROIT}
           </Box>
-          {montantsModifiables && <Button size="small" onClick={() => ouvrirOnglet("argent")}>Ajouter</Button>}
+          {montantsModifiables && boutonMontant}
         </> : <>
           <Box component="span" sx={{ color: "text.secondary", fontWeight: 400 }}>
             {montantsModifiables ? "Aucun montant. Ajoutez une estimation dans l'onglet Argent." : "Aucun montant. Un compte qui modifie les montants peut ajouter une estimation."}
           </Box>
-          {montantsModifiables && <Button size="small" onClick={() => ouvrirOnglet("argent")}>Ajouter</Button>}
+          {montantsModifiables && boutonMontant}
         </>} />
       </Stack>
     </Stack>
     <Tabs value={onglet} onChange={(_, v: Onglet) => ouvrirOnglet(v)} aria-label="Fiche organisation" sx={{ "& .MuiTabs-flexContainer": { flexWrap: "wrap" } }}>
       {Object.entries(ONGLETS).map(([id, libelle]) => <Tab key={id} value={id} label={libelle} id={`onglet-${id}`} aria-controls={`panneau-${id}`} />)}
     </Tabs>
+    {abonnement && <DialogueAbonnement organisationId={org.id} catalogue={catalogue} fermer={() => setAbonnement(false)} termine={(t) => { setAbonnement(false); setMessage(t); router.refresh(); }} />}
     <Box role="tabpanel" id={`panneau-${onglet}`} aria-labelledby={`onglet-${onglet}`} tabIndex={0}>
       {onglet === "resume" && <Box sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "repeat(2, minmax(0, 1fr))" }, gap: 2.5, alignItems: "start" }}>
         <Stack spacing={2.5} sx={{ minWidth: 0 }}>
@@ -299,6 +307,7 @@ export function FicheOrganisation({ sujetsSupport, facturation, peutConfier = fa
       {onglet === "argent" && <Card><CardContent>
         <Typography variant="h3" gutterBottom>Argent</Typography>
         <LigneArgent libelle="Abonnements signés" valeur={recurrent ? `${eurosPrecis(recurrent)} / mois` : "Aucun contrat actif"} />
+        {abonnementASaisir && <Box sx={{ my: 1 }}><Button variant="outlined" onClick={() => setAbonnement(true)}>Saisir l&apos;abonnement</Button></Box>}
         {estime && <LigneArgent libelle="Estimé, contrat à saisir" valeur={estime.centimes > 0
           ? `${eurosPrecis(estime.centimes)} / mois, ${estime.origine}. Il devient signé dès que le contrat est actif.`
           : "Aucun montant pour l'estimer. Saisissez et activez le contrat."} />}

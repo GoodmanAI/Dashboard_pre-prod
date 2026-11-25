@@ -2,6 +2,7 @@ import { euros } from "@/pilot/lib/argent";
 import { exiger, peutLirePilot, peutModifierLesMontants } from "@/pilot/lib/autorisations";
 import Stack from "@mui/material/Stack";
 import { BoutonExportProspects } from "@/pilot/components/BoutonExportProspects";
+import { ImportProspects } from "@/pilot/components/ImportProspects";
 import { Bascule, EnTete } from "@/pilot/components/Bloc";
 import { compter } from "@/pilot/lib/texte";
 import { NouveauProspect } from "./NouveauProspect";
@@ -35,6 +36,7 @@ export default async function Pipeline({ searchParams }: { searchParams: { vue?:
       <EnTete titre="Prospects" sousTitre={`${compter(commerciales.length, "prospect en cours", "prospects en cours")} · ${euros(pondereTotal)} / mois probables`}>
         <Bascule libelle="Dossiers affichés" equipe={equipe} moi={lienVue("moi")} tous={lienVue("equipe")} />
         <BoutonExportProspects />
+        <ImportProspects />
         <NouveauProspect comptes={comptes} courantId={courant.id} suggestions={suggestions} grille={grillePourEstimation(grille)} montantsModifiables={montantsModifiables} concurrents={concurrents} />
       </EnTete>
       <PipelineTableau cartes={cartes} famille={famille} vue={equipe ? "equipe" : "moi"} montantsModifiables={montantsModifiables} concurrents={concurrents} />
