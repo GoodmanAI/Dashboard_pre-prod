@@ -16,6 +16,7 @@ export type EvenementMail =
   | { genre: "statut"; sujetId: number; auteurId: number; vers: StatutSujet; destinataires: Destinataires }
   | { genre: "relance"; sujetId: number; destinataires: Destinataires; depuis: Date };
 
+const ADRESSE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const DATE = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
 
 function adresseDe(chemin: string): string {
@@ -39,7 +40,8 @@ export async function envoyerMailSupport(e: EvenementMail): Promise<void> {
       "auteurId" in e ? prisma.user.findUnique({ where: { id: e.auteurId }, select: { name: true } }) : Promise.resolve(null),
       "messageId" in e ? prisma.crmMessageSupport.findUnique({ where: { id: e.messageId }, select: { noteInterne: true, aDireAuClient: true } }) : Promise.resolve(null),
     ]);
-    const parId = new Map(comptes.map((c) => [c.id, { email: c.email, ...(c.name ? { name: c.name } : {}) }]));
+    // Un identifiant qui n'est pas une adresse (le compte « admin ») ferait refuser tout le mail par Brevo : écarté.
+    const parId = new Map(comptes.filter((c) => ADRESSE.test(c.email)).map((c) => [c.id, { email: c.email, ...(c.name ? { name: c.name } : {}) }]));
     const principal = e.destinataires.principal !== null ? parId.get(e.destinataires.principal) : undefined;
     const copie = e.destinataires.copie.map((id) => parId.get(id)).filter((c): c is NonNullable<typeof c> => Boolean(c));
     const to = principal ? [principal] : copie.slice(0, 1);
