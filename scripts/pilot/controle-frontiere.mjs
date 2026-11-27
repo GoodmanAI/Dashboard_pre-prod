@@ -113,7 +113,6 @@ const LECTURES_PERMISES = {
 /** Les fichiers du Dashboard qui ont le droit d'importer Pilot. */
 const IMPORTEURS_PERMIS = {
   "src/middleware.ts": "garde d'origine et chemin demandé des pages de Pilot",
-  "src/lib/sallesFactureesLecture.ts": "prix d'une salle lu sur la grille tarifaire de Pilot",
 };
 
 /** Ce fichier nomme les tables patient pour les chercher : il ne se contrôle pas lui-même. */
