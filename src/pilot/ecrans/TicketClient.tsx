@@ -1,5 +1,7 @@
 "use client";
 
+import type React from "react";
+
 import Retour from "@/components/shared/Retour";
 import SectionHeader from "@/components/admin/SectionHeader";
 import { useCallback, useEffect, useState } from "react";
@@ -28,9 +30,13 @@ import {
   LockOpen,
   PlayArrow,
 } from "@mui/icons-material";
-import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import TicketConversation, { ApiTicket } from "@/components/tickets/TicketConversation";
 import { BRAND_TEAL, BRAND_TEAL_DARK } from "@/lib/jetons";
+
+/** Pilot pose sa coquille et le titre de l'onglet : la page n'a rien à ajouter. */
+function PageContainer({ children }: { title?: string; description?: string; children: React.ReactNode }) {
+  return <>{children}</>;
+}
 
 /**
  * Detail d'un ticket cote admin : /admin/ticket/[id], et sous le support d'un produit
@@ -147,7 +153,7 @@ interface Props {
   retourHref: string;
 }
 
-export default function SupportAdminDetail({ ticketId, retourHref }: Props) {
+export default function TicketClient({ ticketId, retourHref }: Props) {
   const router = useRouter();
   const { data: session, status: authStatus } = useSession();
   const [ticket, setTicket] = useState<ApiTicket | null>(null);
@@ -200,14 +206,14 @@ export default function SupportAdminDetail({ ticketId, retourHref }: Props) {
 
   if (authStatus !== "authenticated" || !session?.user?.id || !ticketId) {
     return (
-      <PageContainer title="Ticket" description="Détail du ticket">
+      <PageContainer title="Demande du client" description="Détail de la demande">
         <Box />
       </PageContainer>
     );
   }
   if (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN") {
     return (
-      <PageContainer title="Ticket" description="Détail du ticket">
+      <PageContainer title="Demande du client" description="Détail de la demande">
         <Alert severity="error">Accès refusé : reservé aux administrateurs.</Alert>
       </PageContainer>
     );
@@ -217,10 +223,10 @@ export default function SupportAdminDetail({ ticketId, retourHref }: Props) {
   const actions = ticket ? ACTIONS_BY_CURRENT_STATUS[ticket.status] : [];
 
   return (
-    <PageContainer title="Ticket" description="Détail du ticket">
+    <PageContainer title="Demande du client" description="Détail de la demande">
       <Stack spacing={2}>
         <SectionHeader
-          title="Ticket"
+          title="Demande du client"
           retour={{ libelle: "Retour aux tickets", href: retourHref }}
         />
 

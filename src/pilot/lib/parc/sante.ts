@@ -79,10 +79,10 @@ function feuRdv(usage: UsageCentre): Feu {
 function feuIncidents(tickets: number | null, compteDashboard: boolean): Feu {
   const libelle = "Incidents";
   if (tickets === null) {
-    return { couleur: "gris", libelle, raison: compteDashboard ? "Tickets du Dashboard non branchés en local." : "Aucun compte Dashboard associé à l'organisation." };
+    return { couleur: "gris", libelle, raison: compteDashboard ? "Demandes des clients illisibles pour l'instant." : "Aucun compte Dashboard associé à l'organisation." };
   }
-  if (tickets <= 0) return { couleur: "vert", libelle, raison: "Aucun ticket ouvert." };
-  return { couleur: tickets >= SEUIL_INCIDENTS_ROUGE ? "rouge" : "orange", libelle, raison: `${compter(tickets, "ticket ouvert", "tickets ouverts")}.` };
+  if (tickets <= 0) return { couleur: "vert", libelle, raison: "Aucune demande de client ouverte." };
+  return { couleur: tickets >= SEUIL_INCIDENTS_ROUGE ? "rouge" : "orange", libelle, raison: `${compter(tickets, "demande de client ouverte", "demandes de client ouvertes")}.` };
 }
 
 function feuSilence(dernierAppelLe: Date | null, maintenant: Date): Feu {

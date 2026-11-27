@@ -310,6 +310,12 @@ export async function middleware(req: NextRequest) {
     '/admin/create-client': '/admin/nouveau-centre',
     '/admin/settings': '/admin',
   };
+  // La console des tickets est passée dans Pilot le même jour.
+  const ticketAdmin = /^\/admin\/ticket(?:\/(\d+))?\/?$/.exec(pathname);
+  if (ticketAdmin) {
+    const cible = ticketAdmin[1] ? `/pilot/support/tickets/${ticketAdmin[1]}` : '/pilot/support?vue=clients';
+    return NextResponse.redirect(new URL(cible, process.env.NEXT_PUBLIC_PILOT_URL || basePublique));
+  }
   const reuni = REUNIS[pathname.replace(/\/+$/, '')];
   if (reuni) {
     return NextResponse.redirect(new URL(reuni, basePublique));

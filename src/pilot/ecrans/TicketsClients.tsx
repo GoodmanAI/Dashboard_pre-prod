@@ -1,5 +1,7 @@
 "use client";
 
+import type React from "react";
+
 import SectionHeader from "@/components/admin/SectionHeader";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -22,10 +24,14 @@ import {
   IconSearch,
   IconUser,
 } from "@tabler/icons-react";
-import PageContainer from "@/app/(DashboardLayout)/components/container/PageContainer";
 import { BRAND_TEAL, BRAND_TEAL_SOFT, TEXT_MAIN, TEXT_MUTED, PAGE_BG } from "@/lib/jetons";
 import { ORDRE_PRODUITS, PRODUITS, type SlugProduit } from "@/lib/produits";
 import { produitDuTicket } from "@/lib/supportProduit";
+
+/** Pilot pose sa coquille et le titre de l'onglet : la page n'a rien à ajouter. */
+function PageContainer({ children }: { title?: string; description?: string; children: React.ReactNode }) {
+  return <>{children}</>;
+}
 
 /**
  * Page Support (cote admin) — refonte Lot C
@@ -99,7 +105,7 @@ function userInitials(u: UserLite): string {
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || src[0]?.toUpperCase() || "?";
 }
 
-export default function SupportAdmin({
+export default function TicketsClients({
   produit,
   cheminTicket,
 }: {
@@ -191,7 +197,7 @@ export default function SupportAdmin({
     <PageContainer title="Support" description="Gestion des tickets clients">
       <Box>
         <SectionHeader
-          title={produit ? `Support ${PRODUITS[produit].libelle}` : "Support"}
+          title={produit ? `Demandes des clients, ${PRODUITS[produit].libelle}` : "Demandes des clients"}
           subtitle={
             counts.all === 0
               ? "Aucun ticket ouvert."

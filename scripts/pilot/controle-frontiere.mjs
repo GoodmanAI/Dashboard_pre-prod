@@ -59,6 +59,10 @@ const MODULES_PERMIS = {
   "@/components/shared/Retour": "composant d'affichage",
   "@/components/notifications/NotificationBell": "la cloche commune (notifications internes)",
   "@/components/espaces/BasculeEspace": "bouton de bascule entre les espaces",
+  // Les demandes des clients se traitent dans Pilot (27/11/2026, décision d'Enzo) : l'écran lit
+  // la conversation par l'API du Dashboard, dans le navigateur ; le serveur de Pilot n'en lit rien.
+  "@/components/tickets/TicketConversation": "affichage d'un ticket, lu par l'API du Dashboard dans le navigateur",
+  "@/lib/supportProduit": "le produit d'un ticket d'après son nom, aucune lecture de table",
 };
 
 /** Paquets interdits au code de Pilot. */
@@ -102,6 +106,16 @@ const LECTURES_PERMISES = {
     tables: ["CallConversation"],
     pourquoi: "étape « premier appel réel » : date du dernier appel et un booléen RDV par centre",
     empreinte: "23528dcd7e504086",
+  },
+  "src/pilot/lib/support/depuisTicket.ts": {
+    tables: ["Ticket"],
+    pourquoi: "titre et compte d'une demande de client, pour ouvrir le sujet de l'équipe ; jamais son texte ni ses messages",
+    empreinte: "a5cce3436cf5c6a6",
+  },
+  "src/pilot/lib/parc/tickets.ts": {
+    tables: ["Ticket"],
+    pourquoi: "voyant « incidents » du parc : nombre de demandes ouvertes par compte client, aucun texte",
+    empreinte: "f9ec2900eea230b4",
   },
   "src/pilot/lib/parc/usage.ts": {
     tables: ["CallConversation"],

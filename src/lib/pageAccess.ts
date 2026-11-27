@@ -22,7 +22,6 @@ import { cleAdminDuChemin, lireAccesInternes, type CleAdmin } from "./accesInter
 const PATH_MATCHERS: Array<{ pattern: RegExp; page: PageKey }> = [
   // Tickets (client + admin)
   { pattern: /^\/client\/ticket(?:\/|$)/, page: PAGES.TICKETS },
-  { pattern: /^\/admin\/ticket(?:\/|$)/, page: PAGES.TICKETS },
   // Le support de chaque produit (28/10/2026), avant les racines de produit.
   { pattern: /\/(?:talk|konnect)\/(?:\d+\/)?support(?:\/|$)/, page: PAGES.TICKETS },
 
@@ -142,7 +141,7 @@ export type VerdictAcces =
   | { genre: "inconnu" };
 
 export function verdictAcces(pathname: string): VerdictAcces {
-  // Les motifs d'abord : ils couvrent `/admin/ticket` et `/admin`, qui sont de vraies
+  // Les motifs d'abord : ils couvrent `/client/ticket` et `/admin`, qui sont de vraies
   // pages du modele et non des ecrans d'administration.
   for (const { pattern, page } of PATH_MATCHERS) {
     if (pattern.test(pathname)) return { genre: "page", page };

@@ -42,6 +42,9 @@ const PARTAGES_SUR_PILOT: RegExp[] = [
   /^\/api\/centre-statut$/,
   /^\/api\/completude$/,
   /^\/api\/deployments$/,
+  // Les demandes des clients, traitées dans Pilot (27/11/2026) : la console lit l'API des tickets.
+  /^\/api\/admin\/tickets$/,
+  /^\/api\/tickets\/\d+(\/(messages|status))?$/,
   /^\/authentication(\/|$)/,
   /^\/_next\//,
   /^\/images\//,

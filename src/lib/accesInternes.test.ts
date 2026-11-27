@@ -83,7 +83,6 @@ describe("adresses", () => {
     expect(verdictAcces("/admin/nouveau-centre-konnect")).toEqual({ genre: "admin", cle: "admin_parametrage" });
     expect(verdictAcces("/admin/parametrage")).toEqual({ genre: "admin", cle: "admin_parametrage" });
     expect(verdictAcces("/admin/profile")).toEqual({ genre: "exempt" });
-    expect(verdictAcces("/admin/ticket")).toEqual({ genre: "page", page: "tickets" });
   });
 
   it("premier écran : l'administration d'abord, sinon rien (le choix du centre décide)", () => {

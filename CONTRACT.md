@@ -773,7 +773,8 @@ Auth NextAuth, comptes (`/api/admin/users*`, `/api/admin/clients*`), tickets, no
 
 Depuis le 07/09/2026, deux routes servent le suivi d'installation, **session NextAuth
 uniquement, jamais appelées par une brique** :
-- `GET/PUT/DELETE /api/centre-statut` — le classement d'un centre (admin).
+- `GET /api/centre-statut` — le classement d'un centre (admin). Depuis le 27/11/2026, `PUT`
+  répond 410 et `DELETE` n'existe plus : Pilot écrit le statut (voir `CentreStatut` plus bas).
 - `GET /api/completude` — ce qui manque à un centre pour fonctionner, calculé par le
   registre `src/lib/completude/`. Un client n'y reçoit que les informations dont il est
   propriétaire, le filtrage est côté serveur. Sans `userProductId`, elle renvoie tout le
@@ -925,6 +926,18 @@ organisations, centre, contact, échange, prestataire, jamais de mise à jour),
 `GET /api/pilot/prospects/import/modele.xlsx` ; `POST /api/pilot/concurrents` accepte
 `premierReleve` facultatif ; l'abonnement saisi sur la fiche passe par `/api/pilot/contrats`.
 Plan : `lyrae/plans/2026-11-pilot-dans-le-dashboard.md`.
+Séparation du Dashboard et de Pilot (27/11/2026, plan `lyrae/plans/2026-11-separation-dashboard-pilot.md`,
+routes de session seulement, aucune brique concernée) : les demandes des clients (`Ticket`,
+toujours écrites par le client au Dashboard) se traitent dans Pilot ; `CrmSujetSupport` gagne
+`ticketId` (unique, nullable, `SET NULL`, `2026_12_25_pilot_support_ticket.sql`, additif), le
+sujet où l'équipe discute d'une demande ; l'hôte de Pilot sert `/api/admin/tickets` et
+`/api/tickets/{id}[/messages|/status]`. `/admin/ticket`, `/admin/actions`, `/admin/reports`,
+`/admin/manage-clients`, `/admin/users`, `/admin/settings`, `/admin/create-client`,
+`/admin/clients/*`, `/api/admin/overview` et `GET /api/admin/clients` sont retirés ;
+`POST /api/admin/users` refuse le mode `admin` (410, l'équipe se crée dans Pilot). Le prix des
+salles n'est plus calculé au Dashboard : `GET /api/admin/salles` rend `parSite` (nombre de salles)
+au lieu de `tarifs` et `facture`. Les clés d'accès `admin_mise_en_service`, `admin_config_robot`,
+`admin_identifiants_externes` deviennent `admin_parametrage` à la lecture ; `admin_actions` disparaît.
 
 `CentreStatut` (07/09/2026) porte le statut de cycle de vie d'un centre :
 `integration`, `production` ou `arrete`, une ligne par `userProductId`, donc **par couple
@@ -940,7 +953,11 @@ robot répond ou transfère, réversible à la minute) et `DeploymentStatus` (l'
 
 **L'absence de ligne vaut `integration`**, donc silence : le classement est un geste
 volontaire, et reclasser un centre en intégration éteint ses alertes sans redéploiement.
-Administrée par `/api/centre-statut` (session NextAuth, admin — **pas** machine-à-machine).
+**Écrite par Pilot seul depuis le 27/11/2026** (`src/pilot/lib/centres/statutDashboard.ts`) :
+case « Mise en service déclarée » cochée = `production`, décochée = `integration`, fiche arrêtée,
+perdue, en pause ou POC non transformé = `arrete` ; un compte sans fiche garde son statut.
+Alignement une fois : `npx tsx scripts/pilot/aligner-statuts.ts [--ecrire]`. Lue par
+`GET /api/centre-statut` (session NextAuth, admin — **pas** machine-à-machine).
 
 `User.premiersPas` (JSONB, 29/10/2026, `manual/2026_10_29_premiers_pas.sql`) garde, par
 utilisateur, ce qu'il a fait du tutoriel (30/10, `src/components/tutoriel/`) : sommaire

@@ -24,6 +24,8 @@ export const nouveauSujet = z.object({
   titre: z.string({ required_error: "Donnez un titre au sujet." }).trim().min(1, "Donnez un titre au sujet.").max(160, "Le titre tient en 160 caractères.")
     .refine((v) => !ressembleAUnNir(v), MESSAGE_NIR),
   ...contenu,
+  /** La demande du client (ticket du Dashboard) dont l'équipe va discuter (27/11/2026). */
+  ticketId: identifiant.optional(),
 }).strict().refine(nonVide, MESSAGE_VIDE);
 
 export const nouveauMessage = z.object(contenu).strict().refine(nonVide, MESSAGE_VIDE);

@@ -88,12 +88,11 @@ export const GROUPES_ACCES: Array<{ titre: string; detail: string; cles: CleAcce
     cles: Object.values(PAGES_ADMIN),
     quotidien: false,
   },
-  ...PAGE_GROUPS.map((g) => ({
-    titre: g.titre === "Transverse" ? "Support" : `Espaces des clients : ${g.titre}`,
-    detail:
-      g.titre === "Transverse"
-        ? "La console des tickets des centres."
-        : "Les écrans d'un centre, ouverts depuis le choix du centre en haut de page.",
+  // « Transverse » (le support) n'a plus d'écran au Dashboard pour l'équipe : les demandes des
+  // clients se traitent dans Pilot depuis le 27/11/2026, ouvert à toute l'équipe.
+  ...PAGE_GROUPS.filter((g) => g.titre !== "Transverse").map((g) => ({
+    titre: `Espaces des clients : ${g.titre}`,
+    detail: "Les écrans d'un centre, ouverts depuis le choix du centre en haut de page.",
     cles: g.pages as CleAcces[],
     quotidien: true,
   })),
@@ -215,7 +214,6 @@ export const ADRESSES_ADMIN: Array<[CleAdmin, string]> = [
 /** Le premier écran d'administration ouvert à ce compte, ou null s'il n'en a aucun. */
 export function premierEcranAdmin(acces: AccesInternes): string | null {
   for (const [cle, adresse] of ADRESSES_ADMIN) if (niveauInterne(acces, cle) !== "none") return adresse;
-  if (niveauInterne(acces, PAGES.TICKETS) !== "none") return "/admin/ticket";
   return null;
 }
 
@@ -286,7 +284,8 @@ export const CARTE_API: Array<[RegExp, BesoinRoute]> = [
   [/^\/api\/admin\/reset-password\/?$/, ["admin_comptes"]], // /api/admin/reset-password
   [/^\/api\/admin\/salles\/?$/, ["admin_parametrage"]], // /api/admin/salles
   [/^\/api\/admin\/salles\/releve\/?$/, ["admin_parametrage"]], // /api/admin/salles/releve
-  [/^\/api\/admin\/tickets\/?$/, ["tickets"]], // /api/admin/tickets
+  // Les demandes des clients se traitent dans Pilot (27/11/2026) : toute l'équipe y a accès.
+  [/^\/api\/admin\/tickets\/?$/, "toujours"], // /api/admin/tickets
   [/^\/api\/calls\/?$/, ["dashboard", "calls", "incidents"]], // /api/calls
   [/^\/api\/configuration\/?$/, ["parametrage", "admin_parametrage"]], // /api/configuration
   [/^\/api\/configuration\/exam\/?$/, ["questions_exam"]], // /api/configuration/exam
@@ -347,9 +346,9 @@ export const CARTE_API: Array<[RegExp, BesoinRoute]> = [
   [/^\/api\/prescriptions\/par-mail\/[^/]+\/ranger\/?$/, ["ordonnances"]], // /api/prescriptions/par-mail/[id]/ranger
   [/^\/api\/prescriptions\/rejected\/[^/]+\/download\/?$/, ["ordonnances"]], // /api/prescriptions/rejected/[id]/download
   [/^\/api\/prescriptions\/rejected\/[^/]+\/resolve\/?$/, ["ordonnances"]], // /api/prescriptions/rejected/[id]/resolve
-  [/^\/api\/tickets\/[^/]+\/?$/, ["tickets"]], // /api/tickets/[id]
-  [/^\/api\/tickets\/[^/]+\/messages\/?$/, ["tickets"]], // /api/tickets/[id]/messages
-  [/^\/api\/tickets\/[^/]+\/status\/?$/, ["tickets"]], // /api/tickets/[id]/status
+  [/^\/api\/tickets\/[^/]+\/?$/, "toujours"], // /api/tickets/[id]
+  [/^\/api\/tickets\/[^/]+\/messages\/?$/, "toujours"], // /api/tickets/[id]/messages
+  [/^\/api\/tickets\/[^/]+\/status\/?$/, "toujours"], // /api/tickets/[id]/status
   // Appelées par une autre brique (clé d'API), par une page patient (jeton), ou réservées au
   // super-administrateur : jamais par un écran ouvert à un compte interne.
   [/^\/api\/admin\/create-client\/?$/, "aucun"], // /api/admin/create-client
