@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { redirect } from "next/navigation";
+import BandeauRappelsKonnect from "@/components/konnect/BandeauRappelsKonnect";
 
 /**
  * Segment LyraeTalk (lot U3).
@@ -30,5 +31,13 @@ export default async function TalkLayout({
     redirect("/authentication/signin");
   }
 
-  return <>{children}</>;
+  // Les patients Konnect à rappeler, en tête de chaque page Talk (27/11/2026) : la
+  // secrétaire vit dans Talk et n'ouvrait jamais l'espace Konnect. Rien ne s'affiche
+  // sans Konnect, sans le droit « Demandes de rappel », ou sans demande en attente.
+  return (
+    <>
+      <BandeauRappelsKonnect />
+      {children}
+    </>
+  );
 }
