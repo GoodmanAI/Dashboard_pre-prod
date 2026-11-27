@@ -294,6 +294,26 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL(demenage, process.env.NEXT_PUBLIC_PILOT_URL || basePublique));
   }
 
+  // Les écrans de l'admin réunis le 27/11/2026 (plan lyrae/plans/2026-11-separation-dashboard-pilot.md) :
+  // le paramétrage d'un centre en une page à onglets, les comptes clients en une page.
+  const REUNIS: Record<string, string> = {
+    '/admin/talk-installation': '/admin/parametrage?onglet=talk',
+    '/admin/talk-config': '/admin/parametrage?onglet=robot',
+    '/admin/konnect-installation': '/admin/parametrage?onglet=konnect',
+    '/admin/external-mapping': '/admin/parametrage?onglet=identifiants',
+    '/admin/pack': '/admin/parametrage?onglet=pack',
+    '/admin/manage-clients': '/admin/comptes',
+    '/admin/users': '/admin/comptes',
+    '/admin/reports': '/admin/comptes',
+    '/admin/actions': '/admin/comptes',
+    '/admin/create-client': '/admin/nouveau-centre',
+    '/admin/settings': '/admin',
+  };
+  const reuni = REUNIS[pathname.replace(/\/+$/, '')];
+  if (reuni) {
+    return NextResponse.redirect(new URL(reuni, basePublique));
+  }
+
   // Une requête d'API de Pilot qui modifie et vient d'une autre origine est refusée
   // (garde du lot T de Pilot) : une page tierce ne fait rien faire avec le cookie.
   if (pathname.startsWith('/api/pilot/') && origineRefusee({

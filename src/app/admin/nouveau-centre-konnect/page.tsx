@@ -954,7 +954,7 @@ export default function NouveauPortailKonnectPage() {
                     <Button
                       size="small"
                       variant="outlined"
-                      href="/admin/konnect-installation"
+                      href="/admin/parametrage?onglet=konnect"
                     >
                       Installation Konnect
                     </Button>

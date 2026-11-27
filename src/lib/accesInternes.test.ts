@@ -80,13 +80,14 @@ describe("colonne « dashboard » du fichier de l'équipe", () => {
 describe("adresses", () => {
   it("rattache chaque écran d'administration à sa clé", () => {
     expect(verdictAcces("/admin/overview")).toEqual({ genre: "admin", cle: "admin_vue_ensemble" });
-    expect(verdictAcces("/admin/nouveau-centre-konnect")).toEqual({ genre: "admin", cle: "admin_mise_en_service" });
+    expect(verdictAcces("/admin/nouveau-centre-konnect")).toEqual({ genre: "admin", cle: "admin_parametrage" });
+    expect(verdictAcces("/admin/parametrage")).toEqual({ genre: "admin", cle: "admin_parametrage" });
     expect(verdictAcces("/admin/profile")).toEqual({ genre: "exempt" });
     expect(verdictAcces("/admin/ticket")).toEqual({ genre: "page", page: "tickets" });
   });
 
   it("premier écran : l'administration d'abord, sinon rien (le choix du centre décide)", () => {
-    expect(premierEcranAdmin({ admin_actions: "read", admin_comptes: "read" })).toBe("/admin/actions");
+    expect(premierEcranAdmin({ admin_comptes: "read", admin_parametrage: "read" })).toBe("/admin/comptes");
     expect(premierEcranAdmin({ calls: "read" })).toBeNull();
     expect(ouvreLesCentres({ calls: "read" })).toBe(true);
     expect(ouvreLesCentres({ tickets: "read", admin_comptes: "read" })).toBe(false);
@@ -135,5 +136,10 @@ describe("transcriptions des appels (RGPD, 24/11/2026)", () => {
     expect(lireTranscriptionsPermis({ permissions: { stats_appel: "read", dashboard: "read" } })).toBe(false);
     expect(lireTranscriptionsPermis({ permissions: { calls: "read" } })).toBe(true);
     expect(lireTranscriptionsPermis({ permissions: { incidents: "read" } })).toBe(true);
+  });
+
+  it("une ancienne clé d'administration devient celle qui la remplace (27/11/2026)", () => {
+    expect(lireAccesInternes({ admin_mise_en_service: "read", admin_config_robot: "write", admin_actions: "read" })).toEqual({ admin_parametrage: "read" });
+    expect(lireAccesInternes({ admin_identifiants_externes: "read" })).toEqual({ admin_parametrage: "read" });
   });
 });

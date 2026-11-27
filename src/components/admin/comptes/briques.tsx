@@ -15,7 +15,8 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { IconEdit, IconLock, IconLogout, IconTrash, IconUserCircle } from "@tabler/icons-react";
+import { IconEdit, IconKey,
+  IconLock, IconLogout, IconTrash, IconUserCircle } from "@tabler/icons-react";
 import { PAGE_GROUPS, type PageKey } from "@/lib/permissions";
 import { STATUTS, type StatutCentre } from "@/lib/centreStatut";
 import { BORDER, TEXT_MAIN, TEXT_MUTED } from "@/lib/jetons";
@@ -129,12 +130,14 @@ export function CarteCompte({
   estSuperAdmin,
   onDroits,
   onExpulser,
+  onMotDePasse,
   onSupprimer,
 }: {
   compte: Compte;
   estSuperAdmin: boolean;
   onDroits: () => void;
   onExpulser: () => void;
+  onMotDePasse?: () => void;
   onSupprimer: () => void;
 }) {
   const verrouille =
@@ -201,6 +204,13 @@ export function CarteCompte({
               <IconEdit size={17} />
             </IconButton>
           </Tooltip>
+          {onMotDePasse && (
+            <Tooltip title="Donner un nouveau mot de passe">
+              <IconButton size="small" onClick={onMotDePasse}>
+                <IconKey size={17} />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Fermer ses sessions ouvertes">
             <IconButton size="small" onClick={onExpulser}>
               <IconLogout size={17} />
