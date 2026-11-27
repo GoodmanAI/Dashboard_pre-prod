@@ -590,17 +590,6 @@ export default function NouveauCentrePage() {
     if (etape === 7) void chargerManques();
   }, [etape, chargerManques]);
 
-  const passerEnProduction = async () => {
-    for (const p of produitsCrees) {
-      await appeler(
-        "/api/centre-statut",
-        "PUT",
-        { userProductId: p.userProductId, statut: "production" },
-        `${p.libelle} passé en production.`,
-      );
-    }
-    await chargerManques();
-  };
 
   const bloquants = useMemo(
     () =>
@@ -1700,21 +1689,12 @@ export default function NouveauCentrePage() {
                 >
                   Retour
                 </Button>
-                <Button
-                  variant="contained"
-                  disableElevation
-                  disabled={occupe}
-                  startIcon={<IconCheck size={16} />}
-                  onClick={() => void passerEnProduction()}
-                  sx={BOUTON_ACTION}
-                >
-                  Passer en production
-                </Button>
                 <Button href="/admin/comptes">Voir la fiche du client</Button>
               </Stack>
               <Typography sx={{ fontSize: 12, color: INK_MUTED }}>
-                Tant qu&apos;un centre est en intégration, les informations
-                manquantes ne déclenchent aucune alerte chez le client.
+                Le passage en production se déclare dans Pilot : page Intégrations,
+                case « Mise en service déclarée ». Tant qu&apos;un centre est en
+                intégration, les informations manquantes ne déclenchent aucune alerte chez le client.
               </Typography>
             </Stack>
           )}

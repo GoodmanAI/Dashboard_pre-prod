@@ -56,7 +56,7 @@ export const REGISTRE_KONNECT: Exigence<ConfigKonnect>[] = [
     criticite: "bloquant",
     manque:
       "Le cabinet n'a aucune interface de paramétrage tant qu'il n'est pas rattaché au Dashboard.",
-    href: () => "/admin/konnect-installation",
+    href: () => "/admin/parametrage?onglet=konnect",
     satisfaite: (c) => renseigne(c.tenantId),
   },
   {
@@ -66,7 +66,7 @@ export const REGISTRE_KONNECT: Exigence<ConfigKonnect>[] = [
     criticite: "bloquant",
     manque:
       "Le portail ne peut pas joindre le logiciel de gestion du centre. Renseignez son adresse et son code de site.",
-    href: () => "/admin/konnect-installation",
+    href: () => "/admin/parametrage?onglet=konnect",
     satisfaite: (c) => renseigne(c.risBaseUrl) && renseigne(c.risCodeSite),
   },
 

@@ -5,6 +5,7 @@ import { journaliser, transactionJournalisee } from "@/pilot/lib/evenements/jour
 import { ATTENTE_VIDE, champsAttente } from "./reglesAttentes";
 import { evaluerSansEchouer } from "./evaluer";
 import { periodeSuiviRenforce, enSuiviRenforce } from "@/pilot/lib/integration/suiviRenforce";
+import { synchroniserStatutsDashboard } from "@/pilot/lib/centres/statutDashboard";
 import { refusCochage } from "./gardes";
 
 const dateCourte = (date: Date) => date.toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -119,6 +120,8 @@ export async function cocherEtape(params: {
       apres: faite ? periodeSuiviRenforce(instant) : SANS_SUIVI,
     } : null;
     if (suivi) await tx.crmCentreProduit.update({ where: { id: rattachement.id }, data: suivi.apres });
+    // Pilot fait foi pour le statut du centre au Dashboard (27/11/2026) : la case le pose.
+    if (suivi) await synchroniserStatutsDashboard(tx, { centreProduitIds: [rattachement.id] }, auteurId);
     // Un commentaire seul n'est pas un cochage : le texte reste sur la case,
     // aucun fait ne change et aucun événement de cochage n'est inventé.
     if (change) {

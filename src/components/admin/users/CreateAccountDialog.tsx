@@ -29,7 +29,8 @@ type ClientOption = {
 
 type Props = {
   open: boolean;
-  mode: "admin" | "sub-account";
+  /** Seul mode depuis le 27/11/2026 : un compte de l'équipe se crée dans Pilot. */
+  mode: "sub-account";
   clients: ClientOption[]; // Pour choisir un compte parent en mode sub-account
   onClose: () => void;
   onSuccess: (message: string) => void;
@@ -38,9 +39,8 @@ type Props = {
 /**
  * Dialog de creation d'un compte (chantier 3, Lot C).
  * -----------------------------------------------------------------------------
- * Deux modes :
- *   - "admin"       : email + password + name -> role ADMIN
- *   - "sub-account" : idem + managerId (parent CLIENT) + permissions granulaires
+ * Un sous-compte : email + password + name + managerId (parent CLIENT) + permissions
+ * granulaires. Le mode « admin » est retiré le 27/11/2026 (l'équipe se crée dans Pilot).
  */
 export default function CreateAccountDialog({
   open,
@@ -68,25 +68,20 @@ export default function CreateAccountDialog({
     }
   }, [open]);
 
-  const title = useMemo(
-    () => (mode === "admin" ? "Nouvel administrateur" : "Nouveau sous-compte"),
-    [mode]
-  );
+  const title = "Nouveau sous-compte";
 
   const canSubmit =
     email.trim().length >= 3 &&
     password.length >= 8 &&
     name.trim().length > 0 &&
-    (mode === "admin" || (typeof managerId === "number" && Object.keys(permissions).length > 0));
+    typeof managerId === "number" &&
+    Object.keys(permissions).length > 0;
 
   const handleSubmit = async () => {
     setSubmitting(true);
     setError(null);
     try {
-      const body =
-        mode === "admin"
-          ? { mode, email, password, name }
-          : { mode, email, password, name, managerId, permissions };
+      const body = { mode, email, password, name, managerId, permissions };
       const res = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -99,11 +94,7 @@ export default function CreateAccountDialog({
           : "";
         throw new Error([data.error, detailMsg].filter(Boolean).join(", "));
       }
-      onSuccess(
-        mode === "admin"
-          ? `Le compte administrateur ${data.user.email} est créé.`
-          : `Le sous-compte ${data.user.email} est créé.`
-      );
+      onSuccess(`Le sous-compte ${data.user.email} est créé.`);
     } catch (e: any) {
       setError(e?.message ?? "Le compte n'a pas été créé. Réessayez dans un instant.");
     } finally {
@@ -142,7 +133,7 @@ export default function CreateAccountDialog({
             helperText="12 caractères au moins, avec une majuscule, une minuscule, un chiffre et un caractère spécial."
           />
 
-          {mode === "sub-account" && (
+          {(
             <>
               <Divider />
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>

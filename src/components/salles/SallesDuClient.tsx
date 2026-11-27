@@ -23,8 +23,8 @@ import { EXAM_TYPE_LABELS } from "@/components/shared/ExamTypeBadge";
 import { EXAM_TYPES, type ExamType } from "@/lib/examTypes";
 import { lireReleve } from "@/lib/konnectSalles";
 import { LIBELLE_SALLE_MAX, normaliserPoste } from "@/lib/sallesExamen";
-import { euros, facturer, type LigneSalle, type Tarifs } from "@/lib/sallesFacturees";
-import { BORDER, INK, INK_MUTED, OK, SURFACE_MUTED, WARNING } from "@/lib/jetons";
+import { compterSalles, type LigneSalle } from "@/lib/sallesFacturees";
+import { BORDER, INK, INK_MUTED, SURFACE_MUTED, WARNING } from "@/lib/jetons";
 
 /**
  * Les salles d'un client et celles qu'il paie, par produit (02/11/2026). Plan :
@@ -55,7 +55,6 @@ type Etat = {
     sites: string[];
   };
   salles: LigneSalle[];
-  tarifs: Tarifs;
   releve: boolean;
   tableAbsente: boolean;
 };
@@ -128,7 +127,7 @@ export default function SallesDuClient({ userId }: { userId: number }) {
   const modifie = JSON.stringify(versEnvoi(rangees)) !== initial;
   const incomplete = rangees.some((r) => !normaliserPoste(r.poste) || !r.libelle.trim() || !r.type);
 
-  // Ce que l'écran facturera une fois enregistré : calculé sur la saisie en cours.
+  // Les salles cochées, par site, sur la saisie en cours. Le prix est dans Pilot.
   const apercu = useMemo(() => {
     if (!etat) return null;
     const lignes = rangees
@@ -142,16 +141,7 @@ export default function SallesDuClient({ userId }: { userId: number }) {
         talk: r.talk,
         konnect: r.konnect,
       }));
-    const facture = facturer(lignes, etat.tarifs);
-    const total = facture.reduce(
-      (s, f) => ({
-        talk: s.talk + f.salles.talk,
-        konnect: s.konnect + f.salles.konnect,
-        cts: s.cts + f.totalCts,
-      }),
-      { talk: 0, konnect: 0, cts: 0 }
-    );
-    return { facture, total };
+    return compterSalles(lignes);
   }, [rangees, etat]);
 
   /** Par produit actif : les modalités sans salle cochée, fermées à la prise de RDV. */
@@ -429,15 +419,14 @@ export default function SallesDuClient({ userId }: { userId: number }) {
 
           {apercu && (
             <Box sx={{ my: 1.5 }}>
-              {apercu.facture.map((f) => (
+              {apercu.map((f) => (
                 <Typography key={f.codeSite ?? "-"} sx={{ fontSize: 12.5, color: INK }}>
-                  {f.codeSite ?? "Site non précisé"} : {f.salles.talk} salle{f.salles.talk > 1 ? "s" : ""} Talk (
-                  {euros(f.montantCts.talk)}), {f.salles.konnect} salle{f.salles.konnect > 1 ? "s" : ""} Konnect (
-                  {euros(f.montantCts.konnect)}), {euros(f.totalCts)} par mois
+                  {f.codeSite ?? "Site non précisé"} : {f.salles.talk} salle{f.salles.talk > 1 ? "s" : ""} Talk,{" "}
+                  {f.salles.konnect} salle{f.salles.konnect > 1 ? "s" : ""} Konnect
                 </Typography>
               ))}
-              <Typography sx={{ fontSize: 13, fontWeight: 600, color: apercu.total.cts ? OK : INK_MUTED, mt: 0.5 }}>
-                Total : {euros(apercu.total.cts)} TTC par mois
+              <Typography sx={{ fontSize: 12, color: INK_MUTED, mt: 0.5 }}>
+                Le prix et la facture du client sont dans Pilot (fiche du client et Facturation).
               </Typography>
             </Box>
           )}

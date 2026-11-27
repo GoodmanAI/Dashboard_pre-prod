@@ -4,7 +4,7 @@ import type { StatutSujet } from "./regles";
 
 /** Les lectures des écrans du support (25/11/2026). Dates en ISO, noms résolus. */
 const choixLigne = {
-  id: true, titre: true, statut: true, statutDepuisLe: true, creeLe: true, majLe: true, organisationId: true, auteurId: true,
+  id: true, titre: true, statut: true, statutDepuisLe: true, creeLe: true, majLe: true, organisationId: true, auteurId: true, ticketId: true,
   organisation: { select: { raisonSocialeNom: true, responsableId: true, responsable: { select: { name: true } } } },
   _count: { select: { messages: true } },
 } satisfies Prisma.CrmSujetSupportSelect;
@@ -13,7 +13,7 @@ function enLigne(s: Prisma.CrmSujetSupportGetPayload<{ select: typeof choixLigne
   return {
     id: s.id, titre: s.titre, statut: s.statut as StatutSujet, statutDepuisLe: s.statutDepuisLe.toISOString(), creeLe: s.creeLe.toISOString(),
     majLe: s.majLe.toISOString(), organisationId: s.organisationId, client: s.organisation.raisonSocialeNom,
-    commercial: s.organisation.responsable?.name ?? null, messages: s._count.messages,
+    commercial: s.organisation.responsable?.name ?? null, messages: s._count.messages, ticketId: s.ticketId,
   };
 }
 export type LigneSujet = ReturnType<typeof enLigne>;

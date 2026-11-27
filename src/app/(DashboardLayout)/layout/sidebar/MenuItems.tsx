@@ -177,7 +177,11 @@ const Menuitems: SidebarItem[] = [
 // Parc clients, Facturation et Déploiements sont passés dans Pilot le 23/11/2026
 // (plan lyrae/plans/2026-11-pilot-dans-le-dashboard.md) : bouton « Pilot » du header.
 export const AdminMenuitems: SidebarItem[] = [
-  { navlabel: true, subheader: "Admin" },
+  // Deux blocs depuis le 27/11/2026 (plan lyrae/plans/2026-11-separation-dashboard-pilot.md) :
+  // l'exploitation technique, puis les clients (leurs comptes, le paramétrage d'un centre).
+  // Les assistants « Nouveau centre » partent de « Clients et comptes ». Le support des
+  // clients se traite dans Pilot.
+  { navlabel: true, subheader: "Exploitation" },
   {
     id: uniqueId(),
     title: "Vue d'ensemble",
@@ -196,53 +200,8 @@ export const AdminMenuitems: SidebarItem[] = [
     icon: IconScan,
     href: "/admin/konnect-ocr",
   },
+  { navlabel: true, subheader: "Clients" },
   {
-    id: uniqueId(),
-    title: "Actions",
-    icon: IconBolt,
-    href: "/admin/actions",
-  },
-  {
-    // La mise en service d'un client, de bout en bout (lot 4B, 15/09/2026). Elle
-    // demandait douze etapes, deux outils et neuf ecrans : les gestes existaient tous,
-    // mais ranges par geste et non par centre, donc il fallait les connaitre et les
-    // faire dans le bon ordre.
-    //
-    // Placee en tete du bloc « client » de l'administration : on cree un centre, puis
-    // on le retrouve dans la vue d'ensemble, puis on suit son installation.
-    id: uniqueId(),
-    title: "Nouveau centre",
-    icon: IconUserPlus,
-    href: "/admin/nouveau-centre",
-  },
-  {
-    // Le pendant Konnect, plus court, qui part de la fiche d'ouverture Konnect
-    // (30/10/2026, plan 2026-10-onboarding-konnect-fiche-et-assistant.md).
-    id: uniqueId(),
-    title: "Nouveau portail Konnect",
-    icon: IconUserPlus,
-    href: "/admin/nouveau-centre-konnect",
-  },
-  {
-    // Le pack de configuration : exporter un centre entier dans un classeur, le faire
-    // remplir hors ligne, puis l'appliquer (lot 4D, 15/09/2026). Sert aussi a ouvrir un
-    // centre frere : on prend le pack d'un centre modele et on substitue l'identite.
-    //
-    // Placee juste apres « Nouveau centre » : l'assistant cree et degrossit, le pack
-    // remplit le reste en une fois.
-    id: uniqueId(),
-    title: "Pack de configuration",
-    icon: IconFileSpreadsheet,
-    href: "/admin/pack",
-  },
-  {
-    // La vue d'ensemble : les clients par produit, leurs comptes et les droits de
-    // chacun (lot 3, 15/09/2026). L'information existait, dispersee sur cinq ecrans
-    // ranges PAR GESTE plutot que par client, ce qui obligeait a en ouvrir trois et
-    // a recouper a la main pour repondre a « qui a acces a quoi chez ce client ? ».
-    //
-    // Placee AVANT « Parc clients » : on cherche d'abord un client, on regarde
-    // ensuite ou en est son installation.
     id: uniqueId(),
     title: "Clients et comptes",
     icon: IconUsers,
@@ -250,38 +209,9 @@ export const AdminMenuitems: SidebarItem[] = [
   },
   {
     id: uniqueId(),
-    title: "Installation Konnect",
-    icon: IconChecklist,
-    href: "/admin/konnect-installation",
-  },
-  {
-    id: uniqueId(),
-    title: "Installation Talk",
-    icon: IconChecklist,
-    href: "/admin/talk-installation",
-  },
-  {
-    // Les reglages du robot qui vivaient dans son code, et qui descendent
-    // maintenant du Dashboard (domaine talk.site). Un ecran d'administration et
-    // non client : il porte surtout des reglages techniques, et le client a ses
-    // propres ecrans pour ce qui le concerne.
-    id: uniqueId(),
-    title: "Configuration du robot",
+    title: "Paramétrage d'un centre",
     icon: IconAdjustmentsAlt,
-    href: "/admin/talk-config",
-  },
-  {
-    // Codes centres de tous les clients, et rattachement des cabinets Konnect.
-    // La page existait depuis e0a931d mais n'avait jamais ete reliee au menu :
-    // elle n'etait atteignable qu'en tapant l'URL. Or c'est ici qu'on active un
-    // cabinet Konnect (une ligne KonnectTenantMapping), et c'est la vue qui
-    // repond a « ce code appartient a quel centre ? » quand un rendez-vous
-    // arrive avec un code inconnu -- les deux pages d'installation, elles, ne
-    // montrent qu'un centre a la fois.
-    id: uniqueId(),
-    title: "Identifiants externes",
-    icon: IconKey,
-    href: "/admin/external-mapping",
+    href: "/admin/parametrage",
   },
   { navlabel: true, subheader: "Client" },
   {
@@ -345,13 +275,6 @@ export const AdminMenuitems: SidebarItem[] = [
     href: "/client/c/{USER_ID}/talk/incidents",
   },
 
-  { navlabel: true, subheader: "Assistance" },
-  {
-    id: uniqueId(),
-    title: "Support",
-    icon: IconLifebuoy,
-    href: "/admin/ticket",
-  },
 ];
 
 /**

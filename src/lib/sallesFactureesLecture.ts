@@ -1,5 +1,5 @@
 /**
- * Lecture en base des salles d'un client (table `Salle`) et des tarifs (`TarifSalle`).
+ * Lecture en base des salles d'un client (table `Salle`). Leur prix est dans Pilot, jamais ici.
  * Plan : `lyrae/plans/2026-11-salles-facturees-talk-konnect.md`.
  *
  * Séparé de `sallesFacturees.ts`, importé par les écrans : le pool `pg` n'a rien à
@@ -13,14 +13,10 @@
 import { db } from "@/lib/db";
 import { produitDepuisNom } from "@/lib/produits";
 import { EXAM_TYPES, type ExamType } from "@/lib/examTypes";
-import { lireGrilleEnVigueur } from "@/pilot/lib/tarifs/grille";
-import { prixDesSalles, ttc } from "@/pilot/lib/facturationSalles/calcul";
 import {
   comparerSites,
-  TARIFS_PAR_DEFAUT,
   type LigneSalle,
   type SalleEcrite,
-  type Tarifs,
 } from "@/lib/sallesFacturees";
 
 const EST_TYPE = new Set<string>(EXAM_TYPES);
@@ -107,45 +103,6 @@ export async function versionSallesDuUserProduct(userProductId: number): Promise
 }
 
 /**
- * Le prix TTC d'une salle par produit. Depuis l'intégration de Pilot (23/11/2026,
- * décision d'Enzo), la grille datée de Pilot fait foi (codes TALK et KONNECT, base
- * PAR_SALLE, HT) : on la convertit en TTC pour les écrans qui affichent en TTC.
- * `TarifSalle` n'est plus lu que pour un produit absent de la grille, le temps que
- * la grille soit complète en production. Plus aucun écran n'y écrit.
- */
-export async function lireTarifs(): Promise<Tarifs> {
-  const anciens = await lireTarifsSalle();
-  try {
-    const grille = await lireGrilleEnVigueur();
-    const p = prixDesSalles(grille);
-    return {
-      talk: p.talk === null ? anciens.talk : ttc(p.talk),
-      konnect: p.konnect === null ? anciens.konnect : ttc(p.konnect),
-    };
-  } catch (e) {
-    // Tables de Pilot pas encore créées sur ce serveur : l'ancien prix.
-    if (tableAbsente(e) || (e as { code?: string })?.code === "P2021") return anciens;
-    throw e;
-  }
-}
-
-async function lireTarifsSalle(): Promise<Tarifs> {
-  try {
-    const res = await db.query<{ produit: string; prixMensuelTtcCts: number }>(
-      `SELECT "produit", "prixMensuelTtcCts" FROM "TarifSalle"`
-    );
-    const sortie: Tarifs = { ...TARIFS_PAR_DEFAUT };
-    for (const r of res.rows) {
-      if (r.produit === "talk" || r.produit === "konnect") sortie[r.produit] = r.prixMensuelTtcCts;
-    }
-    return sortie;
-  } catch (e) {
-    if (tableAbsente(e)) return { ...TARIFS_PAR_DEFAUT };
-    throw e;
-  }
-}
-
-/**
  * Remplace les salles d'un client par la liste donnée, dans une transaction. Une salle
  * qui garde son code garde sa ligne (`updatedAt` touché seulement si elle change).
  * Rend ce qui a changé, pour l'audit : postes ajoutés, retirés, cases modifiées.
@@ -211,16 +168,6 @@ export async function ecrireSallesDuClient(
     throw e;
   } finally {
     client.release();
-  }
-}
-
-export async function ecrireTarifs(tarifs: Tarifs): Promise<void> {
-  for (const [produit, cts] of Object.entries(tarifs)) {
-    await db.query(
-      `INSERT INTO "TarifSalle" ("produit", "prixMensuelTtcCts", "updatedAt") VALUES ($1, $2, NOW())
-       ON CONFLICT ("produit") DO UPDATE SET "prixMensuelTtcCts" = EXCLUDED."prixMensuelTtcCts", "updatedAt" = NOW()`,
-      [produit, cts]
-    );
   }
 }
 

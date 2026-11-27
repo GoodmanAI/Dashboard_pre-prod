@@ -43,7 +43,7 @@ interface Row {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default function ExternalMappingPage() {
+export default function IdentifiantsExternes() {
   const [rows, setRows] = useState<Row[]>([]);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [tenantDrafts, setTenantDrafts] = useState<Record<number, string>>({});

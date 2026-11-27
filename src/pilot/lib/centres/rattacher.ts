@@ -6,6 +6,7 @@ import { champsChanges } from "@/pilot/lib/evenements/diff";
 import { journaliser, transactionJournalisee } from "@/pilot/lib/evenements/journaliser";
 import { evaluerSansEchouer } from "@/pilot/lib/checklist/evaluer";
 import { verrouillerOrganisation } from "@/pilot/lib/organisations/comptes";
+import { synchroniserStatutsDashboard } from "@/pilot/lib/centres/statutDashboard";
 
 export async function verifierCompte(
   tx: Prisma.TransactionClient, productId: number, userProductId: number | null | undefined,
@@ -46,6 +47,7 @@ export async function rattacherProduit(donnees: z.output<typeof creationRattache
       await journaliser(tx, { type: "RATTACHEMENT_CREE", organisationId: centre.organisationId, centreId: centre.id,
         centreProduitId: cree.id, auteurId, resume: `Produit ajouté : ${produit.name} · ${centre.nom}`,
         apres: { productId: cree.productId, userProductId: cree.userProductId, datePromise: cree.datePromise } });
+      await synchroniserStatutsDashboard(tx, { centreProduitIds: [cree.id] }, auteurId);
       return cree;
     });
   } catch (erreur) {
@@ -87,6 +89,7 @@ export async function modifierRattachement(id: number, donnees: z.output<typeof 
     if ("userProductId" in diff.apres) {
       await journaliser(tx, { ...contexte, type: "ORGANISATION_MODIFIEE", resume: "Compte Dashboard modifié",
         avant: { userProductId: courant.userProductId }, apres: { userProductId: modifie.userProductId } });
+      await synchroniserStatutsDashboard(tx, { centreProduitIds: [id] }, auteurId);
     }
     if ("vagueId" in diff.apres) {
       await journaliser(tx, { ...contexte, type: "ORGANISATION_MODIFIEE", resume: "Vague modifiée",

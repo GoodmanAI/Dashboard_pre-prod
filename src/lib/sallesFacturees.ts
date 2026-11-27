@@ -47,12 +47,6 @@ export type LigneSalle = {
   konnect: boolean;
 };
 
-/** Le prix mensuel TTC d'une salle, en centimes, par produit (table `TarifSalle`). */
-export type Tarifs = Record<ProduitSalle, number>;
-
-/** Repli si la table des tarifs est illisible : les prix donnés le 02/11/2026. */
-export const TARIFS_PAR_DEFAUT: Tarifs = { talk: 32500, konnect: 9500 };
-
 /** Le produit a-t-il au moins une salle cochée ? Sinon il garde l'ancien comportement. */
 export function produitActif(lignes: readonly LigneSalle[], produit: ProduitSalle): boolean {
   return lignes.some((l) => l[produit]);
@@ -280,37 +274,27 @@ export function planAEcrire(p: PlanCocherTout): boolean {
   return p.ajoutees.length > 0 || p.talk === "coche" || p.konnect === "coche";
 }
 
-// ── Facturation ─────────────────────────────────────────────────────────────
+// ── Compte des salles par site ──────────────────────────────────────────────
+// Le Dashboard compte les salles cochées ; leur prix et la facture sont dans Pilot
+// (27/11/2026, plan lyrae/plans/2026-11-separation-dashboard-pilot.md).
 
-export type LigneFacture = {
+export type SallesDuSite = {
   codeSite: string | null;
   salles: Record<ProduitSalle, number>;
-  montantCts: Record<ProduitSalle, number>;
-  totalCts: number;
 };
 
-/** Le compte des salles payées d'un client, par site Xplore, et son montant mensuel. */
-export function facturer(lignes: readonly LigneSalle[], tarifs: Tarifs): LigneFacture[] {
-  const parSite = new Map<string, LigneFacture>();
+/** Le nombre de salles cochées d'un client, par site Xplore et par produit. */
+export function compterSalles(lignes: readonly LigneSalle[]): SallesDuSite[] {
+  const parSite = new Map<string, SallesDuSite>();
   for (const l of lignes) {
     if (!l.talk && !l.konnect) continue;
     const cle = l.codeSite ?? "";
     let f = parSite.get(cle);
     if (!f) {
-      f = {
-        codeSite: l.codeSite,
-        salles: { talk: 0, konnect: 0 },
-        montantCts: { talk: 0, konnect: 0 },
-        totalCts: 0,
-      };
+      f = { codeSite: l.codeSite, salles: { talk: 0, konnect: 0 } };
       parSite.set(cle, f);
     }
-    for (const p of PRODUITS_SALLE) {
-      if (!l[p]) continue;
-      f.salles[p] += 1;
-      f.montantCts[p] += tarifs[p];
-      f.totalCts += tarifs[p];
-    }
+    for (const p of PRODUITS_SALLE) if (l[p]) f.salles[p] += 1;
   }
   return [...parSite.values()].sort((a, b) => comparerSites(a.codeSite, b.codeSite));
 }
@@ -323,13 +307,6 @@ export function comparerSites(a: string | null, b: string | null): number {
   return a.localeCompare(b, "fr");
 }
 
-/** « 325 € », « 1 015 € », « 95,50 € ». */
-export function euros(cts: number): string {
-  return (cts / 100).toLocaleString("fr-FR", {
-    minimumFractionDigits: cts % 100 === 0 ? 0 : 2,
-    maximumFractionDigits: 2,
-  }) + " €";
-}
 
 // ── Écriture ────────────────────────────────────────────────────────────────
 

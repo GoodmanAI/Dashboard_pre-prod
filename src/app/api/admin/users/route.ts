@@ -18,7 +18,7 @@ import { passwordSchema } from "@/lib/passwordSchema";
  * POST /api/admin/users               -> creation compte (SUPER_ADMIN)
  *   body : { mode: "admin" | "sub-account", email, password, name,
  *            managerId?, permissions? }
- *   - mode "admin"        : cree un ADMIN (simple : email+pwd+name)
+ *   - mode "admin"        : refusé (410) depuis le 27/11/2026, l'équipe se crée dans Pilot
  *   - mode "sub-account"  : cree un CLIENT sous-compte, obligatoire :
  *                           managerId (compte parent CLIENT) + permissions JSON
  *
@@ -136,6 +136,15 @@ export async function POST(req: NextRequest) {
     userAgent,
   };
 
+  // Un compte de l'équipe (ADMIN) se crée dans Pilot, écran Équipe, qui pose aussi son
+  // rôle et ses accès (27/11/2026, plan lyrae/plans/2026-11-separation-dashboard-pilot.md).
+  if (data.mode === "admin") {
+    return NextResponse.json(
+      { error: "Les comptes de l'équipe se créent dans Pilot, écran Équipe." },
+      { status: 410 }
+    );
+  }
+
   // Verifie unicite email/name
   const existing = await prisma.user.findFirst({
     where: { OR: [{ email: data.email }, { name: data.name }] },
@@ -150,24 +159,6 @@ export async function POST(req: NextRequest) {
   }
 
   const hashedPassword = await bcrypt.hash(data.password, 10);
-
-  if (data.mode === "admin") {
-    const newUser = await prisma.user.create({
-      data: {
-        email: data.email,
-        password: hashedPassword,
-        name: data.name,
-        role: "ADMIN",
-      },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
-    });
-    auditLog("account", "create-admin", {
-      actor,
-      target: { type: "user", id: newUser.id, label: newUser.email },
-      metadata: { name: newUser.name },
-    });
-    return NextResponse.json({ user: newUser }, { status: 201 });
-  }
 
   // mode "sub-account"
   const parent = await prisma.user.findUnique({
