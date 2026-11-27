@@ -233,12 +233,37 @@ export const CATALOGUE: Fiche[] = [
     ],
   },
   {
+    cle: "talk/parametrage#texte_sms_rappel",
+    produit: "talk",
+    page: "parametrage",
+    libelle: "Texte du SMS de rappel (no-show)",
+    genre: "reglage",
+    termes: [
+      "texte du sms de rappel", "message de rappel", "modifier le sms de rappel", "texte de la relance",
+      "ecrire le sms de relance", "changer le message de relance", "nom du centre dans le sms",
+      "message du sms de rappel", "changer le message du sms", "message du sms de relance",
+      "nom du centre en entier", "nom du centre dans le sms de relance",
+      "personnaliser le rappel", "message du sms no-show",
+    ],
+  },
+  {
     cle: "talk/parametrage#depot_ordonnance",
     produit: "talk",
     page: "parametrage",
     libelle: "Dépôt d'ordonnance patient",
     genre: "reglage",
     termes: ["depot d'ordonnance", "lien de depot", "deposer l'ordonnance", "ordonnance obligatoire", "ordonnance est obligatoire"],
+  },
+  {
+    cle: "talk/parametrage#sms_depot_ordonnance",
+    produit: "talk",
+    page: "parametrage",
+    libelle: "Texte du SMS de dépôt d'ordonnance",
+    genre: "reglage",
+    termes: [
+      "sms de depot", "texte du sms de depot", "message de depot", "sms de l'ordonnance",
+      "sms pour deposer l'ordonnance", "modifier le sms de depot", "sms du lien de depot",
+    ],
   },
   {
     cle: "talk/parametrage#documents_demandes",

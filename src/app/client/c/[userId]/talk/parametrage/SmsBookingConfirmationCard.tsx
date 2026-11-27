@@ -11,7 +11,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Divider,
   FormControlLabel,
   Stack,
   Switch,
@@ -31,7 +30,7 @@ import {
   rendreSms,
 } from "@/lib/talkTextes";
 import { enregistrerTextesTalk, useTextesTalk } from "./textesTalk";
-import SmsDepotOrdonnanceBloc, { BulleSms } from "./SmsDepotOrdonnanceBloc";
+import { BulleSms } from "./SmsDepotOrdonnanceBloc";
 
 /**
  * Section "Confirmation de RDV par SMS" (à ne pas confondre avec la carte
@@ -419,20 +418,14 @@ export default function SmsBookingConfirmationCard({
                 </Stack>
               )}
 
-              {/* Lot 4 : le SMS de dépôt, dès que le dépôt d'ordonnance est actif,
-                  confirmation cochée ou non (14/10/2026). */}
-              {depotActif && textes && (
-                <>
-                  <Divider />
-                  <SmsDepotOrdonnanceBloc
-                    userProductId={userProductId}
-                    textes={textes}
-                    readOnly={readOnly}
-                    centre={centre}
-                    apercuConfirmation={apercu}
-                    avecConfirmation={enabled}
-                  />
-                </>
+              {/* Le SMS de dépôt se règle dans sa section, « Dépôt d'ordonnance
+                  patient », depuis le 28/11/2026 : cette carte, affichée
+                  « Désactivé », portait le texte d'un SMS qui part quand même. */}
+              {depotActif && (
+                <Typography variant="caption" color="text.secondary">
+                  Le texte du SMS de dépôt d&apos;ordonnance se règle dans la section
+                  « Dépôt d&apos;ordonnance patient », plus bas.
+                </Typography>
               )}
             </>
           )}

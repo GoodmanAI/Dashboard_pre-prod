@@ -22,6 +22,7 @@ import {
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import SmsRelanceTexteBloc from "./SmsRelanceTexteBloc";
 
 type ExamKey = "radiographie" | "irm" | "echographie" | "scanner" | "mammo";
 type Enabled = Record<ExamKey, boolean>;
@@ -100,9 +101,16 @@ type ConfigPatch = Partial<{
 
 export default function SmsConfirmationConfigCard({
   userProductId,
+  centre = "",
+  readOnly = false,
 }: {
   userProductId: number;
+  /** Nom du centre tel qu'à l'écran, pour l'aperçu du texte. */
+  centre?: string;
+  readOnly?: boolean;
 }) {
+  // Produit qui porte les relances (renvoyé par la route) : les textes s'y rangent.
+  const [porteurId, setPorteurId] = useState<number | null>(null);
   const [enabled, setEnabled] = useState<Enabled>(EMPTY_ENABLED);
   const [postesInput, setPostesInput] = useState<Record<ExamKey, string>>(
     EMPTY_POSTES_INPUT
@@ -126,6 +134,7 @@ export default function SmsConfirmationConfigCard({
 
   // Applique une réponse serveur à l'ensemble du state (loading initial + après save).
   const applyServerState = useCallback((data: {
+    userProductId?: number;
     enabledExamTypes?: Partial<Enabled>;
     postesByType?: PostesByType;
     reminderDays?: number[] | null;
@@ -133,6 +142,7 @@ export default function SmsConfirmationConfigCard({
     proposerConfirmation?: boolean;
     confirmationExamTypes?: ExamKey[] | null;
   }) => {
+    if (typeof data.userProductId === "number") setPorteurId(data.userProductId);
     const nextEnabled = { ...EMPTY_ENABLED, ...(data.enabledExamTypes ?? {}) };
     setEnabled(nextEnabled);
 
@@ -445,6 +455,18 @@ export default function SmsConfirmationConfigCard({
               L&apos;annulation reste toujours proposée.
             </Typography>
           </Box>
+
+          {!loading && porteurId !== null && (
+            <SmsRelanceTexteBloc
+              porteurId={porteurId}
+              centre={centre}
+              avecConfirmation={proposerConfirmation}
+              avecAnnulationSeule={
+                !proposerConfirmation || nbConfirmesAffiches < typesAffiches.length
+              }
+              readOnly={readOnly}
+            />
+          )}
 
           <Accordion disableGutters variant="outlined" sx={{ mt: 1 }}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>

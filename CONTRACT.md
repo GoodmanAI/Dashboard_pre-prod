@@ -343,6 +343,17 @@ La confirmation peut aussi se limiter à des types d'examen :
 l'`examType` du RDV (celui de l'appel, sinon celui déjà en base) : un type hors liste, ou un RDV
 sans type, part en annulation seule. Pontivy : `["mammo"]`. AI2Xplore ne change pas.
 
+**Texte de la relance écrit par le client (28/11/2026, GH Pontivy).** Le GET de
+`/api/sms-confirmation-config` (les deux modes) renvoie en plus `smsRelanceGabarit` et
+`smsRelanceAnnulationGabarit` (`string | null`, champs ajoutés, rien de retiré), lus dans le
+domaine `talk.textes` du produit qui porte les relances. `null` = texte standard d'AI2Xplore.
+Variables `{date}`, `{heure}`, `{centre}`, `{lien}`, `{code}`, `{prenom}`, `{nom}` ; `{lien}`
+et `{code}` obligatoires ; 160 septets GSM-7 au pire cas, refusé à l'écriture sinon
+(`validerTextes`). Consommateur : AI2Xplore (`scripts/sendAppointmentReminders.js`), qui garde
+son texte standard si le rendu dépasse 160. Le jeu GSM-7 est recopié des deux côtés
+(`src/lib/talkTextes.ts`, `ai2xplore/src/helpers/Gsm7.js`). Aucun SQL.
+Plan `lyrae/plans/2026-11-sms-relance-personnalisable.md`.
+
 **Domaine `konnect.planning-complet` (18/09/2026)**, lu par `KONNECT_API_KEY`, écrit depuis
 « Paramètres du portail » : `{ types: { radiographie|irm|echographie|scanner|mammo:
 { mode: "rappel"|"message", message } } }`. Konnect le lit quand aucun créneau n'est
