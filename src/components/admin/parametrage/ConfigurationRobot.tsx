@@ -2,7 +2,9 @@
 
 import Retour from "@/components/shared/Retour";
 import BarreEnregistrement from "@/components/shared/BarreEnregistrement";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { OngletParametrage } from "./ongletParametrage";
+
 import {
   Alert,
   Box,
@@ -48,9 +50,16 @@ import { INK, INK_MUTED, BORDER, SURFACE_MUTED } from "@/lib/jetons";
 
 type Centre = { userProductId: number; clientNom: string | null };
 
-export default function TalkConfigPage() {
+export default function ConfigurationRobot({ centreInitial, onCentre }: OngletParametrage = {}) {
   const [centres, setCentres] = useState<Centre[]>([]);
   const [selection, setSelection] = useState<number | "">("");
+  // Lu une fois : le centre à ouvrir en arrivant, pas un réglage qui recharge la liste.
+  const centreDepart = useRef(centreInitial);
+
+  // Le centre choisi suit l'utilisateur d'un onglet à l'autre de « Paramétrage d'un centre ».
+  useEffect(() => {
+    if (typeof selection === "number") onCentre?.(selection);
+  }, [selection, onCentre]);
   const [chargement, setChargement] = useState(true);
   const [occupe, setOccupe] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -78,7 +87,8 @@ export default function TalkConfigPage() {
             clientNom: x.clientNom,
           }));
         setCentres(liste);
-        if (liste[0]) setSelection(liste[0].userProductId);
+        const voulu = liste.find((c) => c.userProductId === centreDepart.current) ?? liste[0];
+        if (voulu) setSelection(voulu.userProductId);
       } catch {
         setErreur("Impossible de charger la liste des centres.");
       } finally {

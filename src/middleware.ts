@@ -285,13 +285,40 @@ export async function middleware(req: NextRequest) {
   // Les écrans de l'admin passés dans Pilot le 23/11/2026 : les anciens liens et favoris
   // y mènent par une vraie redirection (les pages gardent un redirect() en secours).
   const DEMENAGES: Record<string, string> = {
-    '/admin/parc': '/pilot/parc-clients',
+    '/admin/parc': '/pilot/parc#installation',
+    '/pilot/parc-clients': '/pilot/parc#installation',
     '/admin/deployments': '/pilot/versions',
     '/admin/facturation': '/pilot/facturation',
   };
   const demenage = DEMENAGES[pathname.replace(/\/+$/, '')];
   if (demenage) {
     return NextResponse.redirect(new URL(demenage, process.env.NEXT_PUBLIC_PILOT_URL || basePublique));
+  }
+
+  // Les écrans de l'admin réunis le 27/11/2026 (plan lyrae/plans/2026-11-separation-dashboard-pilot.md) :
+  // le paramétrage d'un centre en une page à onglets, les comptes clients en une page.
+  const REUNIS: Record<string, string> = {
+    '/admin/talk-installation': '/admin/parametrage?onglet=talk',
+    '/admin/talk-config': '/admin/parametrage?onglet=robot',
+    '/admin/konnect-installation': '/admin/parametrage?onglet=konnect',
+    '/admin/external-mapping': '/admin/parametrage?onglet=identifiants',
+    '/admin/pack': '/admin/parametrage?onglet=pack',
+    '/admin/manage-clients': '/admin/comptes',
+    '/admin/users': '/admin/comptes',
+    '/admin/reports': '/admin/comptes',
+    '/admin/actions': '/admin/comptes',
+    '/admin/create-client': '/admin/nouveau-centre',
+    '/admin/settings': '/admin',
+  };
+  // La console des tickets est passée dans Pilot le même jour.
+  const ticketAdmin = /^\/admin\/ticket(?:\/(\d+))?\/?$/.exec(pathname);
+  if (ticketAdmin) {
+    const cible = ticketAdmin[1] ? `/pilot/support/tickets/${ticketAdmin[1]}` : '/pilot/support?vue=clients';
+    return NextResponse.redirect(new URL(cible, process.env.NEXT_PUBLIC_PILOT_URL || basePublique));
+  }
+  const reuni = REUNIS[pathname.replace(/\/+$/, '')];
+  if (reuni) {
+    return NextResponse.redirect(new URL(reuni, basePublique));
   }
 
   // Une requête d'API de Pilot qui modifie et vient d'une autre origine est refusée

@@ -4,11 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireAdmin } from "@/lib/auth-helpers";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { tunnelActif } from "@/lib/ai2xTunnel";
-import { facturer, validerSalles } from "@/lib/sallesFacturees";
+import { compterSalles, validerSalles } from "@/lib/sallesFacturees";
 import {
   clientSalles,
   ecrireSallesDuClient,
-  lireTarifs,
   sallesDuClient,
 } from "@/lib/sallesFactureesLecture";
 
@@ -17,7 +16,7 @@ import {
  * facturation ». Plan `plans/2026-11-salles-facturees-talk-konnect.md`.
  *
  *   GET /api/admin/salles?userId=NN
- *     → { client, salles, tarifs, facture, releve: bool, tableAbsente: bool }
+ *     → { client, salles, parSite, releve: bool, tableAbsente: bool } (aucun prix : il est dans Pilot)
  *   PUT /api/admin/salles  { userId, salles: [{ codeSite, poste, typeExamen, libelle,
  *                                               talk, konnect }] }
  *     → la liste remplace l'ancienne ; même réponse que le GET.
@@ -30,12 +29,11 @@ import {
 async function etat(userId: number) {
   const client = await clientSalles(userId);
   if (!client) return null;
-  const [lignes, tarifs] = await Promise.all([sallesDuClient(userId), lireTarifs()]);
+  const lignes = await sallesDuClient(userId);
   return {
     client,
     salles: lignes ?? [],
-    tarifs,
-    facture: facturer(lignes ?? [], tarifs),
+    parSite: compterSalles(lignes ?? []),
     releve: tunnelActif(),
     tableAbsente: lignes === null,
   };

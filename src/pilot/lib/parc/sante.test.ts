@@ -78,8 +78,8 @@ describe("RDV pris", () => {
 });
 
 describe("incidents", () => {
-  it.each([[null, "gris", "Tickets du Dashboard non branchés en local."], [0, "vert", "Aucun ticket ouvert."],
-    [1, "orange", "1 ticket ouvert."], [2, "orange", "2 tickets ouverts."], [3, "rouge", "3 tickets ouverts."]] as const)("%s ticket(s)", (ticketsOuverts, couleur, raison) => {
+  it.each([[null, "gris", "Demandes des clients illisibles pour l'instant."], [0, "vert", "Aucune demande de client ouverte."],
+    [1, "orange", "1 demande de client ouverte."], [2, "orange", "2 demandes de client ouvertes."], [3, "rouge", "3 demandes de client ouvertes."]] as const)("%s ticket(s)", (ticketsOuverts, couleur, raison) => {
     expect(sante({ ticketsOuverts }).incidents).toEqual({ couleur, libelle: "Incidents", raison });
   });
   it("une source branchée sans compte Dashboard le dit", () => {

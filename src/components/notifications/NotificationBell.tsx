@@ -36,7 +36,7 @@ const ACCENT = "primary.main";
  *   - Clic -> popover avec liste des notifs (max 50), plus recentes en tete
  *   - Chaque item de notif est cliquable :
  *       -> POST /mark-read
- *       -> navigate vers /client/ticket/[id] (CLIENT) ou /admin/ticket/[id] (ADMIN)
+ *       -> navigate vers /client/ticket/[id] (CLIENT) ou la demande dans Pilot (ADMIN, 27/11/2026)
  *   - Bouton "Tout marquer comme lu" en tete du popover
  *
  * Silencieux si le user n'est pas authentifie (rend rien).
@@ -157,11 +157,14 @@ export default function NotificationBell() {
       return;
     }
     if (notif.ticket?.id) {
-      router.push(
-        isAdmin
-          ? `/admin/ticket/${notif.ticket.id}`
-          : `/client/ticket/${notif.ticket.id}`
-      );
+      if (isAdmin) {
+        // Les demandes des clients se traitent dans Pilot (27/11/2026).
+        const lien = `/pilot/support/tickets/${notif.ticket.id}`;
+        if (estCheminPilot(chemin)) router.push(lien);
+        else window.location.assign(adresseDansSonEspace(lien, false));
+      } else {
+        router.push(`/client/ticket/${notif.ticket.id}`);
+      }
     }
   };
 

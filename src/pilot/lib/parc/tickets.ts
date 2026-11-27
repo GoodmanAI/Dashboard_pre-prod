@@ -1,16 +1,24 @@
+import { prisma } from "@/pilot/lib/prisma";
+
 /**
- * Les tickets ouverts de chaque compte client, par un adaptateur (C-02, C-04).
+ * Les demandes ouvertes de chaque compte client (tickets du Dashboard en attente ou en
+ * cours), pour le voyant « incidents » du parc. Branché le 27/11/2026, quand les demandes
+ * des clients sont passées dans Pilot (plan lyrae/plans/2026-11-separation-dashboard-pilot.md).
  *
- * À brancher au Dashboard : le nombre de tickets ouverts par compte client
- * (`User` de rôle CLIENT), en lecture seule, en une requête groupée. Le schéma
- * des tickets du Dashboard n'est pas connu ici (seule `TicketMessage` est citée
- * par C-01) : aucun miroir n'est créé avec des noms devinés. Le jour du
- * branchement, seul ce fichier change ; aucun autre fichier de Pilot ne connaît
- * la source.
- *
- * `null` veut dire « non branché » : l'écran le dit, il n'invente pas un zéro.
+ * Un compte principal compte aussi les demandes de ses sous-comptes. Des nombres
+ * seulement : ni titre ni texte ne sort d'ici.
  */
 export async function ticketsOuverts(userIds: number[]): Promise<Map<number, number> | null> {
-  void userIds;
-  return null;
+  const ids = [...new Set(userIds)];
+  const comptes = new Map<number, number>(ids.map((id) => [id, 0]));
+  if (!ids.length) return comptes;
+  const ouverts = await prisma.ticket.findMany({
+    where: { status: { in: ["PENDING", "IN_PROGRESS"] }, OR: [{ userId: { in: ids } }, { user: { managerId: { in: ids } } }] },
+    select: { userId: true, user: { select: { managerId: true } } },
+  });
+  for (const t of ouverts) {
+    const principal = comptes.has(t.userId) ? t.userId : t.user.managerId;
+    if (principal !== null && comptes.has(principal)) comptes.set(principal, (comptes.get(principal) ?? 0) + 1);
+  }
+  return comptes;
 }

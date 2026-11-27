@@ -20,6 +20,9 @@ type Etat = {
 const base = vi.hoisted(() => ({ transaction: vi.fn() }));
 vi.mock("@/pilot/lib/prisma", () => ({ prisma: { $transaction: base.transaction } }));
 // Le contrat en brouillon relève de la logique des contrats, testée à part : ici on constate seulement qu'il est demandé.
+// Le statut des centres au Dashboard a ses propres tests (centres/statutDashboard.test.ts).
+const statuts = vi.hoisted(() => ({ synchroniser: vi.fn(async () => [] as number[]) }));
+vi.mock("@/pilot/lib/centres/statutDashboard", () => ({ synchroniserStatutsDashboard: statuts.synchroniser }));
 vi.mock("@/pilot/lib/contrats/gerer", () => ({
   creerContratDansTransaction: async (_tx: unknown, champs: { signeLe: Date; lignes: unknown[] }) => {
     etat.contrats.push({ signeLe: champs.signeLe, lignes: champs.lignes });

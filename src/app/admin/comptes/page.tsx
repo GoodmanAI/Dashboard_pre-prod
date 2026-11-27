@@ -3,6 +3,7 @@
 import Retour from "@/components/shared/Retour";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
   Alert,
@@ -32,6 +33,7 @@ import {
   IconEdit,
   IconLock,
   IconLogout,
+  IconAdjustments,
   IconPlugConnectedX,
   IconPlus,
   IconTrash,
@@ -55,6 +57,7 @@ import {
 } from "@/components/admin/comptes/briques";
 import { BORDER, BRAND_TEAL, TEXT_MAIN, TEXT_MUTED } from "@/lib/jetons";
 import Battement from "@/components/shared/Battement";
+import { PASSWORD_POLICY_HINT } from "@/lib/passwordSchema";
 
 /**
  * Clients et comptes — la vue d'ensemble de l'administration (lot 3, 15/09/2026).
@@ -96,6 +99,14 @@ export default function ComptesPage() {
   const [confirmationSaisie, setConfirmationSaisie] = useState("");
   const [suppressionEnCours, setSuppressionEnCours] = useState(false);
   const [aRetirer, setARetirer] = useState<{ ligne: Ligne; produit: Produit } | null>(null);
+  // Repris de « Gérer les clients » le 27/11/2026 (plan 2026-11-separation-dashboard-pilot.md) :
+  // nouveau mot de passe d'un compte, suppression d'un client entier.
+  const [motDePasseDe, setMotDePasseDe] = useState<Compte | null>(null);
+  const [nouveauMotDePasse, setNouveauMotDePasse] = useState("");
+  const [erreurMotDePasse, setErreurMotDePasse] = useState<string | null>(null);
+  const [clientASupprimer, setClientASupprimer] = useState<Ligne | null>(null);
+  const [saisieClient, setSaisieClient] = useState("");
+  const [enCours, setEnCours] = useState(false);
   const [affiliationPour, setAffiliationPour] = useState<{
     ligne: Ligne;
     /** `null` tant que le catalogue charge. */
@@ -160,6 +171,52 @@ export default function ComptesPage() {
     } else {
       const data = await res.json().catch(() => ({}));
       setMessage(data?.error ?? "La déconnexion a échoué.");
+    }
+  };
+
+  const changerMotDePasse = async () => {
+    if (!motDePasseDe) return;
+    setEnCours(true);
+    setErreurMotDePasse(null);
+    const res = await fetch("/api/admin/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: motDePasseDe.id,
+        name: motDePasseDe.nom ?? "",
+        email: motDePasseDe.identifiant,
+        newPassword: nouveauMotDePasse,
+      }),
+    }).catch(() => null);
+    setEnCours(false);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (res?.ok) {
+      setMessage(`Nouveau mot de passe posé pour ${motDePasseDe.identifiant}.`);
+      setMotDePasseDe(null);
+      setNouveauMotDePasse("");
+    } else {
+      const detail = data?.details?.[0]?.message;
+      setErreurMotDePasse(detail ?? data?.error ?? "Le serveur est injoignable. Réessayez.");
+    }
+  };
+
+  const supprimerClient = async () => {
+    if (!clientASupprimer) return;
+    setEnCours(true);
+    const res = await fetch(`/api/admin/clients/${clientASupprimer.userId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmName: saisieClient }),
+    }).catch(() => null);
+    setEnCours(false);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (res?.ok) {
+      setMessage(`Client ${clientASupprimer.nom ?? clientASupprimer.identifiant} supprimé.`);
+      setClientASupprimer(null);
+      setSaisieClient("");
+      charger();
+    } else {
+      setMessage(data?.error ?? "La suppression a échoué.");
     }
   };
 
@@ -270,8 +327,19 @@ export default function ComptesPage() {
       <Box>
       <SectionHeader
         title="Clients et comptes"
-        subtitle="Un client, ses produits, ses comptes et les droits de chacun."
+        subtitle="Un client, ses produits, ses comptes et les droits de chacun. Les comptes de l'équipe se gèrent dans Pilot, écran Équipe."
       />
+
+      {estSuperAdmin && (
+        <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap", gap: 1 }}>
+          <Button component={Link} href="/admin/nouveau-centre" variant="contained" startIcon={<IconPlus size={16} />}>
+            Nouveau centre Talk
+          </Button>
+          <Button component={Link} href="/admin/nouveau-centre-konnect" variant="outlined" startIcon={<IconPlus size={16} />}>
+            Nouveau portail Konnect
+          </Button>
+        </Stack>
+      )}
 
       {!estSuperAdmin && (
         <Alert severity="info" sx={{ mb: 2 }}>
@@ -426,6 +494,14 @@ export default function ComptesPage() {
                                   ? "Rien n'est encore renseigné"
                                   : "Rien ne bloque la mise en service"}
                             </Typography>
+                            <Button
+                              size="small"
+                              component={Link}
+                              href={`/admin/parametrage?onglet=${p.slug === "konnect" ? "konnect" : "talk"}&centre=${p.userProductId}`}
+                              startIcon={<IconAdjustments size={15} />}
+                            >
+                              Paramétrer
+                            </Button>
                             {estSuperAdmin && (
                               <Tooltip title="Retirer ce produit au client">
                                 <IconButton
@@ -469,6 +545,11 @@ export default function ComptesPage() {
                           estSuperAdmin={estSuperAdmin}
                           onDroits={() => setDroitsDe(compte)}
                           onExpulser={() => expulser(compte)}
+                          onMotDePasse={() => {
+                            setMotDePasseDe(compte);
+                            setNouveauMotDePasse("");
+                            setErreurMotDePasse(null);
+                          }}
                           onSupprimer={() => {
                             setASupprimer(compte);
                             setConfirmationSaisie("");
@@ -476,6 +557,22 @@ export default function ComptesPage() {
                         />
                       ))}
                     </Stack>
+                    {estSuperAdmin && (
+                      <Box sx={{ mt: 2, textAlign: "right" }}>
+                        <Button
+                          size="small"
+                          color="error"
+                          startIcon={<IconTrash size={15} />}
+                          disabled={!ligne.nom}
+                          onClick={() => {
+                            setClientASupprimer(ligne);
+                            setSaisieClient("");
+                          }}
+                        >
+                          Supprimer le client
+                        </Button>
+                      </Box>
+                    )}
                   </Box>
                 </Collapse>
               </Card>
@@ -573,6 +670,54 @@ export default function ComptesPage() {
           </Button>
           <Button variant="contained" onClick={retirerProduit}>
             Retirer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={motDePasseDe !== null} onClose={() => setMotDePasseDe(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Nouveau mot de passe</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            Pour {motDePasseDe?.nom ?? motDePasseDe?.identifiant}. L&apos;ancien ne marchera plus.
+            Donnez le nouveau au client par téléphone, pas par mail.
+          </DialogContentText>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Nouveau mot de passe"
+            value={nouveauMotDePasse}
+            onChange={(e) => setNouveauMotDePasse(e.target.value)}
+            helperText={erreurMotDePasse ?? PASSWORD_POLICY_HINT}
+            error={erreurMotDePasse !== null}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setMotDePasseDe(null)}>Annuler</Button>
+          <Button variant="contained" disabled={!nouveauMotDePasse || enCours} onClick={changerMotDePasse}>
+            {enCours ? "Enregistrement…" : "Enregistrer"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={clientASupprimer !== null} onClose={() => setClientASupprimer(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Supprimer ce client</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            Le client, ses sous-comptes, ses produits, sa configuration et ses appels sont
+            effacés pour de bon. Pour un client qui arrête, retirez plutôt ses produits.
+            Tapez son nom, {clientASupprimer?.nom}, pour confirmer.
+          </DialogContentText>
+          <TextField fullWidth label="Nom du client" value={saisieClient} onChange={(e) => setSaisieClient(e.target.value)} />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setClientASupprimer(null)}>Annuler</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={saisieClient !== clientASupprimer?.nom || enCours}
+            onClick={supprimerClient}
+          >
+            {enCours ? "Suppression…" : "Supprimer"}
           </Button>
         </DialogActions>
       </Dialog>
