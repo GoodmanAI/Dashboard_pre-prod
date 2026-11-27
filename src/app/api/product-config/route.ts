@@ -99,7 +99,7 @@ async function gardeDuDomaine(
     // Un compte interne (ADMIN, 24/11/2026) ne lit ces domaines que s'il ouvre la mise
     // en service ou la configuration du robot (src/lib/accesInternes.ts).
     const sujet = auth.session.user as any;
-    if (!peutOuvrirAdmin(sujet, PAGES_ADMIN.MISE_EN_SERVICE) && !peutOuvrirAdmin(sujet, PAGES_ADMIN.CONFIG_ROBOT)) {
+    if (!peutOuvrirAdmin(sujet, PAGES_ADMIN.PARAMETRAGE)) {
       return NextResponse.json({ error: MESSAGE_ACCES_INTERNE }, { status: 403 });
     }
     return null;

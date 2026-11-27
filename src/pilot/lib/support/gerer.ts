@@ -49,7 +49,11 @@ export async function creerSujet(d: z.output<typeof nouveauSujet>, acteur: Acteu
     const organisation = await tx.crmOrganisation.findUnique({ where: { id: d.organisationId }, select: { id: true, raisonSocialeNom: true } });
     if (!organisation) throw new ErreurMetier("Client inconnu.", 404);
     const statut = statutInitial(aDire);
-    const sujet = await tx.crmSujetSupport.create({ data: { organisationId: organisation.id, titre: d.titre, statut, auteurId: acteur.id } });
+    if (d.ticketId) {
+      const deja = await tx.crmSujetSupport.findUnique({ where: { ticketId: d.ticketId }, select: { id: true } });
+      if (deja) throw new ErreurMetier("Un sujet de l'équipe existe déjà pour cette demande. Rechargez la page.", 409);
+    }
+    const sujet = await tx.crmSujetSupport.create({ data: { organisationId: organisation.id, titre: d.titre, statut, auteurId: acteur.id, ticketId: d.ticketId ?? null } });
     const message = await tx.crmMessageSupport.create({ data: { sujetId: sujet.id, auteurId: acteur.id, noteInterne: d.noteInterne ?? null, aDireAuClient: d.aDireAuClient ?? null } });
     await journaliser(tx, { type: "SUPPORT_SUJET_CREE", organisationId: organisation.id, auteurId: acteur.id,
       resume: `Sujet de support ouvert : ${d.titre}`, apres: { sujetId: sujet.id, statut } });

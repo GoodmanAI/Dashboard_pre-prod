@@ -83,8 +83,6 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([role])
-
   // Pilot (CRM interne), relations inverses sans colonne (plan 2026-11-pilot-dans-le-dashboard)
   organisationsCompte       CrmOrganisation[]            @relation("OrganisationCompte")
   organisationsResponsable  CrmOrganisation[]            @relation("OrganisationResponsable")
@@ -116,6 +114,8 @@ model User {
   directeursDesignes        CrmDirecteurGeneral[]        @relation("DirecteurGeneralModifiePar")
   alertesAttribuees         CrmAttributionAlerte[]       @relation("AttributionAlerteDestinataire")
   attributionsDecidees      CrmAttributionAlerte[]       @relation("AttributionAlerteAuteur")
+
+  @@index([role])
 }
 
 model Product {
@@ -171,10 +171,10 @@ model UserProduct {
 
   CallConversations CallConversation[]
 
-  @@unique([userId, productId])
-
   // Pilot (CRM interne), relations inverses sans colonne (plan 2026-11-pilot-dans-le-dashboard)
-  centresCrm   CrmCentreProduit[]
+  centresCrm CrmCentreProduit[]
+
+  @@unique([userId, productId])
 }
 
 model UserNumber {
@@ -238,12 +238,14 @@ model Ticket {
   resolvedAt    DateTime?
   closedAt      DateTime?
 
-  user          User            @relation("TicketForUser", fields: [userId], references: [id], onDelete: Cascade)
-  createdBy     User?           @relation("TicketCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  assignedTo    User?           @relation("TicketAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
-  userProduct   UserProduct?    @relation(fields: [userProductId], references: [id], onDelete: SetNull)
+  user          User             @relation("TicketForUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy     User?            @relation("TicketCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  assignedTo    User?            @relation("TicketAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  userProduct   UserProduct?     @relation(fields: [userProductId], references: [id], onDelete: SetNull)
   messages      TicketMessage[]
   notifications Notification[]
+  /// Le sujet de l'équipe dans Pilot, s'il y en a un (27/11/2026).
+  sujetEquipe   CrmSujetSupport?
 
   @@index([userProductId, status])
   @@index([assignedToId, status])
@@ -370,7 +372,7 @@ model CallConversation {
   /// plus d'un échange ; `steps` étant vidé à l'anonymisation, c'est cette colonne
   /// qui garde l'information. NULL sur une ligne écrite avant la migration et pas
   /// encore remplie : les lectures retombent alors sur la longueur de `steps`.
-  nbTours       Int?
+  nbTours        Int?
   /// Nombre de lignes du patient non vides, écrit à l'arrivée de l'appel (22/11/2026).
   /// 0 = le patient n'a dit aucun mot : l'appel sort des écrans et des statistiques du
   /// client, compté à part (`src/lib/appelsSansParole.ts`). NULL = inconnu, compté.
@@ -378,14 +380,14 @@ model CallConversation {
   nbToursPatient Int?
   /// Posé par le job d'anonymisation : `steps` vidé, `phoneNumber` et `entites`
   /// retirés de `stats`. NULL = la ligne porte encore sa transcription.
-  anonymiseeLe  DateTime?
+  anonymiseeLe   DateTime?
   /// Quand le client a signalé l'appel ; NULL s'il ne l'est pas. Les signalements
   /// d'avant le 28/10/2026 sont datés de l'appel.
   /// Posé par prisma/migrations/manual/2026_10_28_signalement_commente.sql.
-  flaggedAt     DateTime?
+  flaggedAt      DateTime?
   /// « Qu'est-ce qui s'est mal passé ? », facultatif. Peut porter une donnée patient :
   /// effacé avec la transcription par anonymise_appels.sh, jamais journalisé.
-  flagComment   String?   @db.VarChar(500)
+  flagComment    String?   @db.VarChar(500)
 
   userProduct UserProduct @relation(fields: [userProductId], references: [id], onDelete: Cascade)
 
@@ -835,26 +837,26 @@ enum CrmIssueCyclePoc {
 /// Historique des seuls cycles clos. Le cycle courant vit sur l'organisation.
 /// C-95 : une formation par dossier, liée au premier UUID de POC, sans contrat.
 model CrmFormationPoc {
-  organisationId Int @id
-  organisation CrmOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  cycleId String @unique @db.Uuid
-  debuteLe DateTime @db.Date
-  grilleId Int?
-  grille CrmGrilleTarifaire? @relation(fields: [grilleId], references: [id], onDelete: SetNull)
+  organisationId  Int                 @id
+  organisation    CrmOrganisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  cycleId         String              @unique @db.Uuid
+  debuteLe        DateTime            @db.Date
+  grilleId        Int?
+  grille          CrmGrilleTarifaire? @relation(fields: [grilleId], references: [id], onDelete: SetNull)
   montantCentimes Int?
-  factureEmiseLe DateTime? @db.Date
+  factureEmiseLe  DateTime?           @db.Date
   comptabiliseeLe DateTime?
-  creeLe DateTime @default(now())
+  creeLe          DateTime            @default(now())
 
   @@index([debuteLe])
 }
 
 model CrmCyclePoc {
-  id             String @id @db.Uuid
+  id             String           @id @db.Uuid
   organisationId Int
-  organisation   CrmOrganisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  debuteLe       DateTime @db.Date
-  prolongeLe     DateTime? @db.Date
+  organisation   CrmOrganisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  debuteLe       DateTime         @db.Date
+  prolongeLe     DateTime?        @db.Date
   issue          CrmIssueCyclePoc
   decideLe       DateTime
 
@@ -864,7 +866,7 @@ model CrmCyclePoc {
 /// Le client ou le prospect. Une organisation porte l'étape commerciale ; ses
 /// centres portent chacun leur étape d'intégration, par produit.
 model CrmOrganisation {
-  formationPoc CrmFormationPoc?
+  formationPoc     CrmFormationPoc?
   id               Int                 @id @default(autoincrement())
   raisonSocialeNom String
   /// Clé stable de la ligne source CSV.
@@ -874,9 +876,9 @@ model CrmOrganisation {
   etape            CrmEtapeCommerciale @default(PROSPECT)
   /// POC avant signature, distinct de l’essai du contrat. Dates conservées après décision.
   /// Identifiant stable du cycle courant ou dernier, archivé à la décision (C-94).
-  pocCycleId       String? @unique @db.Uuid
-  pocDebuteLe      DateTime? @db.Date
-  pocProlongeLe    DateTime? @db.Date
+  pocCycleId       String?             @unique @db.Uuid
+  pocDebuteLe      DateTime?           @db.Date
+  pocProlongeLe    DateTime?           @db.Date
 
   /// Renseignés quand l'étape est PERDU ou EN_SOMMEIL. Le dossier produit
   /// impose que la raison soit notée.
@@ -1114,21 +1116,26 @@ model CrmDemande {
 /// du client se passent. Le commercial est celui de la fiche (`responsableId`), lu à
 /// chaque envoi : changer de commercial change qui reçoit, sans rien réécrire.
 model CrmSujetSupport {
-  id             Int                   @id @default(autoincrement())
-  organisationId Int
-  organisation   CrmOrganisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  titre          String
-  statut         CrmStatutSujetSupport @default(OUVERT)
+  id                Int                   @id @default(autoincrement())
+  organisationId    Int
+  organisation      CrmOrganisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  titre             String
+  statut            CrmStatutSujetSupport @default(OUVERT)
   /// Depuis quand le sujet est dans ce statut : la relance compte à partir de là.
-  statutDepuisLe DateTime              @default(now())
+  statutDepuisLe    DateTime              @default(now())
   derniereRelanceLe DateTime?
-  auteurId       Int?
-  auteur         User?                 @relation("SujetSupportAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
-  creeLe         DateTime              @default(now())
+  auteurId          Int?
+  auteur            User?                 @relation("SujetSupportAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+  creeLe            DateTime              @default(now())
   /// Garde des écritures concurrentes (C-26) et tri de la liste.
-  majLe          DateTime              @updatedAt
+  majLe             DateTime              @updatedAt
 
   messages CrmMessageSupport[]
+
+  /// La demande du client dont l'équipe discute ici (27/11/2026), ou null pour un sujet
+  /// ouvert par l'équipe. Posé par prisma/migrations/manual/2026_12_25_pilot_support_ticket.sql.
+  ticketId Int?    @unique
+  ticket   Ticket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
 
   @@index([statut, statutDepuisLe])
   @@index([organisationId, statut])
@@ -1136,14 +1143,14 @@ model CrmSujetSupport {
 
 /// Un message d'un sujet : une note pour l'équipe, un texte à dire au client, ou les deux.
 model CrmMessageSupport {
-  id           Int             @id @default(autoincrement())
-  sujetId      Int
-  sujet        CrmSujetSupport @relation(fields: [sujetId], references: [id], onDelete: Cascade)
-  auteurId     Int?
-  auteur       User?           @relation("MessageSupportAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
-  noteInterne  String?
+  id            Int             @id @default(autoincrement())
+  sujetId       Int
+  sujet         CrmSujetSupport @relation(fields: [sujetId], references: [id], onDelete: Cascade)
+  auteurId      Int?
+  auteur        User?           @relation("MessageSupportAuteur", fields: [auteurId], references: [id], onDelete: SetNull)
+  noteInterne   String?
   aDireAuClient String?
-  creeLe       DateTime        @default(now())
+  creeLe        DateTime        @default(now())
 
   @@index([sujetId, creeLe])
 }
@@ -1925,12 +1932,12 @@ model CrmReleveConcurrent {
 /// libre : ni le journal ni les logs.
 model CrmGrilleTarifaire {
   formationsPoc CrmFormationPoc[]
-  id           Int      @id @default(autoincrement())
+  id            Int               @id @default(autoincrement())
   /// Minuit UTC (CHECK) : une grille par jour d'application.
-  applicableLe DateTime @unique
-  notes        String?
-  creeParId    Int?
-  creePar      User?    @relation("GrilleTarifaireCreePar", fields: [creeParId], references: [id], onDelete: SetNull)
+  applicableLe  DateTime          @unique
+  notes         String?
+  creeParId     Int?
+  creePar       User?             @relation("GrilleTarifaireCreePar", fields: [creeParId], references: [id], onDelete: SetNull)
 
   tarifs       CrmTarif[]
   propositions CrmProposition[]
@@ -1962,4 +1969,3 @@ model CrmTarif {
 
   @@unique([grilleId, code])
 }
-

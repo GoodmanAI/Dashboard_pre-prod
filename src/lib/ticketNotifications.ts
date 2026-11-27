@@ -30,6 +30,9 @@ function estAdresseEmail(v: string | null | undefined): v is string {
 
 const DASHBOARD_URL =
   process.env.DASHBOARD_PUBLIC_URL ?? "https://dashboard.neuracorp.ai";
+/** Les demandes des clients se traitent dans Pilot depuis le 27/11/2026 : le mail à l'équipe y mène. */
+const PILOT_URL =
+  (process.env.NEXT_PUBLIC_PILOT_URL || "https://pilote.dashboard.neuracorp.ai").replace(/\/+$/, "");
 
 interface NewTicketContext {
   ticketId: number;
@@ -58,7 +61,7 @@ export async function notifyNewTicketToAdmin(ctx: NewTicketContext) {
     return { ok: false, error: "no admin email" };
   }
 
-  const ticketUrl = `${DASHBOARD_URL}/admin/ticket/${ctx.ticketId}`;
+  const ticketUrl = `${PILOT_URL}/pilot/support/tickets/${ctx.ticketId}`;
   const centerLine = ctx.userProductLabel
     ? `<p><strong>Centre :</strong> ${escapeHtml(ctx.userProductLabel)}</p>`
     : "";

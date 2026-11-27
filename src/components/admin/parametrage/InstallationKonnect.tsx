@@ -1,7 +1,9 @@
 "use client";
 
 import Retour from "@/components/shared/Retour";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { OngletParametrage } from "./ongletParametrage";
+
 import {
   Alert,
   Box,
@@ -198,9 +200,16 @@ function BlocRenvoi({
   );
 }
 
-export default function InstallationKonnect() {
+export default function InstallationKonnect({ centreInitial, onCentre }: OngletParametrage = {}) {
   const [centres, setCentres] = useState<Centre[]>([]);
   const [selection, setSelection] = useState<number | "">("");
+  // Lu une fois : le centre à ouvrir en arrivant, pas un réglage qui recharge la liste.
+  const centreDepart = useRef(centreInitial);
+
+  // Le centre choisi suit l'utilisateur d'un onglet à l'autre de « Paramétrage d'un centre ».
+  useEffect(() => {
+    if (typeof selection === "number") onCentre?.(selection);
+  }, [selection, onCentre]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -221,7 +230,7 @@ export default function InstallationKonnect() {
       const liste: Centre[] = Array.isArray(d.centres) ? d.centres : [];
       setCentres(liste);
       setSelection((prec) => {
-        const cible = garder ?? (typeof prec === "number" ? prec : liste[0]?.userProductId);
+        const cible = garder ?? (typeof prec === "number" ? prec : centreDepart.current ?? liste[0]?.userProductId);
         return liste.some((c) => c.userProductId === cible) ? (cible as number) : "";
       });
     } catch {
@@ -421,7 +430,7 @@ export default function InstallationKonnect() {
                 <Button
                   variant="outlined"
                   size="small"
-                  href="/admin/external-mapping"
+                  href="/admin/parametrage?onglet=identifiants"
                 >
                   {centre.tenantId ? "Modifier dans Identifiants externes" : "Rattacher un portail"}
                 </Button>

@@ -74,7 +74,7 @@ function nomDeFichier(client: Client | undefined): string {
   return `pack-${base || "centre"}-${jour}.xlsx`;
 }
 
-export default function PackPage() {
+export default function PackConfiguration() {
   const [clients, setClients] = useState<Client[]>([]);
   const [chargement, setChargement] = useState(true);
   const [occupe, setOccupe] = useState(false);

@@ -9,11 +9,13 @@ import { DialogueNouveauSujet, LigneSujetSupport } from "@/pilot/components/form
 import type { LigneSujet, VueSupport } from "@/pilot/lib/support/charger";
 import { JETONS, MOUVEMENT } from "@/pilot/jetons";
 
-const LIBELLES_VUE: Record<VueSupport, string> = { "les-miens": "Les miens", tous: "Tous" };
+/** Les vues de la page Support : les sujets de l'équipe (les miens, tous), puis les demandes des clients (27/11/2026). */
+export type VuePageSupport = VueSupport | "clients";
+const LIBELLES_VUE: Record<VuePageSupport, string> = { "les-miens": "Sujets : les miens", tous: "Sujets : tous", clients: "Demandes des clients" };
 
-function Vues({ vue }: { vue: VueSupport }) {
-  return <Box role="group" aria-label="Sujets affichés" sx={{ display: "inline-flex", bgcolor: JETONS.segment, borderRadius: "10px", p: "2px" }}>
-    {(Object.keys(LIBELLES_VUE) as VueSupport[]).map((v) => {
+export function Vues({ vue }: { vue: VuePageSupport }) {
+  return <Box role="group" aria-label="Ce qui est affiché" sx={{ display: "inline-flex", flexWrap: "wrap", bgcolor: JETONS.segment, borderRadius: "10px", p: "2px" }}>
+    {(Object.keys(LIBELLES_VUE) as VuePageSupport[]).map((v) => {
       const actif = v === vue;
       return <Box key={v} component={Link} href={`/pilot/support?vue=${v}`} aria-pressed={actif} sx={{
         display: "inline-flex", alignItems: "center", height: 30, px: 1.75, borderRadius: "8px", fontSize: 13, fontWeight: actif ? 600 : 500, whiteSpace: "nowrap",
@@ -33,7 +35,7 @@ export function ListeSupport({ vue, donnees, clients }: {
   const enCours = donnees.ouverts.filter((s) => s.statut !== "A_TRANSMETTRE");
   const mes = vue === "les-miens";
   return <Stack spacing={2.5}>
-    <EnTete titre="Support" sousTitre="Les problèmes des clients : ce que la technique a trouvé, ce que le commercial doit leur dire, et ce qui leur a été dit.">
+    <EnTete titre="Support" sousTitre="Les sujets de l'équipe : ce que la technique a trouvé, ce que le commercial doit dire au client, et ce qui lui a été dit. Les demandes écrites par les clients sont dans l'onglet voisin.">
       <Vues vue={vue} />
       <Button variant="contained" onClick={() => setOuvert(true)}>Nouveau sujet</Button>
     </EnTete>

@@ -13,6 +13,7 @@ import { hasPermission } from "@/lib/permissions";
 import { peutOuvrirAdmin, verdictAccesHref } from "@/lib/pageAccess";
 import { trouverProduit, ORDRE_PRODUITS, PRODUITS, type SlugProduit } from "@/lib/produits";
 import { cheminCentre, lireCheminCentre } from "@/lib/cheminsCentre";
+import { adresseDansSonEspace } from "@/lib/espaces";
 
 /** Modèle minimal d’un item de menu latéral. */
 type SideNavItem = {
@@ -209,7 +210,7 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
    * - "Dashboard" → /admin ou /client
    * - "Support" → le support du produit regardé dans un centre, pour les deux rôles
    *   (28/10/2026 : il restait aux couleurs de Talk depuis Konnect) ; hors d'un
-   *   centre, la console `/admin/ticket` pour un admin
+   *   centre, la page Support de Pilot pour un admin (27/11/2026)
    * - Items `{USER_ID}` → résolus via `resolveUserIdHref`
    * - Autres → href statique tel que défini dans MenuItems
    */
@@ -222,7 +223,7 @@ const SidebarItems: React.FC<SidebarItemsProps> = ({ toggleMobileSidebar }) => {
     if (item.title === "Support") {
       const centre = lireCheminCentre(pathname);
       if (centre) return cheminCentre(centre.userId, centre.produit, "support");
-      if (isAdmin) return "/admin/ticket";
+      if (isAdmin) return adresseDansSonEspace("/pilot/support?vue=clients", false);
       return resolveUserIdHref(item.href ?? "/client/c/{USER_ID}/talk/support");
     }
     if (item.href?.includes("{USER_ID}")) {

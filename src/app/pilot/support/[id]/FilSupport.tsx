@@ -73,6 +73,7 @@ export function FilSupport({ sujet, moiId }: { sujet: SujetDetaille; moiId: numb
     <EnTete titre={sujet.titre} sousTitre={<>
       <Box component={Link} href={lienFiche(sujet.organisationId)} sx={{ color: "inherit", fontWeight: 500 }}>{sujet.client}</Box>
       {` · Commercial : ${sujet.commercial ?? "pas encore choisi"} · Ouvert par ${sujet.auteur ?? "un compte supprimé"} le ${dateSupport(sujet.creeLe)}`}
+      {sujet.ticketId && <>{" · "}<Box component={Link} href={`/pilot/support/tickets/${sujet.ticketId}`} sx={{ color: "inherit", fontWeight: 500 }}>Voir la demande du client</Box></>}
     </>}>
       <PastilleStatut statut={sujet.statut} />
     </EnTete>

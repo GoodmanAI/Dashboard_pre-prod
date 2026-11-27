@@ -177,7 +177,7 @@ export const REGISTRE_TALK: Exigence<ConfigTalk>[] = [
     criticite: "bloquant",
     manque:
       "Aucun rendez-vous n'arrivera jusqu'à ce centre. Ajoutez son code dans le logiciel de gestion.",
-    href: () => "/admin/talk-installation",
+    href: () => "/admin/parametrage?onglet=talk",
     satisfaite: (c) => c.codesCentres.length > 0,
   },
   {
@@ -198,7 +198,7 @@ export const REGISTRE_TALK: Exigence<ConfigTalk>[] = [
     criticite: "confort",
     manque:
       "Ce numéro sert au suivi, pas au fonctionnement : le robot route les appels depuis sa propre configuration. Format attendu : +33545820880.",
-    href: () => "/admin/talk-installation",
+    href: () => "/admin/parametrage?onglet=talk",
     satisfaite: (c) => c.numeros.some(estNumeroEntrant),
   },
   {
@@ -208,7 +208,7 @@ export const REGISTRE_TALK: Exigence<ConfigTalk>[] = [
     criticite: "bloquant",
     manque:
       "Le robot ne saura pas relire les rendez-vous déjà pris. Renseignez le code court de chaque type d'examen accepté.",
-    href: () => "/admin/talk-installation",
+    href: () => "/admin/parametrage?onglet=talk",
     satisfaite: (c) => {
       const acceptes = typesAcceptes(c);
       if (acceptes.length === 0) return true; // couvert par `talk.examens-acceptes`
@@ -232,7 +232,7 @@ export const REGISTRE_TALK: Exigence<ConfigTalk>[] = [
     criticite: "bloquant",
     manque:
       "Le robot ne peut transférer aucun appel. Renseignez un numéro valide, par exemple 0298952121.",
-    href: () => "/admin/talk-config",
+    href: () => "/admin/parametrage?onglet=robot",
     satisfaite: (c) => {
       // Pas de configuration ici : le robot garde son numéro en dur, rien à dire.
       if (!c.talkSite) return true;
