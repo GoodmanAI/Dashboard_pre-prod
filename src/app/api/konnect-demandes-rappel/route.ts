@@ -234,6 +234,24 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // `?resume=1` (27/11/2026) : le bandeau des pages Talk (`BandeauRappelsKonnect`) n'a
+  // besoin que du nombre à rappeler et de l'ancienneté de la plus vieille demande. Il ne
+  // reçoit aucun nom ni numéro : la donnée patient reste sur l'écran des demandes.
+  // Mêmes gardes que la liste, donc un compte sans le droit ne voit pas le bandeau.
+  if (req.nextUrl.searchParams.get("resume") === "1") {
+    const resume = await db.query<{ aRappeler: number; plusAncienne: Date | null }>(
+      `SELECT count(*)::int AS "aRappeler", min("createdAt") AS "plusAncienne"
+         FROM "KonnectDemandesRappel"
+        WHERE "userProductId" = $1 AND "statut" = 'a_rappeler'`,
+      [userProductId]
+    );
+    const ligne = resume.rows[0];
+    return NextResponse.json(
+      { userProductId, aRappeler: ligne?.aRappeler ?? 0, plusAncienne: ligne?.plusAncienne ?? null },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
   // Les demandes à rappeler d'abord, les urgences en tête (18/09/2026), puis les plus
   // anciennes : c'est le patient qui attend depuis le plus longtemps qu'on rappelle.
   const res = await db.query<DemandeRow>(
