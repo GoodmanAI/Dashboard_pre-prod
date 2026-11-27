@@ -103,6 +103,11 @@ const LECTURES_PERMISES = {
     pourquoi: "étape « premier appel réel » : date du dernier appel et un booléen RDV par centre",
     empreinte: "23528dcd7e504086",
   },
+  "src/pilot/lib/parc/usage.ts": {
+    tables: ["CallConversation"],
+    pourquoi: "page « Parc » : nombre d'appels et de RDV par centre sur quatre semaines, aucun appel ne sort",
+    empreinte: "4f6f0d89cce5ac85",
+  },
 };
 
 /** Les fichiers du Dashboard qui ont le droit d'importer Pilot. */
