@@ -1,15 +1,16 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/pilot/lib/prisma";
 import { instantSql } from "@/pilot/lib/datesSql";
+import { SQL_PATIENT_A_PARLE } from "@/lib/appelsSansParole";
 
 /**
  * L'usage d'un centre en production, par un adaptateur (C-04, C-33, comme
  * `ca/compteurs.ts`).
  *
- * La source réelle au Dashboard est la même question ouverte que pour la part
- * variable (ARCHITECTURE §8.9, §12) : `Call`, `CallConversation`, qui coexistent
- * pour un même appel, ou la remontée Konnect. En local, le miroir `Call` fait
- * office de compteur. Le jour où la source est tranchée, seul ce fichier change.
+ * Même source que la part variable (`ca/compteurs.ts`) : `CallConversation`, la
+ * table `Call` étant retirée du Dashboard depuis le 22/10/2026 (la page « Parc »
+ * tombait en 500 jusqu'au 27/11). Les appels où le patient n'a dit aucun mot ne
+ * comptent pas ; un RDV pris est un `stats.rdv_booked` non nul.
  *
  * Des comptes par semaine, jamais un appel : aucune donnée patient ne sort d'ici.
  */
@@ -35,11 +36,12 @@ export async function usageParSemaine({ userProductIds, maintenant }: { userProd
   if (!ids.length) return usage;
   const borne = (n: number) => instantSql(new Date(maintenant.getTime() - n * SEMAINE));
   const groupes = await prisma.$queryRaw<Array<{ userProductId: number; semaine: number; rdvPris: boolean; nombre: number }>>`
-    SELECT "userProductId", "rdvPris",
-      CASE WHEN "startedAt" > ${borne(1)} THEN 1 WHEN "startedAt" > ${borne(2)} THEN 2 WHEN "startedAt" > ${borne(3)} THEN 3 ELSE 4 END AS semaine,
+    SELECT "userProductId",
+      COALESCE("stats"->>'rdv_booked', '0') NOT IN ('0', '', 'false', 'null') AS "rdvPris",
+      CASE WHEN "createdAt" > ${borne(1)} THEN 1 WHEN "createdAt" > ${borne(2)} THEN 2 WHEN "createdAt" > ${borne(3)} THEN 3 ELSE 4 END AS semaine,
       count(*)::integer AS nombre
-    FROM "Call"
-    WHERE "userProductId" IN (${Prisma.join(ids)}) AND "startedAt" > ${borne(4)} AND "startedAt" <= ${borne(0)}
+    FROM "CallConversation"
+    WHERE "userProductId" IN (${Prisma.join(ids)}) AND "createdAt" > ${borne(4)} AND "createdAt" <= ${borne(0)} AND ${SQL_PATIENT_A_PARLE}
     GROUP BY 1, 2, 3`;
   for (const g of groupes) {
     const u = usage.get(g.userProductId);
