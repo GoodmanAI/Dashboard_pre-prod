@@ -364,16 +364,6 @@ export default function NouveauPortailKonnectPage() {
     if (etape === 4) void chargerManques();
   }, [etape, chargerManques]);
 
-  const passerEnProduction = async () => {
-    if (userProductId === null) return;
-    await appeler(
-      "/api/centre-statut",
-      "PUT",
-      { userProductId, statut: "production" },
-      "LyraeKonnect passé en production.",
-    );
-    await chargerManques();
-  };
 
   const bloquants = useMemo(
     () => (manques ?? []).filter((m) => m.criticite === "bloquant"),
@@ -1058,18 +1048,12 @@ export default function NouveauPortailKonnectPage() {
                 >
                   Retour
                 </Button>
-                <Button
-                  variant="contained"
-                  disableElevation
-                  disabled={occupe || userProductId === null}
-                  startIcon={<IconCheck size={16} />}
-                  onClick={() => void passerEnProduction()}
-                  sx={BOUTON_ACTION}
-                >
-                  Passer en production
-                </Button>
                 <Button href="/admin/comptes">Voir la fiche du client</Button>
               </Stack>
+              <Typography sx={{ fontSize: 12, color: INK_MUTED }}>
+                Le passage en production se déclare dans Pilot : page Intégrations,
+                case « Mise en service déclarée ».
+              </Typography>
               <Typography sx={{ fontSize: 12, color: INK_MUTED }}>
                 À sa première connexion, le client est guidé par le tutoriel
                 LyraeKonnect.

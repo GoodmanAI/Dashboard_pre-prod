@@ -14,6 +14,7 @@ import { verrouillerOrganisation } from "./comptes";
 import { ecrireConditionnellement, journaliserStatut } from "@/pilot/lib/contrats/commun";
 import { datesNouveauCyclePoc, entreeCyclePoc, issueCloturePoc, refusDebutPoc } from "./poc";
 import { cloreCyclePoc, cyclePocOuvert } from "./cyclesPoc";
+import { synchroniserStatutsDashboard } from "@/pilot/lib/centres/statutDashboard";
 import { debutDuJour } from "@/pilot/lib/dates";
 
 export function verifierChangementEtape(
@@ -252,6 +253,10 @@ export async function changerEtapeDansTransaction(tx: Prisma.TransactionClient, 
         await ecrireConditionnellement(tx, c, { statut: "TERMINE", termineLe: aujourdHui });
         await journaliserStatut(tx, c, "TERMINE", p.auteurId);
       }
+    }
+    // L'étape de la fiche décide si ses centres sont arrêtés au Dashboard (27/11/2026).
+    if (modifiee.etape !== organisation.etape) {
+      await synchroniserStatutsDashboard(tx, { organisationId: organisation.id }, p.auteurId);
     }
     return modifiee;
 }

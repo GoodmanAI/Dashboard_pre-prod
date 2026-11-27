@@ -34,7 +34,7 @@ import { IconLifebuoy,
   IconRocket,
   IconSun,
   IconPlugConnected, IconUsersGroup, IconHeartHandshake, IconUserShield, IconSwords, IconTag, IconMap2,
-  IconListDetails, IconReceipt, IconServer2,
+  IconReceipt, IconServer2,
 } from "@tabler/icons-react";
 import { JETONS, type Teinte } from "@/pilot/jetons";
 import { chiffrePastille, phrasePourVous, type ComptePourVous } from "@/pilot/lib/commentaires/affichage";
@@ -76,10 +76,10 @@ const ENTREES: Entree[] = [
   { href: "/pilot/organisations", libelle: "Clients", Icone: IconUsersGroup, teinte: "indigo", groupe: "quotidien", onglet: false },
   { href: "/pilot/comptes", libelle: "Comptes à relier", Icone: IconPlugConnected, teinte: "cyan", groupe: "quotidien", onglet: false },
   { href: "/pilot/ca", libelle: "Chiffre d'affaires", Icone: IconChartLine, teinte: "sarcelle", groupe: "pilotage", onglet: false, exige: "voirCa" },
-  { href: "/pilot/parc", libelle: "Centres à surveiller", Icone: IconHeartbeat, teinte: "rose", groupe: "pilotage", onglet: false },
-  // Venus de l'admin du Dashboard le 23/11/2026 (plan 2026-11-pilot-dans-le-dashboard) : le suivi
-  // du parc et du déploiement vit dans Pilot, la configuration reste au Dashboard.
-  { href: "/pilot/parc-clients", libelle: "Parc clients", Icone: IconListDetails, teinte: "indigo", groupe: "pilotage", onglet: false },
+  { href: "/pilot/parc", libelle: "Parc des centres", Icone: IconHeartbeat, teinte: "rose", groupe: "pilotage", onglet: false },
+  // Venu de l'admin du Dashboard le 23/11/2026 (plan 2026-11-pilot-dans-le-dashboard) : le suivi
+  // du déploiement vit dans Pilot, la configuration reste au Dashboard. « Parc clients » est une
+  // section de « Parc » depuis le 27/11/2026.
   { href: "/pilot/versions", libelle: "Versions en ligne", Icone: IconServer2, teinte: "gris", groupe: "pilotage", onglet: false },
   { href: "/pilot/facturation", libelle: "Facturation", Icone: IconReceipt, teinte: "menthe", groupe: "pilotage", onglet: false, exige: "voirCa" },
   // Les groupes apportés, les commissions et les factures des apporteurs (C-63).

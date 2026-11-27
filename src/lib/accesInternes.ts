@@ -280,7 +280,6 @@ export const CARTE_API: Array<[RegExp, BesoinRoute]> = [
   [/^\/api\/users\/[^/]+\/products\/?$/, "commun"], // /api/users/[userId]/products
   // Les écrans qui les appellent (relevé du 24/11/2026, graphe des imports écran par écran).
   [/^\/api\/admin\/analytics-internal\/?$/, ["admin_stats_produit"]], // /api/admin/analytics-internal
-  [/^\/api\/admin\/clients\/?$/, ["admin_comptes"]], // /api/admin/clients
   [/^\/api\/admin\/clients-comptes\/?$/, ["admin_comptes", "admin_parametrage"]], // /api/admin/clients-comptes
   [/^\/api\/admin\/konnect-ocr\/?$/, ["admin_konnect_ocr"]], // /api/admin/konnect-ocr
   [/^\/api\/admin\/pack\/?$/, ["admin_parametrage"]], // /api/admin/pack
@@ -354,7 +353,6 @@ export const CARTE_API: Array<[RegExp, BesoinRoute]> = [
   // Appelées par une autre brique (clé d'API), par une page patient (jeton), ou réservées au
   // super-administrateur : jamais par un écran ouvert à un compte interne.
   [/^\/api\/admin\/create-client\/?$/, "aucun"], // /api/admin/create-client
-  [/^\/api\/admin\/overview\/?$/, "aucun"], // /api/admin/overview
   [/^\/api\/admin\/salles\/cocher-tout\/?$/, "aucun"], // /api/admin/salles/cocher-tout
   [/^\/api\/admin\/users\/?$/, "aucun"], // /api/admin/users
   [/^\/api\/calls\/summary\/?$/, "aucun"], // /api/calls/summary

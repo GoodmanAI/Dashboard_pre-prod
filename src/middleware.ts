@@ -285,7 +285,8 @@ export async function middleware(req: NextRequest) {
   // Les écrans de l'admin passés dans Pilot le 23/11/2026 : les anciens liens et favoris
   // y mènent par une vraie redirection (les pages gardent un redirect() en secours).
   const DEMENAGES: Record<string, string> = {
-    '/admin/parc': '/pilot/parc-clients',
+    '/admin/parc': '/pilot/parc#installation',
+    '/pilot/parc-clients': '/pilot/parc#installation',
     '/admin/deployments': '/pilot/versions',
     '/admin/facturation': '/pilot/facturation',
   };

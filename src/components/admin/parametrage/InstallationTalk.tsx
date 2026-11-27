@@ -371,7 +371,7 @@ export default function InstallationTalk({ centreInitial, onCentre }: OngletPara
                 label={STATUTS[centre.statut].libelle}
                 size="small"
                 component={Link}
-                href="/pilot/parc-clients"
+                href="/pilot/parc#installation"
                 clickable
                 sx={{
                   bgcolor: STATUTS[centre.statut].couleur.fond,

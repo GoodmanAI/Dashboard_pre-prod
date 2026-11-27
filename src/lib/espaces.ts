@@ -38,7 +38,7 @@ const PARTAGES_SUR_PILOT: RegExp[] = [
   /^\/api\/auth(\/|$)/,
   /^\/api\/notification\//,
   /^\/api\/socket$/,
-  // Lus par les écrans venus de l'admin (Parc clients, Versions en ligne).
+  // Lus par les écrans venus de l'admin (installation des centres dans « Parc », Versions en ligne).
   /^\/api\/centre-statut$/,
   /^\/api\/completude$/,
   /^\/api\/deployments$/,
@@ -67,7 +67,7 @@ export function adresseDansSonEspace(chemin: string, surPilot: boolean): string 
  * comptes internes de l'équipe consultent tout, et n'écrivent que ce qui suit,
  * qui n'est pas de la configuration : Pilot (qui garde ses propres droits), les
  * notifications, leur propre mot de passe, la recherche, le support, le
- * traitement des listes du quotidien, le statut de suivi du parc.
+ * traitement des listes du quotidien.
  *
  * **Refus par défaut** : une route d'écriture ajoutée demain est protégée sans y
  * penser. Pour l'ouvrir aux comptes internes, l'ajouter ici, en disant pourquoi
@@ -94,8 +94,6 @@ const ECRITURES_PERMISES_AUX_ADMIN: RegExp[] = [
   /^\/api\/prescriptions\/par-mail\/[^/]+\/ranger$/,
   /^\/api\/konnect-demandes-rappel$/,
   /^\/api\/konnect-file-attente\/(ecran|transition)$/,
-  // Le statut de suivi d'un centre (intégration, production, arrêté) : le suivi du parc vit dans Pilot.
-  /^\/api\/centre-statut$/,
 ];
 
 const METHODES_QUI_ECRIVENT = new Set(["POST", "PUT", "PATCH", "DELETE"]);
