@@ -5,6 +5,7 @@ import {
   Alert,
   Box,
   Button,
+  CircularProgress,
   FormControlLabel,
   Radio,
   RadioGroup,
@@ -15,22 +16,96 @@ import ChampAvecVariables from "@/components/shared/ChampAvecVariables";
 import {
   CLE_DEPOT_AVANT,
   CLE_GABARIT_DEPOT,
+  CLE_GABARIT_SMS,
   MAX_SMS,
   SMS_DEPOT_STANDARD,
+  SMS_STANDARD,
   VARIABLES_DEPOT,
+  VARIABLES_SMS,
   donneesDepotExemple,
+  donneesExemple,
+  erreurGabarit,
   erreurVariablesDepot,
   longueurDepotPireCas,
+  rendreSms,
   rendreSmsDepot,
 } from "@/lib/talkTextes";
-import { enregistrerTextesTalk } from "./textesTalk";
+import { enregistrerTextesTalk, useTextesTalk } from "./textesTalk";
+
+/**
+ * Le SMS de dépôt monté dans sa propre section, « Dépôt d'ordonnance patient »
+ * (28/11/2026, demande d'Enzo). Il vivait dans la carte « Confirmation de RDV par
+ * SMS » : affichée « Désactivé », elle portait pourtant le texte d'un SMS qui part.
+ * Chaque SMS est maintenant dans sa section. L'enveloppe charge ce que la carte de
+ * confirmation lui passait : les textes, l'état de la confirmation et son aperçu, pour
+ * l'ordre des deux SMS. Plan `lyrae/plans/2026-11-sms-relance-personnalisable.md`.
+ */
+export function SmsDepotDansLaSection({
+  userProductId,
+  readOnly,
+  centre,
+  adresse,
+}: {
+  userProductId: number;
+  readOnly: boolean;
+  centre: string;
+  adresse: string;
+}) {
+  const { valeur: textes, erreurChargement } = useTextesTalk(userProductId);
+  const [avecConfirmation, setAvecConfirmation] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let vivant = true;
+    fetch(`/api/sms-confirmation-config?userProductId=${userProductId}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => {
+        if (vivant) setAvecConfirmation(Boolean(d?.sendConfirmationSms));
+      })
+      .catch(() => {
+        // Sans l'état de la confirmation, on montre le dépôt seul : l'ordre ne se règle pas.
+        if (vivant) setAvecConfirmation(false);
+      });
+    return () => {
+      vivant = false;
+    };
+  }, [userProductId]);
+
+  const apercuConfirmation = useMemo(() => {
+    if (!textes) return "";
+    const g =
+      typeof textes[CLE_GABARIT_SMS] === "string" && (textes[CLE_GABARIT_SMS] as string).trim()
+        ? (textes[CLE_GABARIT_SMS] as string)
+        : SMS_STANDARD;
+    if (erreurGabarit(g, VARIABLES_SMS)) return "";
+    return rendreSms(g, donneesExemple(centre.trim() || "notre centre", adresse));
+  }, [textes, centre, adresse]);
+
+  if (erreurChargement) return <Alert severity="error">{erreurChargement}</Alert>;
+  if (!textes || avecConfirmation === null) {
+    return (
+      <Stack alignItems="center" sx={{ py: 1 }}>
+        <CircularProgress size={20} sx={{ color: "var(--accent)" }} />
+      </Stack>
+    );
+  }
+  return (
+    <SmsDepotOrdonnanceBloc
+      userProductId={userProductId}
+      textes={textes}
+      readOnly={readOnly}
+      centre={centre}
+      apercuConfirmation={apercuConfirmation}
+      avecConfirmation={avecConfirmation}
+    />
+  );
+}
 
 /**
  * SMS de dépôt d'ordonnance (lot 4, 08/10/2026). Plan :
  * `lyrae/plans/2026-10-confirmation-personnalisable.md`, section « Lot 4 ».
  *
- * Monté dans la carte « Confirmation de RDV par SMS », seulement quand le dépôt
- * d'ordonnance est actif pour le centre. Le client règle le texte (`{lien}` et
+ * Monté dans la section « Dépôt d'ordonnance patient » depuis le 28/11/2026 (par
+ * `SmsDepotDansLaSection`, ci-dessus), seulement quand le dépôt d'ordonnance est actif. Le client règle le texte (`{lien}` et
  * `{code}` obligatoires) et l'ordre des deux SMS. Domaine `talk.textes`, clés
  * `smsDepotGabarit` et `smsDepotAvantConfirmation`. Depuis le 14/10/2026 le SMS
  * de dépôt part aussi sans la confirmation : l'ordre n'est alors pas proposé.

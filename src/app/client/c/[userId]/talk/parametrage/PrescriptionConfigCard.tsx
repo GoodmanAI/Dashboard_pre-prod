@@ -11,6 +11,7 @@ import {
   Checkbox,
   CircularProgress,
   Chip,
+  Divider,
   FormControlLabel,
   Stack,
   TextField,
@@ -20,6 +21,7 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { signaler } from "@/lib/signaler";
+import { SmsDepotDansLaSection } from "./SmsDepotOrdonnanceBloc";
 
 /**
  * Bloc de configuration "Ordonnances" affiche dans la page /parametrage.
@@ -74,8 +76,14 @@ export type PrescriptionConfigHandle = {
  */
 const PrescriptionConfigCard = forwardRef<
   PrescriptionConfigHandle,
-  { userProductId: number; onDirtyChange?: (dirty: boolean) => void }
->(function PrescriptionConfigCard({ userProductId, onDirtyChange }, ref) {
+  {
+    userProductId: number;
+    onDirtyChange?: (dirty: boolean) => void;
+    /** Nom et adresse du centre tels qu'à l'écran, pour l'aperçu du SMS de dépôt. */
+    centre?: string;
+    adresse?: string;
+  }
+>(function PrescriptionConfigCard({ userProductId, onDirtyChange, centre = "", adresse = "" }, ref) {
   // Le même droit que celui qu'exige la route (`PARAMETRAGE` en écriture). Ce bloc
   // lisait le booléen hérité `isSecretary` : un sous-compte en lecture seule voyait donc
   // des champs actifs, que le serveur refusait ensuite à l'enregistrement.
@@ -286,6 +294,19 @@ const PrescriptionConfigCard = forwardRef<
                 helperText={`${messagePatient.length} / ${MAX_MESSAGE} caractères`}
               />
             </Box>
+
+            {/* Le SMS de dépôt, dans sa section depuis le 28/11/2026. */}
+            {enabledCount > 0 && (
+              <Box id="sms_depot_ordonnance">
+                <Divider sx={{ mb: 3 }} />
+                <SmsDepotDansLaSection
+                  userProductId={userProductId}
+                  readOnly={readOnly}
+                  centre={centre}
+                  adresse={adresse}
+                />
+              </Box>
+            )}
           </Stack>
         )}
 
