@@ -1,6 +1,6 @@
 "use client";
 
-import SectionHeader from "@/components/admin/SectionHeader";
+import { EnTete } from "@/pilot/components/Bloc";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -254,10 +254,10 @@ export default function DeploymentsPage() {
   return (
     <>
       <Box>
-        <SectionHeader
-          title="Versions en ligne"
-          subtitle="Ce qui tourne sur chaque machine, comparé à ce qui est poussé sur sa branche."
-          actions={
+        <Box sx={{ mb: 3 }}><EnTete
+          titre="Versions en ligne"
+          sousTitre="Ce qui tourne sur chaque machine, comparé à ce qui est poussé sur sa branche."
+        >
             <Button
               variant="outlined"
               startIcon={<IconRefresh size={18} />}
@@ -266,8 +266,7 @@ export default function DeploymentsPage() {
             >
               Rafraîchir
             </Button>
-          }
-        />
+        </EnTete></Box>
 
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>

@@ -243,7 +243,7 @@ export function ChiffreAffaires({ donnees: d, scenarioInitial, moisDepart, moisC
 function Indicateur({ titre, cle, montant, children }: { titre: string; cle: string; montant: number; children: ReactNode }) {
   return <Card sx={{ px: 2.5, py: 2 }}>
     <Typography variant="body2" color="text.secondary">{titre}</Typography>
-    <Typography component="p" data-testid={cle} data-centimes={montant} sx={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em", lineHeight: 1.15, my: 0.5 }}>{eurosPrecis(montant)}</Typography>
+    <Typography component="p" data-testid={cle} data-centimes={montant} sx={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.025em", lineHeight: 1.15, fontVariantNumeric: "tabular-nums", my: 0.5 }}>{eurosPrecis(montant)}</Typography>
     <Box sx={{ fontSize: 12, color: "text.secondary" }}>{children}</Box>
   </Card>;
 }

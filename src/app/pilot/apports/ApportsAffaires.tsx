@@ -90,7 +90,7 @@ function Contenu({ donnees: d, droits }: { donnees: DonneesApports; droits: Droi
 function Indicateur({ titre, valeur, detail, accent }: { titre: string; valeur: ReactNode; detail: ReactNode; accent?: boolean }) {
   return <Box sx={{ minWidth: 0 }}>
     <Typography component="div" sx={{ fontSize: 12, fontWeight: 600, color: "text.secondary" }}>{titre}</Typography>
-    <Box sx={{ fontSize: accent ? 26 : 22, fontWeight: 700, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums", color: accent ? "primary.main" : "text.primary", my: 0.25 }}>{valeur}</Box>
+    <Box sx={{ fontSize: accent ? 26 : 22, fontWeight: 600, letterSpacing: "-0.025em", fontVariantNumeric: "tabular-nums", color: accent ? "primary.main" : "text.primary", my: 0.25 }}>{valeur}</Box>
     <Typography component="div" sx={{ fontSize: 13, color: "text.secondary" }}>{detail}</Typography>
   </Box>;
 }

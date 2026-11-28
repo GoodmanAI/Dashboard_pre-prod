@@ -64,11 +64,18 @@ export const TEINTES = {
 } as const;
 export type Teinte = keyof typeof TEINTES;
 
-/** Courbe et durées des transitions, les mêmes partout. */
+/**
+ * Courbes et durées des transitions, celles du Dashboard (`global.css`, `--ease-panneau`
+ * et `--ease-entree` ; skill `ambiance-neuracorp`). Deux courbes, pas plus : `courbe`
+ * pour ce qui répond à un geste (survol, appui, panneau), `entree` pour ce qui arrive.
+ * Valeurs écrites ici et non en `var()` : le thème MUI et Leaflet les lisent en JavaScript.
+ */
 export const MOUVEMENT = {
-  courbe: "cubic-bezier(0.25, 0.1, 0.25, 1)",
-  rapide: "160ms",
-  normal: "240ms",
+  courbe: "cubic-bezier(0.23, 1, 0.32, 1)",
+  entree: "cubic-bezier(0.2, 0.7, 0.2, 1)",
+  appui: "120ms",
+  rapide: "200ms",
+  normal: "220ms",
 } as const;
 
 /**
