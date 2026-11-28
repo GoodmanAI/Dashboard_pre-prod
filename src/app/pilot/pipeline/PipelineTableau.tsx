@@ -185,7 +185,7 @@ export function PipelineTableau({ cartes, famille, vue, montantsModifiables, con
                           <Box ref={fourniCarte.innerRef} {...fourniCarte.draggableProps} {...fourniCarte.dragHandleProps} sx={{ pb: 1.25 }}>
                             <Card sx={{ borderRadius: "14px", cursor: "grab", opacity: enCours.has(carte.id) ? 0.55 : 1,
                               transition: `box-shadow ${MOUVEMENT.normal} ${MOUVEMENT.courbe}, transform ${MOUVEMENT.normal} ${MOUVEMENT.courbe}`,
-                              "&:hover": { boxShadow: JETONS.ombreSurvol, transform: "translateY(-1px)" },
+                              "@media (hover: hover) and (pointer: fine)": { "&:hover": { boxShadow: JETONS.ombreSurvol, transform: "translateY(-1px)" } },
                               ...(etatCarte.isDragging ? { boxShadow: JETONS.ombreFlottante, transform: "scale(1.02)" } : {}) }}>
                               <Stack spacing={1} sx={{ px: 1.75, py: 1.5 }}>
                                 <Box>

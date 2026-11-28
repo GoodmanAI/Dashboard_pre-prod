@@ -2,7 +2,6 @@
 
 import type React from "react";
 
-import SectionHeader from "@/components/admin/SectionHeader";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -24,7 +23,9 @@ import {
   IconSearch,
   IconUser,
 } from "@tabler/icons-react";
-import { BRAND_TEAL, BRAND_TEAL_SOFT, TEXT_MAIN, TEXT_MUTED, PAGE_BG } from "@/lib/jetons";
+import { BRAND_TEAL, BRAND_TEAL_SOFT } from "@/lib/jetons";
+import { JETONS, MOUVEMENT } from "@/pilot/jetons";
+import { EnTete } from "@/pilot/components/Bloc";
 import { ORDRE_PRODUITS, PRODUITS, type SlugProduit } from "@/lib/produits";
 import { produitDuTicket } from "@/lib/supportProduit";
 
@@ -108,10 +109,13 @@ function userInitials(u: UserLite): string {
 export default function TicketsClients({
   produit,
   cheminTicket,
+  entete,
 }: {
   /** Le produit regarde ; absent, la console : tous les produits. */
   produit?: SlugProduit;
   cheminTicket: (ticketId: number) => string;
+  /** Ce que la page pose à droite du titre (les vues de la page Support). */
+  entete?: React.ReactNode;
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -196,20 +200,17 @@ export default function TicketsClients({
   return (
     <PageContainer title="Support" description="Gestion des tickets clients">
       <Box>
-        <SectionHeader
-          title={produit ? `Demandes des clients, ${PRODUITS[produit].libelle}` : "Demandes des clients"}
-          subtitle={
+        <Box sx={{ mb: 2.5 }}><EnTete
+          titre={produit ? `Demandes des clients, ${PRODUITS[produit].libelle}` : "Demandes des clients"}
+          sousTitre={
             counts.all === 0
               ? "Aucun ticket ouvert."
               : `${counts.PENDING + counts.IN_PROGRESS} ticket${counts.PENDING + counts.IN_PROGRESS > 1 ? "s" : ""} actif${counts.PENDING + counts.IN_PROGRESS > 1 ? "s" : ""}, ${counts.all} au total`
           }
-        />
+        >{entete}</EnTete></Box>
 
         {/* Filtres */}
-        <Card
-          elevation={0}
-          sx={{ p: 2, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2, bgcolor: "#FFF" }}
-        >
+        <Card sx={{ p: 2, mb: 2 }}>
           <Stack spacing={2}>
             {/* Filtres par status */}
             <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
@@ -284,7 +285,7 @@ export default function TicketsClients({
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <IconSearch size={16} color={TEXT_MUTED} />
+                    <IconSearch size={16} color={JETONS.secondaire} />
                   </InputAdornment>
                 ),
               }}
@@ -299,12 +300,12 @@ export default function TicketsClients({
             <CircularProgress sx={{ color: BRAND_TEAL }} />
           </Stack>
         ) : error ? (
-          <Alert severity="error" sx={{ borderRadius: 2 }}>{error}</Alert>
+          <Alert severity="error">{error}</Alert>
         ) : tickets.length === 0 ? (
           <EmptyState />
         ) : filtered.length === 0 ? (
-          <Card sx={{ p: 4, textAlign: "center", borderRadius: 2 }}>
-            <Typography variant="body2" sx={{ color: TEXT_MUTED }}>
+          <Card sx={{ p: 4, textAlign: "center" }}>
+            <Typography variant="body2" sx={{ color: JETONS.secondaire }}>
               Aucun ticket ne correspond aux filtres.
             </Typography>
           </Card>
@@ -344,8 +345,8 @@ function StatusFilterChip({
           <Typography
             component="span"
             sx={{
-              fontWeight: 700, fontSize: 12,
-              color: active ? "#FFF" : TEXT_MUTED,
+              fontWeight: 600, fontSize: 12,
+              color: active ? "#FFF" : JETONS.secondaire,
               bgcolor: active ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.05)",
               px: 0.8, py: 0.1, borderRadius: 6, minWidth: 20, textAlign: "center",
             }}
@@ -356,10 +357,10 @@ function StatusFilterChip({
       }
       sx={{
         bgcolor: active ? color : "transparent",
-        color: active ? "#FFF" : TEXT_MAIN,
-        border: `1px solid ${active ? color : "#e5e7eb"}`,
+        color: active ? "#FFF" : JETONS.encre,
+        border: `1px solid ${active ? color : JETONS.filet}`,
         height: 32,
-        "&:hover": { bgcolor: active ? color : `${color}15` },
+        "&:hover": { bgcolor: active ? color : JETONS.survolLigne },
         px: 1,
       }}
     />
@@ -380,8 +381,8 @@ function AssignmentFilterChip({
           <Typography
             component="span"
             sx={{
-              fontWeight: 700, fontSize: 12,
-              color: active ? "#FFF" : highlight ? "#c2410c" : TEXT_MUTED,
+              fontWeight: 600, fontSize: 12,
+              color: active ? "#FFF" : highlight ? "#c2410c" : JETONS.secondaire,
               bgcolor: active ? "rgba(255,255,255,0.25)" : highlight ? "rgba(234,88,12,0.15)" : "rgba(0,0,0,0.05)",
               px: 0.8, py: 0.1, borderRadius: 6, minWidth: 20, textAlign: "center",
             }}
@@ -392,11 +393,11 @@ function AssignmentFilterChip({
       }
       variant={active ? "filled" : "outlined"}
       sx={{
-        bgcolor: active ? "#1F3448" : "transparent",
-        color: active ? "#FFF" : TEXT_MAIN,
-        border: `1px solid ${active ? "#1F3448" : "#e5e7eb"}`,
+        bgcolor: active ? JETONS.encre : "transparent",
+        color: active ? "#FFF" : JETONS.encre,
+        border: `1px solid ${active ? JETONS.encre : JETONS.filet}`,
         height: 30,
-        "&:hover": { bgcolor: active ? "#1F3448" : "#f5f5f5" },
+        "&:hover": { bgcolor: active ? JETONS.encre : JETONS.survolLigne },
       }}
     />
   );
@@ -415,39 +416,37 @@ function AdminTicketCard({
       onClick={onClick}
       sx={{
         cursor: "pointer",
-        borderLeft: `3px solid ${meta.dotColor}`,
-        borderRadius: 2,
-        transition: "transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease",
+        // Le statut se lit sur la pastille de droite : pas de liseré de couleur sur le bord.
+        transition: `transform ${MOUVEMENT.appui} ${MOUVEMENT.courbe}, box-shadow ${MOUVEMENT.rapide} ease`,
         // Soulèvement au survol : souris seulement (sur une tablette, il resterait collé
         // après le toucher). L'appui enfonce un peu la carte, au doigt comme à la souris.
         "@media (hover: hover) and (pointer: fine)": {
           "&:hover": {
             transform: "translateY(-1px)",
-            boxShadow: "0 6px 20px rgba(31,52,72,0.08)",
-            borderLeftWidth: 4,
+            boxShadow: JETONS.ombreSurvol,
           },
         },
-        "&:active": { transform: "scale(0.98)", transitionDuration: "120ms" },
+        "&:active": { transform: "scale(0.98)" },
         p: 2.5,
       }}
     >
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "flex-start" }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5, flexWrap: "wrap", rowGap: 0.5 }}>
-            <Typography variant="caption" sx={{ color: TEXT_MUTED, fontFamily: "monospace", fontSize: 11, fontWeight: 600 }}>
+            <Typography variant="caption" sx={{ color: JETONS.secondaire, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
               #{ticket.id}
             </Typography>
-            <Typography variant="subtitle1" sx={{ color: TEXT_MAIN, fontWeight: 700, lineHeight: 1.3 }}>
+            <Typography variant="subtitle1" sx={{ color: JETONS.encre, lineHeight: 1.3 }}>
               {ticket.subject}
             </Typography>
             {isMine && (
-              <Chip label="Assigné à vous" size="small" sx={{ height: 20, fontSize: 10, bgcolor: BRAND_TEAL_SOFT, color: "var(--accent-deep)", fontWeight: 700 }} />
+              <Chip label="Assigné à vous" size="small" color="primary" />
             )}
           </Stack>
           <Typography
             variant="body2"
             sx={{
-              color: TEXT_MUTED,
+              color: JETONS.secondaire,
               overflow: "hidden",
               display: "-webkit-box",
               WebkitLineClamp: 2,
@@ -460,24 +459,24 @@ function AdminTicketCard({
           <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: "wrap", rowGap: 0.5 }}>
             {/* Client */}
             <Stack direction="row" spacing={0.75} alignItems="center">
-              <Avatar sx={{ width: 20, height: 20, bgcolor: "#94a3b8", fontSize: 10, fontWeight: 700 }}>
+              <Avatar sx={{ width: 20, height: 20, bgcolor: JETONS.tertiaire, fontSize: 10, fontWeight: 600 }}>
                 {userInitials(ticket.user)}
               </Avatar>
-              <Typography variant="caption" sx={{ color: TEXT_MUTED }}>
+              <Typography variant="caption" sx={{ color: JETONS.secondaire }}>
                 {ticket.user.name ?? ticket.user.email}
               </Typography>
             </Stack>
             {/* Sans affiliation : un ticket d'avant le support par produit, ouvert depuis LyraeTalk. */}
-            <Typography variant="caption" sx={{ color: TEXT_MUTED }}>
+            <Typography variant="caption" sx={{ color: JETONS.secondaire }}>
               · {PRODUITS[produitDuTicket(ticket.userProduct?.product.name)].libelle}
             </Typography>
             <Stack direction="row" spacing={0.5} alignItems="center">
-              <IconMessageCircle2 size={14} color={TEXT_MUTED} />
-              <Typography variant="caption" sx={{ color: TEXT_MUTED }}>
+              <IconMessageCircle2 size={14} color={JETONS.secondaire} />
+              <Typography variant="caption" sx={{ color: JETONS.secondaire }}>
                 {msgCount}
               </Typography>
             </Stack>
-            <Typography variant="caption" sx={{ color: TEXT_MUTED }}>
+            <Typography variant="caption" sx={{ color: JETONS.secondaire }}>
               {relativeTime(ticket.updatedAt)}
             </Typography>
           </Stack>
@@ -485,7 +484,7 @@ function AdminTicketCard({
         <Chip
           label={meta.label}
           size="small"
-          sx={{ bgcolor: meta.bg, color: meta.color, fontWeight: 700, flexShrink: 0 }}
+          sx={{ bgcolor: meta.bg, color: meta.color, flexShrink: 0 }}
         />
       </Stack>
     </Card>
@@ -494,7 +493,7 @@ function AdminTicketCard({
 
 function EmptyState() {
   return (
-    <Card sx={{ p: 6, textAlign: "center", borderRadius: 3, border: `2px dashed ${BRAND_TEAL_SOFT}`, bgcolor: "transparent" }}>
+    <Card sx={{ p: 6, textAlign: "center" }}>
       <Box
         sx={{
           width: 72, height: 72, borderRadius: "50%", bgcolor: BRAND_TEAL_SOFT,
@@ -503,10 +502,10 @@ function EmptyState() {
       >
         <IconInbox size={32} color={BRAND_TEAL} stroke={1.5} />
       </Box>
-      <Typography variant="h6" sx={{ fontWeight: 700, color: TEXT_MAIN, mb: 1 }}>
+      <Typography variant="h6" sx={{ color: JETONS.encre, mb: 1 }}>
         Aucun ticket
       </Typography>
-      <Typography variant="body2" sx={{ color: TEXT_MUTED, maxWidth: 400, mx: "auto" }}>
+      <Typography variant="body2" sx={{ color: JETONS.secondaire, maxWidth: 400, mx: "auto" }}>
         Les tickets créés par les clients apparaîtront ici. Le premier ticket recevra un email de notification.
       </Typography>
     </Card>

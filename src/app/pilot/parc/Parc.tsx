@@ -52,7 +52,7 @@ function LigneCentre({ ligne: l }: { ligne: LigneParc }) {
 }
 
 function Chiffre({ valeur, libelle, couleur = "text.primary" }: { valeur: number; libelle: string; couleur?: string }) {
-  return <Box><Typography aria-hidden sx={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em", lineHeight: 1.1, color: valeur ? couleur : "text.secondary" }}>{valeur}</Typography>
+  return <Box><Typography aria-hidden sx={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.025em", lineHeight: 1.1, fontVariantNumeric: "tabular-nums", color: valeur ? couleur : "text.secondary" }}>{valeur}</Typography>
     <Typography aria-hidden variant="body2" color="text.secondary">{libelle}</Typography></Box>;
 }
 

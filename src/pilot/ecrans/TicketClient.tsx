@@ -3,7 +3,8 @@
 import type React from "react";
 
 import Retour from "@/components/shared/Retour";
-import SectionHeader from "@/components/admin/SectionHeader";
+import { EnTete } from "@/pilot/components/Bloc";
+import { JETONS } from "@/pilot/jetons";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -225,10 +226,7 @@ export default function TicketClient({ ticketId, retourHref }: Props) {
   return (
     <PageContainer title="Demande du client" description="Détail de la demande">
       <Stack spacing={2}>
-        <SectionHeader
-          title="Demande du client"
-          retour={{ libelle: "Retour aux tickets", href: retourHref }}
-        />
+        <EnTete titre="Demande du client" retour={{ libelle: "Demandes des clients", href: retourHref }} />
 
         <Box
           sx={{
@@ -250,7 +248,7 @@ export default function TicketClient({ ticketId, retourHref }: Props) {
           {/* Colonne laterale : info client + actions status */}
           <Stack spacing={2} sx={{ position: { md: "sticky" }, top: { md: 90 } }}>
             <Card sx={{ p: 2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: "#1F3448" }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, color: JETONS.encre }}>
                 Client
               </Typography>
               {ticket ? (
@@ -285,7 +283,7 @@ export default function TicketClient({ ticketId, retourHref }: Props) {
                         Centre
                       </Typography>
                       <Typography variant="body2">
-                        {ticket.userProduct.product.name} <span style={{ color: "#7A8FA6" }}>#{ticket.userProduct.id}</span>
+                        {ticket.userProduct.product.name} <span style={{ color: JETONS.secondaire }}>#{ticket.userProduct.id}</span>
                       </Typography>
                     </>
                   )}
@@ -310,7 +308,7 @@ export default function TicketClient({ ticketId, retourHref }: Props) {
             </Card>
 
             <Card sx={{ p: 2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: "#1F3448" }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, color: JETONS.encre }}>
                 Actions
               </Typography>
               {ticket ? (
@@ -380,7 +378,7 @@ export default function TicketClient({ ticketId, retourHref }: Props) {
                 />
               )}
               {actionError && (
-                <Alert severity="error" sx={{ borderRadius: 2 }}>
+                <Alert severity="error">
                   {actionError}
                 </Alert>
               )}
