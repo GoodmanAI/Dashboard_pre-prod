@@ -19,14 +19,18 @@ const MAX_BATCH = 200;
  *     Accepte une valeur unique ou une liste CSV (ex: "2,15,12").
  *     Résolu vers `centerId` via ExternalCenterMapping → UserProduct.userId.
  *
- * Combiner les 2 filtres est autorisé (intersection).
+ *   - `apresId` (28/11/2026) : ne rend que les events placés APRÈS celui-ci dans l'ordre de
+ *     la file. Le poller d'AI2Xplore lit ainsi toute la file en une passe, même quand il laisse
+ *     des events non acquittés en tête (réessai, autre instance) : avant, 100 events non
+ *     acquittables arrêtaient chaque passe (panne de l'été 2026). Un id inconnu ne filtre rien.
+ *
+ * Combiner les filtres est autorisé (intersection).
  *
  * Réponse :
  * {
  *   count: <events dans cette page>,
- *   total: <total en attente matching le filtre — permet à AI2Xplore de savoir
- *           s'il doit re-poller immédiatement>,
- *   hasMore: <count < total → il reste au moins un event à récupérer après ack>,
+ *   total: <total en attente matching le filtre, curseur NON compris>,
+ *   hasMore: <il reste au moins un event après cette page, curseur compris>,
  *   events: [...]
  * }
  *
@@ -107,6 +111,22 @@ export async function GET(req: NextRequest) {
 
   const whereClause = conditions.join(" AND ");
 
+  // Curseur : hors du total (qui reste « tout ce qui attend »), dans la page seulement.
+  const apresIdRaw = parseInt(req.nextUrl.searchParams.get("apresId") ?? "", 10);
+  const apresId = Number.isInteger(apresIdRaw) && apresIdRaw > 0 ? apresIdRaw : null;
+  const pageConditions = [...conditions];
+  const pageBindings = [...bindings];
+  let pageIdx = idx;
+  if (apresId != null) {
+    // Un id absent de la table rendrait NULL à la comparaison, donc une page vide : il ne filtre rien.
+    pageConditions.push(
+      `(NOT EXISTS (SELECT 1 FROM "AppointmentConfirmation" c WHERE c."id" = $${pageIdx})
+        OR ("createdAt", "id") > (SELECT c."createdAt", c."id" FROM "AppointmentConfirmation" c WHERE c."id" = $${pageIdx}))`
+    );
+    pageBindings.push(apresId);
+    pageIdx++;
+  }
+
   // 1) Total en attente matching le filtre (utile pour AI2Xplore pour boucler).
   const totalRes = await db.query<{ count: string }>(
     `SELECT COUNT(*)::text AS "count"
@@ -133,17 +153,19 @@ export async function GET(req: NextRequest) {
     `SELECT "id", "rdvId", "status", "respondedAction",
             "respondedAt", "attempts", "externalCenterCode", "appointmentDate", "createdAt"
        FROM "AppointmentConfirmation"
-      WHERE ${whereClause}
+      WHERE ${pageConditions.join(" AND ")}
       ORDER BY "createdAt" ASC, "id" ASC
-      LIMIT $${idx}`,
-    [...bindings, limit]
+      LIMIT $${pageIdx}`,
+    // Une ligne de plus que la page : dit s'il reste une suite, curseur compris.
+    [...pageBindings, limit + 1]
   );
+  const events = eventsRes.rows.slice(0, limit);
 
   return NextResponse.json({
-    count: eventsRes.rowCount ?? 0,
+    count: events.length,
     total,
-    hasMore: (eventsRes.rowCount ?? 0) < total,
-    events: eventsRes.rows,
+    hasMore: eventsRes.rows.length > limit,
+    events,
   });
 }
 
