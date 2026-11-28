@@ -459,6 +459,10 @@ export default function IdentiteVisuelleKonnect({
             PNG, JPEG, WEBP ou SVG, 512 Ko maximum. Le fichier est stocké chez nous : votre
             logo reste affiché même si votre site change.
           </Typography>
+          <Typography variant="caption" color="text.secondary" component="p">
+            C&apos;est le logo de votre centre : il sert aussi à Talk et à l&apos;aperçu des liens
+            de vos SMS (en PNG, JPEG ou WEBP).
+          </Typography>
           {logo.nom && (
             <Typography variant="caption" color="text.secondary" component="p">
               Fichier déposé : {logo.nom}
