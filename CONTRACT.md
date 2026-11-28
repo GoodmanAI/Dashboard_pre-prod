@@ -674,7 +674,8 @@ ancienne ignore les champs neufs) :
   300 caractères) et `"syncProblemeAt"` (SQL `2026_12_26_rdv_sync_probleme.sql`). Réponse
   `{ acked, problemes }` (nombre gardé). Un `problemes` illisible n'empêche jamais l'acquittement.
 - `GET /api/rdv/sante` : `refus` ajoute ces problèmes des dernières 24 h, un par RDV (le
-  remonté prime) ; même forme, `statut` en minuscules, `erreur` commence par le cas.
+  remonté prime) ; même forme, `statut` en minuscules (`confirmed`, `cancelled`, comme
+  `rdv_reminders.local_status`), `erreur` commence par le cas.
 
 **Pour les sondes de déploiement** — header `x-api-key: DEPLOY_PROBE_API_KEY` :
 `POST /api/deployments` (écriture, appelée par `deploy/deployment-probe.js` des VMs
