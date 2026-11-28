@@ -8,7 +8,11 @@ import {
 import { requireAnyPagePermission } from "@/lib/authGuards";
 import { porteurRelances, rattacherCodeSiteKonnect } from "@/lib/porteurRelances";
 import { PAGES } from "@/lib/permissions";
-import { CLE_GABARIT_RELANCE, CLE_GABARIT_RELANCE_ANNULATION } from "@/lib/talkTextes";
+import {
+  CLE_GABARIT_RELANCE,
+  CLE_GABARIT_RELANCE_ANNULATION,
+  CLE_NOM_CENTRE_RELANCE,
+} from "@/lib/talkTextes";
 import {
   EXAM_TYPE_KEYS,
   normalizeEnabled,
@@ -58,6 +62,8 @@ import {
  *     smsRelanceGabarit: string | null                        // texte du client, confirmer ou annuler (28/11/2026)
  *     smsRelanceAnnulationGabarit: string | null              // texte du client, annulation seule
  *                                                             // (null = texte standard d'AI2Xplore)
+ *     smsRelanceNomCentre: string | null                      // ce que {centre} devient, tel quel, sans coupe
+ *                                                             // (null = nom du logiciel coupé à 25)
  *   }
  *
  * Note : `postesByType` est filtré côté serveur pour ne renvoyer que les
@@ -169,6 +175,7 @@ export async function GET(req: NextRequest) {
     confirmationExamTypes,
     smsRelanceGabarit: texteOuNull(valeurTextes[CLE_GABARIT_RELANCE]),
     smsRelanceAnnulationGabarit: texteOuNull(valeurTextes[CLE_GABARIT_RELANCE_ANNULATION]),
+    smsRelanceNomCentre: texteOuNull(valeurTextes[CLE_NOM_CENTRE_RELANCE]),
   });
 }
 

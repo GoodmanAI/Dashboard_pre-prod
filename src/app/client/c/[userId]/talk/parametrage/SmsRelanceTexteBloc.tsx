@@ -3,16 +3,20 @@
 import Retour from "@/components/shared/Retour";
 import ChampAvecVariables from "@/components/shared/ChampAvecVariables";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Box, Button, CircularProgress, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, CircularProgress, Stack, TextField, Typography } from "@mui/material";
 import {
   CENTRE_RELANCE_MAX,
   CLE_GABARIT_RELANCE,
   CLE_GABARIT_RELANCE_ANNULATION,
+  CLE_NOM_CENTRE_RELANCE,
   MAX_SMS,
+  NOM_CENTRE_RELANCE_MAX,
   SMS_RELANCE_ANNULATION_STANDARD,
   SMS_RELANCE_STANDARD,
   VARIABLES_RELANCE,
+  centreDuSmsRelance,
   donneesRelanceExemple,
+  erreurNomCentreRelance,
   erreurVariablesRelance,
   longueurGsm7,
   longueurRelancePireCas,
@@ -25,12 +29,16 @@ import { BulleSms } from "./SmsDepotOrdonnanceBloc";
  * Texte du SMS de rappel no-show (28/11/2026, demande de GH Pontivy). Plan
  * `lyrae/plans/2026-11-sms-relance-personnalisable.md`.
  *
- * Deux textes possibles, selon « Ce que le SMS propose au patient » : confirmer ou
- * annuler, et annulation seule. On n'affiche que ceux que le centre envoie vraiment.
- * Rangés dans `talk.textes` du produit qui porte les relances (`porteurRelances`), lus
- * par AI2Xplore dans `GET /api/sms-confirmation-config`. Un seul SMS de 160 caractères,
- * mesuré au pire cas (nom du centre à 25, nom et prénom à 20) : le serveur refuse le
- * reste, l'écran le dit avant.
+ * Le client choisit le nom que prend `{centre}` (court pour garder de la place, ou complet
+ * comme « Centre Hospitalier de Pontivy ») et écrit jusqu'à deux textes, selon « Ce que le
+ * SMS propose au patient » : confirmer ou annuler, et annulation seule. On n'affiche que
+ * ceux que le centre envoie. Tout est rangé dans `talk.textes` du produit qui porte les
+ * relances (`porteurRelances`) et lu par AI2Xplore dans `GET /api/sms-confirmation-config`.
+ *
+ * Un seul SMS de 160 caractères, mesuré au pire cas avec le nom choisi tel quel (nom et
+ * prénom du patient à 20). Le nom saisi est pris en compte dès la frappe dans chaque
+ * aperçu ; il est enregistré avec son bouton ou avec un texte. Le serveur refuse ce qui
+ * dépasse, texte standard compris.
  */
 export default function SmsRelanceTexteBloc({
   porteurId,
@@ -41,12 +49,25 @@ export default function SmsRelanceTexteBloc({
 }: {
   /** Produit qui porte les relances : c'est là qu'AI2Xplore lit les textes. */
   porteurId: number;
+  /** Nom du centre de la fiche, pour l'aperçu quand aucun nom n'est choisi. */
   centre: string;
   avecConfirmation: boolean;
   avecAnnulationSeule: boolean;
   readOnly: boolean;
 }) {
   const { valeur: textes, erreurChargement } = useTextesTalk(porteurId);
+  const [nom, setNom] = useState("");
+  const [nomInitial, setNomInitial] = useState("");
+  const [enregistrementNom, setEnregistrementNom] = useState(false);
+  const [erreurNom, setErreurNom] = useState<string | null>(null);
+  const [nomEnregistre, setNomEnregistre] = useState(false);
+
+  useEffect(() => {
+    if (!textes) return;
+    const n = typeof textes[CLE_NOM_CENTRE_RELANCE] === "string" ? (textes[CLE_NOM_CENTRE_RELANCE] as string) : "";
+    setNom(n);
+    setNomInitial(n);
+  }, [textes]);
 
   if (erreurChargement) return <Alert severity="error">{erreurChargement}</Alert>;
   if (!textes) {
@@ -56,17 +77,94 @@ export default function SmsRelanceTexteBloc({
       </Stack>
     );
   }
+
+  const nomPropre = nom.trim();
+  const erreurFormatNom = nomPropre ? erreurNomCentreRelance(nomPropre) : null;
+  const nomModifie = nomPropre !== nomInitial.trim();
+  const centreDuSms = centreDuSmsRelance(nomPropre, centre.trim() || "Votre centre");
+
+  // Le nom fait-il déborder un texte envoyé (le texte du client, sinon le standard) ?
+  const textesEnvoyes: { libelle: string; gabarit: string }[] = [];
+  if (avecConfirmation)
+    textesEnvoyes.push({
+      libelle: "confirmer ou annuler",
+      gabarit: (textes[CLE_GABARIT_RELANCE] as string) || SMS_RELANCE_STANDARD,
+    });
+  if (avecAnnulationSeule)
+    textesEnvoyes.push({
+      libelle: "annulation seule",
+      gabarit: (textes[CLE_GABARIT_RELANCE_ANNULATION] as string) || SMS_RELANCE_ANNULATION_STANDARD,
+    });
+  const debordements = nomPropre
+    ? textesEnvoyes
+        .map((t) => ({ ...t, n: longueurRelancePireCas(t.gabarit, nomPropre) }))
+        .filter((t) => t.n > MAX_SMS)
+    : [];
+
+  async function enregistrerNom() {
+    setErreurNom(null);
+    setEnregistrementNom(true);
+    try {
+      const v = await enregistrerTextesTalk(porteurId, { [CLE_NOM_CENTRE_RELANCE]: nomPropre });
+      const n = typeof v[CLE_NOM_CENTRE_RELANCE] === "string" ? (v[CLE_NOM_CENTRE_RELANCE] as string) : "";
+      setNom(n);
+      setNomInitial(n);
+      setNomEnregistre(true);
+    } catch (err: any) {
+      setErreurNom(err?.message ?? "L'enregistrement n'a pas abouti. Réessayez.");
+    } finally {
+      setEnregistrementNom(false);
+    }
+  }
+
   const deux = avecConfirmation && avecAnnulationSeule;
   return (
     <Stack spacing={3} id="texte_sms_rappel">
       <Box>
         <Typography variant="subtitle1">Texte du SMS</Typography>
         <Typography variant="body2" color="text.secondary">
-          Vous pouvez écrire le nom de votre centre en toutes lettres à la place de{" "}
-          {"{centre}"}. Un SMS compte 160 caractères au plus : au-delà, chaque relance coûte
-          deux SMS, et l&apos;écran refuse de l&apos;enregistrer.
+          Un SMS compte 160 caractères au plus : au-delà, chaque relance coûte deux SMS. Le compteur
+          mesure le message le plus long possible, et l&apos;écran refuse d&apos;enregistrer ce qui dépasse.
         </Typography>
       </Box>
+
+      <Stack spacing={1.5} id="nom_centre_sms_rappel">
+        <Typography variant="subtitle2">Nom du centre dans le SMS</Typography>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "flex-start" }}>
+          <TextField
+            size="small"
+            value={nom}
+            onChange={(e) => setNom(e.target.value)}
+            disabled={readOnly}
+            placeholder={centre.trim() || "Centre d'imagerie"}
+            error={Boolean(erreurFormatNom)}
+            helperText={
+              erreurFormatNom ??
+              (nomPropre
+                ? `${nomPropre.length} / ${NOM_CENTRE_RELANCE_MAX} caractères. C'est ce que {centre} affiche dans le SMS.`
+                : `Vide : le nom enregistré dans votre logiciel de gestion, coupé à ${CENTRE_RELANCE_MAX} caractères.`)
+            }
+            inputProps={{ maxLength: NOM_CENTRE_RELANCE_MAX + 10 }}
+            sx={{ flex: 1, maxWidth: { sm: 420 } }}
+          />
+          <Button
+            variant="outlined"
+            disabled={readOnly || enregistrementNom || !nomModifie || Boolean(erreurFormatNom) || debordements.length > 0}
+            onClick={() => void enregistrerNom()}
+            sx={{ whiteSpace: "nowrap", color: "var(--accent-deep)", borderColor: "rgba(var(--accent-rgb), 0.5)" }}
+          >
+            {enregistrementNom ? "Enregistrement…" : "Enregistrer le nom"}
+          </Button>
+        </Stack>
+        {debordements.map((d) => (
+          <Alert severity="error" key={d.libelle}>
+            Avec ce nom, le SMS « {d.libelle} » peut atteindre {d.n} caractères. Raccourcissez le nom
+            ou le texte de {d.n - MAX_SMS} caractères.
+          </Alert>
+        ))}
+        {erreurNom && <Alert severity="error">{erreurNom}</Alert>}
+      </Stack>
+
       {avecConfirmation && (
         <EditeurRelance
           porteurId={porteurId}
@@ -74,7 +172,12 @@ export default function SmsRelanceTexteBloc({
           cle={CLE_GABARIT_RELANCE}
           standard={SMS_RELANCE_STANDARD}
           titre={deux ? "Quand le patient peut confirmer ou annuler" : undefined}
-          centre={centre}
+          nomChoisi={nomPropre}
+          centreDuSms={centreDuSms}
+          onNomEnregistre={(n) => {
+            setNom(n);
+            setNomInitial(n);
+          }}
           readOnly={readOnly}
         />
       )}
@@ -85,10 +188,22 @@ export default function SmsRelanceTexteBloc({
           cle={CLE_GABARIT_RELANCE_ANNULATION}
           standard={SMS_RELANCE_ANNULATION_STANDARD}
           titre={deux ? "Quand le patient peut seulement annuler" : undefined}
-          centre={centre}
+          nomChoisi={nomPropre}
+          centreDuSms={centreDuSms}
+          onNomEnregistre={(n) => {
+            setNom(n);
+            setNomInitial(n);
+          }}
           readOnly={readOnly}
         />
       )}
+
+      <Retour
+        ouvert={nomEnregistre}
+        message={<>Nom du centre enregistré.</>}
+        gravite={"success"}
+        onFermer={() => setNomEnregistre(false)}
+      />
     </Stack>
   );
 }
@@ -99,7 +214,9 @@ function EditeurRelance({
   cle,
   standard,
   titre,
-  centre,
+  nomChoisi,
+  centreDuSms,
+  onNomEnregistre,
   readOnly,
 }: {
   porteurId: number;
@@ -107,7 +224,10 @@ function EditeurRelance({
   cle: string;
   standard: string;
   titre?: string;
-  centre: string;
+  /** Nom saisi (même pas encore enregistré) : il compte dans la longueur et part avec le texte. */
+  nomChoisi: string;
+  centreDuSms: string;
+  onNomEnregistre: (nom: string) => void;
   readOnly: boolean;
 }) {
   const [gabarit, setGabarit] = useState("");
@@ -122,26 +242,34 @@ function EditeurRelance({
     setInitial(g);
   }, [textes, cle]);
 
-  const centreAffiche = centre.trim() || "Votre centre";
   const effectif = gabarit.trim() || standard;
   const erreurVariables = gabarit.trim() ? erreurVariablesRelance(gabarit) : null;
   const { apercu, longueurApercu, longueurPire } = useMemo(() => {
     if (erreurVariablesRelance(effectif)) return { apercu: "", longueurApercu: 0, longueurPire: 0 };
-    const a = rendreSmsRelance(effectif, donneesRelanceExemple(centreAffiche));
-    return { apercu: a, longueurApercu: longueurGsm7(a), longueurPire: longueurRelancePireCas(effectif) };
-  }, [effectif, centreAffiche]);
+    const a = rendreSmsRelance(effectif, donneesRelanceExemple(centreDuSms));
+    return {
+      apercu: a,
+      longueurApercu: longueurGsm7(a),
+      longueurPire: longueurRelancePireCas(effectif, nomChoisi),
+    };
+  }, [effectif, centreDuSms, nomChoisi]);
   const tropLong = Boolean(gabarit.trim()) && longueurPire > MAX_SMS;
   const modifie = gabarit.trim() !== initial.trim();
-  const centreCoupe = /\{centre\}/.test(effectif) && centreAffiche.length > CENTRE_RELANCE_MAX;
+  const avecNomPatient = /\{(prenom|nom)\}/.test(effectif);
 
   async function enregistrer() {
     setErreur(null);
     setEnregistrement(true);
     try {
-      const v = await enregistrerTextesTalk(porteurId, { [cle]: gabarit.trim() });
+      // Le nom saisi part avec le texte : le texte a été mesuré avec lui.
+      const v = await enregistrerTextesTalk(porteurId, {
+        [cle]: gabarit.trim(),
+        [CLE_NOM_CENTRE_RELANCE]: nomChoisi,
+      });
       const g = typeof v[cle] === "string" ? (v[cle] as string) : "";
       setGabarit(g);
       setInitial(g);
+      onNomEnregistre(typeof v[CLE_NOM_CENTRE_RELANCE] === "string" ? (v[CLE_NOM_CENTRE_RELANCE] as string) : "");
       setEnregistre(true);
     } catch (err: any) {
       setErreur(err?.message ?? "L'enregistrement n'a pas abouti. Réessayez.");
@@ -190,19 +318,16 @@ function EditeurRelance({
             </Typography>
           )}
           <Typography variant="caption" color="text.secondary">
-            Compté au plus long : nom du centre de {CENTRE_RELANCE_MAX} caractères, nom et prénom
-            de vingt lettres. « à », « é », « è » et « ù » restent tels quels ; les autres accents
-            (ê, ç, î…) sont remplacés par la lettre simple, pour rester sur un seul SMS.
+            {nomChoisi
+              ? "Compté avec le nom du centre choisi ci-dessus"
+              : `Compté avec un nom de centre de ${CENTRE_RELANCE_MAX} caractères`}
+            {avecNomPatient ? ", et un nom et un prénom de patient de vingt lettres." : "."} « à », « é »,
+            « è » et « ù » restent tels quels ; les autres accents (ê, ç, î…) sont remplacés par la
+            lettre simple, pour rester sur un seul SMS.
           </Typography>
         </Stack>
       </Stack>
 
-      {centreCoupe && (
-        <Alert severity="info">
-          Le nom de votre centre dépasse {CENTRE_RELANCE_MAX} caractères : {"{centre}"} sera coupé.
-          Pour l&apos;avoir en entier, écrivez-le en toutes lettres dans le message.
-        </Alert>
-      )}
       {tropLong && (
         <Alert severity="error">
           Le SMS ne tient pas en un seul message. Retirez {longueurPire - MAX_SMS} caractères pour

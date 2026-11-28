@@ -347,6 +347,9 @@ sans type, part en annulation seule. Pontivy : `["mammo"]`. AI2Xplore ne change 
 `/api/sms-confirmation-config` (les deux modes) renvoie en plus `smsRelanceGabarit` et
 `smsRelanceAnnulationGabarit` (`string | null`, champs ajoutés, rien de retiré), lus dans le
 domaine `talk.textes` du produit qui porte les relances. `null` = texte standard d'AI2Xplore.
+Avec eux, `smsRelanceNomCentre` (`string | null`, 40 caractères au plus) : le nom choisi par
+le client, que `{centre}` prend tel quel, sans la coupe à 25 d'AI2Xplore ; chaque texte, et le
+texte standard quand le client n'en a pas écrit, est mesuré avec lui à l'écriture.
 Variables `{date}`, `{heure}`, `{centre}`, `{lien}`, `{code}`, `{prenom}`, `{nom}` ; `{lien}`
 et `{code}` obligatoires ; 160 septets GSM-7 au pire cas, refusé à l'écriture sinon
 (`validerTextes`). Consommateur : AI2Xplore (`scripts/sendAppointmentReminders.js`), qui garde
