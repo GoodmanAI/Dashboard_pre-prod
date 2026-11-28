@@ -1450,7 +1450,11 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
 
         {/* Rappel de RDV par SMS (no-show) */}
         <Box id="rappel_sms">
-          <SmsConfirmationConfigCard userProductId={Number(params.id)} />
+          <SmsConfirmationConfigCard
+            userProductId={Number(params.id)}
+            centre={settings.centerName ?? ""}
+            readOnly={readOnly}
+          />
         </Box>
 
         {/* Depot d'ordonnance patient (lien dans le SMS de confirmation) */}
@@ -1459,6 +1463,11 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
             ref={ordonnancesRef}
             userProductId={Number(params.id)}
             onDirtyChange={setOrdonnancesModifiees}
+            centre={settings.centerName ?? ""}
+            adresse={[settings.address, `${zipCode} ${city}`]
+              .map((x) => (x ?? "").trim())
+              .filter(Boolean)
+              .join(", ")}
           />
         </Box>
 

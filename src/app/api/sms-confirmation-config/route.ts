@@ -9,6 +9,11 @@ import { requireAnyPagePermission } from "@/lib/authGuards";
 import { porteurRelances, rattacherCodeSiteKonnect } from "@/lib/porteurRelances";
 import { PAGES } from "@/lib/permissions";
 import {
+  CLE_GABARIT_RELANCE,
+  CLE_GABARIT_RELANCE_ANNULATION,
+  CLE_NOM_CENTRE_RELANCE,
+} from "@/lib/talkTextes";
+import {
   EXAM_TYPE_KEYS,
   normalizeEnabled,
   normalizePostesByType,
@@ -54,6 +59,11 @@ import {
  *                                                             // ou annuler seulement (false, 17/11/2026)
  *     confirmationExamTypes: ExamTypeKey[] | null              // confirmation limitée à ces types
  *                                                             // (null = tous ; les autres : annulation seule)
+ *     smsRelanceGabarit: string | null                        // texte du client, confirmer ou annuler (28/11/2026)
+ *     smsRelanceAnnulationGabarit: string | null              // texte du client, annulation seule
+ *                                                             // (null = texte standard d'AI2Xplore)
+ *     smsRelanceNomCentre: string | null                      // ce que {centre} devient, tel quel, sans coupe
+ *                                                             // (null = nom du logiciel coupé à 25)
  *   }
  *
  * Note : `postesByType` est filtré côté serveur pour ne renvoyer que les
@@ -143,6 +153,17 @@ export async function GET(req: NextRequest) {
     confirmationExamTypes = normalizeConfirmationExamTypes(row.confirmationExamTypes);
   }
 
+  // Textes de la relance écrits par le client (28/11/2026), rangés dans `talk.textes`
+  // avec les autres SMS et validés à l'écriture (`validerTextes`). Absents = texte
+  // standard d'AI2Xplore. Plan `lyrae/plans/2026-11-sms-relance-personnalisable.md`.
+  const textes = await db.query<{ valeur: Record<string, unknown> | null }>(
+    `SELECT "valeur" FROM "ProductConfig"
+      WHERE "userProductId" = $1 AND "domaine" = 'talk.textes' LIMIT 1`,
+    [userProductId]
+  );
+  const valeurTextes = textes.rows[0]?.valeur ?? {};
+  const texteOuNull = (v: unknown) => (typeof v === "string" && v.trim() ? v : null);
+
   return NextResponse.json({
     userProductId,
     enabledExamTypes,
@@ -152,6 +173,9 @@ export async function GET(req: NextRequest) {
     sendConfirmationSms,
     proposerConfirmation,
     confirmationExamTypes,
+    smsRelanceGabarit: texteOuNull(valeurTextes[CLE_GABARIT_RELANCE]),
+    smsRelanceAnnulationGabarit: texteOuNull(valeurTextes[CLE_GABARIT_RELANCE_ANNULATION]),
+    smsRelanceNomCentre: texteOuNull(valeurTextes[CLE_NOM_CENTRE_RELANCE]),
   });
 }
 
