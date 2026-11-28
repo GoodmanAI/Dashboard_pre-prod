@@ -46,28 +46,44 @@ const DEPOT_BASE_URL =
  * `noindex` est encore plus important ici : la page mene au depot d'un document
  * medical. Elle n'a rien a faire dans un index de moteur de recherche.
  */
-export const metadata = {
-  title: "Dépôt de votre ordonnance",
-  description:
-    "Transmettez votre ordonnance à votre centre d'imagerie avant votre examen. Aucun paiement n'est demandé.",
-  robots: { index: false, follow: false, nocache: true },
-  openGraph: {
+export async function generateMetadata({ params }: { params: { shortCode: string } }) {
+  // Nom du centre (28/11/2026) : il est déjà en clair dans le SMS, et il rend le lien
+  // reconnaissable. Best-effort, un échec ne doit jamais empêcher la page de s'afficher.
+  let centre: string | null = null;
+  try {
+    const r = await db.query<{ nom: string | null }>(
+      `SELECT u."name" AS "nom"
+         FROM "PrescriptionUpload" p JOIN "User" u ON u."id" = p."centerId"
+        WHERE p."shortCode" = $1 LIMIT 1`,
+      [params.shortCode]
+    );
+    centre = r.rows[0]?.nom ?? null;
+  } catch {
+    centre = null;
+  }
+  const description = centre
+    ? `Transmettez votre ordonnance à ${centre} avant votre examen. Aucun paiement n'est demandé.`
+    : "Transmettez votre ordonnance à votre centre d'imagerie avant votre examen. Aucun paiement n'est demandé.";
+  return {
     title: "Dépôt de votre ordonnance",
-    description:
-      "Transmettez votre ordonnance à votre centre d'imagerie avant votre examen. Aucun paiement n'est demandé.",
-    type: "website" as const,
-    locale: "fr_FR",
-    siteName: "Neuracorp",
-    images: [
-      {
-        url: `${DEPOT_BASE_URL}/images/logos/neuracorp-ai-icon_fond.png`,
-        width: 512,
-        height: 512,
-        alt: "Neuracorp",
-      },
-    ],
-  },
-};
+    description,
+    robots: { index: false, follow: false, nocache: true },
+    openGraph: {
+      title: "Dépôt de votre ordonnance",
+      description,
+      type: "website" as const,
+      locale: "fr_FR",
+      siteName: centre ?? "Neuracorp",
+      // Logo du centre (`./logo/route.ts`), sinon celui de Neuracorp par redirection.
+      images: [
+        {
+          url: `${DEPOT_BASE_URL}/d/${encodeURIComponent(params.shortCode)}/logo`,
+          alt: centre ?? "Neuracorp",
+        },
+      ],
+    },
+  };
+}
 
 export default async function PrescriptionUploadByShortCodePage({
   params,
