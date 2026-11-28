@@ -3,12 +3,18 @@
 import { createTheme } from "@mui/material/styles";
 import type { ChipProps } from "@mui/material/Chip";
 import { JETONS, MOUVEMENT } from "@/pilot/jetons";
+import { plus } from "@/utils/theme/DefaultColors";
 
 /**
  * Le système visuel de Pilot (CHOIX.md, C-53, après C-51) : l'esprit des
- * applications Apple. Fond gris clair, cartes blanches arrondies à ombre douce,
- * un bleu d'accent, boutons en pilule, police système. Quand Pilot rejoindra le
- * dépôt dashboard, ce fichier reste à arbitrer avec le thème qui s'y trouve déjà.
+ * applications Apple pour la mise en page et les couleurs. Fond gris clair, cartes
+ * blanches arrondies à ombre douce, un bleu d'accent, boutons en pilule.
+ *
+ * Depuis le 28/11/2026 (demande d'Enzo), la typographie et le mouvement sont ceux du
+ * Dashboard : Plus Jakarta Sans pour tout (celle de `DefaultColors.tsx`, une seule
+ * famille), titres en 600 à interlettrage serré comme l'accueil du Dashboard, et les
+ * deux courbes de `global.css` (skill `ambiance-neuracorp`). Les couleurs et la mise
+ * en page de Pilot ne changent pas.
  */
 
 // Teintes des pastilles : fond très clair, texte assez foncé pour se lire (AA).
@@ -20,12 +26,14 @@ const SOUPLES: Partial<Record<NonNullable<ChipProps["color"]>, { fond: string; t
   error: { fond: "#FFEBEA", texte: "#C4161C" },
 };
 
-// SF sur Mac et iPhone, Inter (servie par Pilot) ailleurs.
-const POLICE = '-apple-system, BlinkMacSystemFont, "SF Pro Text", var(--police-inter), Inter, "Segoe UI", system-ui, sans-serif';
-const POLICE_TITRE = '-apple-system, BlinkMacSystemFont, "SF Pro Display", var(--police-inter), Inter, "Segoe UI", system-ui, sans-serif';
+// La police du Dashboard, servie par next/font (fichiers sur le même domaine, aucune requête à un tiers).
+const POLICE = plus.style.fontFamily;
+// Titre d'écran : 34 px, 26 sous 600 px, comme le titre de l'accueil du Dashboard (`AccueilProduit`).
+const TELEPHONE = "@media (max-width:599.95px)";
 
 const anneau = { outline: "none", boxShadow: `0 0 0 4px ${JETONS.accentAnneau}` };
-const transition = (proprietes: string[]) => proprietes.map((p) => `${p} ${MOUVEMENT.rapide} ${MOUVEMENT.courbe}`).join(", ");
+const appui = `transform ${MOUVEMENT.appui} ${MOUVEMENT.courbe}`;
+const transition = (proprietes: string[]) => proprietes.map((p) => p === "transform" ? appui : `${p} ${MOUVEMENT.rapide} ease`).join(", ");
 
 export const theme = createTheme({
   palette: {
@@ -42,34 +50,52 @@ export const theme = createTheme({
     action: { hover: "rgba(0, 0, 0, 0.04)", selected: "rgba(0, 0, 0, 0.06)" },
   },
   shape: { borderRadius: 12 },
+  // Mêmes valeurs que le thème du Dashboard et les jetons `--ease-*` de `global.css`.
   transitions: {
-    easing: { easeInOut: MOUVEMENT.courbe, easeOut: MOUVEMENT.courbe, easeIn: MOUVEMENT.courbe, sharp: MOUVEMENT.courbe },
-    duration: { shortest: 120, shorter: 160, short: 200, standard: 240, complex: 320, enteringScreen: 240, leavingScreen: 200 },
+    easing: { easeOut: MOUVEMENT.courbe, easeInOut: MOUVEMENT.entree },
+    duration: { shortest: 120, shorter: 160, short: 200, standard: 220, complex: 280, enteringScreen: 220, leavingScreen: 160 },
   },
   typography: {
     fontFamily: POLICE,
     fontSize: 14,
-    h1: { fontFamily: POLICE_TITRE, fontSize: 34, fontWeight: 700, letterSpacing: "-0.022em", lineHeight: 1.15 },
-    h2: { fontFamily: POLICE_TITRE, fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em", lineHeight: 1.3 },
-    h3: { fontSize: 15, fontWeight: 600, lineHeight: 1.35 },
-    h4: { fontFamily: POLICE_TITRE, fontSize: 34, fontWeight: 700, letterSpacing: "-0.022em", lineHeight: 1.15 },
-    h5: { fontFamily: POLICE_TITRE, fontSize: 24, fontWeight: 700, letterSpacing: "-0.018em", lineHeight: 1.2 },
-    h6: { fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em", lineHeight: 1.3 },
+    fontWeightRegular: 400,
+    fontWeightMedium: 500,
+    fontWeightBold: 600,
+    h1: { fontSize: 34, fontWeight: 600, letterSpacing: "-0.025em", lineHeight: 1.15, [TELEPHONE]: { fontSize: 26 } },
+    h2: { fontSize: 17, fontWeight: 600, letterSpacing: "-0.012em", lineHeight: 1.3 },
+    h3: { fontSize: 15, fontWeight: 600, letterSpacing: "-0.006em", lineHeight: 1.35 },
+    h4: { fontSize: 34, fontWeight: 600, letterSpacing: "-0.025em", lineHeight: 1.15, [TELEPHONE]: { fontSize: 26 } },
+    h5: { fontSize: 24, fontWeight: 600, letterSpacing: "-0.02em", lineHeight: 1.2 },
+    h6: { fontSize: 17, fontWeight: 600, letterSpacing: "-0.012em", lineHeight: 1.3 },
     subtitle1: { fontSize: 15, fontWeight: 600, lineHeight: 1.35 },
     subtitle2: { fontSize: 13, fontWeight: 600, lineHeight: 1.45 },
-    body1: { fontSize: 14, lineHeight: 1.47, letterSpacing: "-0.005em" },
-    body2: { fontSize: 13, lineHeight: 1.45 },
+    body1: { fontSize: 14, lineHeight: 1.5 },
+    body2: { fontSize: 13, lineHeight: 1.5 },
     caption: { fontSize: 12, lineHeight: 1.4 },
-    button: { fontSize: 14, fontWeight: 500, textTransform: "none", letterSpacing: "-0.005em" },
+    overline: { fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", lineHeight: 1.4 },
+    button: { fontSize: 14, fontWeight: 600, textTransform: "none", letterSpacing: 0 },
   },
   components: {
     MuiCssBaseline: {
       styleOverrides: {
-        html: { backgroundColor: JETONS.surface },
+        // L'accent du Dashboard (`global.css`) devient le bleu de Pilot tant que Pilot est monté :
+        // les composants partagés (cloche, écrans repris, `@/lib/jetons`) prennent sa couleur et
+        // non le vert d'eau de LyraeTalk. `html:root` passe devant `:root` et `[data-produit]`.
+        "html:root": {
+          "--accent": JETONS.accent, "--accent-rgb": "0, 113, 227",
+          "--accent-press": JETONS.accentFonce, "--accent-deep": JETONS.accentFonce,
+        },
+        // Les surfaces que le navigateur dessine seul suivent l'accent (ambiance-neuracorp, socle).
+        html: { backgroundColor: JETONS.surface, accentColor: JETONS.accent, scrollbarColor: `${JETONS.filetSurvol} transparent` },
         body: {
-          fontSize: 14, lineHeight: 1.47, fontFeatureSettings: '"tnum", "cv11"',
+          fontSize: 14, lineHeight: 1.5,
           WebkitFontSmoothing: "antialiased", MozOsxFontSmoothing: "grayscale", textRendering: "optimizeLegibility",
         },
+        // Titres équilibrés, paragraphes sans mot seul en dernière ligne (progressif : ignoré ailleurs).
+        "h1, h2, h3, h4, h5, h6": { textWrap: "balance" },
+        "p, li, dd": { textWrap: "pretty" },
+        // Chiffres à largeur fixe dans les tableaux et les compteurs : une colonne de montants s'aligne.
+        "td, th, .chiffre, [data-chiffre], .MuiChip-label, kbd": { fontVariantNumeric: "tabular-nums" },
         "::selection": { backgroundColor: JETONS.accentFond },
         // Priorité nulle : un composant qui fixe sa couleur garde la sienne.
         ":where(a)": { color: "inherit", textDecoration: "none" },
@@ -89,8 +115,8 @@ export const theme = createTheme({
         root: {
           borderRadius: 980, minHeight: 36, minWidth: 0, padding: "6px 16px", whiteSpace: "nowrap",
           transition: transition(["background-color", "border-color", "color", "box-shadow", "transform"]),
-          // Pression : le bouton s'atténue et se resserre, jamais d'onde (HIG).
-          "&:active": { transform: "scale(0.97)", opacity: 0.8 },
+          // Appui : le bouton s'enfonce en 120 ms, comme au Dashboard ; jamais d'onde.
+          "&:active": { transform: "scale(0.97)" },
         },
         sizeSmall: { minHeight: 30, padding: "3px 12px", fontSize: 13 },
         sizeLarge: { minHeight: 44, padding: "10px 22px", fontSize: 15 },
@@ -108,7 +134,7 @@ export const theme = createTheme({
       },
     },
     MuiIconButton: {
-      styleOverrides: { root: { borderRadius: 10, transition: transition(["background-color", "color"]) } },
+      styleOverrides: { root: { borderRadius: 10, transition: transition(["background-color", "color", "transform"]), "&:active": { transform: "scale(0.94)" } } },
     },
     MuiCard: {
       defaultProps: { elevation: 0 },
@@ -152,7 +178,7 @@ export const theme = createTheme({
           minHeight: 32, minWidth: 0, padding: "6px 14px", borderRadius: 9, fontSize: 14, fontWeight: 500, textTransform: "none",
           color: JETONS.secondaire, transition: transition(["background-color", "color", "box-shadow"]),
           "&:hover": { color: JETONS.encre },
-          "&.Mui-selected": { color: JETONS.encre, backgroundColor: "#FFFFFF", boxShadow: "0 1px 3px rgba(0,0,0,.10), 0 1px 1px rgba(0,0,0,.04)" },
+          "&.Mui-selected": { color: JETONS.encre, fontWeight: 600, backgroundColor: "#FFFFFF", boxShadow: JETONS.ombreSegment },
         },
       },
     },
@@ -229,18 +255,20 @@ export const theme = createTheme({
     // bande blanche dans Chromium quand la page était défilée.
     MuiBackdrop: { styleOverrides: { root: { backgroundColor: "rgba(0, 0, 0, 0.28)" }, invisible: { backgroundColor: "transparent" } } },
     MuiDialog: { styleOverrides: { paper: { borderRadius: 22, boxShadow: JETONS.ombreFlottante } } },
-    MuiDialogTitle: { styleOverrides: { root: { fontSize: 20, fontWeight: 700, letterSpacing: "-0.015em", padding: "22px 24px 8px" } } },
+    MuiDialogTitle: { styleOverrides: { root: { fontSize: 20, fontWeight: 600, letterSpacing: "-0.018em", lineHeight: 1.3, padding: "22px 24px 8px" } } },
     MuiDialogContent: { styleOverrides: { root: { padding: "8px 24px" } } },
     MuiDialogActions: { styleOverrides: { root: { padding: "16px 24px 22px", gap: 8 } } },
-    MuiPopover: { styleOverrides: { paper: { borderRadius: 14, boxShadow: JETONS.ombreFlottante } } },
+    // Durée bornée, comme au Dashboard : `auto` la faisait varier avec la hauteur du menu.
+    MuiPopover: { defaultProps: { transitionDuration: { enter: 200, exit: 140 } }, styleOverrides: { paper: { borderRadius: 14, boxShadow: JETONS.ombreFlottante } } },
     MuiMenu: {
+      defaultProps: { transitionDuration: { enter: 200, exit: 140 } },
       styleOverrides: {
         paper: { borderRadius: 14, border: `1px solid ${JETONS.filet}`, boxShadow: JETONS.ombreFlottante, backgroundColor: "rgba(255,255,255,.92)", backdropFilter: "saturate(180%) blur(20px)" },
         list: { padding: 6 },
       },
     },
     MuiMenuItem: { styleOverrides: { root: { fontSize: 14, borderRadius: 8, minHeight: 34, "&.Mui-selected": { backgroundColor: JETONS.accentFond } } } },
-    MuiTooltip: { styleOverrides: { tooltip: { backgroundColor: "rgba(29, 29, 31, 0.92)", fontSize: 12, borderRadius: 8, padding: "6px 10px", backdropFilter: "blur(10px)" } } },
+    MuiTooltip: { defaultProps: { enterDelay: 300, enterNextDelay: 0 }, styleOverrides: { tooltip: { backgroundColor: "rgba(29, 29, 31, 0.92)", fontSize: 12, borderRadius: 8, padding: "6px 10px", backdropFilter: "blur(10px)" } } },
     MuiSnackbarContent: { styleOverrides: { root: { borderRadius: 14, backgroundColor: JETONS.encre } } },
     MuiDivider: { styleOverrides: { root: { borderColor: JETONS.filetInterne } } },
   },

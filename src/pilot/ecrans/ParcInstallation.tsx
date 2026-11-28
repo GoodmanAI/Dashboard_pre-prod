@@ -22,7 +22,7 @@ import { IconArrowRight } from "@tabler/icons-react";
 import { adresseDansSonEspace } from "@/lib/espaces";
 import { PRODUITS, ORDRE_PRODUITS, type SlugProduit } from "@/lib/produits";
 import { ORDRE_STATUTS, STATUTS, type StatutCentre } from "@/lib/centreStatut";
-import { INK, INK_MUTED, BORDER, SURFACE_MUTED } from "@/lib/jetons";
+import { JETONS } from "@/pilot/jetons";
 
 /**
  * L'installation de chaque centre du Dashboard : son statut et ce qui manque à sa
@@ -50,15 +50,15 @@ type Ligne = {
 type Completude = { userProductId: number; bloquants: number; degrades: number; total: number; satisfaites: number };
 
 function CelluleCompletude({ c }: { c: Completude | undefined }) {
-  if (!c) return <Typography sx={{ fontSize: 13, color: INK_MUTED }}>-</Typography>;
+  if (!c) return <Typography sx={{ fontSize: 13, color: JETONS.secondaire }}>-</Typography>;
   if (c.bloquants === 0 && c.degrades === 0) {
     return <Typography sx={{ fontSize: 13, color: "#186A3B", fontWeight: 600 }}>Complet</Typography>;
   }
   const n = c.bloquants;
   return (
     <Stack spacing={0.25}>
-      <Typography sx={{ fontSize: 13, color: INK, fontWeight: 600 }}>{c.satisfaites} sur {c.total}</Typography>
-      <Typography sx={{ fontSize: 11.5, color: n > 0 ? "#9B2226" : INK_MUTED }}>
+      <Typography sx={{ fontSize: 13, color: JETONS.encre, fontWeight: 600 }}>{c.satisfaites} sur {c.total}</Typography>
+      <Typography sx={{ fontSize: 12, color: n > 0 ? "#9B2226" : JETONS.secondaire }}>
         {n > 0 ? `${n} information${n > 1 ? "s" : ""} essentielle${n > 1 ? "s" : ""} manquante${n > 1 ? "s" : ""}` : `${c.degrades} à compléter`}
       </Typography>
     </Stack>
@@ -120,7 +120,7 @@ export default function ParcInstallation() {
   return (
     <Box id="installation">
       <Typography component="h2" sx={{ fontSize: 18, fontWeight: 600, mb: 0.5 }}>Installation des centres</Typography>
-      <Typography sx={{ fontSize: 13, color: INK_MUTED, mb: 2 }}>
+      <Typography sx={{ fontSize: 13, color: JETONS.secondaire, mb: 2 }}>
         Le statut de chaque centre au Dashboard et ce qui manque à sa configuration. Le statut suit la case
         « Mise en service déclarée » de la page Intégrations et l&apos;étape de la fiche ; il décide des alertes
         affichées au client, rien d&apos;autre.
@@ -128,7 +128,7 @@ export default function ParcInstallation() {
 
       {erreur && <Alert severity="error" sx={{ mb: 2 }}>{erreur}</Alert>}
 
-      <Paper variant="outlined" sx={{ borderColor: BORDER, borderRadius: 2, p: 2, mb: 2 }}>
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
         <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
           <ToggleButtonGroup size="small" exclusive value={filtre} onChange={(_, v) => v && setFiltre(v)}>
             <ToggleButton value="tous">Tous les produits</ToggleButton>
@@ -138,27 +138,27 @@ export default function ParcInstallation() {
           {ORDRE_STATUTS.map((s) => (
             <Stack key={s} direction="row" spacing={0.75} alignItems="center">
               <PastilleStatut statut={s} />
-              <Typography sx={{ fontSize: 13, color: INK, fontWeight: 600 }}>{compteurs[s]}</Typography>
+              <Typography sx={{ fontSize: 13, color: JETONS.encre, fontWeight: 600 }}>{compteurs[s]}</Typography>
             </Stack>
           ))}
         </Stack>
       </Paper>
 
-      <Paper variant="outlined" sx={{ borderColor: BORDER, borderRadius: 2, overflow: "hidden" }}>
+      <Paper variant="outlined" sx={{ overflow: "hidden" }}>
         {chargement ? (
           <Box sx={{ p: 4, display: "flex", justifyContent: "center" }}><CircularProgress size={22} /></Box>
         ) : visibles.length === 0 ? (
-          <Box sx={{ p: 4 }}><Typography sx={{ fontSize: 13.5, color: INK_MUTED }}>Aucun centre pour ce filtre.</Typography></Box>
+          <Box sx={{ p: 4 }}><Typography sx={{ fontSize: 13, color: JETONS.secondaire }}>Aucun centre pour ce filtre.</Typography></Box>
         ) : (
           <Box sx={{ overflowX: "auto" }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ bgcolor: SURFACE_MUTED }}>
-                  <TableCell sx={{ fontWeight: 700, color: INK }}>Client</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: INK }}>Produit</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: INK }}>Statut</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: INK }}>Depuis</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: INK }}>Complétude</TableCell>
+                <TableRow sx={{ bgcolor: JETONS.survolLigne }}>
+                  <TableCell>Client</TableCell>
+                  <TableCell>Produit</TableCell>
+                  <TableCell>Statut</TableCell>
+                  <TableCell>Depuis</TableCell>
+                  <TableCell>Complétude</TableCell>
                   <TableCell />
                 </TableRow>
               </TableHead>
@@ -166,12 +166,12 @@ export default function ParcInstallation() {
                 {visibles.map((l) => (
                   <TableRow key={l.userProductId} hover>
                     <TableCell>
-                      <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: INK }}>{l.clientNom ?? `Centre ${l.userProductId}`}</Typography>
-                      <Typography sx={{ fontSize: 12, color: INK_MUTED }}>{l.clientEmail ?? ""}</Typography>
+                      <Typography sx={{ fontSize: 13, fontWeight: 600, color: JETONS.encre }}>{l.clientNom ?? `Centre ${l.userProductId}`}</Typography>
+                      <Typography sx={{ fontSize: 12, color: JETONS.secondaire }}>{l.clientEmail ?? ""}</Typography>
                     </TableCell>
-                    <TableCell><Typography sx={{ fontSize: 13, color: INK }}>{l.produit ? PRODUITS[l.produit].libelle : l.produitNom}</Typography></TableCell>
+                    <TableCell><Typography sx={{ fontSize: 13, color: JETONS.encre }}>{l.produit ? PRODUITS[l.produit].libelle : l.produitNom}</Typography></TableCell>
                     <TableCell><PastilleStatut statut={l.statut} /></TableCell>
-                    <TableCell><Typography sx={{ fontSize: 13, color: INK_MUTED }}>{l.classe ? dateCourte(l.depuis) : "jamais classé"}</Typography></TableCell>
+                    <TableCell><Typography sx={{ fontSize: 13, color: JETONS.secondaire }}>{l.classe ? dateCourte(l.depuis) : "jamais classé"}</Typography></TableCell>
                     <TableCell><CelluleCompletude c={completudes[l.userProductId]} /></TableCell>
                     <TableCell align="right">
                       {/* La configuration reste au Dashboard : lien complet vers son hôte. */}
