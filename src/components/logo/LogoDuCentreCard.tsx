@@ -248,7 +248,17 @@ function CarteLien({ image, centre }: { image: string | null; centre: string }) 
           />
         </Box>
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="body2" fontWeight={600} noWrap>
+          <Typography
+            variant="body2"
+            fontWeight={600}
+            sx={{
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              lineHeight: 1.3,
+            }}
+          >
             Confirmation de rendez-vous : {centre}
           </Typography>
           <Typography variant="caption" color="text.secondary" noWrap component="p">
