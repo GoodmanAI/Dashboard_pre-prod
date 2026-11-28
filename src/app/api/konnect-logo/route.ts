@@ -7,6 +7,14 @@ import { PRODUITS } from "@/lib/produits";
 import { auditLog, extractIpFromRequest, extractUserAgent } from "@/lib/auditLog";
 import { requirePagePermission, requireAnyPagePermission } from "@/lib/authGuards";
 import { PAGES } from "@/lib/permissions";
+import {
+  clientDuProduit,
+  ecrireLogoClient,
+  empreinteLogo,
+  erreurFichierLogo,
+  lireLogoClient,
+  retirerLogoClient,
+} from "@/lib/logoClient";
 
 /**
  * Logo du cabinet affiché dans le portail patient LyraeKonnect.
@@ -44,22 +52,12 @@ import { PAGES } from "@/lib/permissions";
  *
  * Aucune donnée patient ici : un logo de cabinet est une image publique, elle figure
  * sur son site.
+ *
+ * DEPUIS LE 28/11/2026, LE LOGO EST CELUI DU CLIENT (`ClientLogo`, `src/lib/logoClient.ts`),
+ * commun à Talk et Konnect et repris dans l'aperçu des liens SMS. Réponses, codes et ETag
+ * de cette route ne changent pas : Konnect ne voit rien. Les règles de dépôt (types, 512 Ko)
+ * sont dans `logoClient.ts`. Plan `lyrae/plans/2026-11-logo-du-client.md`.
  */
-
-/** Ce que le portail patient sait afficher, et rien d'autre. */
-const TYPES_ACCEPTES = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/svg+xml",
-]);
-
-/**
- * 512 Ko. Un logo de bandeau fait quelques dizaines de kilo-octets ; au-delà, c'est
- * une photo qu'on a déposée par erreur. La borne protège surtout le parcours patient :
- * l'image est chargée sur le PREMIER écran, souvent en 4G dans une salle d'attente.
- */
-const TAILLE_MAX = 512 * 1024;
 
 /** Résout le centre visé, quel que soit l'identifiant employé (cf. konnect-configuration). */
 async function resoudreUserProductId(
@@ -118,18 +116,6 @@ async function estCentreKonnect(userProductId: number): Promise<boolean> {
   return (res.rowCount ?? 0) > 0;
 }
 
-/**
- * Empreinte du logo, servie en `ETag`.
- *
- * Dérivée de la date de dépôt, pas du contenu : deux dépôts du même fichier doivent
- * quand même invalider le cache de Konnect (le client a pu redéposer parce qu'il
- * croyait le premier envoi perdu, et on lui doit un effet visible).
- */
-function empreinte(maj: Date | null, octets: number): string {
-  if (!maj) return '"vide"';
-  return `"${maj.getTime()}-${octets}"`;
-}
-
 export async function GET(req: NextRequest) {
   const auth = await requireAuthOrApiKey(req, "KONNECT_API_KEY");
   if (auth.error) return auth.error;
@@ -153,33 +139,26 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const res = await db.query<{
-    logoContenu: Buffer | null;
-    logoType: string | null;
-    logoMaj: Date | null;
-  }>(
-    `SELECT "logoContenu", "logoType", "logoMaj"
-       FROM "KonnectSettings" WHERE "userProductId" = $1 LIMIT 1`,
-    [userProductId]
-  );
-
-  const ligne = res.rows[0];
-  if (!ligne?.logoContenu || !ligne.logoType) {
+  // Depuis le 28/11/2026, le logo est celui du client, commun à Talk et Konnect
+  // (`ClientLogo`) : déposé depuis le Paramétrage Talk, il arrive ici aussi.
+  const userId = await clientDuProduit(userProductId);
+  const { logo } = userId ? await lireLogoClient(userId) : { logo: null };
+  if (!logo) {
     // 404 et non 204 : « ce centre n'a pas de logo » est une réponse complète, et
     // Konnect en a besoin pour VIDER son cache si le client vient de retirer le sien.
     return NextResponse.json({ error: "Ce centre n'a pas de logo" }, { status: 404 });
   }
 
-  const etag = empreinte(ligne.logoMaj, ligne.logoContenu.length);
+  const etag = empreinteLogo(logo.maj, logo.contenu.length);
   if (req.headers.get("if-none-match") === etag) {
     return new NextResponse(null, { status: 304, headers: { ETag: etag } });
   }
 
-  return new NextResponse(new Uint8Array(ligne.logoContenu), {
+  return new NextResponse(new Uint8Array(logo.contenu), {
     status: 200,
     headers: {
-      "Content-Type": ligne.logoType,
-      "Content-Length": String(ligne.logoContenu.length),
+      "Content-Type": logo.type,
+      "Content-Length": String(logo.contenu.length),
       ETag: etag,
       // `no-cache` et non `no-store` : le cache est autorisé, mais revalidé. C'est
       // l'ETag qui décide, et lui seul sait si le client a redéposé.
@@ -219,38 +198,16 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Aucun fichier reçu." }, { status: 400 });
   }
 
-  if (!TYPES_ACCEPTES.has(fichier.type)) {
-    return NextResponse.json(
-      { error: "Format non accepté. Déposez un PNG, un JPEG, un WEBP ou un SVG." },
-      { status: 400 }
-    );
-  }
-  if (fichier.size > TAILLE_MAX) {
-    return NextResponse.json(
-      { error: "Fichier trop lourd. La limite est de 512 Ko." },
-      { status: 400 }
-    );
-  }
-  if (fichier.size === 0) {
-    return NextResponse.json({ error: "Le fichier est vide." }, { status: 400 });
-  }
+  const erreur = erreurFichierLogo(fichier);
+  if (erreur) return NextResponse.json({ error: erreur }, { status: 400 });
 
-  const contenu = Buffer.from(await fichier.arrayBuffer());
-  // Nom tronqué : il est purement informatif (il s'affiche dans l'écran pour que le
-  // client reconnaisse ce qu'il a déposé), aucun code ne s'en sert.
+  const userId = await clientDuProduit(userProductId);
+  if (!userId) {
+    return NextResponse.json({ error: "Aucun centre pour cet identifiant" }, { status: 404 });
+  }
+  // Logo du client, commun à Talk et Konnect depuis le 28/11/2026.
+  await ecrireLogoClient(userId, fichier);
   const nom = fichier.name.slice(0, 200);
-
-  await db.query(
-    `INSERT INTO "KonnectSettings" ("userProductId", "logoContenu", "logoType", "logoNom", "logoMaj")
-     VALUES ($1, $2, $3, $4, NOW())
-     ON CONFLICT ("userProductId")
-       DO UPDATE SET "logoContenu" = EXCLUDED."logoContenu",
-                     "logoType"    = EXCLUDED."logoType",
-                     "logoNom"     = EXCLUDED."logoNom",
-                     "logoMaj"     = EXCLUDED."logoMaj",
-                     "updatedAt"   = NOW()`,
-    [userProductId, contenu, fichier.type, nom]
-  );
 
   // Volume et type seulement : le contenu est une image, la journaliser n'apprendrait
   // rien et gonflerait les logs consommés par Grafana.
@@ -289,13 +246,8 @@ export async function DELETE(req: NextRequest) {
   // `logoMaj` est mis à jour, pas effacé : c'est lui qui porte l'ETag, et Konnect doit
   // voir que quelque chose a changé pour vider son propre cache. L'effacer ferait
   // survivre l'ancien logo côté portail jusqu'au prochain dépôt.
-  await db.query(
-    `UPDATE "KonnectSettings"
-        SET "logoContenu" = NULL, "logoType" = NULL, "logoNom" = NULL,
-            "logoMaj" = NOW(), "updatedAt" = NOW()
-      WHERE "userProductId" = $1`,
-    [userProductId]
-  );
+  const userId = await clientDuProduit(userProductId);
+  if (userId) await retirerLogoClient(userId);
 
   auditLog("data", "konnect-logo-retrait", {
     actor: {

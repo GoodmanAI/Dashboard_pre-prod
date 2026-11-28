@@ -197,6 +197,17 @@ export const CATALOGUE: Fiche[] = [
     ],
   },
   {
+    cle: "talk/parametrage#logo_centre",
+    produit: "talk",
+    page: "parametrage",
+    libelle: "Logo du centre (aperçu des liens SMS)",
+    genre: "reglage",
+    termes: [
+      "logo du centre", "notre logo", "mettre notre logo", "changer le logo du centre", "deposer le logo",
+      "logo dans les sms", "logo neuracorp", "image du lien", "apercu du lien", "logo sur le telephone",
+    ],
+  },
+  {
     cle: "talk/parametrage#rdv_en_ligne",
     produit: "talk",
     page: "parametrage",

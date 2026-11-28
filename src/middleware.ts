@@ -183,6 +183,7 @@ const RDV_SUBDOMAIN_HOST = 'rdv.neuracorp.ai';
 
 const RDV_SUBDOMAIN_ALLOWED_PATTERNS: RegExp[] = [
   /^\/c\/[^/]+\/?$/,            // /c/{shortCode} — URL courte du SMS
+  /^\/c\/[^/]+\/logo\/?$/,      // /c/{shortCode}/logo : image de l'aperçu du lien (logo du centre, 28/11/2026)
   /^\/confirm\/[^/]+\/?$/,      // /confirm/{token} — URL longue (rétrocompat)
   /^\/api\/rdv\/[^/]+\/?$/,     // /api/rdv/{token} — GET infos RDV
   /^\/api\/rdv\/[^/]+\/respond\/?$/,  // /api/rdv/{token}/respond — POST réponse patient
@@ -210,6 +211,7 @@ const DEPOT_ORDONNANCES_SUBDOMAIN_HOST = 'depot-ordonnances.neuracorp.ai';
 
 const DEPOT_ORDONNANCES_ALLOWED_PATTERNS: RegExp[] = [
   /^\/d\/[^/]+\/?$/,                              // /d/{shortCode} — page upload patient
+  /^\/d\/[^/]+\/logo\/?$/,                        // /d/{shortCode}/logo : image de l'aperçu du lien (28/11/2026)
   /^\/api\/prescriptions\/[^/]+\/status\/?$/,     // GET statut public (via token)
   /^\/api\/prescriptions\/[^/]+\/upload\/?$/,     // POST upload PDF (via token)
   /^\/api\/prescriptions\/[^/]+\/modele\/\d+\/?$/, // GET modele d'un document demande (via token)

@@ -57,6 +57,7 @@ import { useDroitPage } from "@/hooks/useDroitPage";
 import { PAGES } from "@/lib/permissions";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import SmsConfirmationConfigCard from "./SmsConfirmationConfigCard";
+import LogoDuCentreCard from "@/components/logo/LogoDuCentreCard";
 import SmsBookingConfirmationCard from "./SmsBookingConfirmationCard";
 import ConsigneApresReservationCard from "./ConsigneApresReservationCard";
 import QuestionsExamenCard from "./QuestionsExamenCard";
@@ -1422,6 +1423,15 @@ export default function ParametrageTalkPage({ params }: TalkPageProps) {
         <Box id="questions_irm_scanner">
           <QuestionsExamenCard
             userProductId={Number(params.id)}
+            readOnly={readOnly}
+          />
+        </Box>
+
+        {/* Logo du centre, commun à Talk et Konnect, repris dans l'aperçu des liens SMS (28/11) */}
+        <Box id="logo_centre">
+          <LogoDuCentreCard
+            userProductId={Number(params.id)}
+            centre={settings.centerName ?? ""}
             readOnly={readOnly}
           />
         </Box>
