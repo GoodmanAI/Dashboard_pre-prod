@@ -663,6 +663,19 @@ depuis plus de 10 min pour un RDV à venir ; `refus` : lignes `rdv_reminders` (t
 dans cette base) à `xplore_sync_error` des dernières 24 h. Aucun nom ni numéro. Depuis la même
 date, chaque événement de `GET /api/rdv/pending-events` porte aussi `appointmentDate` (ajout).
 
+**Suite du 28/11/2026** (même plan, « Suite du 28/11 », trois ajouts, rien de renommé, une brique
+ancienne ignore les champs neufs) :
+- `GET /api/rdv/pending-events?apresId=<id>` : ne rend que les événements placés après `id` dans
+  l'ordre `createdAt, id` ; un id inconnu ne filtre rien. `total` compte toujours toute la file
+  (curseur non compris) ; `hasMore` dit s'il reste une suite après la page, curseur compris.
+- `POST /api/rdv/ack` accepte `problemes: [{ id, resultat, detail? }]` (`resultat` en
+  `[a-z_]`, un `id` hors de `ids` est ignoré) : réponses acquittées mais **pas appliquées**
+  dans Xplore. Gardées dans `AppointmentConfirmation."syncProbleme"` (« resultat: detail »,
+  300 caractères) et `"syncProblemeAt"` (SQL `2026_12_26_rdv_sync_probleme.sql`). Réponse
+  `{ acked, problemes }` (nombre gardé). Un `problemes` illisible n'empêche jamais l'acquittement.
+- `GET /api/rdv/sante` : `refus` ajoute ces problèmes des dernières 24 h, un par RDV (le
+  remonté prime) ; même forme, `statut` en minuscules, `erreur` commence par le cas.
+
 **Pour les sondes de déploiement** — header `x-api-key: DEPLOY_PROBE_API_KEY` :
 `POST /api/deployments` (écriture, appelée par `deploy/deployment-probe.js` des VMs
 lyraetalk, ai2xplore et dashboard, toutes les 15 min),

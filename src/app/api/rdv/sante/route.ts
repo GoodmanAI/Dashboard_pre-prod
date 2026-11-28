@@ -14,7 +14,11 @@ import { requireApiKey } from "@/lib/auth-helpers";
  *   - `attente` : par centre, les réponses CONFIRMED / CANCELLED non acquittées depuis plus de
  *     `ATTENTE_MIN` minutes pour un RDV à venir (le poller passe toutes les 2 min) ;
  *   - `refus` : les réponses qu'AI2Xplore n'a pas pu appliquer dans Xplore ces dernières 24 h
- *     (`rdv_reminders.xplore_sync_error`, table d'AI2Xplore dans cette base) ;
+ *     (`rdv_reminders.xplore_sync_error`, table d'AI2Xplore dans cette base), et depuis le
+ *     28/11/2026 celles qu'il a remontées dans l'acquittement (`AppointmentConfirmation.syncProbleme`),
+ *     qui couvrent aussi un RDV dont la relance a été purgée. Un RDV n'y figure qu'une fois ;
+ *     `erreur` commence par le cas (`refus:`, `abandon:`, `inconnu_xplore:`, `sans_relance_a_venir:`),
+ *     forme inchangée pour la sonde ;
  *   - `dernierAcquittement`, `reponses24h` : de quoi lire le mail d'alerte.
  *
  * Lecture seule, et surtout PAS le `UPDATE … EXPIRED` de `pending-events`. Aucun nom, aucun
@@ -77,6 +81,30 @@ export async function GET(req: NextRequest) {
     refus = refusRes.rows;
   } catch (e: any) {
     console.warn(`[rdv/sante] rdv_reminders illisible : ${e?.message}`);
+  }
+
+  // Problèmes remontés par l'acquittement (SQL 2026_12_26) : colonne absente avant ce SQL.
+  try {
+    const remontesRes = await db.query<{
+      rdvId: string;
+      centre: string;
+      statut: string | null;
+      erreur: string;
+      le: Date;
+    }>(
+      `SELECT "rdvId", "externalCenterCode" AS "centre", LOWER("status") AS "statut",
+              LEFT("syncProbleme", 300) AS "erreur", "syncProblemeAt" AS "le"
+         FROM "AppointmentConfirmation"
+        WHERE "syncProblemeAt" > NOW() - INTERVAL '24 hours'
+        ORDER BY "syncProblemeAt" DESC
+        LIMIT 200`
+    );
+    const parRdv = new Map((refus ?? []).map((r) => [r.rdvId, r]));
+    // Le texte remonté porte le résultat en tête (« abandon: … ») : il prime sur celui de rdv_reminders.
+    for (const r of remontesRes.rows) parRdv.set(r.rdvId, r);
+    refus = Array.from(parRdv.values()).sort((a, b) => +new Date(b.le) - +new Date(a.le));
+  } catch (e: any) {
+    console.warn(`[rdv/sante] syncProbleme illisible : ${e?.message}`);
   }
 
   return NextResponse.json({
