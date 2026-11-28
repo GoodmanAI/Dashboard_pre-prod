@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
       erreur: string;
       le: Date;
     }>(
-      `SELECT "rdvId", "externalCenterCode" AS "centre", LOWER("status") AS "statut",
+      `SELECT "rdvId", "externalCenterCode" AS "centre", LOWER("status"::text) AS "statut",
               LEFT("syncProbleme", 300) AS "erreur", "syncProblemeAt" AS "le"
          FROM "AppointmentConfirmation"
         WHERE "syncProblemeAt" > NOW() - INTERVAL '24 hours'
