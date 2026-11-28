@@ -15,8 +15,8 @@ export const metadata: Metadata = {
 /**
  * La coquille de Pilot dans le Dashboard (plan 2026-11-pilot-dans-le-dashboard).
  * La mise en page racine du Dashboard ne pose ni sa barre latérale ni son thème
- * sous /pilot : Pilot garde les siens (décision d'Enzo du 23/11). La police Inter
- * est celle du Dashboard (fichiers locaux, `--font-myfont`), aucun appel à un tiers.
+ * sous /pilot : Pilot garde les siens (décision d'Enzo du 23/11). Depuis le 28/11, le
+ * thème de Pilot prend la police du Dashboard (Plus Jakarta Sans, `DefaultColors.tsx`).
  */
 export default async function PilotLayout({ children }: { children: React.ReactNode }) {
   // Le compte connecté, relu en base avec ses droits (C-64) : le menu ne montre que ce qu'il peut ouvrir.
@@ -24,11 +24,9 @@ export default async function PilotLayout({ children }: { children: React.ReactN
   const compte = u ? { nom: u.name ?? u.email, email: u.email, role: u.libelle, voirCa: peutVoirCa(u), superAdmin: u.superAdmin,
     motDePasseProvisoire: u.motDePasseProvisoire } : null;
   return (
-    <div style={{ ["--police-inter" as string]: "var(--font-myfont)" }}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Coquille compte={compte}>{children}</Coquille>
-      </ThemeProvider>
-    </div>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Coquille compte={compte}>{children}</Coquille>
+    </ThemeProvider>
   );
 }

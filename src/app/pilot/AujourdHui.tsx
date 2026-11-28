@@ -34,12 +34,13 @@ const COLONNES = { xs: "minmax(0, 1fr)", lg: "minmax(0, 1.35fr) minmax(0, 1fr)" 
 function Resume({ titre, nombre, Icone, teinte, cible, urgent }: { titre: string; nombre: number; Icone: Icone; teinte: Teinte; cible: string; urgent?: boolean }) {
   return <Card component="a" href={`#${cible}`} aria-label={`${titre} : ${nombre}`} sx={{
     display: "flex", flexDirection: "column", gap: 1.25, p: 2, minWidth: 0, color: "inherit",
-    transition: `box-shadow ${MOUVEMENT.normal} ${MOUVEMENT.courbe}, transform ${MOUVEMENT.normal} ${MOUVEMENT.courbe}`,
-    "&:hover": { boxShadow: JETONS.ombreSurvol, transform: "translateY(-1px)" }, "&&:hover": { color: "inherit" },
+    transition: `box-shadow ${MOUVEMENT.normal} ${MOUVEMENT.courbe}, transform ${MOUVEMENT.appui} ${MOUVEMENT.courbe}`,
+    "@media (hover: hover) and (pointer: fine)": { "&:hover": { boxShadow: JETONS.ombreSurvol, transform: "translateY(-1px)" } },
+    "&&:hover": { color: "inherit" }, "&:active": { transform: "scale(0.98)" },
   }}>
     <Stack direction="row" alignItems="center" justifyContent="space-between">
       <Tuile Icone={Icone} teinte={teinte} taille={32} rond />
-      <Typography component="span" sx={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", lineHeight: 1, color: urgent && nombre ? "error.main" : "text.primary" }}>{nombre}</Typography>
+      <Typography component="span" sx={{ fontSize: 30, fontWeight: 600, letterSpacing: "-0.025em", lineHeight: 1, fontVariantNumeric: "tabular-nums", color: urgent && nombre ? "error.main" : "text.primary" }}>{nombre}</Typography>
     </Stack>
     <Typography component="span" sx={{ fontSize: 14, fontWeight: 600, color: "text.secondary" }}>{titre}</Typography>
   </Card>;

@@ -148,7 +148,7 @@ function Chiffre({ libelle, valeur, detail }: { libelle: string; valeur: string;
   return (
     <Card sx={{ px: 2.75, py: 2.25 }}>
       <Typography sx={{ fontSize: 13, color: "text.secondary", fontWeight: 500 }}>{libelle}</Typography>
-      <Typography sx={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums", mt: 0.5 }}>{valeur}</Typography>
+      <Typography sx={{ fontSize: 28, fontWeight: 600, letterSpacing: "-0.025em", fontVariantNumeric: "tabular-nums", mt: 0.5 }}>{valeur}</Typography>
       <Typography sx={{ fontSize: 13, color: "text.secondary", mt: 0.25 }}>{detail}</Typography>
     </Card>
   );

@@ -1,13 +1,19 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Box, Card, Stack, Typography } from "@mui/material";
+import { IconChevronLeft } from "@tabler/icons-react";
 import { JETONS, MOUVEMENT, type Teinte } from "@/pilot/jetons";
 import { Tuile, type Icone as IconeTuile } from "./Tuile";
 
-/** Titre d'écran, sous-titre et, à droite, ce qu'on peut y faire. Grand titre, comme sur iOS. */
-export function EnTete({ titre, sousTitre, children }: { titre: ReactNode; sousTitre?: ReactNode; children?: ReactNode }) {
+/**
+ * Titre d'écran, sous-titre et, à droite, ce qu'on peut y faire. Grand titre, comme sur iOS.
+ * `retour` pose au-dessus un lien discret vers une adresse nommée (jamais `router.back()`).
+ */
+export function EnTete({ titre, sousTitre, children, retour }: { titre: ReactNode; sousTitre?: ReactNode; children?: ReactNode; retour?: { libelle: string; href: string } }) {
   return <Stack direction="row" flexWrap="wrap" useFlexGap gap={2} alignItems="flex-end" sx={{ mb: 0.5 }}>
     <Box sx={{ flex: "1 1 240px", minWidth: 0 }}>
+      {retour && <Box component={Link} href={retour.href} sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, mb: 1, ml: -0.5, fontSize: 14, fontWeight: 500,
+        color: "primary.main", "&&:hover": { color: "primary.dark" } }}><IconChevronLeft size={18} stroke={2} aria-hidden />{retour.libelle}</Box>}
       <Typography variant="h1">{titre}</Typography>
       {sousTitre && <Typography sx={{ color: "text.secondary", fontSize: 15, mt: 0.75 }}>{sousTitre}</Typography>}
     </Box>
