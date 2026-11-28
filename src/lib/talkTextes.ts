@@ -16,7 +16,13 @@
  *       [codeRobot | codeExamen]: { reponse, texte?, telephone? }
  *     },
  *     smsRdvEnLigneGabarit?: string,            // lien de RDV en ligne (18/11)
+ *     smsRelanceGabarit?: string,               // relance no-show, confirmer ou annuler (28/11)
+ *     smsRelanceAnnulationGabarit?: string,     // relance no-show, annulation seule (28/11)
+ *     smsRelanceNomCentre?: string,             // nom que {centre} prend dans la relance (28/11)
  *   }
+ *
+ * Les deux relances ne descendent pas au robot : AI2Xplore les lit dans
+ * `GET /api/sms-confirmation-config`.
  *
  * Une seule implémentation pour l'écran (aperçu, compteur) et pour la route
  * (validation) : le client ne doit jamais voir un aperçu accepté que le serveur
@@ -383,6 +389,125 @@ export function longueurRdvEnLigne(
   );
 }
 
+// ─── SMS de relance no-show (28/11/2026) ─────────────────────────────────────
+//
+// Plan `lyrae/plans/2026-11-sms-relance-personnalisable.md`. Envoyé par AI2Xplore
+// (`scripts/sendAppointmentReminders.js`), pas par le robot : les deux gabarits lui
+// descendent par `GET /api/sms-confirmation-config`. Deux textes, parce que le client
+// peut ne proposer que l'annulation, pour tous ses examens ou pour certains.
+//
+// **Recopié côté AI2Xplore** : le texte standard, le nom des variables et le jeu GSM-7
+// (`src/helpers/Gsm7.js`). AI2Xplore ne retire pas les lignes vides : le rendu ici non
+// plus, pour que l'aperçu soit le SMS reçu.
+
+export const CLE_GABARIT_RELANCE = "smsRelanceGabarit";
+export const CLE_GABARIT_RELANCE_ANNULATION = "smsRelanceAnnulationGabarit";
+/**
+ * Nom du centre que `{centre}` prend dans le SMS de relance, choisi par le client
+ * (28/11/2026). Court, il laisse de la place à une phrase ; long, il donne le nom complet
+ * (« Centre Hospitalier de Pontivy »). Absent : le nom du logiciel de gestion, coupé à 25.
+ */
+export const CLE_NOM_CENTRE_RELANCE = "smsRelanceNomCentre";
+export const NOM_CENTRE_RELANCE_MAX = 40;
+
+export const VARIABLES_RELANCE: VariableTexte[] = [
+  { nom: "date", aide: "date du RDV : 23/11" },
+  { nom: "heure", aide: "heure du RDV : 17h30" },
+  { nom: "centre", aide: "nom du centre choisi ci-dessus" },
+  { nom: "lien", aide: "lien de la page de réponse (obligatoire)" },
+  { nom: "code", aide: "code à saisir sur cette page (obligatoire)" },
+  { nom: "prenom", aide: "prénom du patient" },
+  { nom: "nom", aide: "nom du patient" },
+];
+
+/** Textes standard d'AI2Xplore, écrits avec les variables de l'écran. */
+export const SMS_RELANCE_STANDARD =
+  "Bonjour,\nRDV du {date} à {heure} - {centre}.\nConfirmez ou annulez sur\n{lien}\nCode: {code}";
+export const SMS_RELANCE_ANNULATION_STANDARD =
+  "Bonjour,\nRDV du {date} à {heure} - {centre}.\nSi vous ne pouvez pas venir, annulez sur\n{lien}\nCode: {code}";
+
+/** AI2Xplore coupe le nom du centre à 25 caractères (`SMS_CENTRE_MAX_CHARS`). */
+export const CENTRE_RELANCE_MAX = 25;
+
+export type DonneesRelance = {
+  date: string;
+  heure: string;
+  centre: string;
+  lien: string;
+  code: string;
+  prenom: string;
+  nom: string;
+};
+
+/**
+ * Ce que `{centre}` devient dans le SMS : le nom choisi tel quel, sinon le nom du
+ * logiciel de gestion coupé à 25 caractères comme le fait AI2Xplore.
+ */
+export function centreDuSmsRelance(nomChoisi: string | null | undefined, nomLogiciel: string): string {
+  const choisi = (nomChoisi ?? "").trim();
+  return choisi || nomLogiciel.slice(0, CENTRE_RELANCE_MAX).trimEnd();
+}
+
+/** Le SMS de relance tel que le patient le reçoit (`centre` déjà résolu). */
+export function rendreSmsRelance(gabarit: string, d: DonneesRelance): string {
+  return versGsm7(remplacer(gabarit, d));
+}
+
+/**
+ * Pire cas exigé pour un seul SMS : le nom choisi par le client tel quel (sinon 25
+ * caractères, la coupe d'AI2Xplore), lien court de 37 (`https://rdv.neuracorp.ai/c/`
+ * suivi de 10), code de 6 chiffres, nom et prénom de 20. La date et l'heure ont
+ * toujours 5 caractères.
+ */
+export function donneesRelancePireCas(nomChoisi?: string | null): DonneesRelance {
+  return {
+    date: "22/07",
+    heure: "11h30",
+    centre: (nomChoisi ?? "").trim() || "X".repeat(CENTRE_RELANCE_MAX),
+    lien: "https://rdv.neuracorp.ai/c/" + "X".repeat(10),
+    code: "000000",
+    prenom: "X".repeat(20),
+    nom: "X".repeat(20),
+  };
+}
+
+/** Un exemple réaliste pour l'aperçu, avec le nom du centre de la fiche. */
+export function donneesRelanceExemple(centre: string): DonneesRelance {
+  return {
+    date: "23/11",
+    heure: "17h30",
+    centre,
+    lien: "https://rdv.neuracorp.ai/c/a7K2mQ9xTb",
+    code: "482913",
+    prenom: "Claire",
+    nom: "Martin",
+  };
+}
+
+/** Variables inconnues, ou `{lien}` ou `{code}` absent, ou `null`. */
+export function erreurVariablesRelance(gabarit: string): string | null {
+  const g = erreurGabarit(gabarit, VARIABLES_RELANCE);
+  if (g) return g;
+  if (!/\{lien\}/.test(gabarit) || !/\{code\}/.test(gabarit)) {
+    return "Ajoutez {lien} et {code} : sans eux le patient ne peut pas répondre.";
+  }
+  return null;
+}
+
+/** Longueur du SMS de relance au pire cas, en septets GSM-7, avec le nom choisi s'il y en a un. */
+export function longueurRelancePireCas(gabarit: string, nomChoisi?: string | null): number {
+  return longueurGsm7(rendreSmsRelance(gabarit, donneesRelancePireCas(nomChoisi)));
+}
+
+/** Le nom choisi est-il utilisable ? Message d'erreur, ou `null`. */
+export function erreurNomCentreRelance(nom: string): string | null {
+  if (nom.length > NOM_CENTRE_RELANCE_MAX) {
+    return `Le nom du centre fait ${nom.length} caractères. Raccourcissez-le à ${NOM_CENTRE_RELANCE_MAX} au plus.`;
+  }
+  if (/[{}\n]/.test(nom)) return "Le nom du centre tient sur une ligne, sans accolade.";
+  return null;
+}
+
 // ─── GSM-7 ───────────────────────────────────────────────────────────────────
 
 /** Jeu de base GSM 03.38 : un caractère = un septet. */
@@ -464,6 +589,9 @@ export type TextesTalk = {
   questionsExamen?: Record<string, QuestionsExamen>;
   examenFermeAuRobot?: Record<string, ExamenFerme>;
   smsRdvEnLigneGabarit?: string;
+  smsRelanceGabarit?: string;
+  smsRelanceAnnulationGabarit?: string;
+  smsRelanceNomCentre?: string;
 };
 
 function erreurConsigne(texte: string, ou: string): string | null {
@@ -607,6 +735,39 @@ export function validerTextes(
       };
     }
     sortie[CLE_GABARIT_RDV_EN_LIGNE] = enLigne;
+  }
+
+  const nomCentre = texte(valeur[CLE_NOM_CENTRE_RELANCE]);
+  if (nomCentre === undefined) return { erreur: "Le nom du centre dans le SMS doit être un texte." };
+  if (nomCentre === null) delete sortie[CLE_NOM_CENTRE_RELANCE];
+  else {
+    const e = erreurNomCentreRelance(nomCentre);
+    if (e) return { erreur: e };
+    sortie[CLE_NOM_CENTRE_RELANCE] = nomCentre;
+  }
+
+  // Chaque relance est mesurée avec le nom choisi. Un texte laissé vide part au texte
+  // standard : avec un nom choisi, lui aussi doit tenir (un nom long peut le faire déborder).
+  for (const [cle, quoi, standard] of [
+    [CLE_GABARIT_RELANCE, "Le SMS de rappel", SMS_RELANCE_STANDARD],
+    [CLE_GABARIT_RELANCE_ANNULATION, "Le SMS de rappel en annulation seule", SMS_RELANCE_ANNULATION_STANDARD],
+  ] as const) {
+    const relance = texte(valeur[cle]);
+    if (relance === undefined) return { erreur: `${quoi} doit être un texte.` };
+    if (relance === null) delete sortie[cle];
+    else {
+      const g = erreurVariablesRelance(relance);
+      if (g) return { erreur: `${quoi} : ${g}` };
+      sortie[cle] = relance;
+    }
+    if (relance === null && nomCentre === null) continue;
+    const n = longueurRelancePireCas(relance ?? standard, nomCentre);
+    if (n > MAX_SMS) {
+      const quoiEffectif = relance === null ? `${quoi}, au texte standard,` : quoi;
+      return {
+        erreur: `${quoiEffectif} ne tient pas en un seul message avec ce nom de centre : il peut atteindre ${n} caractères, pour ${MAX_SMS} au plus. Raccourcissez le nom ou le texte de ${n - MAX_SMS} caractères.`,
+      };
+    }
   }
 
   const fermes = validerExamensFermes(valeur[CLE_EXAMEN_FERME]);

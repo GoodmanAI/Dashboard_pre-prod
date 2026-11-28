@@ -1612,6 +1612,45 @@
       "note": "C-STAT.2, refonte de l'écran Statistiques de Konnect (14/11/2026)."
     },
     {
+      "id": "texterappel1",
+      "source": "brouillon",
+      "phrase": "je veux changer le message du sms de rappel",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#texte_sms_rappel"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "28/11/2026 : texte du SMS de relance réglé par le client (Pontivy)."
+    },
+    {
+      "id": "texterappel2",
+      "source": "brouillon",
+      "phrase": "mettre le nom du centre en entier dans le sms de relance",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#texte_sms_rappel"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "28/11/2026 : texte du SMS de relance réglé par le client (Pontivy)."
+    },
+    {
+      "id": "smsdepot1",
+      "source": "brouillon",
+      "phrase": "modifier le texte du sms de dépôt d'ordonnance",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#sms_depot_ordonnance"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "28/11/2026 : le SMS de dépôt rejoint la section du dépôt d'ordonnance."
+    },
+    {
       "id": "annul1",
       "source": "brouillon",
       "phrase": "je veux que le SMS de relance propose seulement d'annuler",
