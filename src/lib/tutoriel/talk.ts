@@ -96,7 +96,7 @@ export const CHAPITRES_TALK: Chapitre[] = [
         cible: "#col_code",
         titre: "Code et libellé patient",
         texte:
-          "Le code de l'examen dans votre logiciel de gestion : c'est lui qui permet de réserver. En dessous, le nom que le robot annonce au patient, si vous voulez le dire autrement.",
+          "Le code de l'examen dans votre logiciel de gestion : c'est lui qui permet de réserver. En dessous, le nom que le robot annonce au patient, si vous voulez le dire autrement. Après un changement dans votre logiciel de gestion, appuyez sur « Tester les créneaux » sous le code : vous voyez les créneaux que le robot proposera au patient.",
       },
       {
         cible: "#col_type",
