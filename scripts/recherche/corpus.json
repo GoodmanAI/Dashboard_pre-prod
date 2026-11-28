@@ -1612,6 +1612,32 @@
       "note": "C-STAT.2, refonte de l'écran Statistiques de Konnect (14/11/2026)."
     },
     {
+      "id": "logo1",
+      "source": "brouillon",
+      "phrase": "je veux mettre notre logo à la place de celui de neuracorp dans les sms",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#logo_centre"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "28/11/2026 : logo du client commun à Talk et Konnect, aperçu des liens SMS."
+    },
+    {
+      "id": "logo2",
+      "source": "brouillon",
+      "phrase": "changer le logo du centre",
+      "attendu": {
+        "destinations": [
+          "talk/parametrage#logo_centre"
+        ],
+        "filtres": {}
+      },
+      "lot": 1,
+      "note": "28/11/2026 : logo du client commun à Talk et Konnect."
+    },
+    {
       "id": "texterappel1",
       "source": "brouillon",
       "phrase": "je veux changer le message du sms de rappel",

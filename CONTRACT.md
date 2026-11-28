@@ -621,6 +621,16 @@ Contraintes du dépôt : PNG, JPEG, WEBP ou SVG, 512 Ko maximum. L'ancien champ
 `logo_url` **n'est plus une source** ; il n'a d'ailleurs jamais rien affiché. Il reste
 en base comme trace, et reste servi dans le payload de configuration.
 
+**Depuis le 28/11/2026, le logo est celui du client, commun à Talk et Konnect** (table
+`ClientLogo` par `User.id`, SQL `2026_12_26_logo_client.sql`, **à passer avant le build** :
+la route la lit dès le déploiement). Réponses, codes et ETag de `/api/konnect-logo` ne
+changent pas ; les logos de `KonnectSettings` y sont repris avec leur date, donc avec le
+même ETag. Il se dépose aussi depuis le Paramétrage Talk (`/api/logo-client`, session) et
+sert d'image d'aperçu aux liens des SMS : `GET /c/{code}/logo` et `GET /d/{code}/logo`,
+publiques, listées dans la liste blanche de `rdv.` et `depot-ordonnances.` (logo du centre
+en PNG, JPEG ou WEBP, sinon redirection vers le logo Neuracorp). Plan
+`lyrae/plans/2026-11-logo-du-client.md`.
+
 `GET /api/product-config` est le **socle générique** (lot B) : un objet JSON par
 (centre, domaine), que le Dashboard stocke sans l'interpréter. Trois règles y sont
 attachées, toutes dans `src/lib/productConfig.ts` :

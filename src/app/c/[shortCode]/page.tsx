@@ -28,7 +28,6 @@ import AppointmentConfirmForm from "@/app/confirm/AppointmentConfirmForm";
 export const dynamic = "force-dynamic";
 
 const RDV_BASE_URL = process.env.RDV_SHORT_URL_BASE || "https://rdv.neuracorp.ai";
-const OG_IMAGE = `${RDV_BASE_URL}/images/logos/neuracorp-ai-icon_fond.png`;
 
 /**
  * Métadonnées de la page — elles ne servent PAS le référencement, mais l'aperçu
@@ -92,8 +91,10 @@ export async function generateMetadata({
       description,
       type: "website" as const,
       locale: "fr_FR",
-      siteName: "Neuracorp",
-      images: [{ url: OG_IMAGE, width: 512, height: 512, alt: "Neuracorp" }],
+      siteName: centre ?? "Neuracorp",
+      // Logo du centre depuis le 28/11/2026 (`./logo/route.ts`), sinon celui de Neuracorp
+      // par redirection. Pas de largeur ni de hauteur : celles du logo du client sont libres.
+      images: [{ url: `${RDV_BASE_URL}/c/${encodeURIComponent(params.shortCode)}/logo`, alt: centre ?? "Neuracorp" }],
     },
   };
 }
